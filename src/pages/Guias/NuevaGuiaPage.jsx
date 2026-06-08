@@ -1090,7 +1090,7 @@ export const NuevaGuiaPage = () => {
             </div>
 
             {/* ── Valor Declarado ────────────────────────── */}
-            <div style={{ marginTop: '10px', padding: '10px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'none', marginTop: '10px', padding: '10px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <label style={{ fontSize: '10px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'block' }}>
                 Valor Declarado
               </label>
@@ -1127,60 +1127,64 @@ export const NuevaGuiaPage = () => {
             </div>
           </div>
 
-          {/* ── Forma de Pago ───────────────────────────── */}
-          {!isEditing ? (
-            <FormaPagoPanel 
-              detalles={detalles}
-              convenio={convenio}
-              onPagosChange={setPagos}
-              pagadoPor={pagadoPor}
-              onPagadoPorChange={setPagadoPor}
-              defaultFormaPagoId={defaultFormaPagoId}
-              configTipoTarifa={configTipoTarifa}
-            />
-          ) : (
-            <div className={cardClass} style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
-              <div className="text-center text-slate-400">
-                <i className="fas fa-lock text-2xl mb-2"></i>
-                <p className="text-xs font-semibold uppercase tracking-wider mt-2">Pagos deshabilitados en edición</p>
-                <p className="text-[10px] opacity-75">Para modificar los pagos, anule y genere una nueva guía.</p>
+          {/* ── Columna Derecha: Descuento + Forma de Pago ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {/* Descuento */}
+            <div className={cardClass} style={{ padding: '16px' }}>
+              <h3 style={sectionTitle}>
+                <div style={{ ...sectionIcon, background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)' }}>
+                  <i className="fas fa-percentage" style={{ color: '#db2777', fontSize: '11px' }}></i>
+                </div>
+                Descuento
+              </h3>
+              <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#475569' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px', border: `2px solid ${descuentoTipo === '0' ? '#6366f1' : '#e2e8f0'}`, background: descuentoTipo === '0' ? '#eef2ff' : 'white' }}>
+                  <input type="radio" name="descuento" value="0" checked={descuentoTipo === '0'}
+                    onChange={(e) => setDescuentoTipo(e.target.value)} />
+                  Tarifa Normal
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px', border: `2px solid ${descuentoTipo === '1' ? '#f59e0b' : '#e2e8f0'}`, background: descuentoTipo === '1' ? '#fef3c7' : 'white', opacity: convenio || parseInt(configTipoTarifa) !== 0 ? 1 : 0.6 }}>
+                  <input type="radio" name="descuento" value="1" checked={descuentoTipo === '1'}
+                    onChange={(e) => setDescuentoTipo(e.target.value)} disabled={!convenio && parseInt(configTipoTarifa) === 0} />
+                  Tarifa 50%
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px', border: `2px solid ${descuentoTipo === '2' ? '#10b981' : '#e2e8f0'}`, background: descuentoTipo === '2' ? '#d1fae5' : 'white', opacity: convenio || parseInt(configTipoTarifa) !== 0 ? 1 : 0.6 }}>
+                  <input type="radio" name="descuento" value="2" checked={descuentoTipo === '2'}
+                    onChange={(e) => setDescuentoTipo(e.target.value)} disabled={!convenio && parseInt(configTipoTarifa) === 0} />
+                  Cortesía 100%
+                </label>
               </div>
             </div>
-          )}
+
+            {/* ── Forma de Pago ───────────────────────────── */}
+            {!isEditing ? (
+              <FormaPagoPanel 
+                detalles={detalles}
+                convenio={convenio}
+                onPagosChange={setPagos}
+                pagadoPor={pagadoPor}
+                onPagadoPorChange={setPagadoPor}
+                defaultFormaPagoId={defaultFormaPagoId}
+                configTipoTarifa={configTipoTarifa}
+              />
+            ) : (
+              <div className={cardClass} style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
+                <div className="text-center text-slate-400">
+                  <i className="fas fa-lock text-2xl mb-2"></i>
+                  <p className="text-xs font-semibold uppercase tracking-wider mt-2">Pagos deshabilitados en edición</p>
+                  <p className="text-[10px] opacity-75">Para modificar los pagos, anule y genere una nueva guía.</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ═══════════════════════════════════════════════════
-            FILA 4: Descuento (radios) + Totales
-            ExtJS: form_totales con subtotal12, subtotal0, subtotal, descuento, tarifa, iva, total
+            FILA 4: Totales
         ═══════════════════════════════════════════════════ */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'start' }}>
           
-          {/* Descuento */}
-          <div className={cardClass} style={{ padding: '16px' }}>
-            <h3 style={sectionTitle}>
-              <div style={{ ...sectionIcon, background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)' }}>
-                <i className="fas fa-percentage" style={{ color: '#db2777', fontSize: '11px' }}></i>
-              </div>
-              Descuento
-            </h3>
-            <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#475569' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px', border: `2px solid ${descuentoTipo === '0' ? '#6366f1' : '#e2e8f0'}`, background: descuentoTipo === '0' ? '#eef2ff' : 'white' }}>
-                <input type="radio" name="descuento" value="0" checked={descuentoTipo === '0'}
-                  onChange={(e) => setDescuentoTipo(e.target.value)} />
-                Tarifa Normal
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px', border: `2px solid ${descuentoTipo === '1' ? '#f59e0b' : '#e2e8f0'}`, background: descuentoTipo === '1' ? '#fef3c7' : 'white', opacity: convenio || parseInt(configTipoTarifa) !== 0 ? 1 : 0.6 }}>
-                <input type="radio" name="descuento" value="1" checked={descuentoTipo === '1'}
-                  onChange={(e) => setDescuentoTipo(e.target.value)} disabled={!convenio && parseInt(configTipoTarifa) === 0} />
-                Tarifa 50%
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', padding: '8px 12px', borderRadius: '8px', border: `2px solid ${descuentoTipo === '2' ? '#10b981' : '#e2e8f0'}`, background: descuentoTipo === '2' ? '#d1fae5' : 'white', opacity: convenio || parseInt(configTipoTarifa) !== 0 ? 1 : 0.6 }}>
-                <input type="radio" name="descuento" value="2" checked={descuentoTipo === '2'}
-                  onChange={(e) => setDescuentoTipo(e.target.value)} disabled={!convenio && parseInt(configTipoTarifa) === 0} />
-                Cortesía 100%
-              </label>
-            </div>
-          </div>
+          <div></div>
 
           {/* Totales */}
           <TotalesPanel 
