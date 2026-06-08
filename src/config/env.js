@@ -25,7 +25,10 @@ export const CONFIG = {
   },
 
   get PHP_URL() {
-    return isLocal ? 'http://localhost/SistemaFlota/FrontReact/php' : 'https://app.easysplus.com/php';
+    if (isLocal) return 'http://localhost/SistemaFlota/FrontReact/php';
+    const stored = sessionStorage.getItem('php_url');
+    if (stored) return stored;
+    return `${window.location.origin}/php`;
   },
 
   get CLIENTE_URL() {
