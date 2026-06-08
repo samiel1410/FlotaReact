@@ -1,0 +1,185 @@
+.nueva-guia-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #f1f5f9;
+  font-family: 'Outfit', sans-serif;
+  overflow-y: auto;
+}
+
+.ng-header {
+  background-color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.ng-title {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.btn-back {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #64748b;
+  cursor: pointer;
+  padding: 5px;
+  transition: color 0.2s;
+}
+
+.btn-back:hover {
+  color: #1e293b;
+}
+
+.ng-title h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.ng-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-ng-cancel {
+  background: white;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-ng-cancel:hover {
+  background: #f1f5f9;
+}
+
+.btn-ng-save {
+  background: #10b981;
+  border: none;
+  color: white;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s;
+}
+
+.btn-ng-save:hover {
+  background: #059669;
+}
+
+.btn-ng-save:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.ng-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.ng-section {
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.bg-white {
+  background-color: white;
+}
+
+.ng-section-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.ng-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+}
+
+.section-title {
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  color: #334155;
+  font-weight: 700;
+  border-bottom: 2px solid #f1f5f9;
+  padding-bottom: 8px;
+}
+
+/* Radio Cards para Cobro */
+.ng-footer-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 40px;
+}
+
+.radio-group {
+  display: flex;
+  gap: 15px;
+}
+
+.radio-card {
+  flex: 1;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #475569;
+  transition: all 0.2s;
+}
+
+.radio-card input[type="radio"] {
+  display: none;
+}
+
+.radio-card i {
+  font-size: 24px;
+  color: #94a3b8;
+}
+
+.radio-card.active {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+  color: #1e40af;
+}
+
+.radio-card.active i {
+  color: #3b82f6;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .ng-section-grid, .ng-row-3, .ng-footer-grid {
+    grid-template-columns: 1fr;
+  }
+}

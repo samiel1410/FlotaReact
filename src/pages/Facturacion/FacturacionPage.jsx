@@ -1,0 +1,1 @@
+export { FacturacionBoletoSriPage as FacturacionPage } from './FacturacionBoletoSriPage';

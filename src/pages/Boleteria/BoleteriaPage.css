@@ -1,0 +1,49 @@
+.boleteria-page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #f6f9fc;
+  font-family: 'Outfit', sans-serif;
+}
+
+.boleteria-header {
+  background-color: #ffffff;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.boleteria-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #1e293b;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.boleteria-header h2 i {
+  color: #e67e22;
+}
+
+.boleteria-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  gap: 15px;
+  overflow: hidden;
+}
+
+.boleteria-grid-wrapper {
+  flex: 1;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

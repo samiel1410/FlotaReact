@@ -1,0 +1,62 @@
+.guias-page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #f6f9fc;
+  font-family: 'Outfit', sans-serif;
+}
+
+.guias-header {
+  background-color: #ffffff;
+  padding: 15px 20px;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.guias-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #1e293b;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.guias-header h2 i {
+  color: #3b82f6;
+}
+
+.guias-content {
+  display: flex;
+  flex-direction: column;
+  padding: 15px;
+  gap: 15px;
+  overflow: visible; /* Allow page scroll instead of internal grid scroll */
+}
+
+.guias-grid-wrapper {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  overflow: visible; /* Let the inner table expand and page handle scrolling */
+  display: block;
+}
+
+/* Wrapper around the filter to allow collapse/expand without unmounting */
+.filter-panel-container {
+  overflow: hidden;
+  transition: max-height 220ms ease, padding 180ms ease;
+  max-height: 900px; /* large enough to contain the panel when open */
+}
+.filter-panel-container.collapsed {
+  max-height: 0;
+  padding: 0;
+}
+
+/* Ensure grid wrapper can shrink and allow inner scroll */
+.guias-grid-wrapper {
+  min-height: 0;
+}

@@ -1,0 +1,130 @@
+.nuevo-boleto-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: #f1f5f9;
+  font-family: 'Outfit', sans-serif;
+  overflow-y: auto;
+}
+
+.nb-header {
+  background-color: white;
+  padding: 15px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.nb-title {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.nb-title h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #1e293b;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nb-title h2 i {
+  color: #e67e22;
+}
+
+.nb-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-nb-cancel {
+  background: white;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-nb-save {
+  background: linear-gradient(to right, #035f2c, #0a7f3f);
+  border: none;
+  color: white;
+  padding: 8px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn-nb-save:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.nb-content {
+  padding: 20px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.nb-grid-layout {
+  display: grid;
+  grid-template-columns: 6fr 4fr;
+  gap: 20px;
+}
+
+.nb-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.nb-right-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.nb-section {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.h-full {
+  height: 100%;
+}
+
+.form-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 15px;
+}
+
+.input-readonly {
+  background-color: #f8fafc;
+  color: #64748b;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1024px) {
+  .nb-grid-layout {
+    grid-template-columns: 1fr;
+  }
+}

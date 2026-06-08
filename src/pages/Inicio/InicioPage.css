@@ -1,0 +1,127 @@
+.inicio-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+  font-family: 'Outfit', sans-serif;
+}
+
+.dashboard-hero {
+  background: linear-gradient(135deg, #2b5876 0%, #4e4376 100%);
+  color: #ffffff;
+  padding: 50px 40px;
+  border-bottom-left-radius: 20px;
+  border-bottom-right-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  margin-bottom: 30px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-content {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.hero-title {
+  font-size: 36px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.hero-subtitle {
+  font-size: 18px;
+  font-weight: 300;
+  opacity: 0.9;
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
+.hero-date {
+  margin-top: 15px;
+  font-size: 14px;
+  opacity: 0.8;
+  text-transform: capitalize;
+}
+
+.dashboard-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.dashboard-section {
+  width: 100%;
+  max-width: 1000px;
+  padding: 0 20px;
+}
+
+.section-label {
+  color: #546e7a;
+  font-size: 16px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 20px;
+  padding-left: 10px;
+  border-left: 4px solid #3498db;
+}
+
+.dashboard-actions-grid {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 30px;
+}
+
+.dashboard-btn-card {
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  width: 200px;
+  height: 160px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.dashboard-btn-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.15);
+}
+
+.dashboard-btn-card i {
+  font-size: 42px;
+  margin-bottom: 15px;
+  transition: transform 0.3s ease;
+}
+
+.dashboard-btn-card:hover i {
+  transform: scale(1.1);
+}
+
+.dashboard-btn-card span {
+  color: #455a64;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.icon-guias { color: #3498db; }
+.icon-nueva { color: #2ecc71; }
+.icon-asientos { color: #e67e22; }
+.icon-recaudado { color: #9b59b6; }
+
+.dashboard-footer {
+  text-align: center;
+  color: #b0bec5;
+  font-size: 12px;
+  margin-bottom: 20px;
+  margin-top: auto;
+  padding-top: 40px;
+}
