@@ -3,6 +3,7 @@ import ProvinciaList from './components/ProvinciaList';
 import ProvinciaSearchBar from './components/ProvinciaSearchBar';
 import NewProvinciaForm from './components/NewProvinciaForm';
 import Modal from '../../components/common/Modal';
+import Swal from 'sweetalert2';
 import { getProvincias, createProvincia, updateProvincia, deleteProvincia } from '../../services/provincia.service';
 
 const ProvinciaPage = () => {
@@ -63,7 +64,15 @@ const ProvinciaPage = () => {
   };
 
   const handleDeleteProvincia = async (id) => {
-    if (window.confirm('¿Está seguro de que desea eliminar esta provincia?')) {
+    const result = await Swal.fire({
+      title: 'Confirmar',
+      text: '¿Está seguro de que desea eliminar esta provincia?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (result.isConfirmed) {
       try {
         await deleteProvincia(id);
         fetchProvincias(filters, pagination.currentPage);

@@ -3,6 +3,7 @@ import CantonList from './components/CantonList';
 import CantonSearchBar from './components/CantonSearchBar';
 import NewCantonForm from './components/NewCantonForm';
 import Modal from '../../components/common/Modal';
+import Swal from 'sweetalert2';
 import { getCantones, createCanton, updateCanton, deleteCanton } from '../../services/canton.service';
 
 const CantonPage = () => {
@@ -64,7 +65,15 @@ const CantonPage = () => {
   };
 
   const handleDeleteCanton = async (id) => {
-    if (window.confirm('¿Está seguro de que desea eliminar este cantón?')) {
+    const result = await Swal.fire({
+      title: 'Confirmar',
+      text: '¿Está seguro de que desea eliminar este cantón?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (result.isConfirmed) {
       try {
         await deleteCanton(id);
         fetchCantones(filters, pagination.currentPage);

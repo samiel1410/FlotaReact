@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import { CONFIG } from '../../config/env';
 import { EntregaService } from '../../services/entrega.service';
 import { CobrarEntregarModal } from './components/CobrarEntregarModal';
 import { ConfirmarEntregaModal } from './components/ConfirmarEntregaModal';
@@ -178,7 +179,7 @@ export const EntregasPage = () => {
 
       const pdfRes = await EntregaService.generarPdfEntrega(guia.id_guia, idUsuario);
       if (pdfRes?.success && pdfRes?.ruta) {
-        const url = `${window.location.origin}/php/tmp/${pdfRes.ruta}`;
+        const url = `${CONFIG.PHP_URL}/tmp/${pdfRes.ruta}`;
         window.open(url, 'PDF_Entrega', 'width=800,height=600');
       } else {
         toast.error('Error al generar PDF');

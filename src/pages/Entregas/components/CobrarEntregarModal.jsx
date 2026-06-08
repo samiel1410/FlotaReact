@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { CameraCapture } from './CameraCapture';
+import { CONFIG } from '../../../config/env';
 import { EntregaService } from '../../../services/entrega.service';
 
 /**
@@ -182,13 +183,13 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, onClose, onSuccess }) =
         const pdfRes = await EntregaService.generarPdfEntrega(guia.id_guia, userRes.data.id_usuario);
         if (pdfRes?.success && pdfRes?.ruta) {
           const w = window.open(
-            `${window.location.origin}/php/tmp/${pdfRes.ruta}`,
+            `${CONFIG.PHP_URL}/tmp/${pdfRes.ruta}`,
             'PDF_Entrega',
             'width=800,height=600'
           );
           if (!w) {
             const a = document.createElement('a');
-            a.href = `${window.location.origin}/php/tmp/${pdfRes.ruta}`;
+            a.href = `${CONFIG.PHP_URL}/tmp/${pdfRes.ruta}`;
             a.target = '_blank';
             a.click();
           }

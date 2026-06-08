@@ -3,6 +3,7 @@ import AlimentosList from './components/AlimentosList';
 import AlimentosSearchBar from './components/AlimentosSearchBar';
 import NewAlimentoForm from './components/NewAlimentoForm';
 import Modal from '../../components/common/Modal';
+import Swal from 'sweetalert2';
 import { getAlimentos, createAlimento, updateAlimento, deleteAlimento } from '../../services/alimentos.service';
 
 const AlimentosPage = () => {
@@ -63,7 +64,15 @@ const AlimentosPage = () => {
   };
 
   const handleDeleteAlimento = async (id) => {
-    if (window.confirm('¿Está seguro de que desea eliminar este alimento?')) {
+    const result = await Swal.fire({
+      title: 'Confirmar',
+      text: '¿Está seguro de que desea eliminar este alimento?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (result.isConfirmed) {
       try {
         await deleteAlimento(id);
         fetchAlimentos(filters, pagination.currentPage);

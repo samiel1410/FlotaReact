@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import ViajesService from '../../services/viajes.service';
 import { DespachoViajeModal } from './components/DespachoViajeModal';
 import { ItinerarioViajeModal } from './components/ItinerarioViajeModal';
@@ -105,7 +106,14 @@ export const ListaViajes = () => {
 
   const handleImprimirPasajeros = (trip) => {
     setMenuAbierto(null);
-    window.open(`php/imprimirPasajeros.php?inline=1&id_viaje=${trip.id_viajes}`, '_blank');
+    const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
+    const url = `${baseUrl}/php/imprimirPasajeros.php?inline=1&id_viaje=${trip.id_viajes}`;
+    Swal.fire({
+      title: `Pasajeros — Viaje #${trip.id_viajes}`,
+      html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`,
+      width: '900px', showConfirmButton: false, showCloseButton: true,
+      customClass: { popup: 'rounded-2xl' }
+    });
   };
 
   const handleItinerario = (trip) => {

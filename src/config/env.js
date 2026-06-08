@@ -29,7 +29,7 @@ export const CONFIG = {
   },
 
   get CLIENTE_URL() {
-    return isLocal ? 'http://localhost/SistemaFlota/FrontReact/' : 'https://clientesfp.easysplus.com';
+    return 'https://clientesfp.easysplus.com';
   },
 
   get API_FIRMA() {

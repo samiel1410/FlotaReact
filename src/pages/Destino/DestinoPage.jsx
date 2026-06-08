@@ -3,6 +3,7 @@ import DestinoList from './components/DestinoList';
 import DestinoSearchBar from './components/DestinoSearchBar';
 import NewDestinoForm from './components/NewDestinoForm';
 import Modal from '../../components/common/Modal';
+import Swal from 'sweetalert2';
 import { getDestinos, createDestino, updateDestino, deleteDestino } from '../../services/destino.service';
 
 const DestinoPage = () => {
@@ -64,7 +65,15 @@ const DestinoPage = () => {
   };
 
   const handleDeleteDestino = async (id) => {
-    if (window.confirm('¿Está seguro de que desea eliminar este destino?')) {
+    const result = await Swal.fire({
+      title: 'Confirmar',
+      text: '¿Está seguro de que desea eliminar este destino?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (result.isConfirmed) {
       try {
         await deleteDestino(id);
         fetchDestinos(filters, pagination.currentPage);

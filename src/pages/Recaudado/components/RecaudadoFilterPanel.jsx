@@ -61,13 +61,13 @@ export const RecaudadoFilterPanel = ({ onSearch }) => {
   };
 
   return (
-    <div className="guias-filter-panel" style={{ borderTopColor: '#9b59b6' }}>
-      <div className="filter-header">
+    <div className="recaudado-filter-panel">
+      <div className="recaudado-filter-header">
         <h3><i className="fas fa-search"></i> Búsqueda de Recaudación</h3>
       </div>
 
-      <form onSubmit={handleSubmit} className="filter-form">
-        <div className="filter-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+      <form onSubmit={handleSubmit} className="recaudado-filter-form">
+        <div className="recaudado-filter-grid">
           
           <div className="form-group">
             <label>Socio</label>
@@ -128,15 +128,13 @@ export const RecaudadoFilterPanel = ({ onSearch }) => {
 
         </div>
 
-        <div className="filter-actions" style={{ justifyContent: 'flex-end', marginTop: '15px' }}>
-          <div className="buttons">
-            <button type="button" className="btn-secondary" onClick={handleClear}>
-              <i className="fas fa-eraser"></i> Limpiar
-            </button>
-            <button type="submit" className="btn-primary" style={{ backgroundColor: '#3498db' }}>
-              <i className="fas fa-search"></i> Buscar
-            </button>
-          </div>
+        <div className="recaudado-filter-actions">
+          <button type="button" className="btn btn-secondary" onClick={handleClear}>
+            <i className="fas fa-eraser"></i> Limpiar
+          </button>
+          <button type="submit" className="btn btn-primary">
+            <i className="fas fa-search"></i> Buscar
+          </button>
         </div>
       </form>
     </div>

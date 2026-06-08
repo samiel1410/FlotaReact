@@ -1,4 +1,5 @@
 import { api } from '../config/axios';
+import { CONFIG } from '../config/env';
 
 /**
  * Servicio para interactuar con el backend de Entregas de Guías
@@ -74,7 +75,7 @@ export const EntregaService = {
    */
   generarPdfEntrega: async (idGuia, idUsuario) => {
     try {
-      const phpUrl = `${window.location.origin}/php/guiaEntregadaPdf.php?id_guia=${encodeURIComponent(idGuia)}&id_usuario=${encodeURIComponent(idUsuario)}`;
+      const phpUrl = `${CONFIG.PHP_URL}/guiaEntregadaPdf.php?id_guia=${encodeURIComponent(idGuia)}&id_usuario=${encodeURIComponent(idUsuario)}`;
       const r = await fetch(phpUrl, { credentials: 'same-origin' });
       const data = await r.json();
       return data;

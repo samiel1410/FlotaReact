@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GuiaService } from '../../services/guia.service';
+import { CONFIG } from '../../config/env';
 import { api } from '../../config/axios';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 
 /**
@@ -27,7 +29,7 @@ export const BuscarGuiaOficinaPage = () => {
   const handleBuscar = async () => {
     const valor = numeroGuia.trim();
     if (!valor) {
-      toast.warning('Por favor ingrese un número de guía');
+      toast.error('Por favor ingrese un número de guía');
       return;
     }
 
@@ -80,7 +82,7 @@ export const BuscarGuiaOficinaPage = () => {
       const userResp = await api.get('/buscarUsuario');
       const idUsuario = userResp.data?.data?.id_usuario || 0;
 
-      const phpUrl = `/php/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
+      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
       const res = await fetch(phpUrl, { credentials: 'include' });
       
       toast.dismiss('pdf-guia');
@@ -90,7 +92,7 @@ export const BuscarGuiaOficinaPage = () => {
       
       if (data.success && data.ruta) {
         setPdfTitle(`Ticket Guía ${guia.numero_guia_final || guia.id_guia}`);
-        setPdfUrl(`/php/tmp/${data.ruta}`);
+        setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}`);
         setPdfModalOpen(true);
       } else {
         toast.error(data.error || 'No se pudo generar el ticket');
@@ -103,11 +105,12 @@ export const BuscarGuiaOficinaPage = () => {
   };
 
   const handleReimprimir = async (guia) => {
-    if (!window.confirm(
-      `¿Desea reimprimir la guía ${guia.numero_guia_final || guia.numero_guia || ''} de la oficina ${guia.origen_guia || ''}?`
-    )) {
-      return;
-    }
+    const confirmReimprimir = await Swal.fire({
+      title: '¿Reimprimir guía?',
+      text: `¿Desea reimprimir la guía ${guia.numero_guia_final || guia.numero_guia || ''} de la oficina ${guia.origen_guia || ''}?`,
+      icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, reimprimir', cancelButtonText: 'Cancelar'
+    });
+    if (!confirmReimprimir.isConfirmed) return;
 
     try {
       toast.loading('Generando reimpresión...', { id: 'reimp-guia' });
@@ -116,7 +119,7 @@ export const BuscarGuiaOficinaPage = () => {
       const idUsuario = userResp.data?.data?.id_usuario || 0;
       const nombreUsuario = userResp.data?.data?.nombre_usuario || '';
 
-      const phpUrl = `/php/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&reimpreso_por=${encodeURIComponent(nombreUsuario)}`;
+      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&reimpreso_por=${encodeURIComponent(nombreUsuario)}`;
       const res = await fetch(phpUrl, { credentials: 'include' });
 
       toast.dismiss('reimp-guia');
@@ -125,7 +128,7 @@ export const BuscarGuiaOficinaPage = () => {
       const data = await res.json();
 
       if (data.success && data.ruta) {
-        window.open(`/php/tmp/${data.ruta}`, '_blank', 'width=500,height=700');
+        window.open(`${CONFIG.PHP_URL}/tmp/${data.ruta}`, '_blank', 'width=500,height=700');
       } else {
         toast.error(data.error || 'No se pudo generar la reimpresión');
       }

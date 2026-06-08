@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import { api } from '../../config/axios';
+import Swal from 'sweetalert2';
 
 export const GlobalHeader = () => {
   const { user, logout } = useAuth();
@@ -58,9 +59,16 @@ export const GlobalHeader = () => {
   }, []);
 
   const handleLogout = () => {
-    if (window.confirm('¿Seguro que desea cerrar sesión?')) {
-      logout();
-    }
+    Swal.fire({
+      title: 'Cerrar Sesión',
+      text: '¿Seguro que desea cerrar sesión?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, cerrar sesión',
+      cancelButtonText: 'Cancelar'
+    }).then(result => {
+      if (result.isConfirmed) logout();
+    });
   };
 
   const formattedTime = time.toLocaleTimeString('es-EC', { hour12: false });

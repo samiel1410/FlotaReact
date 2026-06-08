@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../../../config/axios';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 
 const CELL_TYPES = {
   asiento: { label: 'Asiento', color: '#5fa2dd' },
@@ -197,8 +198,9 @@ const MapaAsientosModal = ({ bus, isOpen, onClose, onSaved }) => {
     if (currentPiso >= numPisos) setCurrentPiso(numPisos - 1);
   }
 
-  function limpiarMapa() {
-    if (!confirm('¿Limpiar todo el mapa?')) return;
+  async function limpiarMapa() {
+    const confirmLimpiar = await Swal.fire({ title: '¿Limpiar mapa?', text: '¿Limpiar todo el mapa?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, limpiar', cancelButtonText: 'Cancelar' });
+    if (!confirmLimpiar.isConfirmed) return;
     setMapaData(prev => {
       const nuevo = JSON.parse(JSON.stringify(prev));
       for (let p = 0; p < nuevo.pisos.length; p++) nuevo.pisos[p] = {};
@@ -227,15 +229,16 @@ const MapaAsientosModal = ({ bus, isOpen, onClose, onSaved }) => {
     toast.success('Asientos numerados');
   }
 
-  function guardarPlantilla() {
-    const nombre = prompt('Nombre de la plantilla:');
+  async function guardarPlantilla() {
+    const { value: nombre } = await Swal.fire({ title: 'Nombre de la plantilla', input: 'text', inputLabel: 'Nombre de la plantilla:', showCancelButton: true, confirmButtonText: 'Guardar', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un nombre'; } });
     if (!nombre) return;
     const config = { gridWidth, gridHeight, pisos: mapaData.pisos.map(p => ({ ...p })) };
     let plantillas = [];
     try { const stored = localStorage.getItem(TEMPLATE_KEY); if (stored) plantillas = JSON.parse(stored); } catch { }
     const existe = plantillas.findIndex(p => p.nombre === nombre);
     if (existe >= 0) {
-      if (!confirm(`Ya existe una plantilla con el nombre "${nombre}". ¿Reemplazar?`)) return;
+      const confirmReplace = await Swal.fire({ title: '¿Reemplazar?', text: `Ya existe una plantilla con el nombre "${nombre}". ¿Reemplazar?`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, reemplazar', cancelButtonText: 'Cancelar' });
+      if (!confirmReplace.isConfirmed) return;
       plantillas[existe] = { id: Date.now(), nombre, config };
     } else {
       plantillas.push({ id: Date.now(), nombre, config });

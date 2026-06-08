@@ -3,6 +3,9 @@ import { useListado } from '../../hooks/useListado';
 import Swal from 'sweetalert2';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
+import Modal from '../../components/common/Modal';
+import toast from 'react-hot-toast';
+import { api } from '../../config/axios';
 
 // ─── CONFIGURACIÓN DE CADA TAB ───────────────────────────────────────────────
 const TABS = [
@@ -117,12 +120,37 @@ const TABS = [
 ];
 
 // ─── SUBCOMPONENTE: TAB CONTENT ──────────────────────────────────────────────
+const getComprobanteEndpoint = (tabId) => {
+  switch (tabId) {
+    case 'encomiendas': return '/caja/guardarInfoComprobante';
+    case 'boleteria': return '/caja_boleteria/guardarInfoComprobante';
+    case 'retenciones': return '/cajaretenciones/guardarInfoComprobante';
+    default: return '/caja/guardarInfoComprobante';
+  }
+};
+
+const getIdField = (tabId) => {
+  switch (tabId) {
+    case 'retenciones': return 'id_caja_retenciones';
+    default: return 'id_caja';
+  }
+};
+
 const TabContent = ({ tab }) => {
-  const { endpoint, columns, customParams } = tab;
+  const { id: tabId, endpoint, columns, customParams } = tab;
   const { data: rawData, loading, total, page, setPage, fetch, PAGE_SIZE } = useListado(endpoint, {}, customParams);
   const data = Array.isArray(rawData) ? rawData : [];
 
   const [filters, setFilters] = useState({ desde: '', hasta: '', estado: '' });
+
+  // Estado para modales
+  const [showComprobanteModal, setShowComprobanteModal] = useState(false);
+  const [showImagenModal, setShowImagenModal] = useState(false);
+  const [selectedRow, setSelectedRow] = useState(null);
+  const [comprobanteNum, setComprobanteNum] = useState('');
+  const [comprobanteBanco, setComprobanteBanco] = useState('');
+  const [savingComprobante, setSavingComprobante] = useState(false);
+  const [imagenUrl, setImagenUrl] = useState('');
 
   const handleSearch = () => { fetch(filters, 0); };
   const handlePrev = () => { const p = Math.max(0, page - 1); setPage(p); fetch(filters, p); };
@@ -139,6 +167,41 @@ const TabContent = ({ tab }) => {
     fetch(f, 0);
   };
 
+  // ── Info Comprobante (Modal React) ────────────────────────
+  const handleOpenComprobante = (row) => {
+    setSelectedRow(row);
+    setComprobanteNum(row.numero_comprobante_cierre || '');
+    setComprobanteBanco(row.banco_cierre || '');
+    setShowComprobanteModal(true);
+  };
+
+  const handleGuardarComprobante = async () => {
+    if (!selectedRow) return;
+    setSavingComprobante(true);
+    try {
+      const idField = getIdField(tabId);
+      const payload = {
+        id_caja: selectedRow[idField],
+        numero_comprobante: comprobanteNum,
+        banco: comprobanteBanco,
+      };
+      const endpoint = getComprobanteEndpoint(tabId);
+      const res = await api.post(endpoint, payload);
+      if (res.data?.success) {
+        toast.success('Comprobante guardado');
+        setShowComprobanteModal(false);
+        fetch(filters, page);
+      } else {
+        toast.error(res.data?.mensaje || 'Error al guardar');
+      }
+    } catch {
+      toast.error('Error al guardar comprobante');
+    } finally {
+      setSavingComprobante(false);
+    }
+  };
+
+  // ── Ver Imagen (Modal React) ──────────────────────────────
   const handleVerImagen = (row) => {
     const ruta = row.ruta_imagen_comprobante_cierre;
     if (!ruta) {
@@ -146,14 +209,9 @@ const TabContent = ({ tab }) => {
       return;
     }
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    Swal.fire({
-      title: 'Comprobante: ' + (row.numero_comprobante_cierre || 'S/N'),
-      imageUrl: baseUrl + '/' + ruta,
-      imageWidth: 500,
-      imageHeight: 550,
-      imageAlt: 'Comprobante',
-      confirmButtonText: 'Cerrar',
-    });
+    setImagenUrl(baseUrl + '/' + ruta);
+    setSelectedRow(row);
+    setShowImagenModal(true);
   };
 
   const effectiveTotal = total || data.length;
@@ -228,7 +286,8 @@ const TabContent = ({ tab }) => {
                     {col.label}
                   </th>
                 ))}
-                <th className="py-2 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">IMG</th>
+                <th className="py-2 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">COMP</th>
+                <th className="py-2 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">IMG</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -239,6 +298,7 @@ const TabContent = ({ tab }) => {
                     {columns.map(col => (
                       <td key={col.key} className="py-2 px-3"><Skeleton height={12} /></td>
                     ))}
+                    <td className="py-2 px-4"><Skeleton height={12} /></td>
                     <td className="py-2 px-4"><Skeleton height={12} /></td>
                   </tr>
                 ))
@@ -251,7 +311,16 @@ const TabContent = ({ tab }) => {
                         {renderCell(col, row)}
                       </td>
                     ))}
-                    <td className="py-2 px-4 text-right">
+                    <td className="py-2 px-4 text-center">
+                      <button
+                        onClick={() => handleOpenComprobante(row)}
+                        className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-indigo-600 hover:border-indigo-200 hover:bg-indigo-50 flex items-center justify-center transition-all hover:scale-110"
+                        title="Info Comprobante"
+                      >
+                        <i className="fas fa-vote-yea text-[10px]"></i>
+                      </button>
+                    </td>
+                    <td className="py-2 px-4 text-center">
                       <button
                         onClick={() => handleVerImagen(row)}
                         className="w-7 h-7 rounded-lg bg-white border border-slate-200 text-blue-600 hover:border-blue-200 hover:bg-blue-50 flex items-center justify-center transition-all hover:scale-110"
@@ -264,7 +333,7 @@ const TabContent = ({ tab }) => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={columns.length + 2} className="py-12 text-center">
+                  <td colSpan={columns.length + 3} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <i className="fas fa-folder-open text-xl text-slate-200"></i>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sin registros</p>
@@ -296,6 +365,47 @@ const TabContent = ({ tab }) => {
           </div>
         </div>
       </div>
+      {/* ── MODAL: Info Comprobante ──────────────────────────────── */}
+      <Modal isOpen={showComprobanteModal} onClose={() => { setShowComprobanteModal(false); setSelectedRow(null); }}
+        title={`Info Comprobante — Caja #${selectedRow?.numero_caja || selectedRow?.id_caja_retenciones || ''}`} width="max-w-md">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">N° Comprobante</label>
+            <input type="text" value={comprobanteNum}
+              onChange={e => setComprobanteNum(e.target.value)}
+              className="w-full h-10 px-3 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+              placeholder="Ingrese número de comprobante..." />
+          </div>
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Banco</label>
+            <input type="text" value={comprobanteBanco}
+              onChange={e => setComprobanteBanco(e.target.value)}
+              className="w-full h-10 px-3 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400"
+              placeholder="Ingrese nombre del banco..." />
+          </div>
+          <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
+            <button onClick={() => { setShowComprobanteModal(false); setSelectedRow(null); }}
+              className="px-4 py-2 text-[10px] font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all uppercase tracking-wider">
+              Cancelar
+            </button>
+            <button onClick={handleGuardarComprobante} disabled={savingComprobante}
+              className="px-4 py-2 text-[10px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 transition-all uppercase tracking-wider flex items-center gap-1.5">
+              {savingComprobante ? <i className="fas fa-spinner fa-spin" /> : <i className="fas fa-save" />}
+              Guardar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── MODAL: Ver Imagen Comprobante ──────────────────────────── */}
+      <Modal isOpen={showImagenModal} onClose={() => { setShowImagenModal(false); setSelectedRow(null); setImagenUrl(''); }}
+        title={`Comprobante: ${selectedRow?.numero_comprobante_cierre || 'S/N'}`} width="max-w-xl">
+        <div className="flex items-center justify-center">
+          {imagenUrl && (
+            <img src={imagenUrl} alt="Comprobante" className="max-w-full max-h-[70vh] rounded-lg object-contain" />
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

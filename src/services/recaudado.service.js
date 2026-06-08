@@ -19,17 +19,17 @@ export const RecaudadoService = {
    * Obtiene los combos para los filtros
    */
   getPersonalParaFiltro: async () => {
-    const response = await api.get('/personal/read_combo');
+    const response = await api.get('/personal/personalSelectCombo');
     return response.data;
   },
 
   getBusesParaFiltro: async () => {
-    const response = await api.get('/buses/read_combo');
+    const response = await api.get('/buses/seleccionarBusesCombo');
     return response.data;
   },
 
   getRutasParaFiltro: async () => {
-    const response = await api.get('/rutas/read_combo');
+    const response = await api.get('/rutas/rutasSeleccionCombo');
     return response.data;
   }
 };

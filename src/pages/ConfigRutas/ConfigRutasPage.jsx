@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { api } from '../../config/axios';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import { SubRutaModal } from './components/SubRutaModal';
 
 const fw = "w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800";
@@ -153,7 +154,8 @@ export const ConfigRutasPage = () => {
   };
 
   const handleDeleteRoute = async (route) => {
-    if (!window.confirm(`¿Eliminar la ruta "${route.nombre_rutas || route.rut_nombre}"?`)) return;
+    const confirmDel = await Swal.fire({ title: '¿Eliminar ruta?', text: `¿Eliminar la ruta "${route.nombre_rutas || route.rut_nombre}"?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar' });
+    if (!confirmDel.isConfirmed) return;
     try {
       const res = await api.post('/rutas/eliminarRuta', { id_rutas: route.id_rutas });
       if (res.data?.success) {
@@ -187,8 +189,9 @@ export const ConfigRutasPage = () => {
     setShowSubRutaModal(false);
     setEditingSubRutaIdx(null);
   };
-  const handleDeleteSubruta = (i) => {
-    if (!window.confirm('¿Eliminar esta sub ruta?')) return;
+  const handleDeleteSubruta = async (i) => {
+    const confirmDel = await Swal.fire({ title: '¿Eliminar sub ruta?', text: '¿Eliminar esta sub ruta?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar' });
+    if (!confirmDel.isConfirmed) return;
     setSubrutas(prev => prev.filter((_, idx) => idx !== i));
   };
   const handleMoveUp = (idx) => {
@@ -269,7 +272,8 @@ export const ConfigRutasPage = () => {
   };
 
   const handleDeleteLugar = async (l) => {
-    if (!window.confirm(`¿Eliminar "${l.nombre_lugar}"?`)) return;
+    const confirmDel = await Swal.fire({ title: '¿Eliminar lugar?', text: `¿Eliminar "${l.nombre_lugar}"?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar' });
+    if (!confirmDel.isConfirmed) return;
     try { const r = await api.post('/lugares/eliminarLugar', { id_lugar: l.id_lugar }); if (r.data?.success) { toast.success('Lugar eliminado'); await fetchLugares(); } } catch { toast.error('Error'); }
   };
 

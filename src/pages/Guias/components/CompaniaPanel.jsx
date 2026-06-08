@@ -9,7 +9,7 @@ import { GuiaService } from '../../../services/guia.service';
  * - Fieldset Datos Compañía (Nombre, RUC, Teléfono - solo lectura)
  * - Botón Buscar compañía
  */
-export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCompania }) => {
+export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCompania, error }) => {
   const [rucBusqueda, setRucBusqueda] = useState('');
   const [buscando, setBuscando] = useState(false);
   const compania = companiaProp || null;
@@ -57,7 +57,7 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
   const sectionTitle = { fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '-0.01em' };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200/80" style={{ padding: '16px' }}>
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200/80" style={{ padding: '16px', outline: error ? '2px solid #ef4444' : undefined, outlineOffset: '-1px' }}>
       <h3 style={sectionTitle}>
         <div style={{ width: '26px', height: '26px', borderRadius: '7px', background: 'linear-gradient(135deg, #e0e7ff, #c7d2fe)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px' }}>
           <i className="fas fa-building" style={{ color: '#4f46e5' }}></i>
@@ -69,19 +69,21 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
       <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
         <div style={{ flex: 1 }}>
           <label className={labelClass}>RUC Compañía</label>
-          <input type="text" className={inputClass} value={rucBusqueda} 
+          <input type="text" className={compania ? inputRO : inputClass} 
+            value={compania ? (compania.ruc || rucBusqueda) : rucBusqueda}
             onChange={(e) => setRucBusqueda(e.target.value)}
             placeholder="Ingrese RUC..."
-            maxLength={13} />
+            maxLength={13}
+            readOnly={!!compania} />
         </div>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'end' }}>
-          <button onClick={handleBuscarCompania} disabled={buscando}
+          <button onClick={handleBuscarCompania} disabled={buscando || !!compania}
             className="h-8 px-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-md text-xs font-bold shadow-sm">
             <i className={`fas ${buscando ? 'fa-spinner fa-spin' : 'fa-search'}`}></i>
           </button>
           <button onClick={handleClear}
             className="h-8 px-2 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-md text-xs font-bold">
-            <i className="fas fa-eraser"></i>
+            <i className="fas fa-eraser"></i> Limpiar
           </button>
         </div>
       </div>

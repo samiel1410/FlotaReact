@@ -13,7 +13,7 @@ export const ItinerarioViajeModal = ({ trip, onClose }) => {
       try {
         const [ituRes, sucRes] = await Promise.all([
           ViajesService.getItinerario(trip?.id_viajes),
-          api.get('/sucursal/read_combo'),
+          api.get('/sucursal/comboSucursal'),
         ]);
         const sucs = sucRes.data?.data || [];
         setSucursales(sucs);

@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { GuiaService } from '../../../services/guia.service';
+import { api, clienteApi } from '../../../config/axios';
+import Modal from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
 
-export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioFound, remitenteId, onDestinatarioAutoFill }) => {
+export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioFound, remitenteId, onDestinatarioAutoFill, error }) => {
   const [busqueda, setBusqueda] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCliente, setNewCliente] = useState({
     identificacion_cliente: '',
-    tipo_identificacion_cliente: 'C',
+    tipo_identificacion_cliente: '05',
     nombre_cliente: '',
     direccion_cliente: '',
-    email_cliente: '',
+    correo_cliente: '',
     telefono_cliente: '',
     provincia: '',
     canton: '',
@@ -20,8 +22,26 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
   const [provincias, setProvincias] = useState([]);
   const [cantones, setCantones] = useState([]);
 
+  // ── Estado para el Modal de Edición ─────────────────
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    identificacion_cliente: '',
+    tipo_identificacion_cliente: '05',
+    nombre_cliente: '',
+    direccion_cliente: '',
+    correo_cliente: '',
+    telefono_cliente: '',
+    provincia: '',
+    canton: '',
+    telefono2: ''
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [editProvincias, setEditProvincias] = useState([]);
+  const [editCantones, setEditCantones] = useState([]);
+
   const iconColor = tipo === 'Remitente' ? '#3498db' : '#e67e22';
   const isRemitente = tipo === 'Remitente';
+  const esConsumidorFinal = cliente?.id_cliente === 683 || cliente?.nombres === 'CONSUMIDOR FINAL';
 
   const handleSearch = async () => {
     if (!busqueda || busqueda.trim().length < 3) {
@@ -62,7 +82,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         
         toast.success(`${tipo} encontrado: ${clienteData.nombres}`);
       } else {
-        toast.warning(`${tipo} no encontrado. Puede crear uno nuevo.`);
+        toast.error(`${tipo} no encontrado. Puede crear uno nuevo.`);
         setShowCreateForm(true);
         setNewCliente(prev => ({ ...prev, identificacion_cliente: busqueda.trim() }));
       }
@@ -83,7 +103,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       toast.error('La identificación debe contener solo números');
       return;
     }
-    if (newCliente.email_cliente && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCliente.email_cliente)) {
+    if (newCliente.correo_cliente && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCliente.correo_cliente)) {
       toast.error('Formato de correo inválido');
       return;
     }
@@ -91,13 +111,12 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     try {
       await GuiaService.buscarClientePorIdentificacion(newCliente.identificacion_cliente);
       // El backend de ingresarActualizarCliente crea o actualiza
-      const { api } = await import('../../../config/axios');
-      await api.post('/cliente/ingresarActualizarCliente', {
+      await clienteApi.post('/cliente/ingresarActualizarCliente', {
         identificacion_cliente: newCliente.identificacion_cliente,
         tipo_identificacion_cliente: newCliente.tipo_identificacion_cliente,
         nombre_cliente: newCliente.nombre_cliente,
         direccion_cliente: newCliente.direccion_cliente,
-        email_cliente: newCliente.email_cliente,
+        correo_cliente: newCliente.correo_cliente,
         telefono_cliente: newCliente.telefono_cliente
       });
       const clienteData = {
@@ -106,7 +125,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         nombres: newCliente.nombre_cliente,
         direccion: newCliente.direccion_cliente,
         telefono: newCliente.telefono_cliente,
-        email: newCliente.email_cliente,
+        email: newCliente.correo_cliente,
         telefono2: newCliente.telefono2
       };
       onChange(clienteData);
@@ -117,6 +136,46 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       toast.error('Error al crear el cliente');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Handler Guardar Edición de Cliente ──────────────────
+  const handleSaveEdit = async () => {
+    if (!editFormData.nombre_cliente) {
+      toast.error('El nombre es obligatorio');
+      return;
+    }
+    setEditLoading(true);
+    try {
+      const payload = {
+        identificacion_cliente: editFormData.identificacion_cliente,
+        tipo_identificacion_cliente: editFormData.tipo_identificacion_cliente,
+        nombre_cliente: editFormData.nombre_cliente,
+        direccion_cliente: editFormData.direccion_cliente,
+        correo_cliente: editFormData.correo_cliente || editFormData.email_cliente || '',
+        telefono_cliente: editFormData.telefono_cliente,
+        fecha_nacimiento: editFormData.fecha_nacimiento || ''
+      };
+      await clienteApi.post('/cliente/actualizarCliente', payload);
+      
+      // Actualizar el estado local del cliente
+      const clienteActualizado = {
+        ...cliente,
+        cedula: editFormData.identificacion_cliente,
+        nombres: editFormData.nombre_cliente,
+        direccion: editFormData.direccion_cliente,
+        telefono: editFormData.telefono_cliente,
+        email: editFormData.correo_cliente || editFormData.email_cliente || '',
+        telefono2: editFormData.telefono2
+      };
+      onChange(clienteActualizado);
+      setShowEditModal(false);
+      toast.success(`${tipo} actualizado exitosamente`);
+    } catch (error) {
+      console.error('Error actualizando cliente:', error);
+      toast.error('Error al actualizar el cliente');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -141,7 +200,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
   const labelClass = "block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1";
 
   return (
-    <div className="ng-section bg-white" style={{ borderTop: `3px solid ${iconColor}` }}>
+    <div className="ng-section bg-white" style={{ borderTop: `3px solid ${iconColor}`, outline: error ? '2px solid #ef4444' : undefined, outlineOffset: '-1px' }}>
       <h3 className="section-title">
         <i className={`fas fa-user`} style={{color: iconColor, marginRight: '8px'}}></i>
         {tipo}
@@ -205,14 +264,15 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                   <label className={labelClass}>Tipo ID</label>
                   <select className={inputClass} value={newCliente.tipo_identificacion_cliente}
                     onChange={(e) => setNewCliente({...newCliente, tipo_identificacion_cliente: e.target.value})}>
-                    <option value="C">Cédula</option>
-                    <option value="R">RUC</option>
-                    <option value="P">Pasaporte</option>
-                  </select>
-                </div>
-                <div style={{ gridColumn: 'span 2' }}>
-                  <label className={labelClass}>Nombre / Razón Social *</label>
-                  <input className={inputClass} value={newCliente.nombre_cliente}
+                  <option value="05">Cédula</option>
+                  <option value="04">RUC</option>
+                  <option value="06">Pasaporte</option>
+                  <option value="08">Identificación del Exterior</option>
+                </select>
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label className={labelClass}>Nombre / Razón Social *</label>
+                <input className={inputClass} value={newCliente.nombre_cliente}
                     onChange={(e) => setNewCliente({...newCliente, nombre_cliente: e.target.value.toUpperCase()})} />
                 </div>
                 <div>
@@ -227,8 +287,8 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
                   <label className={labelClass}>Email</label>
-                  <input className={inputClass} type="email" value={newCliente.email_cliente}
-                    onChange={(e) => setNewCliente({...newCliente, email_cliente: e.target.value})} />
+                  <input className={inputClass} type="email" value={newCliente.correo_cliente}
+                    onChange={(e) => setNewCliente({...newCliente, correo_cliente: e.target.value})} />
                 </div>
                 {!isRemitente && (
                   <>
@@ -274,18 +334,155 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         <div className="client-info-box" style={{ padding: '10px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
           <div className="client-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h4 style={{ fontSize: '13px', fontWeight: 700, color: '#166534', margin: 0 }}>{cliente.nombres}</h4>
-            <button className="btn-icon" onClick={() => { onChange(null); if (onConvenioFound) onConvenioFound(null); }} title="Cambiar Cliente" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-              <i className="fas fa-times-circle" style={{color: '#ef4444'}}></i>
-            </button>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button className="btn-icon" onClick={() => {
+                setEditFormData({
+                  identificacion_cliente: cliente.cedula || '',
+                  tipo_identificacion_cliente: cliente.tipo_identificacion || '05',
+                  nombre_cliente: cliente.nombres || '',
+                  direccion_cliente: cliente.direccion || '',
+                  telefono_cliente: cliente.telefono || '',
+                  correo_cliente: cliente.email || '',
+                  provincia: cliente.provincia || '',
+                  canton: cliente.canton || '',
+                  telefono2: cliente.telefono2 || ''
+                });
+                setShowEditModal(true);
+              }} title="Editar Cliente" style={{ background: '#3b82f6', border: 'none', cursor: 'pointer', color: 'white', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <i className="fas fa-pen"></i> Editar
+              </button>
+              <button className="btn-icon" onClick={() => { onChange(null); if (onConvenioFound) onConvenioFound(null); }} title="Cambiar Cliente" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+                <i className="fas fa-times-circle" style={{color: '#ef4444'}}></i>
+              </button>
+            </div>
           </div>
           <div className="client-details" style={{ fontSize: '11px', marginTop: '6px', lineHeight: '1.6' }}>
             <p style={{ margin: 0 }}><strong>C.I./RUC:</strong> {cliente.cedula}</p>
-            <p style={{ margin: 0 }}><strong>Dirección:</strong> {cliente.direccion}</p>
-            <p style={{ margin: 0 }}><strong>Teléfono:</strong> {cliente.telefono}</p>
-            {cliente.email && <p style={{ margin: 0 }}><strong>Email:</strong> {cliente.email}</p>}
+            {esConsumidorFinal ? (
+              <div style={{ display: 'grid', gap: '6px', marginTop: '6px' }}>
+                <div>
+                  <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px', display: 'block' }}>Nombre</label>
+                  <input type="text" className={inputClass} value={cliente.nombres}
+                    onChange={(e) => onChange({ ...cliente, nombres: e.target.value.toUpperCase() })}
+                    placeholder="Nombre del consumidor final" />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                  <div>
+                    <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px', display: 'block' }}>Teléfono</label>
+                    <input type="text" className={inputClass} value={cliente.telefono}
+                      onChange={(e) => onChange({ ...cliente, telefono: e.target.value.replace(/\D/g, '') })}
+                      placeholder="Teléfono" />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px', display: 'block' }}>Email</label>
+                    <input type="email" className={inputClass} value={cliente.email}
+                      onChange={(e) => onChange({ ...cliente, email: e.target.value })}
+                      placeholder="correo@ejemplo.com" />
+                  </div>
+                </div>
+                <div>
+                  <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px', display: 'block' }}>Dirección</label>
+                  <input type="text" className={inputClass} value={cliente.direccion}
+                    onChange={(e) => onChange({ ...cliente, direccion: e.target.value.toUpperCase() })}
+                    placeholder="Dirección" />
+                </div>
+              </div>
+            ) : (
+              <>
+                <p style={{ margin: 0 }}><strong>Dirección:</strong> {cliente.direccion}</p>
+                <p style={{ margin: 0 }}><strong>Teléfono:</strong> {cliente.telefono}</p>
+                {cliente.email && <p style={{ margin: 0 }}><strong>Email:</strong> {cliente.email}</p>}
+              </>
+            )}
           </div>
         </div>
       )}
+      
+      {/* ── Modal Editar Cliente ──────────────────────────────── */}
+      <Modal isOpen={showEditModal} onClose={() => { if (!editLoading) setShowEditModal(false); }} title={`Editar ${tipo}`} width="max-w-lg">
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div>
+              <label className={labelClass}>Identificación</label>
+              <input className={inputClass} value={editFormData.identificacion_cliente}
+                onChange={(e) => setEditFormData({...editFormData, identificacion_cliente: e.target.value})}
+                maxLength={13} />
+            </div>
+            <div>
+              <label className={labelClass}>Tipo ID</label>
+              <select className={inputClass} value={editFormData.tipo_identificacion_cliente}
+                onChange={(e) => setEditFormData({...editFormData, tipo_identificacion_cliente: e.target.value})}>                  <option value="05">Cédula</option>
+                  <option value="04">RUC</option>
+                  <option value="06">Pasaporte</option>
+                  <option value="08">Identificación del Exterior</option>
+                </select>
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label className={labelClass}>Nombre / Razón Social *</label>
+                <input className={inputClass} value={editFormData.nombre_cliente}
+                onChange={(e) => setEditFormData({...editFormData, nombre_cliente: e.target.value.toUpperCase()})} />
+            </div>
+            <div>
+              <label className={labelClass}>Dirección</label>
+              <input className={inputClass} value={editFormData.direccion_cliente}
+                onChange={(e) => setEditFormData({...editFormData, direccion_cliente: e.target.value.toUpperCase()})} />
+            </div>
+            <div>
+              <label className={labelClass}>Teléfono</label>
+              <input className={inputClass} value={editFormData.telefono_cliente}
+                onChange={(e) => setEditFormData({...editFormData, telefono_cliente: e.target.value.replace(/\D/g, '')})} />
+            </div>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label className={labelClass}>Email</label>
+              <input className={inputClass} type="email" value={editFormData.correo_cliente}
+                onChange={(e) => setEditFormData({...editFormData, correo_cliente: e.target.value})} />
+            </div>
+            {!isRemitente && (
+              <>
+                <div>
+                  <label className={labelClass}>Teléfono 2</label>
+                  <input className={inputClass} value={editFormData.telefono2}
+                    onChange={(e) => setEditFormData({...editFormData, telefono2: e.target.value})} />
+                </div>
+                <div>
+                  <label className={labelClass}>Provincia</label>
+                  <select className={inputClass} value={editFormData.provincia}
+                    onChange={(e) => {
+                      const idProv = e.target.value;
+                      setEditFormData({...editFormData, provincia: idProv, canton: ''});
+                      GuiaService.getCantonesPorProvincia(idProv).then(r => setEditCantones(r?.data || [])).catch(() => setEditCantones([]));
+                    }}
+                    onFocus={() => {
+                      GuiaService.getProvinciasCombo().then(r => setEditProvincias(r?.data || [])).catch(() => {});
+                    }}>
+                    <option value="">Seleccione...</option>
+                    {editProvincias.map(p => <option key={p.id || p.value} value={p.id || p.value}>{p.nombre || p.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>Ciudad</label>
+                  <select className={inputClass} value={editFormData.canton}
+                    onChange={(e) => setEditFormData({...editFormData, canton: e.target.value})}>
+                    <option value="">Seleccione...</option>
+                    {editCantones.map(c => <option key={c.id || c.value} value={c.id || c.value}>{c.nombre || c.label}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
+          </div>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
+            <button onClick={() => { if (!editLoading) setShowEditModal(false); }}
+              disabled={editLoading}
+              className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-xs font-bold disabled:opacity-50">
+              Cancelar
+            </button>
+            <button onClick={handleSaveEdit} disabled={editLoading}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm disabled:opacity-70 flex items-center gap-2">
+              {editLoading ? <><i className="fas fa-spinner fa-spin"></i> Guardando...</> : <><i className="fas fa-save"></i> Actualizar Cliente</>}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

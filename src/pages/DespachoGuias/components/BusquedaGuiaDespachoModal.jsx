@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { despachoConvenioService } from '../../../services/despachoConvenio.service';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 
 export const BusquedaGuiaDespachoModal = ({ idDespachoMaestro, bus, onClose, onSelect }) => {
   const [guias, setGuias] = useState([]);
@@ -45,9 +46,10 @@ export const BusquedaGuiaDespachoModal = ({ idDespachoMaestro, bus, onClose, onS
     cargarGuias(1, numeroBusqueda);
   };
 
-  const handleSelect = (guia) => {
+  const handleSelect = async (guia) => {
     // Confirm before adding
-    if (!window.confirm(`¿Seguro que desea ingresar esta guía (${guia.numero_guia}) a este despacho?`)) return;
+    const confirmAdd = await Swal.fire({ title: '¿Agregar guía?', text: `¿Seguro que desea ingresar esta guía (${guia.numero_guia}) a este despacho?`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, agregar', cancelButtonText: 'Cancelar' });
+    if (!confirmAdd.isConfirmed) return;
 
     if (onSelect) {
       onSelect({

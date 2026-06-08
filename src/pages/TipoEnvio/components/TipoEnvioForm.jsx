@@ -12,13 +12,19 @@ const TipoEnvioForm = ({ initialData, onSubmit, onCancel }) => {
   useEffect(() => {
     if (initialData) {
       reset({
+        codigo_tipo_envio: initialData.cod_tipo_envio || '',
         nombre_tipo_envio: initialData.nombre_envio || '',
+        costo_tipo_envio: initialData.costo_envio || '',
+        tipo_impuesto_tipo_envio: initialData.tipo_impuesto ?? '0',
         observacion_tipo_envio: initialData.observacion_tipo_envio || '',
         estado_convenio: initialData.estado_tipo_envio == 1 || initialData.estado_tipo_envio === '1',
       });
     } else {
       reset({
+        codigo_tipo_envio: '',
         nombre_tipo_envio: '',
+        costo_tipo_envio: '',
+        tipo_impuesto_tipo_envio: '0',
         observacion_tipo_envio: '',
         estado_convenio: true,
       });
@@ -30,6 +36,7 @@ const TipoEnvioForm = ({ initialData, onSubmit, onCancel }) => {
     try {
       const payload = {
         ...data,
+        costo_tipo_envio: parseFloat(data.costo_tipo_envio) || 0,
         estado_convenio: data.estado_convenio ? '1' : '0',
         ...(isEditing ? { id_tipo_envio: initialData.id_tipo_envio } : {}),
       };
@@ -50,7 +57,22 @@ const TipoEnvioForm = ({ initialData, onSubmit, onCancel }) => {
 
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-5">
-      <div className="grid grid-cols-1 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <div>
+          <label className={labelClass}>
+            Código <span className="text-rose-500">*</span>
+          </label>
+          <input
+            type="text"
+            {...register('codigo_tipo_envio', { required: 'El código es requerido' })}
+            className={inputClass}
+            placeholder="Ej: ENV-001"
+          />
+          {errors.codigo_tipo_envio && (
+            <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.codigo_tipo_envio.message}</p>
+          )}
+        </div>
 
         <div>
           <label className={labelClass}>
@@ -68,6 +90,40 @@ const TipoEnvioForm = ({ initialData, onSubmit, onCancel }) => {
         </div>
 
         <div>
+          <label className={labelClass}>
+            Costo ($) <span className="text-rose-500">*</span>
+          </label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            {...register('costo_tipo_envio', { required: 'El costo es requerido', min: { value: 0, message: 'El costo debe ser mayor o igual a 0' } })}
+            className={inputClass}
+            placeholder="Ej: 5.00"
+          />
+          {errors.costo_tipo_envio && (
+            <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.costo_tipo_envio.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label className={labelClass}>Tipo de Impuesto <span className="text-rose-500">*</span></label>
+          <select
+            {...register('tipo_impuesto_tipo_envio', { required: 'El impuesto es requerido' })}
+            className={inputClass}
+          >
+            <option value="0">0% (Sin impuesto)</option>
+            <option value="1">12%</option>
+            <option value="2">13%</option>
+            <option value="3">14%</option>
+            <option value="4">15%</option>
+          </select>
+          {errors.tipo_impuesto_tipo_envio && (
+            <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.tipo_impuesto_tipo_envio.message}</p>
+          )}
+        </div>
+
+        <div className="md:col-span-2">
           <label className={labelClass}>Descripción</label>
           <textarea
             {...register('observacion_tipo_envio')}

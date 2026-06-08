@@ -95,7 +95,7 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
       });
       if (res.data?.success) {
         toast.success('Viaje despachado exitosamente');
-        onClose();
+        onClose(true);
       } else {
         toast.error(res.data?.message || 'Error al despachar');
       }

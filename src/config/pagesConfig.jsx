@@ -204,9 +204,21 @@ export const PAGES_CONFIG = {
     actions: { create: true, edit: true, delete: true },
     formComponent: TipoEnvioForm,
     columns: [
-      { key: 'nombre_envio', label: 'Nombre' },
-      { key: 'observacion_tipo_envio', label: 'Descripción', render: v => v || '-' },
       { key: 'cod_tipo_envio', label: 'Código', render: v => v || '-' },
+      { key: 'nombre_envio', label: 'Nombre' },
+      { key: 'costo_envio', label: 'Costo', render: v => v ? `$ ${parseFloat(v).toFixed(2)}` : '-' },
+      {
+        key: 'tipo_impuesto', label: 'Impuesto',
+        render: v => {
+          if (v === '0' || v === 0 || v === '') return '0%';
+          if (v === '1') return '12%';
+          if (v === '2') return '13%';
+          if (v === '3') return '14%';
+          if (v === '4') return '15%';
+          return v || '-';
+        }
+      },
+      { key: 'observacion_tipo_envio', label: 'Descripción', render: v => v || '-' },
       { key: 'estado_tipo_envio', label: 'Estado', renderType: 'status' },
     ],
     filters: [
@@ -403,15 +415,21 @@ export const PAGES_CONFIG = {
     title: 'Provincias', subtitle: 'División política provincial',
     icon: 'fas fa-map', iconBg: 'bg-sky-100', iconColor: 'text-sky-600',
     endpoint: '/provincia/provinciaSeleccionPaginado',
+    idField: 'id_provincia',
+    deleteEndpoint: '/provincia/provinciaEliminar',
     actions: { create: true, edit: true, delete: true },
     formComponent: NewProvinciaForm,
     columns: [
-      { key: 'pro_nombre', label: 'Nombre' },
-      { key: 'pro_estado', label: 'Estado', renderType: 'status' },
+      { key: 'nombre_provincia', label: 'Nombre' },
     ],
     filters: [
       { key: 'nombre', label: 'Nombre', type: 'text' },
-    ]
+    ],
+    customParams: (page, pageSize, filters) => ({
+      nombre: filters.nombre || '',
+      page: page + 1,
+      limit: pageSize,
+    }),
   },
 
   lugares: {
@@ -608,8 +626,7 @@ export const PAGES_CONFIG = {
           color: 'text-slate-600 hover:bg-slate-50',
           handler: async (row) => {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            const url = `${baseUrl}/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`;
-            Swal.fire({ title: `Impresión Rápida Caja #${row.numero_caja}`, html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`, width: '900px', showConfirmButton: false, showCloseButton: true, customClass: { popup: 'rounded-2xl' } });
+            window.open(`${baseUrl}/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`, '_blank');
           }
         },
         {
@@ -652,19 +669,17 @@ export const PAGES_CONFIG = {
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            const url = `${baseUrl}/php/pdfArqueoCaja.php?id_caja=${row.id_caja}`;
-            Swal.fire({ title: `Arqueo Caja #${row.numero_caja}`, html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`, width: '900px', showConfirmButton: false, showCloseButton: true, customClass: { popup: 'rounded-2xl' } });
+            window.open(`${baseUrl}/php/pdfArqueoCaja.php?id_caja=${row.id_caja}`, '_blank');
           }
-        },
-        {
+        },        {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            const url = `${baseUrl}/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja}`;
-            Swal.fire({ title: `Comprobantes Caja #${row.numero_caja}`, html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`, width: '900px', showConfirmButton: false, showCloseButton: true, customClass: { popup: 'rounded-2xl' } });
+            window.open(`${baseUrl}/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja}`, '_blank');
           }
         },
+
         {
           id: 'cerrar', icon: 'fas fa-sign-out-alt', tooltip: 'Cerrar Caja',
           color: 'text-rose-600 hover:bg-rose-50',
@@ -755,8 +770,7 @@ export const PAGES_CONFIG = {
           color: 'text-slate-600 hover:bg-slate-50',
           handler: async (row) => {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            const url = `${baseUrl}/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja_boleteria}`;
-            Swal.fire({ title: `Impresión Rápida Boletería #${row.numero_caja}`, html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`, width: '900px', showConfirmButton: false, showCloseButton: true, customClass: { popup: 'rounded-2xl' } });
+            window.open(`${baseUrl}/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja_boleteria}`, '_blank');
           }
         },
         {
@@ -799,19 +813,40 @@ export const PAGES_CONFIG = {
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            const url = `${baseUrl}/php/pdfArqueoCajaBoleteria.php?id_caja=${row.id_caja_boleteria}`;
-            Swal.fire({ title: `Arqueo Caja Boletería #${row.numero_caja}`, html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`, width: '900px', showConfirmButton: false, showCloseButton: true, customClass: { popup: 'rounded-2xl' } });
+            window.open(`${baseUrl}/php/pdfArqueoCajaBoleteria.php?id_caja=${row.id_caja_boleteria}`, '_blank');
           }
-        },
-        {
+        },        {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
-            const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            const url = `${baseUrl}/php/pdfComprobantesxCajaBoleteria.php?idcaja=${row.id_caja_boleteria}`;
-            Swal.fire({ title: `Comprobantes Caja #${row.numero_caja}`, html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`, width: '900px', showConfirmButton: false, showCloseButton: true, customClass: { popup: 'rounded-2xl' } });
+            try {
+              Swal.fire({ title: 'Generando reporte...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+              const res = await api.get('/caja_boleteria/reportecomprobantefacturasxcaja', { params: { idcaja: row.id_caja_boleteria } });
+              if (res.data?.success && res.data?.nombre) {
+                const params = new URLSearchParams();
+                params.append('contenido', res.data.nombre);
+                params.append('nombre', 'ResumenCaja');
+                params.append('tipoA4', 'si');
+                params.append('tipoAux', 'no');
+                const pdfRes = await fetch('/php/GenerarArchvio.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() });
+                const pdfData = await pdfRes.json();
+                Swal.close();
+                if (pdfData.success) {
+                  const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
+                  window.open(`${baseUrl}/php/tmp/${pdfData.ruta}`, '_blank');
+                } else {
+                  Swal.fire('Error', 'Error al generar el PDF', 'error');
+                }
+              } else {
+                Swal.fire('Error', res.data?.message || 'No se encontraron datos', 'error');
+              }
+            } catch (e) {
+              console.error('Error reporte comprobantes:', e);
+              Swal.fire('Error', 'Error al generar el reporte de comprobantes', 'error');
+            }
           }
         },
+
         {
           id: 'cerrar', icon: 'fas fa-sign-out-alt', tooltip: 'Cerrar Caja',
           color: 'text-rose-600 hover:bg-rose-50',
@@ -902,8 +937,7 @@ export const PAGES_CONFIG = {
           color: 'text-slate-600 hover:bg-slate-50',
           handler: async (row) => {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            const url = `${baseUrl}/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`;
-            Swal.fire({ title: `Impresión Rápida Cobros #${row.numero_caja}`, html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`, width: '900px', showConfirmButton: false, showCloseButton: true, customClass: { popup: 'rounded-2xl' } });
+            window.open(`${baseUrl}/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`, '_blank');
           }
         },
         {
@@ -946,19 +980,40 @@ export const PAGES_CONFIG = {
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            const url = `${baseUrl}/php/pdfArqueoCajaRetenciones.php?id_caja=${row.id_caja_retenciones}`;
-            Swal.fire({ title: `Arqueo Caja Cobros #${row.numero_caja}`, html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`, width: '900px', showConfirmButton: false, showCloseButton: true, customClass: { popup: 'rounded-2xl' } });
+            window.open(`${baseUrl}/php/pdfArqueoCajaRetenciones.php?id_caja=${row.id_caja_retenciones}`, '_blank');
           }
-        },
-        {
+        },        {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
-            const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            const url = `${baseUrl}/php/pdfComprobantesxCajaRetenciones.php?idcaja=${row.id_caja_retenciones}`;
-            Swal.fire({ title: `Comprobantes Caja #${row.numero_caja}`, html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`, width: '900px', showConfirmButton: false, showCloseButton: true, customClass: { popup: 'rounded-2xl' } });
+            try {
+              Swal.fire({ title: 'Generando reporte...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+              const res = await api.get('/cajaretenciones/reportecomprobantefacturasxcaja', { params: { idcaja: row.id_caja_retenciones } });
+              if (res.data?.success && res.data?.nombre) {
+                const params = new URLSearchParams();
+                params.append('contenido', res.data.nombre);
+                params.append('nombre', 'ResumenCaja');
+                params.append('tipoA4', 'si');
+                params.append('tipoAux', 'no');
+                const pdfRes = await fetch('/php/GenerarArchvio.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() });
+                const pdfData = await pdfRes.json();
+                Swal.close();
+                if (pdfData.success) {
+                  const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
+                  window.open(`${baseUrl}/php/tmp/${pdfData.ruta}`, '_blank');
+                } else {
+                  Swal.fire('Error', 'Error al generar el PDF', 'error');
+                }
+              } else {
+                Swal.fire('Error', res.data?.message || 'No se encontraron datos', 'error');
+              }
+            } catch (e) {
+              console.error('Error reporte comprobantes:', e);
+              Swal.fire('Error', 'Error al generar el reporte de comprobantes', 'error');
+            }
           }
         },
+
         {
           id: 'cerrar', icon: 'fas fa-sign-out-alt', tooltip: 'Cerrar Caja',
           color: 'text-rose-600 hover:bg-rose-50',
@@ -1454,7 +1509,7 @@ export const PAGES_CONFIG = {
                 Swal.fire('Éxito', 'Comprobante anulado correctamente', 'success');
                 window.dispatchEvent(new CustomEvent('refresh-list'));
               } else {
-                Swal.fire('Error', res.msg || 'No se pudo anular el comprobante', 'error');
+                Swal.fire('Error', res.message || res.msg || 'No se pudo anular el comprobante', 'error');
               }
             } catch (err) {
               Swal.fire('Error', 'Error al anular el comprobante', 'error');
@@ -1496,7 +1551,7 @@ export const PAGES_CONFIG = {
                 width: '900px',
                 showConfirmButton: false,
                 showCloseButton: true,
-                customClass: { popup: 'rounded-2xl' },
+                customClass: { popup: 'rounded-2xl' }
               });
             } catch (err) {
               Swal.fire('Error', err.message || 'Error al generar el PDF', 'error');
@@ -1529,7 +1584,7 @@ export const PAGES_CONFIG = {
                 Swal.fire('Éxito', 'Comprobantes pendientes anulados correctamente', 'success');
                 window.dispatchEvent(new CustomEvent('refresh-list'));
               } else {
-                Swal.fire('Error', res.msg || 'No se pudieron anular los comprobantes', 'error');
+                Swal.fire('Error', res.message || res.msg || 'No se pudieron anular los comprobantes', 'error');
               }
             } catch (err) {
               Swal.fire('Error', 'Error al anular los comprobantes', 'error');

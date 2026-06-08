@@ -35,12 +35,12 @@ export const BoleteriaService = {
   },
 
   getBusesParaFiltro: async () => {
-    const response = await api.get('/buses/read_combo');
+    const response = await api.get('/buses/seleccionarBusesCombo');
     return response.data;
   },
 
   getRutasParaFiltro: async () => {
-    const response = await api.get('/rutas/read_combo');
+    const response = await api.get('/rutas/rutasSeleccionCombo');
     return response.data;
   },
 

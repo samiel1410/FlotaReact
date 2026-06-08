@@ -55,21 +55,20 @@ export const AnulacionBoleteriaPage = () => {
     });
     if (!motivo) return;
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const res = await api.post('/boleteria/anularBoletos', {
-        id_factura: row.id_factura,
-        motivo_anulacion: motivo,
+      const res = await api.post('/boleteria/insertarBoletosAnulacion', {
         numero_factura: row.secuencial_factura || row.numero_factura || '',
-        ruc_cliente: row.ruc_cliente_factura || '',
-        nombre_cliente: row.nombre_cliente_factura || '',
+        fecha: row.fecha_factura ? row.fecha_factura.split(' ')[0] : '',
+        ruc: row.ruc_cliente_factura || '',
+        nombre: row.nombre_cliente_factura || '',
         total: row.total_factura || 0,
-        id_usuario: user?.id_usuario || user?.id || '',
+        clave: row.clave_acceso_factura || '',
+        motivoAnulacion: motivo,
       });
-      if (res.data?.success) {
+      if (res.data?.success || res.data === true) {
         Swal.fire('Éxito', 'Factura anulada correctamente', 'success');
         handleClear();
       } else {
-        Swal.fire('Error', res.data?.msg || 'No se pudo anular la factura', 'error');
+        Swal.fire('Error', res.data?.message || res.data?.msg || 'No se pudo anular la factura', 'error');
       }
     } catch (err) {
       Swal.fire('Error', 'Error al anular la factura', 'error');

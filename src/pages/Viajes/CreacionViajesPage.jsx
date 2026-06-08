@@ -23,8 +23,8 @@ export const CreacionViajesPage = () => {
     const fetchInitialData = async () => {
       try {
         const [routesRes, busesRes] = await Promise.all([
-          api.get('/rutas/read_combo'),
-          api.get('/buses/read_combo')
+          api.get('/rutas/rutasSeleccionCombo'),
+          api.get('/buses/seleccionarBusesCombo')
         ]);
         setRoutes(routesRes.data?.data || routesRes.data || []);
         setBuses(busesRes.data?.data || busesRes.data || []);
@@ -118,9 +118,9 @@ export const CreacionViajesPage = () => {
                   className={inputClass}
                 >
                   <option value="">Seleccionar ruta...</option>
-                  {routes.map(route => (
-                    <option key={route.id_ruta || route.rut_id} value={route.id_ruta || route.rut_id}>
-                      {route.rut_nombre || route.nombre_ruta}
+                  {routes.map((route, idx) => (
+                    <option key={route.id_rutas || route.id_ruta || `r-${idx}`} value={route.id_rutas || route.id_ruta}>
+                      {route.nombre_rutas || route.rut_nombre || route.nombre_ruta}
                     </option>
                   ))}
                 </select>
@@ -134,8 +134,8 @@ export const CreacionViajesPage = () => {
                   className={inputClass}
                 >
                   <option value="">Seleccionar bus...</option>
-                  {buses.map(bus => (
-                    <option key={bus.id_buses || bus.bus_id} value={bus.id_buses || bus.bus_id}>
+                  {buses.map((bus, idx) => (
+                    <option key={bus.id_buses || bus.bus_id || `b-${idx}`} value={bus.id_buses || bus.bus_id}>
                       {bus.disco_buses || bus.codigo_buses} - {bus.placa_buses || ''}
                     </option>
                   ))}

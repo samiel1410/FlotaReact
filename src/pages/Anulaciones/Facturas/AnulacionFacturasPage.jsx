@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import AnulacionFacturasList from './components/AnulacionFacturasList';
 import AnulacionFacturasSearchBar from './components/AnulacionFacturasSearchBar';
+import Swal from 'sweetalert2';
 import {
   getFacturasPendientes,
   anularFacturasSeleccionadas,
@@ -95,10 +96,18 @@ const AnulacionFacturasPage = () => {
 
   const handleAnularSeleccionadas = async () => {
     if (selectedFacturas.length === 0) {
-      alert('Seleccione al menos una factura para anular.');
+      Swal.fire('Info', 'Seleccione al menos una factura para anular.', 'info');
       return;
     }
-    if (window.confirm('¿Está seguro de que desea anular las facturas seleccionadas?')) {
+    const result = await Swal.fire({
+      title: 'Confirmar Anulación',
+      text: '¿Está seguro de que desea anular las facturas seleccionadas?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, anular',
+      cancelButtonText: 'Cancelar'
+    });
+    if (result.isConfirmed) {
       try {
         await anularFacturasSeleccionadas(selectedFacturas);
         fetchFacturas(filters, pagination.currentPage);
@@ -109,7 +118,15 @@ const AnulacionFacturasPage = () => {
   };
 
   const handleAnularTodas = async () => {
-    if (window.confirm('¿Está seguro de que desea anular todas las facturas que cumplen con los filtros actuales?')) {
+    const result2 = await Swal.fire({
+      title: 'Anular Todas',
+      text: '¿Está seguro de que desea anular todas las facturas que cumplen con los filtros actuales?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, anular todas',
+      cancelButtonText: 'Cancelar'
+    });
+    if (result2.isConfirmed) {
       try {
         await anularTodasFacturas(filters);
         fetchFacturas(filters, pagination.currentPage);
@@ -120,7 +137,15 @@ const AnulacionFacturasPage = () => {
   };
 
   const handleCancelarAnulacion = async (id) => {
-    if (window.confirm('¿Está seguro de que desea cancelar la anulación de esta factura?')) {
+    const result3 = await Swal.fire({
+      title: 'Cancelar Anulación',
+      text: '¿Está seguro de que desea cancelar la anulación de esta factura?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, cancelar anulación',
+      cancelButtonText: 'No'
+    });
+    if (result3.isConfirmed) {
       try {
         await cancelarAnulacionFactura(id);
         fetchFacturas(filters, pagination.currentPage);

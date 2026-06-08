@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import { api } from '../../../config/axios';
 import { despachoService } from '../../../services/despacho.service';
 
@@ -93,7 +94,8 @@ export const EditarDespachoModal = ({ despacho, onClose, onSuccess }) => {
   };
 
   const handleQuitarGuia = async (idDetalle) => {
-    if (!window.confirm('¿Está seguro que desea quitar esta guía del despacho?')) return;
+    const confirmQuitar = await Swal.fire({ title: '¿Quitar guía?', text: '¿Está seguro que desea quitar esta guía del despacho?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, quitar', cancelButtonText: 'Cancelar' });
+    if (!confirmQuitar.isConfirmed) return;
     try {
       const res = await despachoService.eliminar({
         id_despacho_detalle: idDetalle,

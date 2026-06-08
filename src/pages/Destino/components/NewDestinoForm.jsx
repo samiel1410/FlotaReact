@@ -3,7 +3,6 @@ import { useForm } from 'react-hook-form';
 import { api } from '../../../config/axios';
 import toast from 'react-hot-toast';
 import CompaniaSelect from '../../../components/common/CompaniaSelect';
-import CiudadSelect from '../../../components/common/CiudadSelect';
 
 const NewDestinoForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
@@ -12,6 +11,68 @@ const NewDestinoForm = ({ initialData, onSubmit, onCancel }) => {
 
   const watchLugar = watch('lugar_destino');
   const watchCompania = watch('idfk_compania_asociada_destino');
+
+  // ── Estado para Provincia → Ciudades ─────────────────
+  const [provincias, setProvincias] = useState([]);
+  const [cantones, setCantones] = useState([]);
+  const [selectedProvincia, setSelectedProvincia] = useState('');
+  const [loadingCantones, setLoadingCantones] = useState(false);
+
+  // Cargar provincias al montar
+  useEffect(() => {
+    const fetchProvincias = async () => {
+      try {
+        const res = await api.get('/locacion/seleccionarProvincia');
+        const data = res?.data?.data || res?.data || [];
+        setProvincias(data);
+      } catch (e) {
+        console.error('Error cargando provincias:', e);
+      }
+    };
+    fetchProvincias();
+  }, []);
+
+  // Cargar cantones cuando cambia la provincia
+  useEffect(() => {
+    if (!selectedProvincia) {
+      setCantones([]);
+      setValue('lugar_destino', '');
+      return;
+    }
+    const fetchCantones = async () => {
+      setLoadingCantones(true);
+      try {
+        const res = await api.get('/canton/cantonSeleccionarCombo', {
+          params: { id_provincia: selectedProvincia }
+        });
+        const data = res?.data?.data || res?.data || [];
+        // Ordenar alfabéticamente por nombre
+        const ordenados = [...data].sort((a, b) => {
+          const nombreA = (a.nombre_canton || a.nombre || '').toLowerCase();
+          const nombreB = (b.nombre_canton || b.nombre || '').toLowerCase();
+          return nombreA.localeCompare(nombreB);
+        });
+        setCantones(ordenados);
+        setValue('lugar_destino', '');
+      } catch (e) {
+        console.error('Error cargando cantones:', e);
+        setCantones([]);
+      } finally {
+        setLoadingCantones(false);
+      }
+    };
+    fetchCantones();
+  }, [selectedProvincia, setValue]);
+
+  // Al editar, si ya hay lugar_destino, cargar todas las ciudades
+  useEffect(() => {
+    if (initialData?.lugar_destino && provincias.length > 0 && !selectedProvincia) {
+      api.get('/locacion/seleccionarCiudad').then(r => {
+        const todas = r?.data?.data || [];
+        setCantones(todas);
+      }).catch(() => {});
+    }
+  }, [initialData, provincias, selectedProvincia]);
 
   useEffect(() => {
     if (initialData) {
@@ -82,17 +143,66 @@ const NewDestinoForm = ({ initialData, onSubmit, onCancel }) => {
             {errors.nombre_destino && <p className="mt-1 text-xs text-rose-500 font-medium">{errors.nombre_destino.message}</p>}
           </div>
 
+          {/* Provincia */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+              Provincia <span className="text-rose-500">*</span>
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i className="fas fa-map text-slate-400"></i>
+              </div>
+              <select
+                value={selectedProvincia}
+                onChange={(e) => setSelectedProvincia(e.target.value)}
+                className={`w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-lg text-sm focus:ring-2 focus:outline-none transition-all ${
+                  errors.lugar_destino ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-400'
+                }`}
+              >
+                <option value="">Seleccione una provincia...</option>
+                {provincias.map((p) => (
+                  <option key={p.id_provincia || p.id || p.value} value={p.id_provincia || p.id || p.value}>
+                    {p.nombre_provincia || p.nombre || p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           {/* Ciudad */}
           <div>
             <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
               Ciudad <span className="text-rose-500">*</span>
             </label>
-            <CiudadSelect
-              value={watchLugar}
-              onChange={(e) => setValue('lugar_destino', e.target.value)}
-              name="lugar_destino"
-              label=""
-            />
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i className="fas fa-city text-slate-400"></i>
+              </div>
+              <select
+                value={watchLugar || ''}
+                onChange={(e) => setValue('lugar_destino', e.target.value)}
+                disabled={!selectedProvincia || loadingCantones}
+                className={`w-full pl-10 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:outline-none transition-all ${
+                  !selectedProvincia ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50'
+                } ${
+                  errors.lugar_destino ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-400'
+                }`}
+              >
+                <option value="">
+                  {loadingCantones
+                    ? 'Cargando ciudades...'
+                    : selectedProvincia
+                      ? 'Seleccione una ciudad...'
+                      : 'Primero seleccione una provincia'
+                  }
+                </option>
+                {cantones.map((c) => (
+                  <option key={c.id_canton || c.id || c.value} value={c.nombre_canton || c.nombre || c.label}>
+                    {c.nombre_canton || c.nombre || c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
             {(!watchLugar && errors.lugar_destino) && <p className="mt-1 text-xs text-rose-500 font-medium">Debe seleccionar una ciudad.</p>}
           </div>
 

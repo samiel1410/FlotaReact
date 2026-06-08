@@ -6,7 +6,7 @@ const IVA_RATE = 0.12;
  * Grid de detalles de carga - Equivalente al Ext.grid.Panel de NuevaGuia.js
  * Columnas: CANT | TIPO ENVÍO | CONTENIDO | PESO | Precio Unit | Subtotal | Descuento | Tarifa | IVA | Total
  */
-export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlobalChange, costoEnvioPorDefecto, tiposEnvio = [], tipoEnvioId, isEditing = false }) => {
+export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlobalChange, costoEnvioPorDefecto, tiposEnvio = [], tipoEnvioId, isEditing = false, error }) => {
   const [nuevo, setNuevo] = useState({
     cantidad: 1,
     tipoEnvioId: tipoEnvioId || '',
@@ -122,7 +122,7 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
       )}
 
       {/* Tabla de detalle */}
-      <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden' }}>
+      <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', outline: error ? '2px solid #ef4444' : undefined, outlineOffset: '-1px' }}>
         <table className="guias-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
           <thead>
             <tr style={{ background: '#f1f5f9' }}>

@@ -4,7 +4,7 @@ const ViajesService = {
   // ─── COMBOS ──────────────────────────────────────────────────────────────
   getRoutes: async () => {
     try {
-      const response = await api.get('/rutas/read_combo');
+      const response = await api.get('/rutas/rutasSeleccionCombo');
       return { success: true, data: response.data?.data || response.data || [] };
     } catch (error) {
       console.error('Error fetching routes:', error);
@@ -14,7 +14,7 @@ const ViajesService = {
 
   getBuses: async () => {
     try {
-      const response = await api.get('/buses/read_combo');
+      const response = await api.get('/buses/seleccionarBusesCombo');
       return { success: true, data: response.data?.data || response.data || [] };
     } catch (error) {
       console.error('Error fetching buses:', error);
@@ -24,7 +24,7 @@ const ViajesService = {
 
   getPersonal: async (params = {}) => {
     try {
-      const response = await api.get('/personal/listar', { params });
+      const response = await api.get('/personal/personalSelectCombo', { params });
       return { success: true, data: response.data?.data || response.data || [] };
     } catch (error) {
       console.error('Error fetching personal:', error);

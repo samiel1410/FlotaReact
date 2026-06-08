@@ -7,6 +7,10 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
   const [loading, setLoading] = useState(false);
   const [ciudades, setCiudades] = useState([]);
+  // ── Estado para Provincia → Ciudades ─────────────────
+  const [provincias, setProvincias] = useState([]);
+  const [selectedProvincia, setSelectedProvincia] = useState('');
+  const [loadingCantones, setLoadingCantones] = useState(false);
 
   // Normalizador de estado para asegurar '1' o '0'
   const normalizeStatus = (val) => {
@@ -34,15 +38,56 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
   const tienePuntoEmision = watch('tiene_punto_emision');
   const tieneEncomiendas = watch('tiene_encomiendas');
 
+  // Cargar provincias al montar
+  useEffect(() => {
+    const fetchProvincias = async () => {
+      try {
+        const res = await api.get('/locacion/seleccionarProvincia');
+        const data = res?.data?.data || res?.data || [];
+        setProvincias(data);
+      } catch (e) {
+        console.error('Error cargando provincias:', e);
+      }
+    };
+    fetchProvincias();
+  }, []);
+
+  // Cargar cantones cuando cambia la provincia
+  useEffect(() => {
+    if (!selectedProvincia) {
+      setCiudades([]);
+      setValue('ciudad_sucursal', '');
+      return;
+    }
+    const fetchCantones = async () => {
+      setLoadingCantones(true);
+      try {
+        const res = await api.get('/canton/cantonSeleccionarCombo', {
+          params: { id_provincia: selectedProvincia }
+        });
+        const data = res?.data?.data || res?.data || [];
+        // Ordenar alfabéticamente por nombre
+        const ordenados = [...data].sort((a, b) => {
+          const nombreA = (a.nombre_canton || a.nombre || '').toLowerCase();
+          const nombreB = (b.nombre_canton || b.nombre || '').toLowerCase();
+          return nombreA.localeCompare(nombreB);
+        });
+        setCiudades(ordenados);
+        setValue('ciudad_sucursal', '');
+      } catch (e) {
+        console.error('Error cargando cantones:', e);
+        setCiudades([]);
+      } finally {
+        setLoadingCantones(false);
+      }
+    };
+    fetchCantones();
+  }, [selectedProvincia, setValue]);
+
   useEffect(() => {
     const loadData = async () => {
       try {
-        // 1. Cargar ciudades (usamos la versión no paginada para combos)
-        const res = await api.get('/locacion/seleccionarCiudad');
-        const dataCiudades = res.data.data || [];
-        setCiudades(dataCiudades);
-
-        // 2. Si es edición, resetear el formulario con los datos mapeados
+        // 1. Si es edición, resetear el formulario con los datos mapeados
         if (isEditing) {
           reset({
             ...initialData,
@@ -53,6 +98,10 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
             punto_emision_sucursal: initialData.punto_emision_sucursal || '',
             punto_emision_boleteria_sucursal: initialData.punto_emision_boleteria_sucursal || '',
           });
+          // Cargar todas las ciudades para edición (fallback)
+          const res = await api.get('/locacion/seleccionarCiudad');
+          const dataCiudades = res.data.data || [];
+          setCiudades(dataCiudades);
         } else {
           // Si es nuevo, cargar RUC de empresa
           const resEmpresa = await api.get('/empresa/selectempresa');
@@ -115,16 +164,45 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
           {errors.nombre_sucursal && <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.nombre_sucursal.message}</span>}
         </div>
 
+        {/* Provincia */}
+        <div>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Provincia</label>
+          <select
+            value={selectedProvincia}
+            onChange={(e) => setSelectedProvincia(e.target.value)}
+            className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50"
+          >
+            <option value="">Seleccione una provincia...</option>
+            {provincias.map(p => (
+              <option key={p.id_provincia || p.id || p.value} value={p.id_provincia || p.id || p.value}>
+                {p.nombre_provincia || p.nombre || p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Ciudad */}
         <div>
           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ciudad</label>
           <select 
             {...register('ciudad_sucursal', { required: 'La ciudad es requerida' })} 
-            className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50"
+            disabled={!selectedProvincia || loadingCantones}
+            className={`w-full h-10 px-3 text-xs font-bold border rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none ${
+              !selectedProvincia ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50'
+            }`}
           >
-            <option value="">Seleccionar Ciudad</option>
+            <option value="">
+              {loadingCantones
+                ? 'Cargando ciudades...'
+                : selectedProvincia
+                  ? 'Seleccione una ciudad...'
+                  : 'Primero seleccione una provincia'
+              }
+            </option>
             {ciudades.map(c => (
-              <option key={c.id_canton} value={c.nombre_canton}>{c.nombre_canton}</option>
+              <option key={c.id_canton || c.id || c.value} value={c.nombre_canton || c.nombre || c.label}>
+                {c.nombre_canton || c.nombre || c.label}
+              </option>
             ))}
           </select>
           {errors.ciudad_sucursal && <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.ciudad_sucursal.message}</span>}

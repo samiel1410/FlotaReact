@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import toast from 'react-hot-toast';
 
 export default function MotivoModal({ isOpen, onClose, onConfirm, title, confirmText = 'Confirmar' }) {
   const [motivo, setMotivo] = useState('');
@@ -7,7 +8,7 @@ export default function MotivoModal({ isOpen, onClose, onConfirm, title, confirm
 
   const handleConfirm = () => {
     if (!motivo.trim()) {
-      alert('Debe ingresar un motivo');
+      toast.error('Debe ingresar un motivo');
       return;
     }
     onConfirm(motivo);

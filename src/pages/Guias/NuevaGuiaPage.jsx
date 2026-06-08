@@ -12,6 +12,7 @@ import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import { GuiaService } from '../../services/guia.service';
 import { facturaService } from '../../services/factura.service';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 
 /**
  * NuevaGuiaPage - Equivalente COMPLETO a NuevaGuia.js del ExtJS (2137 líneas)
@@ -38,6 +39,9 @@ export const NuevaGuiaPage = () => {
   // ── Loading ──────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // ── Field errors (rojo) ──────────────────────────────
+  const [fieldErrors, setFieldErrors] = useState({});
 
   // ── Edición ──────────────────────────────────────────
   const location = useLocation();
@@ -458,18 +462,42 @@ export const NuevaGuiaPage = () => {
       telefono2: data.telefono2_cliente_receptor || data.telefono2 || ''
     };
     if (clienteData.nombres) {
-      setDestinatario(clienteData);
+      handleSetDestinatario(clienteData);
       toast.success('Destinatario autocompletado del último envío');
     }
   };
+
+  // ── Wrappers para limpiar errores al cambiar campos ──
+  const handleSetRemitente = (data) => { setRemitente(data); setFieldErrors(prev => ({...prev, remitente: undefined})); };
+  const handleSetDestinatario = (data) => { setDestinatario(data); setFieldErrors(prev => ({...prev, destinatario: undefined})); };
+  const handleSetCompania = (data) => { setCompania(data); setFieldErrors(prev => ({...prev, compania: undefined})); };
+  const handleSetDestino = (id, texto) => { setDestino(id); setDestinoTexto(texto); setFieldErrors(prev => ({...prev, destino: undefined})); };
+  const handleSetTipoEnvio = (val) => { setTipoEnvio(val); setFieldErrors(prev => ({...prev, tipoEnvio: undefined})); };
+  const handleSetDetalles = (data) => { setDetalles(data); setFieldErrors(prev => ({...prev, detalles: undefined})); };
 
   const bandera = parseInt(facturarA) || 1; // 1=Remitente, 2=Destinatario, 3=Otros
   const canceladopor = pagadoPor === '1' ? 0 : 1; // 0=Remitente, 1=Destinatario
 
   // ── Handler Guardar ──────────────────────────────────
   const handleGuardar = async () => {
-    // Confirmación (ExtJS behavior)
-    if (!window.confirm('¿Está seguro de guardar la guía?')) return;
+    // ── Validaciones completas con errores en rojo ANTES de confirmación ──
+    const errors = {};
+    if (!remitente || !remitente.cedula || !remitente.nombres) errors.remitente = true;
+    if (!destinatario || !destinatario.cedula || !destinatario.nombres) errors.destinatario = true;
+    if (!origen) errors.origen = true;
+    if (!destino || !destinoTexto) errors.destino = true;
+    if (!compania) errors.compania = true;
+    if (!tipoEnvio) errors.tipoEnvio = true;
+    if (detalles.length === 0) errors.detalles = true;
+    const detalleInvalido = detalles.find(d => !d.contenido || (parseFloat(d.precioUnitario) <= 0 && parseFloat(d.subtotal) <= 0));
+    if (detalleInvalido) errors.detalles = true;
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      toast.error('Complete los campos marcados en rojo antes de guardar');
+      return;
+    }
+    setFieldErrors({});
 
     // Validar caja aperturada (ExtJS: validarcaja antes de guardar)
     const cajaId = localCajaId || user?.id_caja_global || user?.id_caja;
@@ -478,12 +506,9 @@ export const NuevaGuiaPage = () => {
       return;
     }
 
-    // Validaciones (replicando ExtJS: beforeinsertarguia)
-    if (!remitente) { toast.error('Debe ingresar los datos del Remitente'); return; }
-    if (!destinatario) { toast.error('Debe ingresar los datos del Destinatario'); return; }
-    if (!origen) { toast.error('Debe seleccionar el Origen'); return; }
-    if (!destino) { toast.error('Debe seleccionar el Destino'); return; }
-    if (detalles.length === 0) { toast.error('Debe agregar al menos un bulto al detalle'); return; }
+    // Confirmación (ExtJS behavior)
+    const confirmGuardar = await Swal.fire({ title: '¿Guardar guía?', text: '¿Está seguro de guardar la guía?', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar' });
+    if (!confirmGuardar.isConfirmed) return;
 
     // Calcular totales
     const totalSubtotal = detalles.reduce((sum, d) => sum + (d.subtotal || 0), 0);
@@ -690,6 +715,7 @@ export const NuevaGuiaPage = () => {
 
   // ── Reset form for next guía ─────────────────────────
   const handleResetForm = () => {
+    setFieldErrors({});
     setOrigen(user?.nombre_canton || user?.canton || '');
     setDestino('');
     setDestinoTexto('');
@@ -719,10 +745,11 @@ export const NuevaGuiaPage = () => {
   };
 
   // ── Handler Cancelar (confirmación como ExtJS) ────────
-  const handleCancelar = () => {
+  const handleCancelar = async () => {
     const hasChanges = remitente || destinatario || detalles.length > 0 || observacion;
     if (hasChanges) {
-      if (!window.confirm('¿Desea cancelar la guía? Se perderán los cambios.')) return;
+      const confirmCancel = await Swal.fire({ title: '¿Cancelar?', text: '¿Desea cancelar la guía? Se perderán los cambios.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, cancelar', cancelButtonText: 'No' });
+      if (!confirmCancel.isConfirmed) return;
     }
     navigate('/guias');
   };
@@ -782,17 +809,18 @@ export const NuevaGuiaPage = () => {
               {/* Origen = nombre_canton del usuario (read-only, NO sucursal) */}
               <div>
                 <label className={labelClass}>Origen *</label>
-                <input type="text" className={inputRO} readOnly value={origen} placeholder="Cargando..." />
+                <input type="text" className={fieldErrors.origen ? `${inputRO} border-2 border-red-400 ring-2 ring-red-200` : inputRO} readOnly value={origen} placeholder="Cargando..." />
               </div>
               {/* Destino (autocomplete escribible) */}
               <div style={{ position: 'relative' }}>
                 <label className={labelClass}>Destino *</label>
                 <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                  <input type="text" className={inputClass} style={{ flex: 1 }}
+                  <input type="text" className={fieldErrors.destino ? `${inputClass} border-2 border-red-400` : inputClass} style={{ flex: 1 }}
                     value={destinoTexto}
                     onChange={(e) => {
                       const val = e.target.value;
                       setDestinoTexto(val);
+                      setFieldErrors(prev => ({...prev, destino: undefined}));
                       const filtrados = destinos.filter(d => (d.nombre || d.nombre_destino || '').toLowerCase().includes(val.toLowerCase()));
                       if (filtrados.length > 0) {
                         const primero = filtrados[0];
@@ -807,8 +835,7 @@ export const NuevaGuiaPage = () => {
                       const filtrados = destinos.filter(d => (d.nombre || d.nombre_destino || '').toLowerCase().includes(destinoTexto.toLowerCase()));
                       if (filtrados.length > 0) {
                         const primero = filtrados[0];
-                        setDestino(String(primero.id || primero.id_destino));
-                        setDestinoTexto(primero.nombre || primero.nombre_destino || '');
+                        handleSetDestino(String(primero.id || primero.id_destino), primero.nombre || primero.nombre_destino || '');
                       }
                     }}
                     onKeyDown={(e) => {
@@ -817,8 +844,7 @@ export const NuevaGuiaPage = () => {
                         const filtrados = destinos.filter(d => (d.nombre || d.nombre_destino || '').toLowerCase().includes(destinoTexto.toLowerCase()));
                         if (filtrados.length > 0) {
                           const primero = filtrados[0];
-                          setDestino(String(primero.id || primero.id_destino));
-                          setDestinoTexto(primero.nombre || primero.nombre_destino || '');
+                          handleSetDestino(String(primero.id || primero.id_destino), primero.nombre || primero.nombre_destino || '');
                         }
                         setDestinoAbierto(false);
                       }
@@ -846,8 +872,7 @@ export const NuevaGuiaPage = () => {
                       <div key={d.id || d.id_destino}
                         onMouseDown={() => {
                           const nombre = d.nombre || d.nombre_destino || '';
-                          setDestino(String(d.id || d.id_destino));
-                          setDestinoTexto(nombre);
+                          handleSetDestino(String(d.id || d.id_destino), nombre);
                           setDestinoAbierto(false);
                         }}
                         style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', borderBottom: '1px solid #f1f5f9', transition: 'background 0.1s' }}
@@ -889,7 +914,8 @@ export const NuevaGuiaPage = () => {
           <CompaniaPanel 
             cliente={remitente} 
             compania={compania}
-            onSeleccionarCompania={setCompania}
+            onSeleccionarCompania={handleSetCompania}
+            error={fieldErrors.compania}
           />
         </div>
 
@@ -901,15 +927,17 @@ export const NuevaGuiaPage = () => {
           <RemitenteDestinatarioForm 
             tipo="Remitente"
             cliente={remitente}
-            onChange={setRemitente}
+            onChange={handleSetRemitente}
             onConvenioFound={handleConvenioFound}
             onDestinatarioAutoFill={handleDestinatarioAutoFill}
+            error={fieldErrors.remitente}
           />
           <RemitenteDestinatarioForm 
             tipo="Destinatario"
             cliente={destinatario}
-            onChange={setDestinatario}
+            onChange={handleSetDestinatario}
             remitenteId={remitente?.id_cliente}
+            error={fieldErrors.destinatario}
           />
           
           {/* ── OTROS (tercera persona) ──────────────────── */}
@@ -1052,9 +1080,9 @@ export const NuevaGuiaPage = () => {
             {/* Tipo de Envío - dentro de ENCOMIENDA como en ExtJS */}
             <div style={{ marginBottom: '10px' }}>
               <label className={labelClass}>Tipo de Envío *</label>
-              <select className={inputClass} value={tipoEnvio} onChange={(e) => {
+              <select className={fieldErrors.tipoEnvio ? `${inputClass} border-2 border-red-400` : inputClass} value={tipoEnvio} onChange={(e) => {
                 const val = e.target.value;
-                setTipoEnvio(val);
+                handleSetTipoEnvio(val);
                 const obj = tiposEnvio.find(t => String(t.id || t.value) === val);
                 setSelectedTipoEnvioObj(obj || null);
               }}>
@@ -1068,11 +1096,12 @@ export const NuevaGuiaPage = () => {
             </div>
             <DetalleCargaGrid 
               detalles={detalles} 
-              onChange={setDetalles}
+              onChange={handleSetDetalles}
               convenio={convenio}
               costoEnvioPorDefecto={selectedTipoEnvioObj?.costo_envio}
               tiposEnvio={tiposEnvio}
               tipoEnvioId={tipoEnvio}
+              error={fieldErrors.detalles}
             />
 
             {/* ── Número Manual ──────────────────────────── */}

@@ -3,6 +3,7 @@ import FormaPagoList from './components/FormaPagoList';
 import FormaPagoSearchBar from './components/FormaPagoSearchBar';
 import NewFormaPagoForm from './components/NewFormaPagoForm';
 import Modal from '../../components/common/Modal';
+import Swal from 'sweetalert2';
 import { getFormasPago, createFormaPago, updateFormaPago, deleteFormaPago } from '../../services/formapago.service';
 
 const FormaPagoPage = () => {
@@ -65,7 +66,15 @@ const FormaPagoPage = () => {
   };
 
   const handleDeleteFormaPago = async (id) => {
-    if (window.confirm('¿Está seguro de que desea eliminar esta forma de pago?')) {
+    const result = await Swal.fire({
+      title: 'Confirmar',
+      text: '¿Está seguro de que desea eliminar esta forma de pago?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar'
+    });
+    if (result.isConfirmed) {
       try {
         await deleteFormaPago(id);
         fetchFormasPago(filters, pagination.currentPage);

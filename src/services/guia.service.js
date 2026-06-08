@@ -1,4 +1,5 @@
 import { api, clienteApi } from '../config/axios';
+import { CONFIG } from '../config/env';
 
 /**
  * Servicio para interactuar con el backend de Guías
@@ -83,7 +84,7 @@ export const GuiaService = {
 
     // Fallback: construir URL hacia el script PHP para impresión directa
     try {
-      const phpUrl = `${window.location.origin}/php/guiaPdfImpresion.php?id_guia=${encodeURIComponent(idGuia)}`;
+      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(idGuia)}`;
       return { url: phpUrl };
     } catch (err) {
       console.error('Error creando URL de impresión PHP', err);
@@ -112,7 +113,7 @@ export const GuiaService = {
 
     // Fallback: intentar los scripts PHP que generan el PDF (ruta relativa al frontend)
     try {
-      const phpUrl = `${window.location.origin}/php/guiaPdf.php?id_guia=${encodeURIComponent(idGuia)}`;
+      const phpUrl = `${CONFIG.PHP_URL}/guiaPdf.php?id_guia=${encodeURIComponent(idGuia)}`;
       const r = await fetch(phpUrl, { credentials: 'same-origin' });
       if (!r.ok) throw new Error('PHP PDF generator returned non-OK');
       const blob = await r.blob();
@@ -159,7 +160,7 @@ export const GuiaService = {
 
   // ── Provincias ─────────────────────────────────────────
   getProvinciasCombo: async () => {
-    const response = await api.get('/provincia/provinciaSeleccionarCombo');
+    const response = await api.get('/locacion/seleccionarProvincia');
     return response.data;
   },
 

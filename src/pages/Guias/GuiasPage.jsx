@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { GuiasFilterPanel } from './components/GuiasFilterPanel';
 import { GuiasGrid } from './components/GuiasGrid';
 import { GuiaService } from '../../services/guia.service';
+import { CONFIG } from '../../config/env';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import './GuiasPage.css';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { CobrarFacturaModal } from './components/CobrarFacturaModal';
@@ -81,7 +83,7 @@ export const GuiasPage = () => {
   // Action handlers for grid row actions
   const handleViewPdf = (item) => {
     // Abre directamente el PHP que genera el PDF (ya probado y funcionando en 200)
-    const url = `/php/guiaPdf.php?id_guia=${encodeURIComponent(item.id_guia)}`;
+    const url = `${CONFIG.PHP_URL}/guiaPdf.php?id_guia=${encodeURIComponent(item.id_guia)}`;
     setPdfTitle(`Guía ${item.numero_guia_final || item.id_guia}`);
     setPdfUrl(url);
     setPdfShouldShowPrint(false);
@@ -100,13 +102,13 @@ export const GuiasPage = () => {
     setPrintSelectorOpen(false);
     try {
       const idUsuario = user?.id_usuario || 0;
-      const phpUrl = `/php/guiaPdfImpresion.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
+      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
       const res = await fetch(phpUrl, { credentials: 'include' });
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
       const data = await res.json();
       if (!data.success || !data.ruta) { toast.error(data.error || 'Error generando PDF'); return; }
       setPdfTitle(`Imprimir Guía ${item.numero_guia_final || item.id_guia}`);
-      setPdfUrl(`/php/tmp/${data.ruta}`);
+      setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}`);
       setPdfShouldShowPrint(true);
       setPdfModalOpen(true);
     } catch (err) {
@@ -120,13 +122,13 @@ export const GuiasPage = () => {
     const item = selectedPrintItem;
     setPrintSelectorOpen(false);
     try {
-      const phpUrl = `/php/qrPdf.php?id_guia=${encodeURIComponent(item.id_guia)}`;
+      const phpUrl = `${CONFIG.PHP_URL}/qrPdf.php?id_guia=${encodeURIComponent(item.id_guia)}`;
       const res = await fetch(phpUrl, { credentials: 'include' });
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
       const data = await res.json();
       if (!data.success || !data.ruta) { toast.error(data.error || 'Error generando QR'); return; }
       setPdfTitle(`QR Guía ${item.numero_guia_final || item.id_guia}`);
-      setPdfUrl(`/php/tmp/${data.ruta}`);
+      setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}`);
       setPdfShouldShowPrint(true);
       setPdfModalOpen(true);
     } catch (err) {
@@ -211,7 +213,8 @@ export const GuiasPage = () => {
       }
       
       // 3. Confirmar con el usuario
-      if (!window.confirm('¿Seguro desea facturar esta guía?\n' + item.numero_guia_final)) return;
+      const confirmFacturar = await Swal.fire({ title: '¿Facturar guía?', text: `¿Seguro desea facturar la guía ${item.numero_guia_final}?`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, facturar', cancelButtonText: 'Cancelar' });
+      if (!confirmFacturar.isConfirmed) return;
       
       const r = await GuiaService.facturarGuia(item.id_guia);
       if (r && r.success) {
@@ -268,7 +271,7 @@ export const GuiasPage = () => {
 
         // Proceder con anulación si no tiene factura o si ExtJS lo permitía
         if (rol === 1 || rol === 4 || rol === 5) {
-          const motivo = window.prompt('Motivo de anulación para la guía ' + item.numero_guia_final + ':');
+          const { value: motivo } = await Swal.fire({ title: 'Motivo de anulación', input: 'text', inputLabel: 'Motivo de anulación para la guía ' + item.numero_guia_final + ':', showCancelButton: true, confirmButtonText: 'Anular', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
           if (!motivo) return;
 
           let r;
@@ -296,7 +299,7 @@ export const GuiasPage = () => {
              return;
           }
           
-          const motivo = window.prompt('Motivo de anulación para la guía pendiente ' + item.numero_guia_final + ':');
+          const { value: motivo } = await Swal.fire({ title: 'Motivo de anulación', input: 'text', inputLabel: 'Motivo de anulación para la guía pendiente ' + item.numero_guia_final + ':', showCancelButton: true, confirmButtonText: 'Anular', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
           if (!motivo) return;
 
           const r = await GuiaService.anularAdministrador(item.id_guia, idUsuario, motivo);
@@ -361,9 +364,11 @@ export const GuiasPage = () => {
 
   const handleAnularSeleccionadas = async () => {
     // ExtJS: onAnularSeleccionadas → abre modal AnulacionSeleccionadas
-    const motivo = window.prompt('Ingrese el motivo de anulación para las guías seleccionadas:');
-    if (!motivo) return;
-    if (!window.confirm('¿Seguro que desea anular las guías seleccionadas?')) return;
+    const { value: motivoSeleccionadas } = await Swal.fire({ title: 'Motivo de anulación', input: 'text', inputLabel: 'Ingrese el motivo de anulación para las guías seleccionadas:', showCancelButton: true, confirmButtonText: 'Siguiente', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
+    if (!motivoSeleccionadas) return;
+    const confirmAnularSel = await Swal.fire({ title: '¿Anular guías seleccionadas?', text: '¿Seguro que desea anular las guías seleccionadas?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar' });
+    if (!confirmAnularSel.isConfirmed) return;
+    const motivo = motivoSeleccionadas;
     try {
       const ids = guias.filter(g => g.estado_guia !== 2).map(g => g.id_guia);
       if (ids.length === 0) {
@@ -388,9 +393,11 @@ export const GuiasPage = () => {
 
   const handleAnularPendientes = async () => {
     // ExtJS: onAnularGuiasPendientesPantalla → onbtnAnularTodasGuias
-    const motivo = window.prompt('Motivo de anulación para todas las guías pendientes:');
-    if (!motivo) return;
-    if (!window.confirm('¿Seguro que desea anular todas las guías pendientes?')) return;
+    const { value: motivoPendientes } = await Swal.fire({ title: 'Motivo de anulación', input: 'text', inputLabel: 'Motivo de anulación para todas las guías pendientes:', showCancelButton: true, confirmButtonText: 'Siguiente', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
+    if (!motivoPendientes) return;
+    const confirmAnularPend = await Swal.fire({ title: '¿Anular todas las guías pendientes?', text: '¿Seguro que desea anular todas las guías pendientes?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar' });
+    if (!confirmAnularPend.isConfirmed) return;
+    const motivo = motivoPendientes;
     try {
       const idUsuario = user?.id_usuario || 0;
       const r = await GuiaService.anularGuiasTodas(idUsuario, motivo);
