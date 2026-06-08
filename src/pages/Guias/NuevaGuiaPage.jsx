@@ -1090,7 +1090,7 @@ export const NuevaGuiaPage = () => {
             </div>
 
             {/* ── Valor Declarado ────────────────────────── */}
-            <div style={{ display: 'none', marginTop: '10px', padding: '10px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+            <div style={{ marginTop: '10px', padding: '10px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <label style={{ fontSize: '10px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'block' }}>
                 Valor Declarado
               </label>
