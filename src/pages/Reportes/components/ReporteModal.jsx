@@ -180,7 +180,7 @@ const ReporteModal = ({ reporte, onClose }) => {
   useEffect(() => {
     const tipo = reporte?.tipo;
     const needed = [];
-    if (['guias', 'guias_pdf', 'facturas', 'comprobantes'].includes(tipo)) needed.push('sucursales', 'usuarios');
+    if (['guias', 'guias_pdf', 'facturas', 'comprobantes', 'boletos_oficina','guias_entregadas','egresos_ingresos'].includes(tipo)) needed.push('sucursales', 'usuarios');
     if (tipo === 'guias_asociados') needed.push('companias');
     if (tipo === 'comprobantes') needed.push('formasPago');
     if (tipo === 'guias_despacho') needed.push('buses', 'personal');
@@ -202,6 +202,9 @@ const ReporteModal = ({ reporte, onClose }) => {
         'guias_pdf': 'guias_pdf',
         'comprobantes': 'comprobantes_pdf',
         'guias_despacho': 'despacho_pdf',
+        'boletos_oficina': 'reporteguias',
+        'guias_entregadas': 'guias_entregadas',
+        'egresos_ingresos': 'egresos_ingresos',
       };
       const tipoCola = TIPO_COLA[reporte.tipo];
 
@@ -246,7 +249,7 @@ const ReporteModal = ({ reporte, onClose }) => {
         // Reporte PDF/HTML → mostrar previsualización
         setPreview({ html: result.html, title: reporte.title });
         toast.success(`Reporte generado: ${result.total || 0} registros`, { id: toastId });
-      } else if (result?.data && (reporte.tipo === 'guias' || reporte.tipo === 'guias_asociados')) {
+      } else if (result?.data && (reporte.tipo === 'guias' || reporte.tipo === 'guias_asociados' || reporte.tipo === 'boletos_oficina')) {
         // Reporte Excel → descargar via api.get() con token JWT (no navegación directa)
         const p = new URLSearchParams();
         const appendRaw = (key, field, opts, vk = 'id') => {
@@ -256,8 +259,8 @@ const ReporteModal = ({ reporte, onClose }) => {
         };
 
         let endpoint;
-        if (reporte.tipo === 'guias') {
-          endpoint = '/reportes/reporteguias';
+        if (reporte.tipo === 'guias' || reporte.tipo === 'boletos_oficina') {
+          endpoint = reporte.tipo === 'boletos_oficina' ? '/reportes/reporteboletosoficina' : '/reportes/reporteguias';
           p.append('idsucursal', filters.sucursal || '0');
           p.append('idusuario', filters.usuario || '0');
           p.append('mes', filters.mes);
@@ -292,7 +295,7 @@ const ReporteModal = ({ reporte, onClose }) => {
           const blobUrl = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = blobUrl;
-          a.download = reporte.tipo === 'guias' ? 'reporte_guias.xls' : 'reporte_guias_asociados.xls';
+          a.download = reporte.tipo === 'guias' ? 'reporte_guias.xls' : reporte.tipo === 'boletos_oficina' ? 'reporte_boletos_oficina.xls' : 'reporte_guias_asociados.xls';
           document.body.appendChild(a);
           a.click();
           document.body.removeChild(a);
@@ -401,8 +404,8 @@ const ReporteModal = ({ reporte, onClose }) => {
 
         {/* Formulario */}
         <div className="flex-1 overflow-auto p-6 space-y-4">
-          {/* Guías (Excel y PDF), Facturas, Comprobantes: Sucursal + Usuario */}
-          {['guias', 'guias_pdf', 'facturas', 'comprobantes'].includes(reporte.tipo) && (
+          {/* Guías (Excel y PDF), Facturas, Comprobantes, Boletos Oficina, Guías Entregadas, Egresos/Ingresos: Sucursal + Usuario */}
+          {['guias', 'guias_pdf', 'facturas', 'comprobantes', 'boletos_oficina', 'guias_entregadas', 'egresos_ingresos'].includes(reporte.tipo) && (
             <>
               <SelectField label="Sucursal" value={filters.sucursal}
                 onChange={e => setFilters(f => ({ ...f, sucursal: e.target.value }))}
