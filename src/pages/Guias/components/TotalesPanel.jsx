@@ -38,6 +38,7 @@ export const TotalesPanel = ({ detalles, descuentoTipo, onDescuentoChange }) => 
 
   return (
     <div style={{ 
+      display: 'none',
       background: 'white', 
       borderRadius: '12px', 
       padding: '16px',
