@@ -1,0 +1,11 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Redirigir la raíz a la carpeta dist/
+    RewriteRule ^$ dist/ [L]
+
+    # Redirigir cualquier otra solicitud a la carpeta dist/ si no existe como archivo o directorio en la raíz
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ dist/$1 [L]
+</IfModule>
