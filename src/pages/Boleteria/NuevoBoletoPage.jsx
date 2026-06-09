@@ -1271,43 +1271,61 @@ export const NuevoBoletoPage = () => {
         borderTop: '1px solid #ddd',
         padding: '6px 16px',
         display: 'flex',
-        justifyContent: 'flex-end',
+        justifyContent: 'space-between',
         alignItems: 'center',
         gap: 10,
         boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
         zIndex: 1000
       }}>
-        <button
-          onClick={confirmarGuardar}
-          disabled={isSubmitting}
-          style={{
-            background: 'linear-gradient(to right, #035f2c, #0a7f3f)',
-            color: 'white', fontWeight: 'bold', fontSize: 12,
-            border: 'none', borderRadius: 5, padding: '8px 20px',
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-            boxShadow: '0 3px 6px rgba(0,0,0,0.15)',
-            display: 'flex', alignItems: 'center', gap: 6, opacity: isSubmitting ? 0.7 : 1
-          }}
-        >
-          {isSubmitting ? (
-            <><i className="fas fa-spinner fa-spin"></i> PROCESANDO...</>
-          ) : (
-            <><i className="fas fa-save"></i> GUARDAR</>
-          )}
-        </button>
+        {/* Lado izquierdo: Cantidad, Precio Unitario, Total a Pagar */}
+        <div style={{ display: 'flex', gap: 20, alignItems: 'center', fontSize: 12 }}>
+          <span>
+            Cantidad: <strong style={{ color: '#0a365d' }}>{formData.asientosSeleccionados.length}</strong>
+          </span>
+          <div style={{ width: 1, height: 20, background: '#ddd' }}></div>
+          <span>
+            P. Unit: <strong style={{ color: '#0a365d' }}>${parseFloat(precioUnitario || 0).toFixed(2)}</strong>
+          </span>
+          <div style={{ width: 1, height: 20, background: '#ddd' }}></div>
+          <span style={{ fontWeight: 600 }}>
+            Total a Pagar: <strong style={{ color: '#059669', fontSize: 14 }}>${parseFloat(totalVenta || 0).toFixed(2)}</strong>
+          </span>
+        </div>
 
-        <button
-          onClick={handleCancelar}
-          style={{
-            background: 'linear-gradient(to right, #d32f2f, #f44336)',
-            color: 'white', fontWeight: 'bold', fontSize: 12,
-            border: 'none', borderRadius: 5, padding: '8px 20px',
-            cursor: 'pointer', boxShadow: '0 3px 6px rgba(0,0,0,0.15)',
-            display: 'flex', alignItems: 'center', gap: 6
-          }}
-        >
-          <i className="fas fa-times"></i> CANCELAR
-        </button>
+        {/* Lado derecho: botones */}
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            onClick={confirmarGuardar}
+            disabled={isSubmitting}
+            style={{
+              background: 'linear-gradient(to right, #035f2c, #0a7f3f)',
+              color: 'white', fontWeight: 'bold', fontSize: 12,
+              border: 'none', borderRadius: 5, padding: '8px 20px',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              boxShadow: '0 3px 6px rgba(0,0,0,0.15)',
+              display: 'flex', alignItems: 'center', gap: 6, opacity: isSubmitting ? 0.7 : 1
+            }}
+          >
+            {isSubmitting ? (
+              <><i className="fas fa-spinner fa-spin"></i> PROCESANDO...</>
+            ) : (
+              <><i className="fas fa-save"></i> GUARDAR</>
+            )}
+          </button>
+
+          <button
+            onClick={handleCancelar}
+            style={{
+              background: 'linear-gradient(to right, #d32f2f, #f44336)',
+              color: 'white', fontWeight: 'bold', fontSize: 12,
+              border: 'none', borderRadius: 5, padding: '8px 20px',
+              cursor: 'pointer', boxShadow: '0 3px 6px rgba(0,0,0,0.15)',
+              display: 'flex', alignItems: 'center', gap: 6
+            }}
+          >
+            <i className="fas fa-times"></i> CANCELAR
+          </button>
+        </div>
       </div>
       {/* MODALES */}
       <NuevoClienteModal

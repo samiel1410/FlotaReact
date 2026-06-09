@@ -168,18 +168,18 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, precioUnitar
   }, [precioUnitario]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="table-responsive">
-      <table className="guias-table" style={{ border: '1px solid #cbd5e1', fontSize: '12px' }}>
+    <div className="table-responsive" style={{ width: '100%' }}>
+      <table className="guias-table" style={{ border: '1px solid #cbd5e1', fontSize: '12px', width: '100%', tableLayout: 'auto' }}>
         <thead>
           <tr>
-            <th style={{ width: '50px' }}>Destino</th>
-            <th style={{ width: '50px' }}>Asiento</th>
-            <th>Cédula / RUC</th>
-            <th>Nombre</th>
-            <th style={{ width: '80px' }} className="text-right">Valor</th>
-            <th style={{ width: '80px' }} className="text-right">Dcto</th>
-            <th style={{ width: '100px' }}>Tarifa</th>
-            <th style={{ width: '30px' }}></th>
+            <th style={{ width: '12%', minWidth: '90px' }}>Destino</th>
+            <th style={{ width: '7%', minWidth: '50px' }}>Asiento</th>
+            <th style={{ width: '15%', minWidth: '100px' }}>Cédula / RUC</th>
+            <th style={{ width: '22%', minWidth: '120px' }}>Nombre</th>
+            <th style={{ width: '10%', minWidth: '70px' }} className="text-right">Valor</th>
+            <th style={{ width: '10%', minWidth: '70px' }} className="text-right">Dcto</th>
+            <th style={{ width: '14%', minWidth: '100px' }}>Tarifa</th>
+            <th style={{ width: '5%', minWidth: '30px' }}></th>
           </tr>
         </thead>
         <tbody>
