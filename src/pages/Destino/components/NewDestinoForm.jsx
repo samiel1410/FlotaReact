@@ -42,7 +42,7 @@ const NewDestinoForm = ({ initialData, onSubmit, onCancel }) => {
     const fetchCantones = async () => {
       setLoadingCantones(true);
       try {
-        const res = await api.get('/canton/cantonSeleccionCombo', {
+        const res = await api.get('/canton/cantonSeleccionarCombo', {
           params: { id_fkprovincia: selectedProvincia }
         });
         const data = res?.data?.data || res?.data || [];

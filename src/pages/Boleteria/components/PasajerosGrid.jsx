@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { api, clienteApi } from '../../../config/axios';
+import toast from 'react-hot-toast';
 
 const TARIFAS = [
   { value: 'Normal', text: 'Normal' },
@@ -70,10 +72,73 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, precioUnitar
     recalcularTotal(nuevos);
   };
 
-  const handleBuscarCliente = (asiento, cedula) => {
+  const ultimaBusquedaRef = useRef({});
+
+  const buscarClientePorCI = async (asiento, cedula) => {
     if (!cedula || cedula.length < 10) return;
-    // Simular búsqueda - se podría conectar a /cliente/clientebusquedaIdentificacion
-    handleInputChange(asiento, 'nombres', `Cliente ${cedula}`);
+    // Evitar búsqueda duplicada para el mismo asiento/misma cédula (solo si ya fue exitosa)
+    const key = `${asiento}-${cedula}`;
+    if (ultimaBusquedaRef.current[key]) return;
+
+    const toastId = toast.loading(`Buscando cliente para asiento ${asiento}...`);
+    const aplicarClienteEncontrado = (c) => {
+      const nuevos = pasajeros.map(p => {
+        if (p.asiento === asiento) {
+          return { ...p, cedula: c.identificacion_cliente, nombres: c.nombre_cliente };
+        }
+        return p;
+      });
+      onChange(nuevos);
+      // Marcar como exitosa para evitar re-búsquedas innecesarias
+      ultimaBusquedaRef.current[key] = true;
+    };
+
+    try {
+      const res = await clienteApi.get('/cliente/clientebusquedaIdentificacion', {
+        params: { identificacion_busqueda: cedula }
+      });
+      if (res.data?.success && res.data?.total > 0) {
+        const c = res.data.data[0];
+        aplicarClienteEncontrado(c);
+        toast.success(`Cliente encontrado: ${c.nombre_cliente}`, { id: toastId });
+        return;
+      }
+      // Fallback: intentar con backend local
+      try {
+        const res2 = await api.get('/cliente/clientebusquedaIdentificacion', {
+          params: { identificacion_busqueda: cedula }
+        });
+        if (res2.data?.success && res2.data?.total > 0) {
+          const c = res2.data.data[0];
+          aplicarClienteEncontrado(c);
+          toast.success(`Cliente encontrado: ${c.nombre_cliente} (local)`, { id: toastId });
+          return;
+        }
+        toast.error('Cliente no encontrado con esa identificación', { id: toastId });
+      } catch {
+        toast.error('Error al buscar cliente - servidor no disponible', { id: toastId });
+      }
+    } catch {
+      // Fallback: intentar con backend local
+      try {
+        const res2 = await api.get('/cliente/clientebusquedaIdentificacion', {
+          params: { identificacion_busqueda: cedula }
+        });
+        if (res2.data?.success && res2.data?.total > 0) {
+          const c = res2.data.data[0];
+          aplicarClienteEncontrado(c);
+          toast.success(`Cliente encontrado: ${c.nombre_cliente} (local)`, { id: toastId });
+          return;
+        }
+        toast.error('Cliente no encontrado', { id: toastId });
+      } catch {
+        toast.error('Error al buscar cliente - servidor no disponible', { id: toastId });
+      }
+    }
+  };
+
+  const handleBuscarCliente = (asiento, cedula) => {
+    buscarClientePorCI(asiento, cedula);
   };
 
   // Recalcular total cuando cambian los pasajeros (nuevo asiento, eliminar, etc.)
@@ -149,6 +214,12 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, precioUnitar
                     value={p.cedula || ''}
                     onChange={e => handleInputChange(p.asiento, 'cedula', e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && handleBuscarCliente(p.asiento, p.cedula)}
+                    onBlur={e => {
+                      const val = e.target.value;
+                      if (val && val.length >= 10) {
+                        handleBuscarCliente(p.asiento, val);
+                      }
+                    }}
                     placeholder="C.I."
                     style={{ width: '100%', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px' }}
                   />

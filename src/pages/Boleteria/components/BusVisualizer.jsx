@@ -198,17 +198,17 @@ export const BusVisualizer = ({
 
       {/* MAPA DE ASIENTOS */}
       <div style={{
-        background: '#fdfdfd', border: '1px solid #d0d0d0', borderRadius: 6,
-        padding: 10, maxHeight: 400, overflowY: 'auto'
+        background: '#fdfdfd', border: '1px solid #d0d0d0', borderRadius: 4,
+        padding: 4, flex: 1, overflowY: 'auto'
       }}>
         {/* Front indicator */}
         <div style={{
           background: 'linear-gradient(to bottom, #bdc3c7, #95a5a6)',
-          padding: 8, marginBottom: 10, borderRadius: '4px 4px 20px 20px',
+          padding: 3, marginBottom: 4, borderRadius: '3px 3px 12px 12px',
           textAlign: 'center', color: 'white', fontWeight: 'bold',
-          fontSize: 11, letterSpacing: 1
+          fontSize: 8, letterSpacing: 0.5
         }}>
-          <i className="fas fa-arrow-up"></i> FRENTE DEL BUS
+          <i className="fas fa-arrow-up" style={{ fontSize: 8 }}></i> FRENTE
         </div>
 
         {/* Tabs para pisos */}
@@ -239,31 +239,31 @@ export const BusVisualizer = ({
 
       {/* LEYENDA */}
       <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px',
-        marginTop: 10, fontSize: 11
+        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 6px',
+        marginTop: 4, fontSize: 8
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 16, height: 16, background: 'white', border: '1px solid #bdc3c7', borderRadius: 3 }}></div>
+          <div style={{ width: 10, height: 10, background: 'white', border: '1px solid #bdc3c7', borderRadius: 2 }}></div>
           <span style={{ color: '#7f8c8d' }}>Libre</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 16, height: 16, background: '#c0392b', borderRadius: 3 }}></div>
-          <span style={{ color: '#c0392b' }}>Ocupado fin viaje</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <div style={{ width: 10, height: 10, background: '#c0392b', borderRadius: 2 }}></div>
+          <span style={{ color: '#c0392b' }}>Ocupado fin</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 16, height: 16, background: '#f1c40f', borderRadius: 3 }}></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <div style={{ width: 10, height: 10, background: '#f1c40f', borderRadius: 2 }}></div>
           <span style={{ color: '#f39c12' }}>Ocupado parcial</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 16, height: 16, background: '#27ae60', borderRadius: 3 }}></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <div style={{ width: 10, height: 10, background: '#27ae60', borderRadius: 2 }}></div>
           <span style={{ color: '#27ae60' }}>Libre en parada</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 16, height: 16, background: '#95a5a6', borderRadius: 3 }}></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <div style={{ width: 10, height: 10, background: '#95a5a6', borderRadius: 2 }}></div>
           <span style={{ color: '#7f8c8d' }}>No dispone</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 16, height: 16, background: '#3b82f6', borderRadius: 3 }}></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <div style={{ width: 10, height: 10, background: '#3b82f6', borderRadius: 2 }}></div>
           <span style={{ color: '#3b82f6' }}>Seleccionado</span>
         </div>
       </div>

@@ -1242,76 +1242,140 @@ export const NuevaGuiaPage = () => {
       </div>
 
       {/* ═══════════════════════════════════════════════════
-          FILA 5: Total + Items + Botones Guardar / Cancelar (sticky)
-          ExtJS: buttons: [guardar_guia, cancelar]
+          FILA 5: Totales + Botones Guardar / Cancelar (sticky)
       ═══════════════════════════════════════════════════ */}
-      <div style={{ position: 'sticky', bottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '20px', padding: '14px 28px', background: 'white', borderTop: '2px solid #e2e8f0', boxShadow: '0 -6px 20px rgba(0,0,0,0.08)', zIndex: 40, flexShrink: 0 }}>
+      <div style={{ position: 'sticky', bottom: 0, background: 'white', borderTop: '2px solid #e2e8f0', boxShadow: '0 -6px 20px rgba(0,0,0,0.08)', zIndex: 40, flexShrink: 0 }}>
         
-        {/* Info izquierda: Total + Items + Estado cobro */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
-          {/* Total */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total:</span>
-            <span style={{ fontFamily: 'monospace', fontSize: '26px', fontWeight: 900, color: '#059669' }}>
-              ${(() => {
-                const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
-                let desc = 0;
-                if (descuentoTipo === '2') desc = st12;
-                else if (descuentoTipo === '1') desc = st12 * 0.50;
-                else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
-                const stDesc = st12 - desc;
-                const tarifa = detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
-                return (stDesc + stDesc * 0.12 + tarifa).toFixed(2);
-              })()}
-            </span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '10px 28px' }}>
+          
+          {/* ── Contenedor Izquierdo: Totales ──────────────── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            
+            {/* Cantidad de items */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 12px', background: '#f1f5f9', borderRadius: '8px', minWidth: '60px' }}>
+              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cantidad</span>
+              <span style={{ fontSize: '16px', fontWeight: 800, color: '#334155' }}>{detalles.length}</span>
+            </div>
+
+            <div style={{ width: '1px', height: '32px', background: '#cbd5e1' }}></div>
+
+            {/* Precio Unitario (promedio) */}
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 8px' }}>
+              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>P. Unit.</span>
+              <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#475569' }}>
+                ${(() => {
+                  const totalC = detalles.reduce((s, d) => s + (d.cantidad || 1), 0);
+                  const totalP = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
+                  return totalC > 0 ? (totalP / totalC).toFixed(2) : '0.00';
+                })()}
+              </span>
+            </div>
+
+            <div style={{ width: '1px', height: '32px', background: '#cbd5e1' }}></div>
+
+            {/* Subtotal */}
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 8px' }}>
+              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Subtotal</span>
+              <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#475569' }}>
+                ${(() => {
+                  const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
+                  return st12.toFixed(2);
+                })()}
+              </span>
+            </div>
+
+            {/* Descuento */}
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 8px' }}>
+              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Desc.</span>
+              <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#16a34a' }}>
+                ${(() => {
+                  const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
+                  if (descuentoTipo === '2') return st12.toFixed(2);
+                  if (descuentoTipo === '1') return (st12 * 0.50).toFixed(2);
+                  return detalles.reduce((s, d) => s + (d.descuento || 0), 0).toFixed(2);
+                })()}
+              </span>
+            </div>
+
+            {/* IVA */}
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 8px' }}>
+              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>IVA 12%</span>
+              <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#475569' }}>
+                ${(() => {
+                  const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
+                  let desc = 0;
+                  if (descuentoTipo === '2') desc = st12;
+                  else if (descuentoTipo === '1') desc = st12 * 0.50;
+                  else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
+                  return ((st12 - desc) * 0.12).toFixed(2);
+                })()}
+              </span>
+            </div>
+
+            {/* Tarifa */}
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 8px' }}>
+              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tarifa</span>
+              <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#475569' }}>
+                ${detalles.reduce((s, d) => s + (d.tarifa || 0), 0).toFixed(2)}
+              </span>
+            </div>
+
+            <div style={{ width: '1px', height: '32px', background: '#cbd5e1' }}></div>
+
+            {/* Total a Pagar */}
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 12px', background: '#f0fdf4', borderRadius: '8px', minWidth: '100px' }}>
+              <span style={{ fontSize: '9px', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total a Pagar</span>
+              <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 900, color: '#059669' }}>
+                ${(() => {
+                  const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
+                  let desc = 0;
+                  if (descuentoTipo === '2') desc = st12;
+                  else if (descuentoTipo === '1') desc = st12 * 0.50;
+                  else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
+                  const stDesc = st12 - desc;
+                  const tarifa = detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
+                  return (stDesc + stDesc * 0.12 + tarifa).toFixed(2);
+                })()}
+              </span>
+            </div>
+
           </div>
 
-          {/* Separador */}
-          <div style={{ width: '1px', height: '36px', background: '#cbd5e1' }}></div>
+          {/* ── Contenedor Derecho: Estado cobro + Botones ── */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            
+            {/* Estado de cobro */}
+            {(() => {
+              const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
+              let desc = 0;
+              if (descuentoTipo === '2') desc = st12;
+              else if (descuentoTipo === '1') desc = st12 * 0.50;
+              else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
+              const totalG = st12 - desc + (st12 - desc) * 0.12 + detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
+              const totalPagado = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
+              const cobrado = totalPagado >= totalG && totalG > 0;
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: cobrado ? '#f0fdf4' : '#fffbeb', padding: '6px 12px', borderRadius: '8px' }}>
+                  <i className={`fas ${cobrado ? 'fa-check-circle' : 'fa-hourglass-half'}`} 
+                     style={{ color: cobrado ? '#059669' : '#f59e0b', fontSize: '14px' }}></i>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: cobrado ? '#059669' : '#d97706' }}>
+                    {cobrado ? 'Cobrado' : 'No cobrado'}
+                  </span>
+                </div>
+              );
+            })()}
 
-          {/* Cantidad de items */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <i className="fas fa-boxes" style={{ color: '#64748b', fontSize: '16px' }}></i>
-            <span style={{ fontSize: '15px', fontWeight: 700, color: '#334155' }}>
-              {detalles.length} {detalles.length === 1 ? 'item' : 'items'}
-            </span>
+            {/* Botones */}
+            <button onClick={handleCancelar}
+              style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '10px', width: '140px', height: '40px', fontSize: '13px', fontWeight: 700, color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(239,68,68,0.3)', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s' }}>
+              <i className="fas fa-window-close"></i>Cancelar
+            </button>
+            <button onClick={handleGuardar} disabled={saving}
+              style={{ background: 'linear-gradient(135deg, #059669, #047857)', borderRadius: '10px', width: '140px', height: '40px', fontSize: '13px', fontWeight: 700, color: 'white', border: 'none', cursor: saving ? 'wait' : 'pointer', boxShadow: '0 4px 14px rgba(5,150,105,0.35)', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.15s' }}>
+              {saving ? <><i className="fas fa-spinner fa-spin"></i>Procesando...</> : <><i className="fas fa-save"></i>Guardar</>}
+            </button>
           </div>
 
-          {/* Separador */}
-          <div style={{ width: '1px', height: '36px', background: '#cbd5e1' }}></div>
-
-          {/* Estado de cobro */}
-          {(() => {
-            const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
-            let desc = 0;
-            if (descuentoTipo === '2') desc = st12;
-            else if (descuentoTipo === '1') desc = st12 * 0.50;
-            else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
-            const totalG = st12 - desc + (st12 - desc) * 0.12 + detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
-            const totalPagado = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
-            const cobrado = totalPagado >= totalG && totalG > 0;
-            return (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: cobrado ? '#f0fdf4' : '#fffbeb', padding: '4px 12px', borderRadius: '8px' }}>
-                <i className={`fas ${cobrado ? 'fa-check-circle' : 'fa-hourglass-half'}`} 
-                   style={{ color: cobrado ? '#059669' : '#f59e0b', fontSize: '16px' }}></i>
-                <span style={{ fontSize: '15px', fontWeight: 800, color: cobrado ? '#059669' : '#d97706' }}>
-                  {cobrado ? 'Cobrado' : 'No cobrado'}
-                </span>
-              </div>
-            );
-          })()}
-        </div>
-
-        {/* Botones a la derecha */}
-        <div style={{ display: 'flex', gap: '14px' }}>
-          <button onClick={handleCancelar}
-            style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', borderRadius: '12px', width: '170px', height: '46px', fontSize: '15px', fontWeight: 700, color: 'white', border: 'none', cursor: 'pointer', boxShadow: '0 4px 14px rgba(239,68,68,0.3)', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.15s' }}>
-            <i className="fas fa-window-close"></i>Cancelar
-          </button>
-          <button onClick={handleGuardar} disabled={saving}
-            style={{ background: 'linear-gradient(135deg, #059669, #047857)', borderRadius: '12px', width: '170px', height: '46px', fontSize: '15px', fontWeight: 700, color: 'white', border: 'none', cursor: saving ? 'wait' : 'pointer', boxShadow: '0 4px 14px rgba(5,150,105,0.35)', letterSpacing: '0.02em', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.15s' }}>
-            {saving ? <><i className="fas fa-spinner fa-spin"></i>Procesando...</> : <><i className="fas fa-save"></i>Guardar</>}
-          </button>
         </div>
 
       </div>
