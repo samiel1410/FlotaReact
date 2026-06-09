@@ -208,7 +208,7 @@ export const NuevaGuiaPage = () => {
       }
       if (destRes.status === 'fulfilled') {
         const raw = destRes.value?.data || [];
-        setDestinos(normalizeComboData(raw, 'id_destino', 'nombre_destino'));
+        setDestinos(normalizeComboData(raw, 'id_destino', 'lugar_destino'));
       }
       if (teRes.status === 'fulfilled') {
         const raw = teRes.value?.data || [];
