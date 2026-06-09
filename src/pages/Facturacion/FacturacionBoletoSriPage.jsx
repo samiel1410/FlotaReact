@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { api } from '../../config/axios';
+import { api, clienteApi } from '../../config/axios';
 import Swal from 'sweetalert2';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -111,8 +111,7 @@ export const FacturacionBoletoSriPage = () => {
     }
     setBuscandoCliente(true);
     try {
-      const baseUrl = import.meta.env.VITE_CLIENTE_URL || window.location.origin;
-      const res = await api.get(`${baseUrl}/cliente/clientebusquedaIdentificacion`, {
+      const res = await clienteApi.get('/cliente/clientebusquedaIdentificacion', {
         params: { identificacion_busqueda: ident }
       });
       if (res.data?.success && res.data?.total > 0) {
@@ -395,7 +394,7 @@ export const FacturacionBoletoSriPage = () => {
                     className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                     placeholder="Ingrese CI/RUC"
                     value={cliente.identificacion}
-                    onChange={e => setCliente(prev => ({ ...prev, identificacion: e.target.value }))}
+                    onChange={e => setCliente(prev => ({ ...prev, identificacion: e.target.value.replace(/\D/g, '') }))}
                     onKeyDown={handleClienteKeyDown}
                     disabled={loading}
                   />
@@ -437,7 +436,7 @@ export const FacturacionBoletoSriPage = () => {
                   type="text"
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
                   value={cliente.celular}
-                  onChange={e => setCliente(prev => ({ ...prev, celular: e.target.value }))}
+                  onChange={e => setCliente(prev => ({ ...prev, celular: e.target.value.replace(/\D/g, '') }))}
                 />
               </div>
               {/* Tipo Identificación */}

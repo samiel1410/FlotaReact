@@ -126,12 +126,12 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
 
           <div className="form-group">
             <label># Boleto</label>
-            <input type="text" name="numero_boleto" value={formData.numero_boleto} onChange={handleChange} placeholder="Opcional" />
+            <input type="text" name="numero_boleto" value={formData.numero_boleto} onChange={e => handleChange({ target: { name: 'numero_boleto', value: e.target.value.replace(/\D/g, '') } })} placeholder="Opcional" />
           </div>
 
           <div className="form-group">
             <label>RUC/CI</label>
-            <input type="text" name="identificacion" value={formData.identificacion} onChange={handleChange} placeholder="Opcional" />
+            <input type="text" name="identificacion" value={formData.identificacion} onChange={e => handleChange({ target: { name: 'identificacion', value: e.target.value.replace(/\D/g, '') } })} placeholder="Opcional" />
           </div>
 
         </div>

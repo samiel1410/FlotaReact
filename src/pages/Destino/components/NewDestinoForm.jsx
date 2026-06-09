@@ -42,8 +42,8 @@ const NewDestinoForm = ({ initialData, onSubmit, onCancel }) => {
     const fetchCantones = async () => {
       setLoadingCantones(true);
       try {
-        const res = await api.get('/canton/cantonSeleccionarCombo', {
-          params: { id_provincia: selectedProvincia }
+        const res = await api.get('/canton/cantonSeleccionCombo', {
+          params: { id_fkprovincia: selectedProvincia }
         });
         const data = res?.data?.data || res?.data || [];
         // Ordenar alfabéticamente por nombre
@@ -53,7 +53,6 @@ const NewDestinoForm = ({ initialData, onSubmit, onCancel }) => {
           return nombreA.localeCompare(nombreB);
         });
         setCantones(ordenados);
-        setValue('lugar_destino', '');
       } catch (e) {
         console.error('Error cargando cantones:', e);
         setCantones([]);
@@ -64,12 +63,23 @@ const NewDestinoForm = ({ initialData, onSubmit, onCancel }) => {
     fetchCantones();
   }, [selectedProvincia, setValue]);
 
-  // Al editar, si ya hay lugar_destino, cargar todas las ciudades
+  // Al editar, si ya hay lugar_destino, buscar su provincia para auto-seleccionarla
   useEffect(() => {
     if (initialData?.lugar_destino && provincias.length > 0 && !selectedProvincia) {
       api.get('/locacion/seleccionarCiudad').then(r => {
         const todas = r?.data?.data || [];
-        setCantones(todas);
+        const targetValue = String(initialData.lugar_destino).toLowerCase();
+        const match = todas.find(c => 
+          String(c.id_canton) === targetValue || 
+          (c.nombre_canton || '').toLowerCase() === targetValue
+        );
+        if (match && match.id_fkprovincia) {
+          setSelectedProvincia(match.id_fkprovincia);
+          // Asegurar que el form tenga el valor con la capitalización exacta que vendrá en el combo
+          setValue('lugar_destino', match.nombre_canton || match.nombre || match.label);
+        } else {
+          setCantones(todas);
+        }
       }).catch(() => {});
     }
   }, [initialData, provincias, selectedProvincia]);

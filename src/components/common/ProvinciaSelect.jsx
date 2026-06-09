@@ -26,17 +26,18 @@ const ProvinciaSelect = ({ value, onChange, name = 'id_fkprovincia', label = 'Pr
   if (error) return <p>Error al cargar provincias: {error.message}</p>;
 
   return (
-    <div className="mb-4">
-      <label htmlFor={name} className="block text-sm font-bold text-gray-700 mb-2">
-        {label}
-      </label>
+    <div className={props.hideWrapper ? "" : "mb-4"}>
+      {label && (
+        <label htmlFor={name} className="block text-sm font-bold text-gray-700 mb-2">
+          {label}
+        </label>
+      )}
       <select
         id={name}
         name={name}
         value={value}
         onChange={onChange}
-        className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-        {...props}
+        className={props.className || "shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"}
       >
         <option value="">Seleccione una provincia...</option>
         {provincias.map((provincia) => (

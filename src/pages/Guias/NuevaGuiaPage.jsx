@@ -952,7 +952,7 @@ export const NuevaGuiaPage = () => {
             {/* Identidad + Botones */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
               <input type="text" className={inputClass} placeholder="Identidad..." 
-                value={otrosIdentidad} onChange={(e) => setOtrosIdentidad(e.target.value)} 
+                value={otrosIdentidad} onChange={(e) => setOtrosIdentidad(e.target.value.replace(/\D/g, ''))} 
                 disabled={facturarA !== '3'}
                 style={{ flex: 1 }} />
               <button onClick={handleBuscarOtros} disabled={otrosLoading || facturarA !== '3'}

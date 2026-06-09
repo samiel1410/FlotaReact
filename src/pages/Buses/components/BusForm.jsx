@@ -36,9 +36,13 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
           api.get('/personal/personalSelectCombo'),
           api.get('/personal/auxiliarSelectCombo')
         ]);
+        // Filtrar duplicados por id_personal en caso de que el backend envíe múltiples filas por la misma persona
+        const uniqueBuseros = Array.from(new Map((buserosRes.data.data || []).map(item => [item.id_personal, item])).values());
+        const uniqueAuxiliares = Array.from(new Map((auxiliaresRes.data.data || []).map(item => [item.id_personal, item])).values());
+
         setCombos({
-          buseros: buserosRes.data.data || [],
-          auxiliares: auxiliaresRes.data.data || []
+          buseros: uniqueBuseros,
+          auxiliares: uniqueAuxiliares
         });
 
         // Asegurar selección al editar

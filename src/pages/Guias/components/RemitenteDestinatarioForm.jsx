@@ -258,7 +258,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                 <div>
                   <label className={labelClass}>Identificación *</label>
                   <input className={inputClass} value={newCliente.identificacion_cliente} 
-                    onChange={(e) => setNewCliente({...newCliente, identificacion_cliente: e.target.value})} />
+                    onChange={(e) => setNewCliente({...newCliente, identificacion_cliente: e.target.value.replace(/\D/g, '')})} />
                 </div>
                 <div>
                   <label className={labelClass}>Tipo ID</label>
@@ -283,7 +283,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                 <div>
                   <label className={labelClass}>Teléfono</label>
                   <input className={inputClass} value={newCliente.telefono_cliente}
-                    onChange={(e) => setNewCliente({...newCliente, telefono_cliente: e.target.value})} />
+                    onChange={(e) => setNewCliente({...newCliente, telefono_cliente: e.target.value.replace(/\D/g, '')})} />
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
                   <label className={labelClass}>Email</label>
@@ -295,7 +295,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                     <div>
                       <label className={labelClass}>Teléfono 2</label>
                       <input className={inputClass} value={newCliente.telefono2}
-                        onChange={(e) => setNewCliente({...newCliente, telefono2: e.target.value})} />
+                        onChange={(e) => setNewCliente({...newCliente, telefono2: e.target.value.replace(/\D/g, '')})} />
                     </div>
                     <div>
                       <label className={labelClass}>Provincia</label>
@@ -405,7 +405,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
             <div>
               <label className={labelClass}>Identificación</label>
               <input className={inputClass} value={editFormData.identificacion_cliente}
-                onChange={(e) => setEditFormData({...editFormData, identificacion_cliente: e.target.value})}
+                onChange={(e) => setEditFormData({...editFormData, identificacion_cliente: e.target.value.replace(/\D/g, '')})}
                 maxLength={13} />
             </div>
             <div>
@@ -442,7 +442,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                 <div>
                   <label className={labelClass}>Teléfono 2</label>
                   <input className={inputClass} value={editFormData.telefono2}
-                    onChange={(e) => setEditFormData({...editFormData, telefono2: e.target.value})} />
+                    onChange={(e) => setEditFormData({...editFormData, telefono2: e.target.value.replace(/\D/g, '')})} />
                 </div>
                 <div>
                   <label className={labelClass}>Provincia</label>

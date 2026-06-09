@@ -320,7 +320,7 @@ export const NuevaGuiaCompaniaForm = ({ initialData, onSubmit, onCancel }) => {
                     type="text"
                     className="w-full p-2 border rounded-l focus:ring-blue-500 focus:border-blue-500"
                     value={formData.identificacion_cliente}
-                    onChange={e => setFormData({ ...formData, identificacion_cliente: e.target.value })}
+                    onChange={e => setFormData({ ...formData, identificacion_cliente: e.target.value.replace(/\D/g, '') })}
                     onKeyDown={handleIdentificacionKeyDown}
                     placeholder="Presione Enter para buscar"
                   />

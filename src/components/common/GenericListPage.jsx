@@ -11,6 +11,15 @@ import toast from 'react-hot-toast';
  * Componente genérico reutilizable para todas las páginas de listado del sistema.
  * Diseño ultra-compacto: Todo integrado en la cabecera superior para maximizar el espacio del grid.
  */
+
+const getSingular = (text) => {
+  if (!text) return '';
+  if (/(des|les|nes|ses|res)$/i.test(text)) {
+    return text.replace(/es$/i, '');
+  }
+  return text.replace(/s$/i, '');
+};
+
 export const GenericListPage = ({ config }) => {
   const {
     title = 'Módulo',
@@ -198,7 +207,7 @@ export const GenericListPage = ({ config }) => {
                 className="h-8 px-4 flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md shadow-indigo-100 transition-all active:scale-95 text-[10px] font-black uppercase tracking-widest"
               >
                 <i className="fas fa-plus"></i>
-                NUEVO {title.replace(/s$/i, '')}
+                NUEVO {getSingular(title)}
               </button>
             )}
           </div>
@@ -398,7 +407,7 @@ export const GenericListPage = ({ config }) => {
         <Modal 
           isOpen={isModalOpen} 
           onClose={handleModalClose}
-          title={selectedRecord ? `EDITAR ${title.replace(/s$/i, '').toUpperCase()}` : `NUEVO ${title.replace(/s$/i, '').toUpperCase()}`}
+          title={selectedRecord ? `EDITAR ${getSingular(title).toUpperCase()}` : `NUEVO ${getSingular(title).toUpperCase()}`}
           width="max-w-4xl"
         >
           <FormComponent initialData={selectedRecord} onSubmit={handleFormSubmit} onCancel={handleModalClose} />

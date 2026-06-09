@@ -142,6 +142,10 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
             })}
             className={inputClass}
             placeholder="Ej: 022345678"
+            onChange={e => {
+              const val = e.target.value.replace(/\D/g, '');
+              e.target.value = val;
+            }}
           />
           {errors.telefono && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.telefono.message}</p>}
         </div>
@@ -157,6 +161,10 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
             })}
             className={inputClass}
             placeholder="Ej: 0998765432"
+            onChange={e => {
+              const val = e.target.value.replace(/\D/g, '');
+              e.target.value = val;
+            }}
           />
           {errors.celular && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.celular.message}</p>}
         </div>

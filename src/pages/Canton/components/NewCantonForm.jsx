@@ -55,18 +55,6 @@ const NewCantonForm = ({ initialData, onSubmit, onCancel }) => {
       <input type="hidden" {...register('id')} />
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-        {/* Nombre del Cantón */}
-        <div>
-          <label className={labelClass}>Nombre del Cantón <span className="text-rose-500">*</span></label>
-          <input
-            type="text"
-            {...register('nombre_canton', { required: 'El nombre es requerido' })}
-            className={inputClass}
-            placeholder="Ej: Ambato"
-          />
-          {errors.nombre_canton && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.nombre_canton.message}</p>}
-        </div>
-
         {/* Provincia */}
         <div>
           <label className={labelClass}>Provincia <span className="text-rose-500">*</span></label>
@@ -80,10 +68,24 @@ const NewCantonForm = ({ initialData, onSubmit, onCancel }) => {
                 value={field.value}
                 onChange={(e) => field.onChange(e.target.value)}
                 className={inputClass}
+                label={null}
+                hideWrapper={true}
               />
             )}
           />
           {errors.id_fkprovincia && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.id_fkprovincia.message}</p>}
+        </div>
+
+        {/* Nombre del Cantón */}
+        <div>
+          <label className={labelClass}>Nombre del Cantón <span className="text-rose-500">*</span></label>
+          <input
+            type="text"
+            {...register('nombre_canton', { required: 'El nombre es requerido' })}
+            className={inputClass}
+            placeholder="Ej: Ambato"
+          />
+          {errors.nombre_canton && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.nombre_canton.message}</p>}
         </div>
 
       </div>

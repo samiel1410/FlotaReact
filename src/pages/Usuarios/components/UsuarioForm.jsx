@@ -225,6 +225,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
               }
             })} 
             className="w-full border-slate-300 rounded-md shadow-sm p-2 border"
+            onChange={e => e.target.value = e.target.value.replace(/\D/g, '')}
           />
           {errors.telefono_usuario && <span className="text-red-500 text-xs">{errors.telefono_usuario.message}</span>}
         </div>
@@ -243,6 +244,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
               }
             })} 
             className="w-full border-slate-300 rounded-md shadow-sm p-2 border"
+            onChange={e => e.target.value = e.target.value.replace(/\D/g, '')}
           />
           {errors.punto_emision_usuario && <span className="text-red-500 text-xs">{errors.punto_emision_usuario.message}</span>}
         </div>
@@ -260,6 +262,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
               }
             })} 
             className="w-full border-slate-300 rounded-md shadow-sm p-2 border"
+            onChange={e => e.target.value = e.target.value.replace(/\D/g, '')}
           />
           {errors.punto_emision_boleteria && <span className="text-red-500 text-xs">{errors.punto_emision_boleteria.message}</span>}
         </div>

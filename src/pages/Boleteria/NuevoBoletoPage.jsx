@@ -13,7 +13,7 @@ import { PdfViewerModal } from '../../components/PdfViewerModal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { BoleteriaService } from '../../services/boleteria.service';
-import { api } from '../../config/axios';
+import { api, clienteApi } from '../../config/axios';
 import { CONFIG } from '../../config/env';
 import './NuevoBoletoPage.css';
 
@@ -189,14 +189,17 @@ export const NuevoBoletoPage = () => {
   };
 
   const buscarPasajeroPorCI = async (identificacion) => {
-    if (!identificacion || identificacion.length < 10) return;
-    // Usar CLIENTE_URL del entorno (igual que ExtJS)
-    const clienteUrl = window.CONFIG?.CLIENTE_URL || 'https://clientesfp.easysplus.com';
+    if (!identificacion || identificacion.length < 10) {
+      toast.error('Ingrese al menos 10 dígitos para buscar');
+      return;
+    }
+    const toastId = toast.loading('Buscando cliente...');
     try {
-      const response = await fetch(`${clienteUrl}/cliente/clientebusquedaIdentificacion?identificacion_busqueda=${identificacion}`);
-      const data = await response.json();
-      if (data.success && data.total > 0) {
-        const c = data.data[0];
+      const res = await clienteApi.get('/cliente/clientebusquedaIdentificacion', {
+        params: { identificacion_busqueda: identificacion }
+      });
+      if (res.data?.success && res.data?.total > 0) {
+        const c = res.data.data[0];
         const fechaNac = c.fecha_nacimiento ? new Date(c.fecha_nacimiento).toISOString().split('T')[0] : '';
         const edad = calcularEdad(fechaNac);
         const tarifaVal = tarifaDesdeEdad(edad);
@@ -211,16 +214,18 @@ export const NuevoBoletoPage = () => {
           fechaNacimiento: fechaNac,
           tarifa: tarifaVal,
         }));
-        toast.success(`Cliente encontrado: ${c.nombre_cliente}`);
+        toast.success(`Cliente encontrado: ${c.nombre_cliente}`, { id: toastId });
       } else {
-        toast.error('Cliente no encontrado');
+        toast.error('Cliente no encontrado con esa identificación', { id: toastId });
         setFormData(prev => ({ ...prev, idCliente: '', nombres: '', celular: '', direccion: '', correo: '', fechaNacimiento: '', tarifa: 1 }));
       }
-    } catch {
-      // En local puede fallar; intentar con el backend local
+    } catch (err) {
+      console.error('[buscarPasajeroPorCI] Error:', err);
+      // Fallback: intentar con el backend local
       try {
-        const { default: axios } = await import('axios');
-        const res = await axios.get(CONFIG.API_URL + '/cliente/clientebusquedaIdentificacion', { params: { identificacion_busqueda: identificacion } });
+        const res = await api.get('/cliente/clientebusquedaIdentificacion', {
+          params: { identificacion_busqueda: identificacion }
+        });
         if (res.data?.success && res.data?.total > 0) {
           const c = res.data.data[0];
           const fechaNac = c.fecha_nacimiento ? new Date(c.fecha_nacimiento).toISOString().split('T')[0] : '';
@@ -237,11 +242,13 @@ export const NuevoBoletoPage = () => {
             fechaNacimiento: fechaNac,
             tarifa: tarifaVal,
           }));
-          toast.success(`Cliente encontrado: ${c.nombre_cliente}`);
+          toast.success(`Cliente encontrado: ${c.nombre_cliente} (local)`, { id: toastId });
           return;
         }
-        toast.error('Cliente no encontrado');
-      } catch { toast.error('Error al buscar cliente'); }
+        toast.error('Cliente no encontrado', { id: toastId });
+      } catch {
+        toast.error('Error al buscar cliente - servidor no disponible', { id: toastId });
+      }
     }
   };
 
@@ -354,7 +361,13 @@ export const NuevoBoletoPage = () => {
   const handleAsientoClick = (asientoId) => {
     // ExtJS: Validar que haya un cliente seleccionado primero
     if (!formData.idCliente && !formData.identificacion) {
-      toast.error('Debe escoger un cliente primero');
+      Swal.fire({
+        title: 'Cliente no seleccionado',
+        text: 'Debe escoger un cliente o ingresar una identificación antes de seleccionar un asiento',
+        icon: 'warning',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#0a365d',
+      });
       return;
     }
     if (formData.asientosSeleccionados.includes(asientoId)) {
@@ -413,22 +426,42 @@ export const NuevoBoletoPage = () => {
   };
 
   const confirmarGuardar = async () => {
-    if (!formData.idViaje) { toast.error('Debe seleccionar un viaje.'); return; }
-    if (!subrutaSeleccionada) { toast.error('Debe seleccionar un destino/tarifa para el viaje.'); return; }
-    if (formData.asientosSeleccionados.length === 0) { toast.error('Debe seleccionar al menos un asiento.'); return; }
-    if (formData.pasajeros.some(p => !p.cedula || !p.nombres)) { toast.error('Complete la cédula y nombres de todos los pasajeros.'); return; }
+    const errores = [];
+    if (!formData.idViaje) errores.push('• Seleccionar un viaje');
+    if (!subrutaSeleccionada) errores.push('• Seleccionar un destino/tarifa');
+    if (!formData.identificacion) errores.push('• Ingresar identificación del pasajero');
+    if (!formData.nombres) errores.push('• Ingresar nombre del pasajero');
+    if (formData.asientosSeleccionados.length === 0) errores.push('• Seleccionar al menos un asiento');
+    if (formData.pasajeros.some(p => !p.cedula || !p.nombres)) errores.push('• Completar cédula y nombres de todos los pasajeros en la lista');
+
+    if (errores.length > 0) {
+      toast.error(
+        <div style={{whiteSpace:'pre-wrap',textAlign:'left',fontSize:12,lineHeight:1.6}}>
+          <strong>Complete los siguientes campos:</strong>
+          {'\n' + errores.map(e => '\n• ' + e.replace('• ', '')).join('')}
+        </div>,
+        { duration: 6000 }
+      );
+      return;
+    }
 
     // Validar hora del viaje (ExtJS: minutosBoleto > minutosViaje → ya está en despacho)
     const minutosBoleto = horaAMinutos(new Date().toTimeString().split(' ')[0]);
     const minutosViaje = horaAMinutos(horaViaje);
     if (minutosBoleto > minutosViaje) {
-      toast.error('Este viaje ya está en despacho');
+      toast.error('Este viaje ya está en despacho, no se pueden vender boletos', { duration: 5000 });
       return;
     }
 
     const result = await Swal.fire({
       title: 'Confirmar Venta',
-      text: `¿Seguro que desea ingresar el registro de ${formData.pasajeros.length} asiento(s)?`,
+      html: `
+        <div style="text-align:center">
+          <p style="font-size:16px;font-weight:bold;color:#0a365d">${formData.pasajeros.length} asiento(s)</p>
+          <p style="font-size:13px;color:#64748b">Pasajero: ${formData.nombres || '---'}</p>
+          <p style="font-size:13px;color:#64748b">Total: <strong>$${totalVenta.toFixed(2)}</strong></p>
+        </div>
+      `,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: 'Sí, guardar',
@@ -944,7 +977,7 @@ export const NuevoBoletoPage = () => {
                   <input
                     type="text"
                     value={formData.identificacion}
-                    onChange={e => setFormData(prev => ({ ...prev, identificacion: e.target.value }))}
+                    onChange={e => setFormData(prev => ({ ...prev, identificacion: e.target.value.replace(/\D/g, '') }))}
                     onKeyDown={e => e.key === 'Enter' && buscarPasajeroPorCI(formData.identificacion)}
                     maxLength={15}
                     placeholder="Cédula"
@@ -1015,7 +1048,7 @@ export const NuevoBoletoPage = () => {
                   <input
                     type="text"
                     value={formData.celular}
-                    onChange={e => setFormData(prev => ({ ...prev, celular: e.target.value }))}
+                    onChange={e => setFormData(prev => ({ ...prev, celular: e.target.value.replace(/\D/g, '') }))}
                     style={{ flex: 1, padding: '5px 8px', border: '1px solid #cbd5e1', borderRadius: 4, fontSize: 12 }}
                   />
                 </div>

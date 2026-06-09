@@ -180,6 +180,7 @@ const BuseroForm = ({ initialData, onSubmit, onCancel }) => {
               })}
               className={inputClass}
               placeholder="Ej: 0998765432"
+              onChange={e => e.target.value = e.target.value.replace(/\D/g, '')}
             />
             {errors.celular_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.celular_personal.message}</p>}
           </div>
@@ -194,6 +195,7 @@ const BuseroForm = ({ initialData, onSubmit, onCancel }) => {
               })}
               className={inputClass}
               placeholder="Ej: 032765432"
+              onChange={e => e.target.value = e.target.value.replace(/\D/g, '')}
             />
             {errors.telefono_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.telefono_personal.message}</p>}
           </div>

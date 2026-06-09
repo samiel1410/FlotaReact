@@ -69,6 +69,10 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
             {...register('identificacion_cliente', { required: 'Requerido' })}
             className={inputClass}
             placeholder="Ej: 1800123456"
+            onChange={e => {
+              const val = e.target.value.replace(/\D/g, '');
+              e.target.value = val;
+            }}
           />
           {errors.identificacion_cliente && <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.identificacion_cliente.message}</span>}
         </div>
@@ -101,6 +105,10 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
             {...register('telefono_cliente')}
             className={inputClass}
             placeholder="Ej: 0998765432"
+            onChange={e => {
+              const val = e.target.value.replace(/\D/g, '');
+              e.target.value = val;
+            }}
           />
         </div>
 
