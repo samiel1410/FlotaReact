@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../../../config/axios';
 import { useAuth } from '../../../context/AuthContext';
 import { despachoConvenioService } from '../../../services/despachoConvenio.service';
@@ -8,6 +8,9 @@ export const NuevoDespachoGuiaCompaniaModal = ({ onClose, onSuccess }) => {
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
+  const [buscandoBus, setBuscandoBus] = useState(false);
+  const [busEncontrado, setBusEncontrado] = useState(null);
+  const loadedRef = useRef(false);
   const [combos, setCombos] = useState({
     oficinistas: [],
     buses: [],
@@ -18,6 +21,7 @@ export const NuevoDespachoGuiaCompaniaModal = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     id_fkoficinista_despacho_maestro: user?.id_usuario || user?.id || '',
     id_fkbus_despacho_maestro: '',
+    nombre_bus_raw: '',
     id_personal: '',
     fecha_despacho_maestro: new Date().toISOString().slice(0, 16).replace('T', ' '),
     oficina_usuario: '',
@@ -26,6 +30,8 @@ export const NuevoDespachoGuiaCompaniaModal = ({ onClose, onSuccess }) => {
   });
 
   useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     cargarCombos();
     // Auto-set oficinista from user
     if (user?.id_usuario || user?.id) {
@@ -72,12 +78,68 @@ export const NuevoDespachoGuiaCompaniaModal = ({ onClose, onSuccess }) => {
     }
   };
 
-  const handleBusChange = (e) => {
-    const busId = e.target.value;
-    setFormData(prev => ({
-      ...prev,
-      id_fkbus_despacho_maestro: busId
-    }));
+  // Buscar bus por número/placa/disco en la lista cargada
+  const buscarBus = async () => {
+    const texto = formData.nombre_bus_raw.trim();
+    if (!texto) { toast.error('Ingrese un número de bus'); return; }
+    setBuscandoBus(true);
+    setBusEncontrado(null);
+
+    try {
+      const bus = combos.buses.find(b => {
+        const cod = String(b.codigo_buses || b.bus_codigo || '').toLowerCase();
+        const placa = String(b.bus_placa || b.placa_buses || '').toLowerCase();
+        const disco = String(b.bus_disco || b.disco_buses || '').toLowerCase();
+        return cod === texto.toLowerCase() || placa.includes(texto.toLowerCase()) || disco.includes(texto.toLowerCase());
+      });
+
+      if (bus) {
+        const discoBus = bus.bus_disco || bus.disco_buses || '';
+        
+        // No reemplazar el input, conservar lo que escribió el usuario
+        setFormData(prev => ({ ...prev, id_fkbus_despacho_maestro: discoBus }));
+        setBusEncontrado(bus);
+        
+        // Auto-cargar personal asignado al bus
+        const res = await api.get('/personal/buscarPorBus', { params: { id_bus: discoBus } });
+        if (res.data?.success && res.data?.data?.length > 0) {
+          const personal = res.data.data[0];
+          if (personal.id_fkpersonal_buses) {
+            const perEncontrado = combos.personal.find(p => 
+              String(p.id_personal) === String(personal.id_fkpersonal_buses)
+            );
+            if (perEncontrado) {
+              setFormData(prev => ({
+                ...prev,
+                id_personal: perEncontrado.per_codigo_personal || perEncontrado.id_personal,
+              }));
+              toast.success(`Bus encontrado (Disco ${discoBus}). Personal: ${perEncontrado.per_nombres_persona}`);
+            } else {
+              toast.success(`Bus encontrado (Disco ${discoBus})`);
+            }
+          } else {
+            toast.success(`Bus encontrado (Disco ${discoBus})`);
+          }
+        } else {
+          toast.success(`Bus encontrado (Disco ${discoBus})`);
+        }
+      } else {
+        toast.error('Bus no encontrado.');
+        setFormData(prev => ({ ...prev, id_fkbus_despacho_maestro: '', id_personal: '' }));
+      }
+    } catch (err) {
+      console.error('Error buscando bus:', err);
+      toast.error('Error al buscar bus');
+    } finally {
+      setBuscandoBus(false);
+    }
+  };
+
+  const handleBuscarKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      buscarBus();
+    }
   };
 
   const handleSubmit = async () => {
@@ -98,7 +160,7 @@ export const NuevoDespachoGuiaCompaniaModal = ({ onClose, onSuccess }) => {
         o => String(o.id_usuario) === String(formData.id_fkoficinista_despacho_maestro)
       );
       const busSel = combos.buses.find(
-        b => String(b.codigo_buses) === String(formData.id_fkbus_despacho_maestro)
+        b => String(b.bus_disco || b.disco_buses || b.id_buses) === String(formData.id_fkbus_despacho_maestro)
       );
       const destinoSel = combos.destinos.find(
         d => String(d.id_destino) === String(formData.oficina_usuario)
@@ -183,21 +245,42 @@ export const NuevoDespachoGuiaCompaniaModal = ({ onClose, onSuccess }) => {
               </select>
             </div>
 
-            {/* Bus */}
+            {/* Bus - Búsqueda por número/placa */}
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Bus *</label>
-              <select
-                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
-                value={formData.id_fkbus_despacho_maestro}
-                onChange={handleBusChange}
-              >
-                <option value="">Seleccionar bus...</option>
-                {combos.buses.map(b => (
-                  <option key={b.codigo_buses || b.id_buses} value={b.codigo_buses || b.id_buses}>
-                    {b.codigo_buses || b.placa_buses || b.bus_placa} - {b.nombre_bus || ''}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={formData.nombre_bus_raw}
+                  onChange={e => {
+                    setFormData(p => ({ ...p, nombre_bus_raw: e.target.value.toUpperCase() }));
+                    setBusEncontrado(null);
+                  }}
+                  onKeyDown={handleBuscarKeyDown}
+                  placeholder="Ingrese placa, disco o código..."
+                  className={`flex-1 h-9 px-3 text-sm border rounded-lg focus:outline-none focus:ring-2 bg-white ${
+                    busEncontrado ? 'border-emerald-400 ring-emerald-200' : 'border-slate-200 focus:ring-blue-500/20 focus:border-blue-400'
+                  }`}
+                />
+                <button
+                  onClick={buscarBus}
+                  disabled={buscandoBus}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
+                  title="Buscar bus"
+                >
+                  {buscandoBus ? (
+                    <i className="fas fa-spinner fa-spin"></i>
+                  ) : (
+                    <><i className="fas fa-search"></i> Buscar</>
+                  )}
+                </button>
+              </div>
+              {busEncontrado && (
+                <div className="mt-1 text-xs text-emerald-600 font-medium flex items-center gap-1">
+                  <i className="fas fa-check-circle"></i>
+                  Bus seleccionado: Disco {busEncontrado.bus_disco || busEncontrado.disco_buses || '?'}
+                </div>
+              )}
             </div>
 
             {/* Personal (busero) */}

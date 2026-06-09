@@ -14,13 +14,8 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     nombre_cliente: '',
     direccion_cliente: '',
     correo_cliente: '',
-    telefono_cliente: '',
-    provincia: '',
-    canton: '',
-    telefono2: ''
+    telefono_cliente: ''
   });
-  const [provincias, setProvincias] = useState([]);
-  const [cantones, setCantones] = useState([]);
 
   // ── Estado para el Modal de Edición ─────────────────
   const [showEditModal, setShowEditModal] = useState(false);
@@ -30,14 +25,9 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     nombre_cliente: '',
     direccion_cliente: '',
     correo_cliente: '',
-    telefono_cliente: '',
-    provincia: '',
-    canton: '',
-    telefono2: ''
+    telefono_cliente: ''
   });
   const [editLoading, setEditLoading] = useState(false);
-  const [editProvincias, setEditProvincias] = useState([]);
-  const [editCantones, setEditCantones] = useState([]);
 
   const iconColor = tipo === 'Remitente' ? '#3498db' : '#e67e22';
   const isRemitente = tipo === 'Remitente';
@@ -179,23 +169,6 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     }
   };
 
-  const handleLoadProvincias = async () => {
-    try {
-      const result = await GuiaService.getProvinciasCombo();
-      setProvincias(result?.data || []);
-    } catch (e) { /* ignore */ }
-  };
-
-  const handleProvinciaChange = async (idProvincia) => {
-    setNewCliente(prev => ({ ...prev, provincia: idProvincia, canton: '' }));
-    try {
-      const result = await GuiaService.getCantonesPorProvincia(idProvincia);
-      setCantones(result?.data || []);
-    } catch (e) {
-      setCantones([]);
-    }
-  };
-
   const inputClass = "w-full h-8 px-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700";
   const labelClass = "block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1";
 
@@ -290,32 +263,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                   <input className={inputClass} type="email" value={newCliente.correo_cliente}
                     onChange={(e) => setNewCliente({...newCliente, correo_cliente: e.target.value})} />
                 </div>
-                {!isRemitente && (
-                  <>
-                    <div>
-                      <label className={labelClass}>Teléfono 2</label>
-                      <input className={inputClass} value={newCliente.telefono2}
-                        onChange={(e) => setNewCliente({...newCliente, telefono2: e.target.value.replace(/\D/g, '')})} />
-                    </div>
-                    <div>
-                      <label className={labelClass}>Provincia</label>
-                      <select className={inputClass} value={newCliente.provincia}
-                        onChange={(e) => handleProvinciaChange(e.target.value)}
-                        onFocus={handleLoadProvincias}>
-                        <option value="">Seleccione...</option>
-                        {provincias.map(p => <option key={p.id || p.value} value={p.id || p.value}>{p.nombre || p.label}</option>)}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Ciudad</label>
-                      <select className={inputClass} value={newCliente.canton}
-                        onChange={(e) => setNewCliente({...newCliente, canton: e.target.value})}>
-                        <option value="">Seleccione...</option>
-                        {cantones.map(c => <option key={c.id || c.value} value={c.id || c.value}>{c.nombre || c.label}</option>)}
-                      </select>
-                    </div>
-                  </>
-                )}
+
               </div>
               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '10px' }}>
                 <button type="button" onClick={() => setShowCreateForm(false)} 
@@ -437,38 +385,6 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
               <input className={inputClass} type="email" value={editFormData.correo_cliente}
                 onChange={(e) => setEditFormData({...editFormData, correo_cliente: e.target.value})} />
             </div>
-            {!isRemitente && (
-              <>
-                <div>
-                  <label className={labelClass}>Teléfono 2</label>
-                  <input className={inputClass} value={editFormData.telefono2}
-                    onChange={(e) => setEditFormData({...editFormData, telefono2: e.target.value.replace(/\D/g, '')})} />
-                </div>
-                <div>
-                  <label className={labelClass}>Provincia</label>
-                  <select className={inputClass} value={editFormData.provincia}
-                    onChange={(e) => {
-                      const idProv = e.target.value;
-                      setEditFormData({...editFormData, provincia: idProv, canton: ''});
-                      GuiaService.getCantonesPorProvincia(idProv).then(r => setEditCantones(r?.data || [])).catch(() => setEditCantones([]));
-                    }}
-                    onFocus={() => {
-                      GuiaService.getProvinciasCombo().then(r => setEditProvincias(r?.data || [])).catch(() => {});
-                    }}>
-                    <option value="">Seleccione...</option>
-                    {editProvincias.map(p => <option key={p.id || p.value} value={p.id || p.value}>{p.nombre || p.label}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelClass}>Ciudad</label>
-                  <select className={inputClass} value={editFormData.canton}
-                    onChange={(e) => setEditFormData({...editFormData, canton: e.target.value})}>
-                    <option value="">Seleccione...</option>
-                    {editCantones.map(c => <option key={c.id || c.value} value={c.id || c.value}>{c.nombre || c.label}</option>)}
-                  </select>
-                </div>
-              </>
-            )}
           </div>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
             <button onClick={() => { if (!editLoading) setShowEditModal(false); }}

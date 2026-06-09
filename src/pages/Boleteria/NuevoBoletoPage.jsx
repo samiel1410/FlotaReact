@@ -73,10 +73,12 @@ export const NuevoBoletoPage = () => {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [pdfModalUrl, setPdfModalUrl] = useState('');
   const [showNuevoClienteModal, setShowNuevoClienteModal] = useState(false);
+  const [clienteAEditar, setClienteAEditar] = useState(null);
   const [showCambiarBusModal, setShowCambiarBusModal] = useState(false);
   const [showCambiarAgenciaModal, setShowCambiarAgenciaModal] = useState(false);
   const [showListadoPasajeros, setShowListadoPasajeros] = useState(false);
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
+  const [refreshAsientosKey, setRefreshAsientosKey] = useState(0);
 
   const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const [formData, setFormData] = useState({
@@ -277,7 +279,7 @@ export const NuevoBoletoPage = () => {
     buscarViajes();
   };
 
-  // Cargar asientos cuando se selecciona un viaje
+  // Cargar asientos cuando se selecciona un viaje o se refresca (cambio de bus)
   useEffect(() => {
     if (!formData.idViaje) {
       setAsientosOcupados([]);
@@ -355,7 +357,7 @@ export const NuevoBoletoPage = () => {
     setSubrutaSeleccionada('');
     setPrecioUnitario(0);
     cargarAsientos();
-  }, [formData.idViaje]);
+  }, [formData.idViaje, refreshAsientosKey]);
 
   // Manejar click en asiento (igual a ExtJS AgregarAsientoAlista)
   const handleAsientoClick = (asientoId) => {
@@ -669,7 +671,7 @@ export const NuevoBoletoPage = () => {
   };
 
   // Handlers para modales
-  const handleClienteCreado = (nuevoCliente) => {
+  const handleClienteCreado = (nuevoCliente, esEdicion) => {
     const fechaNac = nuevoCliente.fecha_nacimiento ? new Date(nuevoCliente.fecha_nacimiento).toISOString().split('T')[0] : '';
     const edad = calcularEdad(fechaNac);
     const tarifaVal = tarifaDesdeEdad(edad);
@@ -684,12 +686,16 @@ export const NuevoBoletoPage = () => {
       fechaNacimiento: fechaNac,
       tarifa: tarifaVal,
     }));
-    toast.success(`Cliente cargado: ${nuevoCliente.nombre_cliente}`);
+    toast.success(esEdicion
+      ? `Cliente actualizado: ${nuevoCliente.nombre_cliente}`
+      : `Cliente cargado: ${nuevoCliente.nombre_cliente}`);
   };
 
   const handleCambioBusExitoso = ({ id_bus, id_chofer }) => {
     setIdBus(id_bus);
     setIdChofer(id_chofer);
+    // Refrescar asientos y datos del bus inmediatamente
+    setRefreshAsientosKey(prev => prev + 1);
   };
 
   const handleAgenciaCambiada = (record) => {
@@ -706,8 +712,8 @@ export const NuevoBoletoPage = () => {
 
   return (
     <div className="nuevo-boleto-container" style={{ backgroundColor: '#f5f5f5' }}>
-      {/* CONTENIDO SCROLLABLE */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
+      {/* CONTENIDO SCROLLABLE (padding inferior para que no lo tape el footer fixed) */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '10px', paddingBottom: '70px' }}>
         {/* TOP TOOLBAR */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
           <button
@@ -996,11 +1002,30 @@ export const NuevoBoletoPage = () => {
                     <i className="fas fa-redo" style={{ fontSize: 11 }}></i>
                   </button>
                   <button title="Crear cliente"
-                    onClick={() => setShowNuevoClienteModal(true)}
+                    onClick={() => { setClienteAEditar(null); setShowNuevoClienteModal(true); }}
                     style={{ background: '#0a365d', color: 'white', border: 'none', borderRadius: 4, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <i className="fas fa-user-plus" style={{ fontSize: 11 }}></i>
                   </button>
+                  {formData.idCliente && (
+                    <button title="Actualizar cliente"
+                      onClick={() => {
+                        setClienteAEditar({
+                          id_cliente: formData.idCliente,
+                          identificacion_cliente: formData.identificacion,
+                          nombre_cliente: formData.nombres,
+                          direccion_cliente: formData.direccion,
+                          telefono_cliente: formData.celular,
+                          email_cliente: formData.correo,
+                          fecha_nacimiento: formData.fechaNacimiento,
+                        });
+                        setShowNuevoClienteModal(true);
+                      }}
+                      style={{ background: '#FF9800', color: 'white', border: 'none', borderRadius: 4, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <i className="fas fa-pen" style={{ fontSize: 11 }}></i>
+                    </button>
+                  )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
@@ -1232,12 +1257,21 @@ export const NuevoBoletoPage = () => {
         </div>
       </div>
 
-      {/* STICKY FOOTER: GUARDAR + CANCELAR */}
+      {/* FOOTER FIJO: siempre visible al fondo del viewport */}
       <div style={{
-        background: 'white', borderTop: '1px solid #ddd',
-        padding: '10px 20px', display: 'flex', justifyContent: 'flex-end',
-        alignItems: 'center', gap: 15, boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
-        zIndex: 10, position: 'sticky', bottom: 0
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: 'white',
+        borderTop: '1px solid #ddd',
+        padding: '10px 20px',
+        display: 'flex',
+        justifyContent: 'flex-end',
+        alignItems: 'center',
+        gap: 15,
+        boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
+        zIndex: 1000
       }}>
         <button
           onClick={confirmarGuardar}
@@ -1274,8 +1308,9 @@ export const NuevoBoletoPage = () => {
       {/* MODALES */}
       <NuevoClienteModal
         isOpen={showNuevoClienteModal}
-        onClose={() => setShowNuevoClienteModal(false)}
+        onClose={() => { setShowNuevoClienteModal(false); setClienteAEditar(null); }}
         onClienteCreado={handleClienteCreado}
+        clienteInicial={clienteAEditar}
       />
       <CambiarBusModal
         isOpen={showCambiarBusModal}

@@ -67,61 +67,23 @@ export const GuiaService = {
   },
 
   /**
-   * Solicitar impresión/PDF
+   * Generar PDF de guía — solo PHP (como ExtJS)
+   * Abre guiaPdfImpresion.php en nueva pestaña
    */
   generarPdf: async (idGuia, reimpresoPor = null) => {
-    try {
-      const response = await api.get('/guia/crearGuiaPDF', { 
-        params: { id_guia: idGuia, reimpreso_por: reimpresoPor } 
-      });
-      // Si el backend Node devuelve una URL o directorio, devolverla para abrir
-      if (response && response.data && (response.data.url || response.data.directorio || response.data.directorio_archivo)) {
-        return response.data;
-      }
-    } catch (err) {
-      console.warn('crearGuiaPDF via Node failed, will fallback to PHP print URL', err);
-    }
-
-    // Fallback: construir URL hacia el script PHP para impresión directa
-    try {
-      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(idGuia)}`;
-      return { url: phpUrl };
-    } catch (err) {
-      console.error('Error creando URL de impresión PHP', err);
-      throw err;
-    }
+    const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(idGuia)}${reimpresoPor ? `&reimpreso_por=${encodeURIComponent(reimpresoPor)}` : ''}`;
+    window.open(phpUrl, '_blank');
+    return { url: phpUrl };
   },
 
+  /**
+   * Descargar/ver PDF de guía A4 — solo PHP
+   * Abre guiaPdf.php en nueva pestaña
+   */
   descargarGuiaPDF: async (idGuia) => {
-    try {
-      const response = await api.get('/guia/descargarGuiaPDF', {
-        params: { id_guia: idGuia },
-        responseType: 'blob'
-      });
-
-      // Si el backend Node devuelve un PDF, devolver el blob directamente
-      const contentType = response.headers && (response.headers['content-type'] || response.headers['Content-Type']);
-      if (contentType && contentType.indexOf('pdf') !== -1) {
-        return response.data;
-      }
-
-      // Si no viene como PDF (por ejemplo devuelve JSON o ruta), intentar fallback a script PHP
-    } catch (err) {
-      // continuar con fallback
-      console.warn('Node PDF download failed, falling back to PHP generator', err);
-    }
-
-    // Fallback: intentar los scripts PHP que generan el PDF (ruta relativa al frontend)
-    try {
-      const phpUrl = `${CONFIG.PHP_URL}/guiaPdf.php?id_guia=${encodeURIComponent(idGuia)}`;
-      const r = await fetch(phpUrl, { credentials: 'same-origin' });
-      if (!r.ok) throw new Error('PHP PDF generator returned non-OK');
-      const blob = await r.blob();
-      return blob;
-    } catch (err) {
-      console.error('Fallback PHP PDF download failed', err);
-      throw err;
-    }
+    const phpUrl = `${CONFIG.PHP_URL}/guiaPdf.php?id_guia=${encodeURIComponent(idGuia)}`;
+    window.open(phpUrl, '_blank');
+    return phpUrl;
   },
 
   /**

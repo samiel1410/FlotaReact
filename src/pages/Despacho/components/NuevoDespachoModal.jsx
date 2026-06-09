@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../../../config/axios';
 import { despachoService } from '../../../services/despacho.service';
-import { BusquedaBusModal } from './BusquedaBusModal';
 
 /**
  * Modal para crear nuevo despacho
@@ -11,7 +10,9 @@ import { BusquedaBusModal } from './BusquedaBusModal';
 export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
   const [loadingInit, setLoadingInit] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showBusSearch, setShowBusSearch] = useState(false);
+  const [buscandoBus, setBuscandoBus] = useState(false);
+  const [busEncontrado, setBusEncontrado] = useState(null);
+  const loadedRef = useRef(false);
   const [datosCombo, setDatosCombo] = useState({
     oficinistas: [],
     buses: [],
@@ -24,7 +25,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
     id_fkbus_despacho_maestro: '',
     nombre_bus_raw: '',
     id_personal: '',
-    nombre_busero_raw: '',
+    nombre_personal_raw: '',
     fecha_despacho_maestro: new Date().toISOString().slice(0, 16),
     oficina_usuario: '',
     nombre_destino_raw: '',
@@ -32,6 +33,8 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
   });
 
   useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     initCombos();
   }, []);
 
@@ -73,22 +76,69 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
     }
   };
 
-  const handleBusChange = (e) => {
-    const busId = e.target.value;
-    setFormData(prev => ({
-      ...prev,
-      id_fkbus_despacho_maestro: busId,
-      nombre_bus_raw: busId
-    }));
+  // Buscar bus por número/placa/disco en la lista cargada
+  const buscarBus = async () => {
+    const texto = formData.nombre_bus_raw.trim();
+    if (!texto) { toast.error('Ingrese un número de bus'); return; }
+    setBuscandoBus(true);
+    setBusEncontrado(null);
+
+    try {
+      // Buscar en la lista de buses cargada
+      const bus = datosCombo.buses.find(b => {
+        const cod = String(b.codigo_buses || b.bus_codigo || '').toLowerCase();
+        const placa = String(b.bus_placa || b.placa_buses || '').toLowerCase();
+        const disco = String(b.bus_disco || b.disco_buses || '').toLowerCase();
+        return cod === texto.toLowerCase() || placa.includes(texto.toLowerCase()) || disco.includes(texto.toLowerCase());
+      });
+
+      if (bus) {
+        const discoBus = bus.bus_disco || bus.disco_buses || '';
+        
+        // No reemplazar el input, conservar lo que escribió el usuario
+        setFormData(prev => ({ ...prev, id_fkbus_despacho_maestro: discoBus }));
+        setBusEncontrado(bus);
+        
+        // Auto-cargar personal asignado al bus
+        const res = await api.get('/personal/buscarPorBus', { params: { id_bus: discoBus } });
+        if (res.data?.success && res.data?.data?.length > 0) {
+          const personal = res.data.data[0];
+          if (personal.id_fkpersonal_buses) {
+            const perEncontrado = datosCombo.personal.find(p => 
+              String(p.id_personal) === String(personal.id_fkpersonal_buses)
+            );
+            if (perEncontrado) {
+              setFormData(prev => ({
+                ...prev,
+                id_personal: perEncontrado.per_codigo_personal || perEncontrado.id_personal,
+              }));
+              toast.success(`Bus encontrado (Disco ${discoBus}). Personal: ${perEncontrado.per_nombres_persona}`);
+            } else {
+              toast.success(`Bus encontrado (Disco ${discoBus})`);
+            }
+          } else {
+            toast.success(`Bus encontrado (Disco ${discoBus})`);
+          }
+        } else {
+          toast.success(`Bus encontrado (Disco ${discoBus})`);
+        }
+      } else {
+        toast.error('Bus no encontrado.');
+        setFormData(prev => ({ ...prev, id_fkbus_despacho_maestro: '', id_personal: '' }));
+      }
+    } catch (err) {
+      console.error('Error buscando bus:', err);
+      toast.error('Error al buscar bus');
+    } finally {
+      setBuscandoBus(false);
+    }
   };
 
-  const handleBusSelectFromModal = (bus) => {
-    setFormData(prev => ({
-      ...prev,
-      id_fkbus_despacho_maestro: bus.bus_codigo,
-      nombre_bus_raw: `${bus.bus_placa} - ${bus.bus_disco || ''}`
-    }));
-    setShowBusSearch(false);
+  const handleBuscarKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      buscarBus();
+    }
   };
 
   const handleSubmit = async () => {
@@ -99,7 +149,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
 
     setSaving(true);
     try {
-      const busSel = datosCombo.buses.find(b => String(b.bus_codigo) === String(formData.id_fkbus_despacho_maestro));
+      const busSel = datosCombo.buses.find(b => String(b.bus_disco || b.disco_buses || b.id_buses) === String(formData.id_fkbus_despacho_maestro));
       const perSel = datosCombo.personal.find(p => String(p.per_codigo_personal) === String(formData.id_personal));
       const desSel = datosCombo.destinos.find(d => String(d.id_destino) === String(formData.oficina_usuario));
       const ofiSel = datosCombo.oficinistas.find(o => String(o.id_usuario) === String(formData.id_fkoficinista_despacho_maestro));
@@ -168,30 +218,42 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
               />
             </div>
 
-            {/* Bus */}
+            {/* Bus - Búsqueda por número/placa */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">Bus <span className="text-red-500">*</span></label>
               <div className="flex gap-2">
-                <select
-                  value={formData.id_fkbus_despacho_maestro}
-                  onChange={handleBusChange}
-                  className="flex-1 px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="">Seleccionar bus...</option>
-                  {datosCombo.buses.map(b => (
-                    <option key={b.bus_codigo} value={b.bus_codigo}>
-                      {b.codigo_buses || b.bus_placa || ''}
-                    </option>
-                  ))}
-                </select>
+                <input
+                  type="text"
+                  value={formData.nombre_bus_raw}
+                  onChange={e => {
+                    setFormData(p => ({ ...p, nombre_bus_raw: e.target.value.toUpperCase() }));
+                    setBusEncontrado(null);
+                  }}
+                  onKeyDown={handleBuscarKeyDown}
+                  placeholder="Ingrese placa, disco o código..."
+                  className={`flex-1 px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 bg-white ${
+                    busEncontrado ? 'border-emerald-400 ring-emerald-200' : 'border-slate-300 focus:ring-blue-500'
+                  }`}
+                />
                 <button
-                  onClick={() => setShowBusSearch(true)}
-                  className="px-3 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
+                  onClick={buscarBus}
+                  disabled={buscandoBus}
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm transition-colors flex items-center gap-2"
                   title="Buscar bus"
                 >
-                  <i className="fas fa-search"></i>
+                  {buscandoBus ? (
+                    <i className="fas fa-spinner fa-spin"></i>
+                  ) : (
+                    <><i className="fas fa-search"></i> Buscar</>
+                  )}
                 </button>
               </div>
+              {busEncontrado && (
+                <div className="mt-1 text-xs text-emerald-600 font-medium flex items-center gap-1">
+                  <i className="fas fa-check-circle"></i>
+                  Bus seleccionado: Disco {busEncontrado.bus_disco || busEncontrado.disco_buses || '?'}
+                </div>
+              )}
             </div>
 
             {/* Personal/Busero */}
@@ -205,7 +267,8 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
                 <option value="">Seleccionar personal...</option>
                 {datosCombo.personal.map(p => (
                   <option key={p.per_codigo_personal || p.id_personal} value={p.per_codigo_personal || p.id_personal}>
-                    {p.per_nombres_persona || `${p.per_nombre || ''} ${p.per_apellido || ''}`.trim()}
+                    {p.per_nombres_persona || `${p.per_nombre || ''} ${p.per_apellido || ''}`.trim()}{' '}
+                    - {p.per_cedula_personal || p.cedula || ''}
                   </option>
                 ))}
               </select>
@@ -269,13 +332,6 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
           </div>
         </div>
       </div>
-
-      {showBusSearch && (
-        <BusquedaBusModal
-          onSelect={handleBusSelectFromModal}
-          onClose={() => setShowBusSearch(false)}
-        />
-      )}
     </>
   );
 };

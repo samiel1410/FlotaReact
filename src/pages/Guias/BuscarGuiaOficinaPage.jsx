@@ -49,12 +49,19 @@ export const BuscarGuiaOficinaPage = () => {
         idusuario: '',
         despacho: 'false',
         limit: 50,
-        start: 0
+        page: 1
       });
 
-      const data = response.data || [];
+      if (!response || !response.success) {
+        toast.error(response?.mensaje || 'Error al buscar guía');
+        setResultados([]);
+        setTotal(0);
+        return;
+      }
+
+      const data = Array.isArray(response.data) ? response.data : [];
       setResultados(data);
-      setTotal(response.total || data.length);
+      setTotal(response.total || 0);
 
       if (data.length > 0) {
         toast.success(`${data.length} guía(s) encontrada(s)`);
@@ -67,6 +74,17 @@ export const BuscarGuiaOficinaPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleNumeroGuiaChange = (e) => {
+    const raw = e.target.value;
+    const digits = raw.replace(/\D/g, '').slice(0, 14);
+    let formatted = '';
+    for (let i = 0; i < digits.length; i++) {
+      if (i === 3 || i === 6) formatted += '-';
+      formatted += digits[i];
+    }
+    setNumeroGuia(formatted);
   };
 
   const handleKeyDown = (e) => {
@@ -83,7 +101,7 @@ export const BuscarGuiaOficinaPage = () => {
       const idUsuario = userResp.data?.data?.id_usuario || 0;
 
       const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
-      const res = await fetch(phpUrl, { credentials: 'include' });
+      const res = await fetch(phpUrl);
       
       toast.dismiss('pdf-guia');
       
@@ -120,7 +138,7 @@ export const BuscarGuiaOficinaPage = () => {
       const nombreUsuario = userResp.data?.data?.nombre_usuario || '';
 
       const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&reimpreso_por=${encodeURIComponent(nombreUsuario)}`;
-      const res = await fetch(phpUrl, { credentials: 'include' });
+      const res = await fetch(phpUrl);
 
       toast.dismiss('reimp-guia');
 
@@ -177,9 +195,10 @@ export const BuscarGuiaOficinaPage = () => {
           <input
             type="text"
             value={numeroGuia}
-            onChange={(e) => setNumeroGuia(e.target.value)}
+            onChange={handleNumeroGuiaChange}
             onKeyDown={handleKeyDown}
-            placeholder="Ingrese el número de guía..."
+            placeholder="000-000-00000000"
+            maxLength="16"
             className="flex-1 h-9 px-3 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
             autoFocus
           />

@@ -42,7 +42,7 @@ export const GuiasPage = () => {
   // Estado de filtros y paginación
   const [filtros, setFiltros] = useState({});
   const [page, setPage] = useState(1);
-  const limit = 20; // Por defecto 20 items por página
+  const limit = 20;
   const navigate = useNavigate();
 
   const loadGuias = async (currentFiltros, currentPage) => {
@@ -51,7 +51,7 @@ export const GuiasPage = () => {
       const params = {
         ...currentFiltros,
         limit,
-        start: (currentPage - 1) * limit
+        page: currentPage
       };
       
       const response = await GuiaService.getGuias(params);
@@ -72,8 +72,26 @@ export const GuiasPage = () => {
   }, [filtros, page]);
 
   const handleSearch = (nuevosFiltros) => {
-    setFiltros(nuevosFiltros);
-    setPage(1); // Volver a la página 1 al buscar
+    // Mapear nombres del frontend al backend
+    const params = {
+      rucremitente: nuevosFiltros.cedula_remitente || '',
+      rucreceptor: nuevosFiltros.cedula_destinatario || '',
+      nombreremitente: nuevosFiltros.nombre_remitente || '',
+      nombrereceptor: nuevosFiltros.nombre_destinatario || '',
+      fechaini: nuevosFiltros.buscarPorFechaDesde || '',
+      fechalast: nuevosFiltros.buscarPorFechaHasta || '',
+      mes: nuevosFiltros.comboMes || '0',
+      anio: nuevosFiltros.comboAnioFactura || '0',
+      factura: nuevosFiltros.numero_factura || '',
+      numeroguia: nuevosFiltros.numero_guia || '',
+      estado: nuevosFiltros.estado_busqueda || '4',
+      idusuario: nuevosFiltros.usuario_busqueda || '',
+      numero_guia_manual: nuevosFiltros.numero_guia_manual || '',
+      despacho: nuevosFiltros.chechEstadoDespacho ? 'true' : 'false',
+      checknumero: nuevosFiltros.checknumero || false
+    };
+    setFiltros(params);
+    setPage(1);
   };
 
   const handlePageChange = (newPage) => {
@@ -103,7 +121,7 @@ export const GuiasPage = () => {
     try {
       const idUsuario = user?.id_usuario || 0;
       const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
-      const res = await fetch(phpUrl, { credentials: 'include' });
+      const res = await fetch(phpUrl);
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
       const data = await res.json();
       if (!data.success || !data.ruta) { toast.error(data.error || 'Error generando PDF'); return; }
@@ -123,7 +141,7 @@ export const GuiasPage = () => {
     setPrintSelectorOpen(false);
     try {
       const phpUrl = `${CONFIG.PHP_URL}/qrPdf.php?id_guia=${encodeURIComponent(item.id_guia)}`;
-      const res = await fetch(phpUrl, { credentials: 'include' });
+      const res = await fetch(phpUrl);
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
       const data = await res.json();
       if (!data.success || !data.ruta) { toast.error(data.error || 'Error generando QR'); return; }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { clienteApi } from '../../../config/axios';
 
@@ -8,7 +8,7 @@ const TIPOS_IDENTIFICACION = [
   { value: 'Pasaporte', label: 'Pasaporte' },
 ];
 
-export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado }) => {
+export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteInicial }) => {
   const [tipoIdentificacion, setTipoIdentificacion] = useState('Cedula');
   const [identificacion, setIdentificacion] = useState('');
   const [nombres, setNombres] = useState('');
@@ -18,6 +18,30 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado }) => {
   const [fechaNacimiento, setFechaNacimiento] = useState('');
   const [saving, setSaving] = useState(false);
   const [validacionId, setValidacionId] = useState(null); // null | { valido: bool, msg: string }
+
+  // Cargar datos del cliente a editar cuando se abre el modal
+  useEffect(() => {
+    if (!isOpen) return;
+    if (clienteInicial) {
+      // Determinar tipo de identificación
+      const id = clienteInicial.identificacion_cliente || clienteInicial.identificacion || '';
+      const soloDigitos = id.replace(/\D/g, '');
+      let tipo = 'Cedula';
+      if (soloDigitos.length === 13) tipo = 'RUC';
+      else if (id.length >= 5 && isNaN(id)) tipo = 'Pasaporte';
+
+      setTipoIdentificacion(clienteInicial.tipo_identificacion_cliente || tipo);
+      setIdentificacion(id);
+      setNombres(clienteInicial.nombre_cliente || clienteInicial.nombres || '');
+      setDireccion(clienteInicial.direccion_cliente || clienteInicial.direccion || '');
+      setCelular(clienteInicial.telefono_cliente || clienteInicial.celular || '');
+      setCorreo(clienteInicial.email_cliente || clienteInicial.correo || '');
+      setFechaNacimiento(clienteInicial.fecha_nacimiento || clienteInicial.fechaNacimiento || '');
+      setValidacionId(null);
+    } else {
+      resetForm();
+    }
+  }, [isOpen, clienteInicial]);
 
   const resetForm = () => {
     setTipoIdentificacion('Cedula');
@@ -29,6 +53,8 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado }) => {
     setFechaNacimiento('');
     setValidacionId(null);
   };
+
+  const esEdicion = !!clienteInicial;
 
   const validarIdentificacion = (tipo, valor) => {
     if (!valor) return null;
@@ -92,12 +118,15 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado }) => {
         email_cliente: correo,
         fecha_nacimiento: fechaNacimiento,
       };
+      // Si es edición, incluir el id_cliente para que el backend actualice
+      if (esEdicion) {
+        body.id_cliente = clienteInicial.id_cliente;
+      }
       const response = await clienteApi.post('/cliente/ingresarActualizarCliente', body);
       const data = response.data;
       if (data.success) {
         // tipo 3 = cliente ya existía, buscar su ID
         if (data.tipo === 3) {
-          toast.success('El cliente ya estaba registrado. Cargando datos...');
           const searchRes = await clienteApi.get('/cliente/clientebusquedaIdentificacion', {
             params: { identificacion_busqueda: identificacion }
           });
@@ -113,13 +142,12 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado }) => {
               email_cliente: existing.email_cliente,
               fecha_nacimiento: existing.fecha_nacimiento,
             };
-            onClienteCreado(nuevoCliente);
+            onClienteCreado(nuevoCliente, esEdicion);
             resetForm();
             onClose();
             return;
           }
         }
-        toast.success('Cliente creado correctamente');
         const clienteData = Array.isArray(data.data) ? data.data[0] : data.data || {};
         const nuevoCliente = {
           id_cliente: clienteData?.id_cliente || data.id_cliente,
@@ -130,7 +158,7 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado }) => {
           email_cliente: correo,
           fecha_nacimiento: fechaNacimiento,
         };
-        onClienteCreado(nuevoCliente);
+        onClienteCreado(nuevoCliente, esEdicion);
         resetForm();
         onClose();
       } else {
@@ -161,7 +189,7 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado }) => {
           fontSize: 15, fontWeight: 'bold', display: 'flex',
           justifyContent: 'space-between', alignItems: 'center'
         }}>
-          <span><i className="fas fa-user-plus" style={{ marginRight: 8 }}></i>Nuevo Cliente</span>
+          <span><i className="fas fa-user-plus" style={{ marginRight: 8 }}></i>{esEdicion ? 'Actualizar Cliente' : 'Nuevo Cliente'}</span>
           <button onClick={() => { resetForm(); onClose(); }}
             style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 18 }}>
             <i className="fas fa-times"></i>
@@ -247,7 +275,7 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado }) => {
               background: '#0a365d', color: 'white', cursor: 'pointer',
               fontSize: 12, fontWeight: 'bold', opacity: saving ? 0.7 : 1
             }}>
-            {saving ? 'Guardando...' : 'Guardar Cliente'}
+            {saving ? 'Guardando...' : (esEdicion ? 'Actualizar Cliente' : 'Guardar Cliente')}
           </button>
         </div>
       </div>

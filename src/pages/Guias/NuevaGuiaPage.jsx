@@ -10,6 +10,9 @@ import Modal from '../../components/common/Modal';
 import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
 import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import { GuiaService } from '../../services/guia.service';
+import { CONFIG } from '../../config/env';
+import { api } from '../../config/axios';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { facturaService } from '../../services/factura.service';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -111,6 +114,11 @@ export const NuevaGuiaPage = () => {
   const [pagos, setPagos] = useState([]);
   const [pagadoPor, setPagadoPor] = useState('1'); // 1=Remitente, 2=Destinatario → canceladopor
   
+  // ── Modal PDF ────────────────────────────────────────
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfTitle, setPdfTitle] = useState('Guía');
+
   // ── Observación (ExtJS: observacion) ─────────────────
   const [observacion, setObservacion] = useState('');
   
@@ -170,8 +178,12 @@ export const NuevaGuiaPage = () => {
   }, [facturarA]);
 
   // ── Compañía desde destino seleccionado ─────────────────
+  // Al cambiar destino: si tiene compañía asociada la carga, si no la limpia
   useEffect(() => {
-    if (!destino) return;
+    if (!destino || !destinoTexto) {
+      setCompania(null);
+      return;
+    }
     const d = destinos.find(d => String(d.id) === String(destino));
     if (d && d.idfk_compania_asociada_destino) {
       setCompania({
@@ -182,8 +194,11 @@ export const NuevaGuiaPage = () => {
         telefono: d.numero_contacto || '',
         correo: ''
       });
+    } else {
+      // Si el destino no tiene compañía asociada, limpiar
+      setCompania(null);
     }
-  }, [destino, destinos]);
+  }, [destino, destinos, destinoTexto]);
 
   const normalizeComboData = (arr, idField, nombreField) => {
     if (!Array.isArray(arr)) return [];
@@ -691,14 +706,23 @@ export const NuevaGuiaPage = () => {
               toast.error('Guía guardada pero error al autorizar SRI', { id: 'sri_toast' });
             }
           }
+          // Generar PDF de impresión (formato ticket/roll, no A4) y mostrar en modal
           try {
-            const pdfBlob = await GuiaService.descargarGuiaPDF(idGuia);
-            const url = window.URL.createObjectURL(pdfBlob);
-            window.open(url, '_blank');
-            setTimeout(() => window.URL.revokeObjectURL(url), 10000);
-          } catch (e) {
-            console.error('Error al generar PDF', e);
-            toast.error('Guía guardada pero no se pudo generar el PDF');
+            const idUsuario = user?.id_usuario || 0;
+            const res = await api.get('/guia/generarPdfImpresion', { 
+              params: { id_guia: idGuia, id_usuario_global: idUsuario }
+            });
+            const data = res.data;
+            if (data.success && data.ruta) {
+              setPdfTitle(`Guía N° ${idGuia}`);
+              setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}`);
+              setPdfModalOpen(true);
+            } else {
+              toast.error(data.error || 'Error al generar PDF');
+            }
+          } catch (err) {
+            console.error('Error generando PDF de impresión:', err);
+            toast.error('No se pudo generar el PDF de impresión');
           }
         }
         setTimeout(() => handleResetForm(), 500);
@@ -820,23 +844,12 @@ export const NuevaGuiaPage = () => {
                     onChange={(e) => {
                       const val = e.target.value;
                       setDestinoTexto(val);
+                      setDestino(''); // Limpiar selección mientras escribe
                       setFieldErrors(prev => ({...prev, destino: undefined}));
-                      const filtrados = destinos.filter(d => (d.nombre || d.nombre_destino || '').toLowerCase().includes(val.toLowerCase()));
-                      if (filtrados.length > 0) {
-                        const primero = filtrados[0];
-                        setDestino(String(primero.id || primero.id_destino));
-                      } else {
-                        setDestino('');
-                      }
                       setDestinoAbierto(true);
                     }}
                     onFocus={() => {
                       setDestinoAbierto(true);
-                      const filtrados = destinos.filter(d => (d.nombre || d.nombre_destino || '').toLowerCase().includes(destinoTexto.toLowerCase()));
-                      if (filtrados.length > 0) {
-                        const primero = filtrados[0];
-                        handleSetDestino(String(primero.id || primero.id_destino), primero.nombre || primero.nombre_destino || '');
-                      }
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
@@ -1302,6 +1315,15 @@ export const NuevaGuiaPage = () => {
         </div>
 
       </div>
+
+      {/* ── Modal PDF de impresión ──────────────────────── */}
+      <PdfViewerModal
+        open={pdfModalOpen}
+        onClose={() => { setPdfModalOpen(false); setPdfUrl(null); }}
+        url={pdfUrl}
+        title={pdfTitle}
+        showPrintButton={true}
+      />
 
       {/* ── Modal Apertura de Caja ────────────────────────── */}
       <Modal isOpen={showCajaModal} onClose={handleCerrarModalCaja} title="Apertura de Caja" width="max-w-2xl">

@@ -45,14 +45,15 @@ export const GuiasFilterPanel = ({ onSearch, visible = true }) => {
     const { name, value, type, checked } = e.target;
     let newValue = type === 'checkbox' ? checked : value;
     
-    // Formato para numero de guia (001-001-)
+    // Formato para numero de guia (000-000-00000000)
     if (name === 'numero_guia') {
-      const cleanValue = value.replace(/[^0-9\-]/g, '');
-      if ((cleanValue.length === 3 || cleanValue.length === 7) && !cleanValue.endsWith('-')) {
-        newValue = cleanValue + '-';
-      } else {
-        newValue = cleanValue;
+      const digits = value.replace(/\D/g, '').slice(0, 14);
+      let formatted = '';
+      for (let i = 0; i < digits.length; i++) {
+        if (i === 3 || i === 6) formatted += '-';
+        formatted += digits[i];
       }
+      newValue = formatted;
     }
 
     setFormData({
@@ -179,8 +180,8 @@ export const GuiasFilterPanel = ({ onSearch, visible = true }) => {
             <input 
               type="text" 
               name="numero_guia" 
-              placeholder="001-001-000000000" 
-              maxLength="17" 
+              placeholder="001-001-00000000" 
+              maxLength="16" 
               value={formData.numero_guia} 
               onChange={handleChange} 
             />

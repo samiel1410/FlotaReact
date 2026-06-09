@@ -180,12 +180,9 @@ export const BusVisualizer = ({
 
   return (
     <div className="bus-visualizer-wrapper">
-      {/* HEADER: Bus info + Cambiar button */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 }}>
-        <div style={{ fontSize: 18, color: '#2c3e50', fontWeight: 'bold' }}>
-          Bus Nro: <span style={{ color: '#e67e22' }}>{discoBus || '---'}</span>
-        </div>
-        {onCambiarBus && (
+      {/* Cambiar button (solo el botón, el nro del bus se muestra arriba) */}
+      {onCambiarBus && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 15 }}>
           <button
             onClick={onCambiarBus}
             style={{
@@ -196,8 +193,8 @@ export const BusVisualizer = ({
           >
             <i className="fas fa-exchange-alt"></i> Cambiar
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* MAPA DE ASIENTOS */}
       <div style={{

@@ -95,14 +95,10 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
           <input type="text" className={inputRO} readOnly value={compania?.nombre || cliente?.nombre || ''} />
         </div>
         <div>
-          <label className={labelClass}>RUC</label>
-          <input type="text" className={inputRO} readOnly value={compania?.ruc || cliente?.identificacion || ''} />
-        </div>
-        <div>
           <label className={labelClass}>Teléfono</label>
           <input type="text" className={inputRO} readOnly value={compania?.telefono || cliente?.telefono || ''} />
         </div>
-        <div>
+        <div style={{ gridColumn: 'span 2' }}>
           <label className={labelClass}>Correo</label>
           <input type="text" className={inputRO} readOnly value={compania?.correo || cliente?.correo || ''} />
         </div>

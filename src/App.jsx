@@ -107,7 +107,6 @@ function App() {
           <Route path="guias" element={<GuiasPage />} />
 <Route path="guias/buscar-oficina" element={<BuscarGuiaOficinaPage />} />
           <Route path="boleteria" element={<BoleteriaPage />} />
-          <Route path="boleteria/nuevo" element={<NuevoBoletoPage />} />
           <Route path="recaudado" element={<RecaudadoPage />} />
           <Route path="asientos" element={<AsientosPage />} />
           <Route path="caja" element={<DynamicPage key="caja" configKey="caja" />} />
@@ -177,6 +176,7 @@ function App() {
 
         {/* Pantallas completas sin Layout Principal */}
         <Route path="/guias/nueva" element={<ProtectedRoute><NuevaGuiaPage /></ProtectedRoute>} />
+        <Route path="/boleteria/nuevo" element={<ProtectedRoute><NuevoBoletoPage /></ProtectedRoute>} />
         <Route path="/guias/editar/:id" element={<ProtectedRoute><EditarGuiaPage /></ProtectedRoute>} />
         <Route path="/guias/cobros/:id" element={<ProtectedRoute><CobrosRealizadosPage /></ProtectedRoute>} />
 
