@@ -1,16 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { api } from '../../config/axios';
+import { useAuth } from '../../hooks/useAuth';
+import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 
 const inputClass = "w-full pl-3 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all";
 const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2";
 
 export const ConfiguracionPage = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(true);
   const [configData, setConfigData] = useState({});
   const [formasPago, setFormasPago] = useState([]);
+  const [sistemaModo, setSistemaModo] = useState('prueba');
+  const [savingModo, setSavingModo] = useState(false);
 
   const { register, handleSubmit } = useForm({
     values: configData,
@@ -63,7 +68,82 @@ export const ConfiguracionPage = () => {
       }
     };
     fetchConfig();
+
+    api.get('/sistema/modo').then(res => {
+      if (res.data?.success && res.data?.data?.modo) {
+        setSistemaModo(res.data.data.modo);
+      }
+    }).catch(() => {});
   }, []);
+
+  const esProduccion = sistemaModo === 'produccion';
+
+  const handleModoChange = async (nuevoModo) => {
+    if (nuevoModo === sistemaModo || esProduccion) return;
+
+    const result = await Swal.fire({
+      title: '¿Cambiar a Producción?',
+      html: `
+        <div style="text-align: left; font-size: 13px;">
+          <p style="margin-bottom: 12px; font-weight: 600; color: #dc2626;">
+            ⚠️ Esta acción eliminará TODOS los datos transaccionales:
+          </p>
+          <ul style="list-style: none; padding: 0; margin: 0 0 12px 0; line-height: 1.8;">
+            <li>• Guías, detalle de guías, guías entregadas</li>
+            <li>• Boletos, detalle de boletos, reservas</li>
+            <li>• Facturas y detalle de facturas</li>
+            <li>• Cajas (principal, boletería, retenciones)</li>
+            <li>• Comprobantes de cobro</li>
+            <li>• Viajes, itinerarios</li>
+            <li>• Despachos</li>
+            <li>• Cobros, seguimientos</li>
+            <li>• Inventario y movimientos</li>
+          </ul>
+          <p style="color: #991b1b; font-weight: 600;">Los datos maestros (usuarios, buses, rutas, clientes, etc.) NO se eliminarán.</p>
+          <p style="margin-top: 12px; color: #64748b;">Esta operación no se puede deshacer.</p>
+        </div>
+      `,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, cambiar a Producción',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+      reverseButtons: true,
+    });
+    if (!result.isConfirmed) return;
+
+    const confirm2 = await Swal.fire({
+      title: '¿Estás completamente seguro?',
+      text: 'Escribe "PRODUCCION" para confirmar',
+      input: 'text',
+      inputPlaceholder: 'Escribe PRODUCCION',
+      showCancelButton: true,
+      confirmButtonText: 'Confirmar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+      preConfirm: (value) => {
+        if (value !== 'PRODUCCION') {
+          Swal.showValidationMessage('Debes escribir PRODUCCION para confirmar');
+        }
+      }
+    });
+    if (!confirm2.isConfirmed) return;
+
+    setSavingModo(true);
+    try {
+      const res = await api.post('/sistema/modo', { modo: nuevoModo });
+      if (res.data?.success) {
+        setSistemaModo(nuevoModo);
+        toast.success(res.data.message || 'Modo actualizado correctamente');
+      } else {
+        toast.error(res.data?.message || 'Error al cambiar el modo');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error de conexión con el servidor');
+    } finally {
+      setSavingModo(false);
+    }
+  };
 
   const handleSave = async (data) => {
     try {
@@ -176,6 +256,40 @@ export const ConfiguracionPage = () => {
                       <option value="1">TODOS</option>
                       <option value="0">TARIFA NORMAL</option>
                     </select>
+                  </div>
+                  <div className="pt-2 border-t border-slate-100 mt-2">
+                    <h3 className="text-sm font-bold text-slate-800 mb-3">
+                      <i className="fas fa-toggle-on text-amber-600 mr-2"></i>Estado del Sistema
+                    </h3>
+                    <div className="flex items-center gap-3">
+                      <select
+                        value={sistemaModo}
+                        onChange={(e) => handleModoChange(e.target.value)}
+                        disabled={savingModo || esProduccion || user?.rol_usuario !== 5}
+                        className="w-full max-w-xs px-3 py-2 bg-white border border-slate-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <option value="prueba">🔧 Modo Prueba</option>
+                        <option value="produccion">🚀 Producción</option>
+                      </select>
+                      {savingModo && (
+                        <div className="flex items-center gap-2 text-sm text-blue-600">
+                          <div className="w-4 h-4 border-2 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                          Guardando...
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        sistemaModo === 'prueba'
+                          ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          sistemaModo === 'prueba' ? 'bg-amber-500' : 'bg-red-500'
+                        }`}></span>
+                        {sistemaModo === 'prueba' ? 'Los datos son de prueba' : 'Irreversible — No se puede regresar a pruebas'}
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="space-y-4">
