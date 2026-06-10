@@ -48,6 +48,7 @@ const EditarGuiaPage = lazy(() => import('./pages/Guias/EditarGuiaPage').then(m 
 const EntregasPage = lazy(() => import('./pages/Entregas/EntregasPage').then(m => ({ default: m.EntregasPage })));
 
 const RolesPage = lazy(() => import('./pages/Roles/RolesPage').then(m => ({ default: m.RolesPage })));
+const SistemaPage = lazy(() => import('./pages/Sistema/SistemaPage').then(m => ({ default: m.SistemaPage })));
 
 // Componente Wrapper para rutas protegidas
 const ProtectedRoute = ({ children }) => {
@@ -142,6 +143,7 @@ function App() {
           <Route path="estadisticas" element={<EstadisticasPage />} />
           <Route path="reportes" element={<ReportesPage />} />
           <Route path="configuracion" element={<ConfiguracionPage />} />
+          <Route path="sistema" element={<SistemaPage />} />
           <Route path="aprobaciones" element={<DynamicPage key="aprobaciones" configKey="aprobaciones" />} />
 
           <Route path="cobros" element={<CobrosPage />} />

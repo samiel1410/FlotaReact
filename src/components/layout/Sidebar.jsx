@@ -34,6 +34,7 @@ const MENU = [
       { to: '/alimentos', icon: 'fas fa-utensils', label: 'Alimentos', permission: 'administracion.gestion_alimentos' },
       { to: '/inventario', icon: 'fas fa-boxes', label: 'Inventario', permission: 'administracion.gestion_inventario' },
       { to: '/clientes', icon: 'fas fa-user-tie', label: 'Clientes', permission: 'administracion.gestion_clientes' },
+      { to: '/sistema', icon: 'fas fa-toggle-on', label: 'Estado Sistema', permission: 'administracion.estado_sistema' },
     ]
   },
   {

@@ -14,6 +14,7 @@ export const GlobalHeader = () => {
   const [empresa, setEmpresa] = useState({ nombre: '', imagen: null, distintivo: null });
   const [userDetails, setUserDetails] = useState(null);
   const [metodoImpresion, setMetodoImpresion] = useState('manual');
+  const [sistemaModo, setSistemaModo] = useState(null);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -52,6 +53,13 @@ export const GlobalHeader = () => {
         };
         setEmpresa(data);
         sessionStorage.setItem('empresa_data', JSON.stringify(data));
+      }
+    }).catch(() => {});
+
+    // Cargar modo del sistema
+    api.get('/sistema/modo').then(res => {
+      if (res.data?.success && res.data?.data?.modo) {
+        setSistemaModo(res.data.data.modo);
       }
     }).catch(() => {});
 
@@ -139,6 +147,14 @@ export const GlobalHeader = () => {
           <i className={`fas fa-${metodoImpresion === 'directa' ? 'bolt' : 'file-pdf'} text-xs`}></i>
           <span>{metodoImpresion === 'directa' ? 'Directa' : 'Manual'}</span>
         </div>
+
+        {/* Modo Sistema */}
+        {sistemaModo === 'prueba' && (
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border bg-rose-50 text-rose-700 border-rose-300 animate-pulse-slow" title="El sistema está en modo prueba">
+            <i className="fas fa-flask text-xs"></i>
+            <span>MODO PRUEBA</span>
+          </div>
+        )}
       </div>
 
       {/* Derecha: User Info & Actions */}
