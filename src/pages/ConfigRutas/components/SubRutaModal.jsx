@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
+import { SearchableSelect } from '../../../components/common/SearchableSelect';
 
 const fw = "w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800";
 const fl = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5";
 
 export const SubRutaModal = ({ open, onClose, onSave, subruta, catalogoCantones, nextOrden, saving }) => {
-  const { register, handleSubmit, reset, watch } = useForm({
+  const { register, handleSubmit, reset, watch, control } = useForm({
     defaultValues: {
       id_fkorigen_sub_rutas: '',
       id_fkdestino_sub_rutas: '',
@@ -81,17 +82,39 @@ export const SubRutaModal = ({ open, onClose, onSave, subruta, catalogoCantones,
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={fl}>Origen</label>
-              <select {...register('id_fkorigen_sub_rutas')} className={fw}>
-                <option value="">Seleccionar...</option>
-                {catalogoCantones.map(c => <option key={c.id_canton} value={c.id_canton}>{c.nombre_canton}</option>)}
-              </select>
+              <Controller
+                name="id_fkorigen_sub_rutas"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    options={catalogoCantones.map(c => ({
+                      value: c.id_canton,
+                      label: c.nombre_canton,
+                    }))}
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Buscar origen..."
+                  />
+                )}
+              />
             </div>
             <div>
               <label className={fl}>Destino</label>
-              <select {...register('id_fkdestino_sub_rutas')} className={fw}>
-                <option value="">Seleccionar...</option>
-                {catalogoCantones.map(c => <option key={c.id_canton} value={c.id_canton}>{c.nombre_canton}</option>)}
-              </select>
+              <Controller
+                name="id_fkdestino_sub_rutas"
+                control={control}
+                render={({ field }) => (
+                  <SearchableSelect
+                    options={catalogoCantones.map(c => ({
+                      value: c.id_canton,
+                      label: c.nombre_canton,
+                    }))}
+                    value={field.value}
+                    onChange={field.onChange}
+                    placeholder="Buscar destino..."
+                  />
+                )}
+              />
             </div>
           </div>
           <div>

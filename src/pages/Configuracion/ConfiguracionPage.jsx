@@ -4,6 +4,7 @@ import { api } from '../../config/axios';
 import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
+import { getSistemaModo, setSistemaModoCache } from '../../services/sistema.service';
 
 const inputClass = "w-full pl-3 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all";
 const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2";
@@ -69,11 +70,9 @@ export const ConfiguracionPage = () => {
     };
     fetchConfig();
 
-    api.get('/sistema/modo').then(res => {
-      if (res.data?.success && res.data?.data?.modo) {
-        setSistemaModo(res.data.data.modo);
-      }
-    }).catch(() => {});
+    getSistemaModo().then(modo => {
+      setSistemaModo(modo);
+    });
   }, []);
 
   const esProduccion = sistemaModo === 'produccion';
@@ -134,6 +133,7 @@ export const ConfiguracionPage = () => {
       const res = await api.post('/sistema/modo', { modo: nuevoModo });
       if (res.data?.success) {
         setSistemaModo(nuevoModo);
+        setSistemaModoCache(nuevoModo);
         toast.success(res.data.message || 'Modo actualizado correctamente');
       } else {
         toast.error(res.data?.message || 'Error al cambiar el modo');

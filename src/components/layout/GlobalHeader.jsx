@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import { api } from '../../config/axios';
 import Swal from 'sweetalert2';
+import { getSistemaModo } from '../../services/sistema.service';
 
 export const GlobalHeader = () => {
   const { user, logout } = useAuth();
@@ -56,12 +57,10 @@ export const GlobalHeader = () => {
       }
     }).catch(() => {});
 
-    // Cargar modo del sistema
-    api.get('/sistema/modo').then(res => {
-      if (res.data?.success && res.data?.data?.modo) {
-        setSistemaModo(res.data.data.modo);
-      }
-    }).catch(() => {});
+    // Cargar modo del sistema (con cache compartido)
+    getSistemaModo().then(modo => {
+      setSistemaModo(modo);
+    });
 
     return () => clearInterval(timer);
   }, []);

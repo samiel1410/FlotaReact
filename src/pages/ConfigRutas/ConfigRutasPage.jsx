@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller } from 'react-hook-form';
 import { api } from '../../config/axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { SubRutaModal } from './components/SubRutaModal';
+import { SearchableSelect } from '../../components/common/SearchableSelect';
 
 const fw = "w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800";
 const fl = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5";
@@ -32,7 +33,7 @@ export const ConfigRutasPage = () => {
   const [savingSubRuta, setSavingSubRuta] = useState(false);
   const detailRef = useRef(null);
 
-  const { register, handleSubmit, reset } = useForm({
+  const { register, handleSubmit, reset, control, getValues, setValue } = useForm({
     defaultValues: { nombre_rutas: '', id_fkorigen_rutas: '', id_fkdestino_rutas: '', piso_rutas: '', andes_rutas: '', descripcion_rutas: '', estado_ruta: true }
   });
 
@@ -728,29 +729,49 @@ export const ConfigRutasPage = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className={fl}>Origen</label>
-                  <select {...register('id_fkorigen_rutas')} className={fw}
-                    onChange={e => {
-                      const o = catalogoCantones.find(c => c.id_canton == e.target.value)?.nombre_canton || '';
-                      const d = catalogoCantones.find(c => c.id_canton == document.querySelector('[name="id_fkdestino_rutas"]')?.value)?.nombre_canton || '';
-                      if (o && d) document.querySelector('[name="nombre_rutas"]').value = o + ' - ' + d;
-                    }}
-                  >
-                    <option value="">Seleccionar...</option>
-                    {catalogoCantones.map(c => <option key={c.id_canton} value={c.id_canton}>{c.nombre_canton}</option>)}
-                  </select>
+                  <Controller
+                    name="id_fkorigen_rutas"
+                    control={control}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        options={catalogoCantones.map(c => ({
+                          value: c.id_canton,
+                          label: c.nombre_canton,
+                        }))}
+                        value={field.value}
+                        onChange={(val) => {
+                          field.onChange(val);
+                          const o = catalogoCantones.find(c => c.id_canton == val)?.nombre_canton || '';
+                          const d = catalogoCantones.find(c => c.id_canton == getValues('id_fkdestino_rutas'))?.nombre_canton || '';
+                          if (o && d) setValue('nombre_rutas', o + ' - ' + d);
+                        }}
+                        placeholder="Buscar origen..."
+                      />
+                    )}
+                  />
                 </div>
                 <div>
                   <label className={fl}>Destino</label>
-                  <select {...register('id_fkdestino_rutas')} className={fw}
-                    onChange={e => {
-                      const d = catalogoCantones.find(c => c.id_canton == e.target.value)?.nombre_canton || '';
-                      const o = catalogoCantones.find(c => c.id_canton == document.querySelector('[name="id_fkorigen_rutas"]')?.value)?.nombre_canton || '';
-                      if (o && d) document.querySelector('[name="nombre_rutas"]').value = o + ' - ' + d;
-                    }}
-                  >
-                    <option value="">Seleccionar...</option>
-                    {catalogoCantones.map(c => <option key={c.id_canton} value={c.id_canton}>{c.nombre_canton}</option>)}
-                  </select>
+                  <Controller
+                    name="id_fkdestino_rutas"
+                    control={control}
+                    render={({ field }) => (
+                      <SearchableSelect
+                        options={catalogoCantones.map(c => ({
+                          value: c.id_canton,
+                          label: c.nombre_canton,
+                        }))}
+                        value={field.value}
+                        onChange={(val) => {
+                          field.onChange(val);
+                          const d = catalogoCantones.find(c => c.id_canton == val)?.nombre_canton || '';
+                          const o = catalogoCantones.find(c => c.id_canton == getValues('id_fkorigen_rutas'))?.nombre_canton || '';
+                          if (o && d) setValue('nombre_rutas', o + ' - ' + d);
+                        }}
+                        placeholder="Buscar destino..."
+                      />
+                    )}
+                  />
                 </div>
                 <div className="col-span-2">
                   <label className={fl}>Nombre de la Ruta</label>
