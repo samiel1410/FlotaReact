@@ -38,7 +38,7 @@ export const ConfigRutasPage = () => {
   });
 
   useEffect(() => {
-    api.get('/canton/cantonSeleccionPaginado?limit=500&page=1').then(r => setCatalogoCantones(Array.isArray(r.data?.data) ? r.data.data : [])).catch(() => {});
+    api.get('/canton/cantonSeleccionarCombo').then(r => setCatalogoCantones(Array.isArray(r.data?.data) ? r.data.data : [])).catch(() => {});
   }, []);
 
   const getCantonNombre = (id) => {
