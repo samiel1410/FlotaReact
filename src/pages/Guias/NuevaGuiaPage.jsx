@@ -709,7 +709,13 @@ export const NuevaGuiaPage = () => {
           // Mostrar PDF usando el script PHP y enviar WhatsApp
           try {
             const idUsuario = user?.id_usuario || 0;
-            const fullPdfUrl = window.location.origin + `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}`;
+            const generatorUrl = window.location.origin + `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}`;
+            
+            // Llamar al PHP para generar el PDF
+            await axios.get(generatorUrl);
+
+            // Usar la ruta del archivo físico
+            const fullPdfUrl = window.location.origin + `/php/tmp/guiaImpresion_${idGuia}.pdf`;
             
             setPdfTitle(`Guía N° ${idGuia}`);
             setPdfUrl(fullPdfUrl);

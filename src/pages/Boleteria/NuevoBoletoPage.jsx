@@ -754,7 +754,10 @@ export const NuevoBoletoPage = () => {
           
           if (celular.length >= 9) {
             try {
-              const fileUrl = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
+              const urlGenerador = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
+              await axios.get(urlGenerador);
+              
+              const fileUrl = window.location.origin + `/php/tmp/boleto_${idBoleto}.pdf`;
               const mensaje = `Estimado(a) ${formData.nombres || 'pasajero'},\n\nAdjuntamos su boleto de viaje para su próximo traslado. ¡Buen viaje!`;
               await api.post('/whatsapp/enviar', {
                 number: celular,
@@ -834,7 +837,12 @@ export const NuevoBoletoPage = () => {
 
   // Abrir impresión del boleto (ExtJS: onimpresionBoleto)
   const imprimirBoleto = async (id_boleto) => {
-    const printUrl = `/php/boletoFactura.php?id_boleto=${id_boleto}`;
+    const printUrl = `/php/tmp/boleto_${id_boleto}.pdf`;
+    
+    // Generar PDF asegurando el guardado en disco
+    try {
+      await axios.get(`/php/boletoFactura.php?id_boleto=${id_boleto}`);
+    } catch(e) {}
 
     if (metodoImpresion === 'directa') {
       // Directa: QZ Tray raw print
