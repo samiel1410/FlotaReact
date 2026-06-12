@@ -61,6 +61,7 @@ export const NuevaGuiaPage = () => {
   
   // ── Cabecera (ExtJS: origen_guia, destino_guia, tipo_envio) ────
   const [origen, setOrigen] = useState(user?.nombre_canton || user?.canton || '');
+  const origenOriginalRef = useRef(user?.nombre_canton || user?.canton || '');
   const [destino, setDestino] = useState(''); // ID del destino seleccionado
   const [destinoTexto, setDestinoTexto] = useState(''); // texto para el input
   const [destinoAbierto, setDestinoAbierto] = useState(false);
@@ -246,19 +247,23 @@ export const NuevaGuiaPage = () => {
         }
       }
 
-      // ── Usuario: origen = nombre_canton (NO sucursal) ──
+      // ── Usuario: origen = nombre_canton o ciudad (NO sucursal) ──
       if (userRes.status === 'fulfilled') {
         const uData = userRes.value?.data;
-        if (uData && uData.nombre_canton) {
-          setOrigen(uData.nombre_canton);
+        if (uData && (uData.nombre_canton || uData.canton || uData.ciudad)) {
+          const val = uData.nombre_canton || uData.canton || uData.ciudad;
+          setOrigen(val);
+          origenOriginalRef.current = val;
         }
       }
 
-      // Fallback: si no hay nombre_canton, usar la primera sucursal
-      if (!origen && sucRes.status === 'fulfilled') {
+      // Fallback: si no hay ciudad, usar la ciudad de la primera sucursal
+      if (!origenOriginalRef.current && sucRes.status === 'fulfilled') {
         const raw = sucRes.value?.data || [];
         if (raw.length > 0) {
-          setOrigen(raw[0].nombre_sucursal || raw[0].nombre || '');
+          const val = raw[0].nombre_canton || raw[0].ciudad || raw[0].nombre_sucursal || raw[0].nombre || '';
+          setOrigen(val);
+          origenOriginalRef.current = val;
         }
       }
 
@@ -771,7 +776,7 @@ export const NuevaGuiaPage = () => {
   // ── Reset form for next guía ─────────────────────────
   const handleResetForm = () => {
     setFieldErrors({});
-    setOrigen(user?.nombre_canton || user?.canton || '');
+    setOrigen(origenOriginalRef.current);
     setDestino('');
     setDestinoTexto('');
     setTipoEnvio('');
