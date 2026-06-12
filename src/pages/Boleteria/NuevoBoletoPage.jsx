@@ -79,6 +79,10 @@ export const NuevoBoletoPage = () => {
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [refreshAsientosKey, setRefreshAsientosKey] = useState(0);
   const [asientosPendientes, setAsientosPendientes] = useState({}); // { [asiento]: 'nombreUsuario' }
+  const [currentAgencia, setCurrentAgencia] = useState(() => {
+    const u = JSON.parse(sessionStorage.getItem('usuario') || '{}');
+    return u.nombre_sucursal || 'Desconocida';
+  });
 
   const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const [formData, setFormData] = useState({
@@ -893,7 +897,11 @@ export const NuevoBoletoPage = () => {
     usuario.nombre_sucursal = record.nombre_sucursal || usuario.nombre_sucursal;
     usuario.punto_emision_sucursal = record.punto_emision_sucursal || usuario.punto_emision_sucursal;
     sessionStorage.setItem('usuario', JSON.stringify(usuario));
+    setCurrentAgencia(record.nombre_sucursal || usuario.nombre_sucursal || 'Desconocida');
     toast.success(`Agencia cambiada a: ${record.nombre_sucursal || record.id_sucursal}`);
+    
+    // Limpiar formulario y resetear datos del viaje anterior
+    limpiarFormulario();
     // Refrescar viajes con nueva agencia (como ExtJS)
     buscarViajes();
   };
@@ -934,6 +942,16 @@ export const NuevoBoletoPage = () => {
           >
             <i className="fas fa-list"></i> Listado Pasajeros
           </button>
+        </div>
+
+        {/* INDICADOR DE AGENCIA ACTUAL */}
+        <div style={{
+          background: '#e0f2fe', borderRadius: 4, padding: '6px 10px',
+          border: '1px solid #bae6fd', marginBottom: 5,
+          display: 'flex', alignItems: 'center', gap: 6, color: '#0369a1', fontWeight: 600, fontSize: 11
+        }}>
+          <i className="fas fa-map-marker-alt"></i>
+          <span>Agencia actual: {currentAgencia}</span>
         </div>
 
         {/* DATE FILTER SECTION */}
