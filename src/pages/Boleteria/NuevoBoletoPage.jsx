@@ -321,7 +321,9 @@ export const NuevoBoletoPage = () => {
           setCedulaChofer(busData.per_cedula_personal || '');
           setPisosBus(busData.pisos_buses || 1);
           setMapaAsientos(busData.mapa_asientos || null);
-          setHoraViaje(busData.hora_viaje || formData.viajeTexto?.split(' - ')[0] || '');
+          const selectedViaje = viajesDisponibles.find(v => String(v.id_viajes) === String(formData.idViaje));
+          const horaDelViaje = selectedViaje?.hora_origen_salida || selectedViaje?.hora_salida_rutas || selectedViaje?.hora || selectedViaje?.hora_salida || busData.hora_viaje || formData.viajeTexto?.split(' - ')[0] || '';
+          setHoraViaje(horaDelViaje);
           if (busData.incluye_alimentos) setAlimentoInfo(busData);
 
           const ocupados = [];
@@ -666,7 +668,9 @@ export const NuevoBoletoPage = () => {
     // Validar hora del viaje (ExtJS: minutosBoleto > minutosViaje → ya está en despacho)
     const minutosBoleto = horaAMinutos(new Date().toTimeString().split(' ')[0]);
     const minutosViaje = horaAMinutos(horaViaje);
-    if (minutosBoleto > minutosViaje) {
+    const esHoy = !formData.fechaViaje || formData.fechaViaje === hoyLocal();
+    
+    if (esHoy && minutosViaje > 0 && minutosBoleto > minutosViaje) {
       toast.error('Este viaje ya está en despacho, no se pueden vender boletos', { duration: 5000 });
       return;
     }
@@ -1114,7 +1118,7 @@ export const NuevoBoletoPage = () => {
                       setFormData(prev => ({ ...prev, idViaje: viajeId, origen: v?.id_origen || prev.origen, asientosSeleccionados: [], pasajeros: [] }));
                       if (v) {
                         setDiscoBus(v.bus_disco || v.bus_codigo || '');
-                        setHoraViaje(v.hora || v.hora_salida || '');
+                        setHoraViaje(v.hora_origen_salida || v.hora_salida_rutas || v.hora || v.hora_salida || '');
                         setIdBus(v.id_buses || v.bus_id || '');
                       }
                     }}
