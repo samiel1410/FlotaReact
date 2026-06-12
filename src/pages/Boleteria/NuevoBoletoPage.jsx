@@ -1,6 +1,6 @@
 /* global qz */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BusVisualizer } from './components/BusVisualizer';
 import { PasajerosGrid } from './components/PasajerosGrid';
