@@ -749,25 +749,39 @@ export const NuevoBoletoPage = () => {
           }
           await imprimirBoleto(idBoleto);
 
-          // Enviar WhatsApp
-          const rawCelular = formData.celular || formData.pasajeros?.[0]?.celular || '';
-          const celular = rawCelular.replace(/\D/g, '');
-          
-          if (celular.length >= 9) {
+          // Enviar WhatsApp a comprador y a pasajeros (multi-envío)
+          const numerosUnicos = new Set();
+          if (formData.celular) numerosUnicos.add(formData.celular.replace(/\D/g, ''));
+          if (formData.pasajeros && formData.pasajeros.length > 0) {
+              formData.pasajeros.forEach(p => {
+                  if (p.celular) numerosUnicos.add(p.celular.replace(/\D/g, ''));
+              });
+          }
+
+          const numerosValidos = Array.from(numerosUnicos).filter(num => num.length >= 9);
+
+          if (numerosValidos.length > 0) {
             try {
               const urlGenerador = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
               await axios.get(urlGenerador);
               
               const fileUrl = window.location.origin + `/php/tmp/boleto_${idBoleto}.pdf`;
               const mensaje = `Estimado(a) ${formData.nombres || 'pasajero'},\n\nAdjuntamos su boleto de viaje para su próximo traslado. ¡Buen viaje!`;
-              await api.post('/whatsapp/enviar', {
-                number: celular,
-                message: mensaje,
-                fileUrl: fileUrl
-              });
-              toast.success('Boleto enviado por WhatsApp');
+              
+              for (const celular of numerosValidos) {
+                try {
+                  await api.post('/whatsapp/enviar', {
+                    number: celular,
+                    message: mensaje,
+                    fileUrl: fileUrl
+                  });
+                } catch(e) {
+                  console.error('Error enviando WhatsApp boleto a', celular, e);
+                }
+              }
+              toast.success(`Boleto enviado por WhatsApp a ${numerosValidos.length} destinatario(s)`);
             } catch(e) {
-              console.error('Error enviando WhatsApp boleto', e);
+              console.error('Error preparando PDF boleto para WhatsApp', e);
             }
           }
         }
