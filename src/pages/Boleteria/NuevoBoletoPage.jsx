@@ -47,7 +47,6 @@ export const NuevoBoletoPage = () => {
   const navigate = useNavigate();
 
   // Estados del formulario
-  const [destinos, setDestinos] = useState([]);
   const [viajesDisponibles, setViajesDisponibles] = useState([]);
   const [destinosViaje, setDestinosViaje] = useState([]);
   const [loadingViajes, setLoadingViajes] = useState(false);
@@ -107,12 +106,10 @@ export const NuevoBoletoPage = () => {
   useEffect(() => {
     const fetchInit = async () => {
       try {
-        const [destRes, viajesRes, configRes] = await Promise.all([
-          BoleteriaService.getDestinos(),
+        const [viajesRes, configRes] = await Promise.all([
           BoleteriaService.getViajesDisponibles({ fecha: hoyLocal() }),
           api.get('/configuracion/configuracionSeleccion')
         ]);
-        if (destRes.success && destRes.data) setDestinos(destRes.data);
         if (viajesRes.success && viajesRes.data) setViajesDisponibles(viajesRes.data);
         if (configRes.data?.success && configRes.data?.data?.length > 0) {
           const cfg = configRes.data.data[0];
@@ -295,8 +292,14 @@ export const NuevoBoletoPage = () => {
     const cargarAsientos = async () => {
       try {
         const [asientosRes, destinosViajeRes] = await Promise.all([
-          BoleteriaService.getAsientosBusViaje(formData.idViaje),
-          BoleteriaService.getDestinosViaje(formData.idViaje)
+          BoleteriaService.getAsientosBusViaje(formData.idViaje).catch(e => {
+            console.error('[cargarAsientos] Error en getAsientosBusViaje:', e);
+            return { success: false };
+          }),
+          BoleteriaService.getDestinosViaje(formData.idViaje).catch(e => {
+            console.error('[cargarAsientos] Error en getDestinosViaje:', e);
+            return { success: false };
+          })
         ]);
 
         console.log('[cargarAsientos] asientosRes:', JSON.stringify(asientosRes));
@@ -310,7 +313,6 @@ export const NuevoBoletoPage = () => {
           setPisosBus(busData.pisos_buses || 1);
           setMapaAsientos(busData.mapa_asientos || null);
           setHoraViaje(busData.hora_viaje || formData.viajeTexto?.split(' - ')[0] || '');
-          // Guardar info de alimentos
           if (busData.incluye_alimentos) setAlimentoInfo(busData);
 
           const ocupados = [];
@@ -332,6 +334,7 @@ export const NuevoBoletoPage = () => {
           console.log('[cargarAsientos] success false o data vacía');
         }
 
+        console.log('[cargarAsientos] destinosViajeRes:', JSON.stringify(destinosViajeRes));
         if (destinosViajeRes.success && destinosViajeRes.data) {
           setDestinosViaje(destinosViajeRes.data);
           if (destinosViajeRes.data.length > 0) {
@@ -347,6 +350,7 @@ export const NuevoBoletoPage = () => {
             setPrecioUnitario(0);
           }
         } else {
+          console.warn('[cargarAsientos] destinosViaje sin datos o success false');
           setSubrutaSeleccionada('');
           setPrecioUnitario(0);
         }
@@ -1128,7 +1132,14 @@ export const NuevoBoletoPage = () => {
                     onClick={() => {
                       if (formData.idViaje) {
                         BoleteriaService.getDestinosViaje(formData.idViaje).then(r => {
-                          if (r.success && r.data) setDestinosViaje(r.data);
+                          if (r.success && r.data) {
+                            setDestinosViaje(r.data);
+                          } else {
+                            toast.error('No se pudieron cargar los destinos');
+                          }
+                        }).catch(e => {
+                          console.error('Error refrescando destinos:', e);
+                          toast.error('Error al refrescar destinos');
                         });
                       }
                     }}
