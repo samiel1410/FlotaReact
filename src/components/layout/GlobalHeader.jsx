@@ -1,15 +1,26 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { useSocket } from '../../hooks/useSocket';
 import { api } from '../../config/axios';
 import Swal from 'sweetalert2';
 import { getSistemaModo } from '../../services/sistema.service';
 
 export const GlobalHeader = () => {
   const { user, logout } = useAuth();
-  const { isConnected } = useSocket();
   const navigate = useNavigate();
+
+  // Leer estado de conexión del socket global (creado en ProtectedLayout → useSocket)
+  // en lugar de instanciar un segundo socket
+  const [isConnected, setIsConnected] = useState(() => !!window.__socket?.connected);
+
+  useEffect(() => {
+    const checkSocket = () => setIsConnected(!!window.__socket?.connected);
+    // Polling liviano para actualizar el badge de conexión
+    const interval = setInterval(checkSocket, 3000);
+    checkSocket();
+    return () => clearInterval(interval);
+  }, []);
+
   
   const [time, setTime] = useState(new Date());
   const [empresa, setEmpresa] = useState({ nombre: '', imagen: null, distintivo: null });
