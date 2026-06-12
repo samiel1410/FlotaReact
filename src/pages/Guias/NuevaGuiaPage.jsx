@@ -727,34 +727,33 @@ export const NuevaGuiaPage = () => {
             setPdfUrl(fullPdfUrl);
             setPdfModalOpen(true);
 
-            // Enviar WhatsApp al destinatario o remitente
-            const rawCelular = destinatario?.telefono || destinatario?.telefono2 || remitente?.telefono || '';
-            const celularGuia = rawCelular.replace(/\D/g, '');
+            // Enviar WhatsApp al destinatario y remitente
+            const telefonosAEnviar = [];
             
-            console.log('--- INTENTANDO ENVIAR WHATSAPP GUIA ---');
-            console.log('rawCelular extraído:', rawCelular);
-            console.log('celularGuia (solo números):', celularGuia);
-            console.log('Longitud:', celularGuia.length);
-            
-            if (celularGuia.length >= 9) {
-              console.log('Condición de longitud APROBADA. Enviando a la API...');
+            const celDest = (destinatario?.telefono || destinatario?.telefono2 || '').replace(/\D/g, '');
+            if (celDest.length >= 9) {
+              telefonosAEnviar.push({ numero: celDest, nombre: destinatario?.nombres || 'cliente' });
+            }
+
+            const celRem = (remitente?.telefono || '').replace(/\D/g, '');
+            if (celRem.length >= 9 && celRem !== celDest) {
+              telefonosAEnviar.push({ numero: celRem, nombre: remitente?.nombres || 'cliente' });
+            }
+
+            for (const t of telefonosAEnviar) {
               try {
-                const mensajeGuia = `Estimado(a) ${destinatario?.nombres || 'cliente'},\n\nAdjuntamos la guía N° ${idGuia} de su encomienda. ¡Gracias por preferirnos!`;
-                const payloadWhatsApp = {
-                  number: celularGuia,
+                const mensajeGuia = `Estimado(a) ${t.nombre},\n\nAdjuntamos la guía N° ${idGuia} de su encomienda. ¡Gracias por preferirnos!`;
+                await api.post('/whatsapp/enviar', {
+                  number: t.numero,
                   message: mensajeGuia,
                   fileUrl: fullPdfUrl
-                };
-                console.log('Payload de WhatsApp:', payloadWhatsApp);
-                
-                const responseWa = await api.post('/whatsapp/enviar', payloadWhatsApp);
-                console.log('Respuesta de WhatsApp API:', responseWa.data);
-                toast.success('Guía enviada por WhatsApp');
-              } catch(e) {
-                console.error('Error enviando WhatsApp guia', e);
+                });
+              } catch (e) {
+                console.error('Error enviando WhatsApp guia a ' + t.numero, e);
               }
-            } else {
-              console.log('Condición de longitud FALLADA. No se envía WhatsApp.');
+            }
+            if (telefonosAEnviar.length > 0) {
+              toast.success('Guía enviada por WhatsApp');
             }
           } catch (err) {
             console.error('Error abriendo PDF de guía:', err);
