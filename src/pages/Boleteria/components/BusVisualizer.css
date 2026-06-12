@@ -124,6 +124,21 @@
   box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
 }
 
+.pendiente {
+  background: #8b5cf6;
+  border-color: #7c3aed;
+  color: white;
+  cursor: not-allowed;
+  opacity: 0.9;
+  animation: pulsePendiente 2s infinite;
+}
+
+@keyframes pulsePendiente {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
 .libre-parada {
   background: #27ae60;
   border-color: #1e8449;
