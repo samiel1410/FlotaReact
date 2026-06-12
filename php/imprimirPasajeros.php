@@ -34,19 +34,21 @@ $info = mysqli_fetch_assoc($result_info);
 
 
 
-// Consulta de pasajeros
+// Consulta de pasajeros (agrupados por oficina de venta)
 $query = "SELECT COALESCE(d.lugar_destino, (SELECT nombre_sub_rutas FROM sub_rutas sr WHERE sr.id_sub_rutas =
 bd.id_destino_boleto LIMIT 1)) as lugar_destino,
 r.nombre_rutas, bd.estado_boleto_detalle, identificacion_boleto_detalle,
 bd.asiento_boleto_detalle, r.id_fkdestino_rutas, bd.id_destino_boleto, bd.total_boleto_detalle,
-bd.nombre_cliente_boleto_detalle, b.nombre_origen
+bd.nombre_cliente_boleto_detalle, b.nombre_origen,
+b.id_sucursal_venta, COALESCE(s.nombre_sucursal, 'SIN OFICINA') AS nombre_sucursal
 FROM boleto_detalle bd
 JOIN boletos b ON bd.id_fkboleto_boleto_detalle = b.id_boleto
 JOIN viajes v ON b.id_fkviaje_boleto = v.id_viajes
 JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
 LEFT JOIN destino d ON bd.id_destino_boleto = d.id_destino
+LEFT JOIN sucursal2 s ON b.id_sucursal_venta = s.suc_codigo_sucursal
 WHERE b.id_fkviaje_boleto = $id_viaje
-ORDER BY b.nombre_origen ASC, bd.asiento_boleto_detalle ASC"; // Ordenar por origen
+ORDER BY s.nombre_sucursal ASC, b.nombre_origen ASC, bd.asiento_boleto_detalle ASC";
 
 $result = mysqli_query($conn, $query) or die(mysqli_error($conn));
 
@@ -54,46 +56,86 @@ $tabla = '';
 $total_pasajeros = 0;
 $total_valor = 0;
 
-// Variables para agrupación
+// Variables para agrupación por oficina y origen
+$current_sucursal = null;
 $current_origen = null;
-$subtotal_pasajeros = 0;
-$subtotal_valor = 0;
+$sucursal_subtotal_pasajeros = 0;
+$sucursal_subtotal_valor = 0;
+$origen_subtotal_pasajeros = 0;
+$origen_subtotal_valor = 0;
 
 $ruta = "";
 
 while ($row = mysqli_fetch_array($result)) {
-// Detectar cambio de origen
+$sucursal = $row['nombre_sucursal'] ? $row['nombre_sucursal'] : 'SIN OFICINA';
 $origen = $row['nombre_origen'] ? $row['nombre_origen'] : 'ORIGEN PRINCIPAL';
 
-if ($origen !== $current_origen) {
-// Si no es el primero, imprimir subtotal del anterior
-if ($current_origen !== null) {
-$tabla .= '
+// Detectar cambio de oficina (sucursal de venta)
+if ($sucursal !== $current_sucursal) {
+    // Cerrar subtotal de origen anterior (si existe)
+    if ($current_origen !== null) {
+        $tabla .= '
 <tr style="background-color:#f0f0f0;">
     <td colspan="4" style="text-align:right; font-weight:bold;">Total ' . $current_origen . ':</td>
-    <td style="text-align:right; font-weight:bold;">$' . number_format($subtotal_valor, 2) . ' <span
-            style="font-size:9px">(' . $subtotal_pasajeros . ')</span></td>
+    <td style="text-align:right; font-weight:bold;">$' . number_format($origen_subtotal_valor, 2) . ' <span
+            style="font-size:9px">(' . $origen_subtotal_pasajeros . ')</span></td>
 </tr>';
+    }
+    // Cerrar total de oficina anterior (si existe)
+    if ($current_sucursal !== null) {
+        $tabla .= '
+<tr style="background-color:#d9ead3;">
+    <td colspan="4" style="text-align:right; font-weight:bold; font-size:12px;">TOTAL ' . strtoupper($current_sucursal) . ':</td>
+    <td style="text-align:right; font-weight:bold; font-size:12px;">$' . number_format($sucursal_subtotal_valor, 2) . ' <span
+            style="font-size:9px">(' . $sucursal_subtotal_pasajeros . ' pasajeros)</span></td>
+</tr>
+<tr><td colspan="5" style="border-bottom:2px solid #000;"></td></tr>';
+    }
+    // Imprimir cabecera de nueva oficina
+    $tabla .= '
+<tr>
+    <td colspan="5" style="text-align:left; background-color:#c6d9f1; font-weight:bold; padding:6px; font-size:13px;">
+        <br>OFICINA DE VENTA: ' . strtoupper($sucursal) . '
+    </td>
+</tr>';
+
+    $current_sucursal = $sucursal;
+    $current_origen = null;
+    $sucursal_subtotal_pasajeros = 0;
+    $sucursal_subtotal_valor = 0;
 }
 
-// Imprimir cabecera de nuevo grupo
-$tabla .= '
+// Detectar cambio de origen (dentro de la misma oficina)
+if ($origen !== $current_origen) {
+    // Si no es el primero, imprimir subtotal del origen anterior
+    if ($current_origen !== null) {
+        $tabla .= '
+<tr style="background-color:#f0f0f0;">
+    <td colspan="4" style="text-align:right; font-weight:bold;">Total ' . $current_origen . ':</td>
+    <td style="text-align:right; font-weight:bold;">$' . number_format($origen_subtotal_valor, 2) . ' <span
+            style="font-size:9px">(' . $origen_subtotal_pasajeros . ')</span></td>
+</tr>';
+    }
+    // Imprimir cabecera de nuevo origen
+    $tabla .= '
 <tr>
     <td colspan="5" style="text-align:left; background-color:#e8e8e8; font-weight:bold; padding:5px;">
         <br>PUNTO DE EMBARQUE: ' . strtoupper($origen) . '
     </td>
 </tr>';
 
-$current_origen = $origen;
-$subtotal_pasajeros = 0;
-$subtotal_valor = 0;
+    $current_origen = $origen;
+    $origen_subtotal_pasajeros = 0;
+    $origen_subtotal_valor = 0;
 }
 
 $total_pasajeros++;
 $total_valor += $row['total_boleto_detalle'];
 
-$subtotal_pasajeros++;
-$subtotal_valor += $row['total_boleto_detalle'];
+$sucursal_subtotal_pasajeros++;
+$sucursal_subtotal_valor += $row['total_boleto_detalle'];
+$origen_subtotal_pasajeros++;
+$origen_subtotal_valor += $row['total_boleto_detalle'];
 
 $ruta = $row['nombre_rutas'];
 
@@ -111,14 +153,24 @@ $tabla .= '
 ';
 }
 
-// Imprimir subtotal del último grupo
+// Cerrar último origen
 if ($current_origen !== null) {
 $tabla .= '
 <tr style="background-color:#f0f0f0;">
     <td colspan="4" style="text-align:right; font-weight:bold;">Total ' . $current_origen . ':</td>
-    <td style="text-align:right; font-weight:bold;">$' . number_format($subtotal_valor, 2) . ' <span
-            style="font-size:9px">(' . $subtotal_pasajeros . ')</span></td>
+    <td style="text-align:right; font-weight:bold;">$' . number_format($origen_subtotal_valor, 2) . ' <span
+            style="font-size:9px">(' . $origen_subtotal_pasajeros . ')</span></td>
 </tr>';
+}
+// Cerrar última oficina
+if ($current_sucursal !== null) {
+$tabla .= '
+<tr style="background-color:#d9ead3;">
+    <td colspan="4" style="text-align:right; font-weight:bold; font-size:12px;">TOTAL ' . strtoupper($current_sucursal) . ':</td>
+    <td style="text-align:right; font-weight:bold; font-size:12px;">$' . number_format($sucursal_subtotal_valor, 2) . ' <span
+            style="font-size:9px">(' . $sucursal_subtotal_pasajeros . ' pasajeros)</span></td>
+</tr>
+<tr><td colspan="5" style="border-bottom:2px solid #000;"></td></tr>';
 }
 
 // Consulta de empresa

@@ -95,6 +95,10 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
       });
       if (res.data?.success) {
         toast.success('Viaje despachado exitosamente');
+        // Abrir PDF de despacho y PDF de listado de pasajeros
+        const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
+        window.open(`${baseUrl}/php/despachoViajePdf.php?id_viajes=${form.id_viaje}`, '_blank');
+        window.open(`${baseUrl}/php/imprimirPasajeros.php?id_viaje=${form.id_viaje}`, '_blank');
         onClose(true);
       } else {
         toast.error(res.data?.message || 'Error al despachar');

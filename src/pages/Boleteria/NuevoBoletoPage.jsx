@@ -1389,21 +1389,6 @@ export const NuevoBoletoPage = () => {
               padding: 5, boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
               display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden'
             }}>
-              <div style={{
-                fontSize: 16, fontWeight: 'bold', color: '#0a365d', textAlign: 'center',
-                padding: '3px', marginBottom: 2
-              }}>
-                BUS Nro: {discoBus || '---'}
-              </div>
-              {/* Total recaudado del bus (ExtJS: total_bus) */}
-              {formData.idViaje && (
-                <div style={{
-                  fontSize: 12, fontWeight: 'bold', color: '#035f2c', textAlign: 'center',
-                  padding: '2px', marginBottom: 2
-                }}>
-                  TOTAL BUS: ${parseFloat(totalRecaudado || 0).toFixed(2)}
-                </div>
-              )}
               {/* Alimento info */}
               {alimentoInfo?.incluye_alimentos && (
                 <div style={{
@@ -1462,8 +1447,20 @@ export const NuevoBoletoPage = () => {
         boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
         zIndex: 1000
       }}>
-        {/* Lado izquierdo: Cantidad, Precio Unitario, Total a Pagar */}
+        {/* Lado izquierdo: Bus, Total Bus, Cantidad, Precio Unitario, Total a Pagar */}
         <div style={{ display: 'flex', gap: 20, alignItems: 'center', fontSize: 12 }}>
+          {formData.idViaje && (
+            <>
+              <span style={{ whiteSpace: 'nowrap' }}>
+                BUS: <strong style={{ color: '#0a365d' }}>{discoBus || '---'}</strong>
+              </span>
+              <div style={{ width: 1, height: 20, background: '#ddd' }}></div>
+              <span style={{ whiteSpace: 'nowrap' }}>
+                TOTAL BUS: <strong style={{ color: '#035f2c' }}>${parseFloat(totalRecaudado || 0).toFixed(2)}</strong>
+              </span>
+              <div style={{ width: 1, height: 20, background: '#ddd' }}></div>
+            </>
+          )}
           <span>
             Cantidad: <strong style={{ color: '#0a365d' }}>{formData.asientosSeleccionados.length}</strong>
           </span>

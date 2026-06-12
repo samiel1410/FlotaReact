@@ -69,14 +69,22 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
 
   useEffect(() => {
     if (initialData) {
-      // Explicitly set values for select elements to ensure they are pre-selected
-      setValue('rol', String(initialData.rol || ''));
+      // Sincronizar TODOS los campos del formulario con los datos de la API
+      // (necesario porque el modal puede montarse antes de que initialData esté disponible)
+      setValue('rol', String(initialData.rol_usuario || initialData.rol || ''));
       setValue('id_fkrol_usuario', String(initialData.id_fkrol_usuario || ''));
-      // You might need to set other fields here too if they are not pre-filling correctly
-      // For example:
-      // setValue('nombre_usuario', initialData.nombre_usuario || '');
-      // setValue('apellido_usuario', initialData.apellido_usuario || '');
-      // ...
+      setValue('nombre_usuario', initialData.nombre_usuario || '');
+      setValue('apellido_usuario', initialData.apellido_usuario || '');
+      setValue('username_usuario', initialData.username_usuario || '');
+      setValue('telefono_usuario', initialData.telefono_usuario || '');
+      setValue('correo_usuario', initialData.correo_usuario || '');
+      setValue('punto_emision_usuario', String(initialData.punto_emision_usuario || ''));
+      setValue('punto_emision_boleteria', String(initialData.punto_emision_boleteria || ''));
+      setValue('id_fksucursal_usuario', String(initialData.id_fksucursal_usuario || ''));
+      setValue('id_fkprovincia_usuario', String(initialData.id_fkprovincia_usuario || ''));
+      setValue('estado_usuario', initialData.estado_usuario ?? initialData.estado ?? 1);
+      setValue('per_personal_usuario', initialData.per_personal_usuario || 0);
+      // id_fkciudad_usuario e id_fklugar se setean en los efectos de cascada
     }
   }, [initialData, setValue]);
 
@@ -125,11 +133,10 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
     setLoading(true);
     try {
       const payload = { ...data, estado_usuario: data.estado_usuario ? '1' : '0' };
-      if (isEditing) {
-        await api.post('/usuario/usuarioActualizar', { ...payload, id_usuario: initialData.id_usuario });
-      } else {
-        await api.post('/usuario/usuarioIngresar', payload);
-      }
+      await api.post('/usuario/insertarActualizarUsuario', {
+        ...payload,
+        ...(isEditing ? { id_usuario: initialData.id_usuario } : {})
+      });
       toast.success(isEditing ? 'Usuario actualizado correctamente' : 'Usuario creado correctamente');
       onSubmit(data);
     } catch (err) {
