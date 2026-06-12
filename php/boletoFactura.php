@@ -137,7 +137,6 @@ razon_social_empresa FROM empresa WHERE 1";
     $pisoMostrar = !empty($boleto['piso_sub_rutas']) && $boleto['piso_sub_rutas'] != 0 ? $boleto['piso_sub_rutas'] : '1';
 
     $html1 = '
-    $html1 = '
 <!DOCTYPE html>
 <html>
 <head>
