@@ -84,7 +84,7 @@ export const WhatsAppTestForm = () => {
 
   return (
     <div ref={formRef} className="space-y-6">
-      <form onSubmit={handleEnviar} className="space-y-4">
+      <div className="space-y-4">
         {/* Número */}
         <div>
           <label className={labelClass}>
@@ -171,10 +171,10 @@ export const WhatsAppTestForm = () => {
           </p>
         </div>
 
-        {/* Botones */}
         <div className="flex items-center gap-3 pt-2">
           <button
-            type="submit"
+            type="button"
+            onClick={handleEnviar}
             disabled={enviando}
             className="px-5 py-2.5 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-bold rounded-xl shadow-md shadow-green-200 hover:shadow-lg transition-all flex items-center gap-2 text-sm"
           >
@@ -199,7 +199,7 @@ export const WhatsAppTestForm = () => {
             Limpiar
           </button>
         </div>
-      </form>
+      </div>
 
       {/* Historial de envíos */}
       {historial.length > 0 && (
