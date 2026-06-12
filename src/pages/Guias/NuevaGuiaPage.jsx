@@ -720,12 +720,14 @@ export const NuevaGuiaPage = () => {
               setPdfModalOpen(true);
 
               // Enviar WhatsApp al destinatario o remitente
-              const celularGuia = destinatario?.telefono || destinatario?.telefono2 || remitente?.telefono;
-              if (celularGuia && celularGuia.length >= 10) {
+              const rawCelular = destinatario?.telefono || destinatario?.telefono2 || remitente?.telefono || '';
+              const celularGuia = rawCelular.replace(/\D/g, '');
+              
+              if (celularGuia.length >= 9) {
                 try {
                   const mensajeGuia = `Estimado(a) ${destinatario?.nombres || 'cliente'},\n\nAdjuntamos la guía N° ${idGuia} de su encomienda. ¡Gracias por preferirnos!`;
                   await api.post('/whatsapp/enviar', {
-                    number: celularGuia.replace(/\D/g, ''),
+                    number: celularGuia,
                     message: mensajeGuia,
                     fileUrl: fullPdfUrl
                   });

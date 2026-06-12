@@ -749,13 +749,15 @@ export const NuevoBoletoPage = () => {
           await imprimirBoleto(idBoleto);
 
           // Enviar WhatsApp
-          const celular = formData.celular || formData.pasajeros?.[0]?.celular;
-          if (celular && celular.length >= 10) {
+          const rawCelular = formData.celular || formData.pasajeros?.[0]?.celular || '';
+          const celular = rawCelular.replace(/\D/g, '');
+          
+          if (celular.length >= 9) {
             try {
               const fileUrl = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
               const mensaje = `Estimado(a) ${formData.nombres || 'pasajero'},\n\nAdjuntamos su boleto de viaje para su próximo traslado. ¡Buen viaje!`;
               await api.post('/whatsapp/enviar', {
-                number: celular.replace(/\D/g, ''),
+                number: celular,
                 message: mensaje,
                 fileUrl: fileUrl
               });
