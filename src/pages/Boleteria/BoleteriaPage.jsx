@@ -5,6 +5,7 @@ import { CambiarFechaViajeModal } from './components/CambiarFechaViajeModal';
 import { BoleteriaService } from '../../services/boleteria.service';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
 import './BoleteriaPage.css';
 
 export const BoleteriaPage = () => {
@@ -20,6 +21,10 @@ export const BoleteriaPage = () => {
   // Modal cambio de fecha
   const [showCambiarFechaModal, setShowCambiarFechaModal] = useState(false);
   const [boletoParaCambioFecha, setBoletoParaCambioFecha] = useState(null);
+
+  // Modal PDF
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
 
   // Obtener usuario actual para permisos
   const currentUser = (() => {
@@ -77,15 +82,29 @@ export const BoleteriaPage = () => {
     }
   };
 
-  const handleVisualizarPdf = (item) => {
-    if (!item?.id_boleto) return;
-    window.open(`/php/boletoFactura.php?id_boleto=${item.id_boleto}`, '_blank');
+  const openPdfViewer = async (id_boleto) => {
+    if (!id_boleto) return;
+    const loadingToast = toast.loading('Generando boleto...');
+    try {
+      const urlGenerador = window.location.origin + `/php/boletoFactura.php?id_boleto=${id_boleto}`;
+      const response = await fetch(urlGenerador);
+      const data = await response.json();
+      
+      if (data.success && data.ruta) {
+        toast.dismiss(loadingToast);
+        setPdfUrl(`/php/tmp/${data.ruta}?t=${Date.now()}`); // Prevenir caché
+        setPdfModalOpen(true);
+      } else {
+        toast.error(data.error || "Error al generar el PDF del boleto", { id: loadingToast });
+      }
+    } catch(e) {
+      console.error("Error abriendo visor PDF:", e);
+      toast.error("Ocurrió un error al cargar el PDF", { id: loadingToast });
+    }
   };
 
-  const handleImprimir = (item) => {
-    if (!item?.id_boleto) return;
-    window.open(`/php/boletoFactura.php?id_boleto=${item.id_boleto}`, '_blank');
-  };
+  const handleVisualizarPdf = (item) => openPdfViewer(item?.id_boleto);
+  const handleImprimir = (item) => openPdfViewer(item?.id_boleto);
 
   const handleAnular = async (item) => {
     if (!item?.id_boleto) return;
@@ -194,6 +213,14 @@ export const BoleteriaPage = () => {
         onClose={() => { setShowCambiarFechaModal(false); setBoletoParaCambioFecha(null); }}
         boleto={boletoParaCambioFecha}
         onCambioExitoso={handleCambioFechaExitoso}
+      />
+
+      {/* Modal PDF de impresión */}
+      <PdfViewerModal
+        open={pdfModalOpen}
+        onClose={() => { setPdfModalOpen(false); setPdfUrl(null); }}
+        pdfUrl={pdfUrl}
+        title="Boleto de Viaje"
       />
     </div>
   );
