@@ -407,26 +407,45 @@ export const NuevoBoletoPage = () => {
     setAsientosPendientes({});
   }, [formData.idViaje]);
 
-  // Limpiar selecciones propias al cerrar el navegador o salir de la página
+  const formDataRef = useRef(formData);
   useEffect(() => {
-    const handleUnload = () => {
-      if (!window.__socket || !formData.idViaje || formData.asientosSeleccionados.length === 0) return;
+    formDataRef.current = formData;
+  }, [formData]);
+
+  const deseleccionarAsientosActuales = (viajeId, asientos) => {
+    const fd = formDataRef.current;
+    const vId = viajeId || fd.idViaje;
+    const as = asientos || fd.asientosSeleccionados;
+    
+    if (window.__socket && vId && as.length > 0) {
       const usuarioStr = sessionStorage.getItem('usuario');
       const currentUser = usuarioStr ? JSON.parse(usuarioStr) : null;
       const nombreUsuario = currentUser?.nombre_usuario || 'Usuario';
-      // Emitir deselección para CADA asiento que el usuario actual tenía seleccionado
-      formData.asientosSeleccionados.forEach(asiento => {
+      
+      as.forEach(asiento => {
         window.__socket.emit('asiento_seleccionando', {
-          id_viaje: formData.idViaje,
+          id_viaje: vId,
           asiento: Number(asiento),
           usuario: nombreUsuario,
           seleccionado: false
         });
       });
+    }
+  };
+
+  // Limpiar selecciones propias al cerrar el navegador, salir de la página o DESMONTAR el componente
+  useEffect(() => {
+    const handleUnload = () => {
+      deseleccionarAsientosActuales();
     };
     window.addEventListener('beforeunload', handleUnload);
-    return () => window.removeEventListener('beforeunload', handleUnload);
-  }, [formData.idViaje, formData.asientosSeleccionados]);
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+      // Deseleccionar al desmontar (cuando se cierra la ventana en SPA)
+      deseleccionarAsientosActuales();
+    };
+  }, []);
 
   // ─── ESCUCHAR EVENTOS SOCKET VENTA/ANULACIÓN ────────────────────────────
   useEffect(() => {
@@ -755,6 +774,7 @@ export const NuevoBoletoPage = () => {
 
   // Limpiar formulario completo (ExtJS: limpiarFormularioBoleto)
   const limpiarFormulario = () => {
+    deseleccionarAsientosActuales(); // Liberar asientos antes de limpiar
     setFormData({
       idCliente: '',
       fechaViaje: hoyLocal(),
@@ -1016,6 +1036,9 @@ export const NuevoBoletoPage = () => {
               <button
                 key={v?.id_viajes ?? `viaje-btn-${idx}`}
                 onClick={() => {
+                  if (formData.idViaje !== String(v.id_viajes)) {
+                    deseleccionarAsientosActuales(); // Liberar anteriores
+                  }
                   setFormData(prev => ({
                     ...prev,
                     idViaje: String(v.id_viajes),
@@ -1084,8 +1107,11 @@ export const NuevoBoletoPage = () => {
                     value={formData.idViaje}
                     onChange={e => {
                       const viajeId = e.target.value;
+                      if (formData.idViaje !== viajeId) {
+                        deseleccionarAsientosActuales(); // Liberar anteriores
+                      }
                       const v = viajesDisponibles.find(vv => String(vv.id_viajes) === viajeId);
-                      setFormData(prev => ({ ...prev, idViaje: viajeId, origen: v?.id_origen || prev.origen }));
+                      setFormData(prev => ({ ...prev, idViaje: viajeId, origen: v?.id_origen || prev.origen, asientosSeleccionados: [], pasajeros: [] }));
                       if (v) {
                         setDiscoBus(v.bus_disco || v.bus_codigo || '');
                         setHoraViaje(v.hora || v.hora_salida || '');
