@@ -301,7 +301,7 @@ razon_social_empresa FROM empresa WHERE 1";
     $filename = 'boleto_' . $id_boleto . '.pdf';
     $filepath = __DIR__ . '/tmp/' . $filename;
 
-    $pdf->Output($filepath, 'I');
+    $pdf->Output($filepath, 'F');
 
     $array = array(
         "ruta" => $filename,

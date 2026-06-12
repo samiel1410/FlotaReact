@@ -507,14 +507,13 @@ configuracion";
   }
   $pdf->Ln();
 
-  // Output PDF
-
-  $pdf->Output(__DIR__ . '/tmp/guiaImpresion.pdf', 'F');
+  $nombre_pdf = 'guiaImpresion_' . $id_guia . '.pdf';
+  $pdf->Output(__DIR__ . '/tmp/' . $nombre_pdf, 'F');
 
   $array = array(
-    "ruta" => 'guiaImpresion.pdf',
+    "ruta" => $nombre_pdf,
     "success" => true,
-    "borrar" => __DIR__ . '/tmp/guiaImpresion.pdf',
+    "borrar" => __DIR__ . '/tmp/' . $nombre_pdf,
 
   );
 
