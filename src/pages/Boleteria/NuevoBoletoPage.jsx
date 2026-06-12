@@ -747,6 +747,23 @@ export const NuevoBoletoPage = () => {
             autorizarBoleto(idBoleto);
           }
           await imprimirBoleto(idBoleto);
+
+          // Enviar WhatsApp
+          const celular = formData.celular || formData.pasajeros?.[0]?.celular;
+          if (celular && celular.length >= 10) {
+            try {
+              const fileUrl = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
+              const mensaje = `Estimado(a) ${formData.nombres || 'pasajero'},\n\nAdjuntamos su boleto de viaje para su próximo traslado. ¡Buen viaje!`;
+              await api.post('/whatsapp/enviar', {
+                number: celular.replace(/\D/g, ''),
+                message: mensaje,
+                fileUrl: fileUrl
+              });
+              toast.success('Boleto enviado por WhatsApp');
+            } catch(e) {
+              console.error('Error enviando WhatsApp boleto', e);
+            }
+          }
         }
         limpiarFormulario();
         refrescarViajes();

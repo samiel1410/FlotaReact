@@ -714,9 +714,26 @@ export const NuevaGuiaPage = () => {
             });
             const data = res.data;
             if (data.success && data.ruta) {
+              const fullPdfUrl = `${CONFIG.PHP_URL}/tmp/${data.ruta}`;
               setPdfTitle(`Guía N° ${idGuia}`);
-              setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}`);
+              setPdfUrl(fullPdfUrl);
               setPdfModalOpen(true);
+
+              // Enviar WhatsApp al destinatario o remitente
+              const celularGuia = destinatario?.telefono || destinatario?.telefono2 || remitente?.telefono;
+              if (celularGuia && celularGuia.length >= 10) {
+                try {
+                  const mensajeGuia = `Estimado(a) ${destinatario?.nombres || 'cliente'},\n\nAdjuntamos la guía N° ${idGuia} de su encomienda. ¡Gracias por preferirnos!`;
+                  await api.post('/whatsapp/enviar', {
+                    number: celularGuia.replace(/\D/g, ''),
+                    message: mensajeGuia,
+                    fileUrl: fullPdfUrl
+                  });
+                  toast.success('Guía enviada por WhatsApp');
+                } catch(e) {
+                  console.error('Error enviando WhatsApp guia', e);
+                }
+              }
             } else {
               toast.error(data.error || 'Error al generar PDF');
             }
