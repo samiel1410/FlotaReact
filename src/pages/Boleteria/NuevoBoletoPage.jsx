@@ -261,8 +261,10 @@ export const NuevoBoletoPage = () => {
     if (!formData.fechaViaje) return;
     setLoadingViajes(true);
     try {
+      const usuario = JSON.parse(sessionStorage.getItem('usuario') || '{}');
       const res = await BoleteriaService.getViajesDisponibles({
-        fecha: formData.fechaViaje
+        fecha: formData.fechaViaje,
+        id_sucursal: usuario.id_sucursal
       });
       if (res.success && res.data) {
         setViajesDisponibles(res.data);
@@ -737,7 +739,11 @@ export const NuevoBoletoPage = () => {
   // Refrescar viajes disponibles (para actualizar total_boletos y asientos)
   const refrescarViajes = useCallback(async () => {
     try {
-      const viajesRes = await BoleteriaService.getViajesDisponibles({ fecha: formData.fechaViaje || hoyLocal() });
+      const usuario = JSON.parse(sessionStorage.getItem('usuario') || '{}');
+      const viajesRes = await BoleteriaService.getViajesDisponibles({ 
+        fecha: formData.fechaViaje || hoyLocal(),
+        id_sucursal: usuario.id_sucursal
+      });
       if (viajesRes.success && viajesRes.data) setViajesDisponibles(viajesRes.data);
     } catch (e) {
       console.error('Error refrescando viajes:', e);
