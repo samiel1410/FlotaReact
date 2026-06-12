@@ -6,7 +6,7 @@ import ToggleSwitch from '../../../components/common/ToggleSwitch';
 
 const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm({
+  const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
     defaultValues: isEditing ? {
       ...initialData,
       estado_usuario: initialData.estado_usuario ?? initialData.estado ?? 1
@@ -69,24 +69,26 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
 
   useEffect(() => {
     if (initialData) {
-      // Sincronizar TODOS los campos del formulario con los datos de la API
-      // (necesario porque el modal puede montarse antes de que initialData esté disponible)
-      setValue('rol', String(initialData.rol_usuario || initialData.rol || ''));
-      setValue('id_fkrol_usuario', String(initialData.id_fkrol_usuario || ''));
-      setValue('nombre_usuario', initialData.nombre_usuario || '');
-      setValue('apellido_usuario', initialData.apellido_usuario || '');
-      setValue('username_usuario', initialData.username_usuario || '');
-      setValue('telefono_usuario', initialData.telefono_usuario || '');
-      setValue('correo_usuario', initialData.correo_usuario || '');
-      setValue('punto_emision_usuario', String(initialData.punto_emision_usuario || ''));
-      setValue('punto_emision_boleteria', String(initialData.punto_emision_boleteria || ''));
-      setValue('id_fksucursal_usuario', String(initialData.id_fksucursal_usuario || ''));
-      setValue('id_fkprovincia_usuario', String(initialData.id_fkprovincia_usuario || ''));
-      setValue('estado_usuario', initialData.estado_usuario ?? initialData.estado ?? 1);
-      setValue('per_personal_usuario', initialData.per_personal_usuario || 0);
-      // id_fkciudad_usuario e id_fklugar se setean en los efectos de cascada
+      // Usar reset() en lugar de múltiples setValue para sincronizar TODO el formulario
+      // reset() es más robusto porque React Hook Form lo maneja como una actualización completa
+      reset({
+        rol: String(initialData.rol_usuario || initialData.rol || ''),
+        id_fkrol_usuario: String(initialData.id_fkrol_usuario || ''),
+        nombre_usuario: initialData.nombre_usuario || '',
+        apellido_usuario: initialData.apellido_usuario || '',
+        username_usuario: initialData.username_usuario || '',
+        telefono_usuario: initialData.telefono_usuario || '',
+        correo_usuario: initialData.correo_usuario || '',
+        punto_emision_usuario: String(initialData.punto_emision_usuario || ''),
+        punto_emision_boleteria: String(initialData.punto_emision_boleteria || ''),
+        id_fksucursal_usuario: String(initialData.id_fksucursal_usuario ?? ''),
+        id_fkprovincia_usuario: String(initialData.id_fkprovincia_usuario ?? ''),
+        estado_usuario: initialData.estado_usuario ?? initialData.estado ?? 1,
+        per_personal_usuario: initialData.per_personal_usuario || 0,
+        // id_fkciudad_usuario e id_fklugar se setean en los efectos de cascada
+      });
     }
-  }, [initialData, setValue]);
+  }, [initialData, reset]);
 
   // Cascade Sucursal -> Ciudad -> Lugar logic
   // In a full implementation we would filter based on ExtJS logic:

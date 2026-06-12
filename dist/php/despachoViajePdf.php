@@ -93,7 +93,16 @@ try {
     }
 
     $stmt->close();
-    // $conn->close(); // Mantenemos conexion abierta para consulta de detalles por origen
+
+    // Obtener datos de la empresa desde la BD
+    $query_empresa = "SELECT razon_social_empresa, ruc_empresa, direccion_empresa, telefono_empresa, correo_empresa FROM empresa WHERE 1 LIMIT 1";
+    $result_empresa = $conn->query($query_empresa);
+    $empresa = $result_empresa->fetch_assoc();
+    $razon_social = $empresa['razon_social_empresa'] ?? 'COOP. FLOTA PELILEO';
+    $ruc_empresa = $empresa['ruc_empresa'] ?? '1890066123001';
+    $direccion_empresa = $empresa['direccion_empresa'] ?? '';
+    $telefono_empresa = $empresa['telefono_empresa'] ?? '';
+    $correo_empresa = $empresa['correo_empresa'] ?? '';
 
     // Calcular valores
     $total_boletos = floatval($despacho['total_boletos']);
@@ -121,12 +130,12 @@ try {
     $pdf->SetAutoPageBreak(true, 5);
     $pdf->AddPage('P', array(500, 120));
 
-    // Encabezado compacto
+    // Encabezado compacto (datos desde BD)
     $content = '
     <div style="text-align: center; line-height: 10px;">
-        <span style="font-size: 12px; font-weight: bold;">PIÙLEO</span><br>
-        <span style="font-size: 8px;">COOP. FLOTA PELILEO</span><br>
-        <span style="font-size: 8px;">RUC 1890066123001</span>
+        <span style="font-size: 12px; font-weight: bold;">' . strtoupper($razon_social) . '</span><br>
+        <span style="font-size: 8px;">RUC ' . $ruc_empresa . '</span><br>
+        <span style="font-size: 8px;">' . $direccion_empresa . '</span>
     </div>
     <hr style="border: 0; border-top: 1px solid #000; margin: 2px 0;">
     
