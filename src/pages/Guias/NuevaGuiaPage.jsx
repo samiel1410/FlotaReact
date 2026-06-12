@@ -706,42 +706,47 @@ export const NuevaGuiaPage = () => {
               toast.error('Guía guardada pero error al autorizar SRI', { id: 'sri_toast' });
             }
           }
-          // Generar PDF de impresión (formato ticket/roll, no A4) y mostrar en modal
+          // Mostrar PDF usando el script PHP y enviar WhatsApp
           try {
             const idUsuario = user?.id_usuario || 0;
-            const res = await api.get('/guia/generarPdfImpresion', { 
-              params: { id_guia: idGuia, id_usuario_global: idUsuario }
-            });
-            const data = res.data;
-            if (data.success && data.ruta) {
-              const fullPdfUrl = `${CONFIG.PHP_URL}/tmp/${data.ruta}`;
-              setPdfTitle(`Guía N° ${idGuia}`);
-              setPdfUrl(fullPdfUrl);
-              setPdfModalOpen(true);
+            const fullPdfUrl = window.location.origin + `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}`;
+            
+            setPdfTitle(`Guía N° ${idGuia}`);
+            setPdfUrl(fullPdfUrl);
+            setPdfModalOpen(true);
 
-              // Enviar WhatsApp al destinatario o remitente
-              const rawCelular = destinatario?.telefono || destinatario?.telefono2 || remitente?.telefono || '';
-              const celularGuia = rawCelular.replace(/\D/g, '');
-              
-              if (celularGuia.length >= 9) {
-                try {
-                  const mensajeGuia = `Estimado(a) ${destinatario?.nombres || 'cliente'},\n\nAdjuntamos la guía N° ${idGuia} de su encomienda. ¡Gracias por preferirnos!`;
-                  await api.post('/whatsapp/enviar', {
-                    number: celularGuia,
-                    message: mensajeGuia,
-                    fileUrl: fullPdfUrl
-                  });
-                  toast.success('Guía enviada por WhatsApp');
-                } catch(e) {
-                  console.error('Error enviando WhatsApp guia', e);
-                }
+            // Enviar WhatsApp al destinatario o remitente
+            const rawCelular = destinatario?.telefono || destinatario?.telefono2 || remitente?.telefono || '';
+            const celularGuia = rawCelular.replace(/\D/g, '');
+            
+            console.log('--- INTENTANDO ENVIAR WHATSAPP GUIA ---');
+            console.log('rawCelular extraído:', rawCelular);
+            console.log('celularGuia (solo números):', celularGuia);
+            console.log('Longitud:', celularGuia.length);
+            
+            if (celularGuia.length >= 9) {
+              console.log('Condición de longitud APROBADA. Enviando a la API...');
+              try {
+                const mensajeGuia = `Estimado(a) ${destinatario?.nombres || 'cliente'},\n\nAdjuntamos la guía N° ${idGuia} de su encomienda. ¡Gracias por preferirnos!`;
+                const payloadWhatsApp = {
+                  number: celularGuia,
+                  message: mensajeGuia,
+                  fileUrl: fullPdfUrl
+                };
+                console.log('Payload de WhatsApp:', payloadWhatsApp);
+                
+                const responseWa = await api.post('/whatsapp/enviar', payloadWhatsApp);
+                console.log('Respuesta de WhatsApp API:', responseWa.data);
+                toast.success('Guía enviada por WhatsApp');
+              } catch(e) {
+                console.error('Error enviando WhatsApp guia', e);
               }
             } else {
-              toast.error(data.error || 'Error al generar PDF');
+              console.log('Condición de longitud FALLADA. No se envía WhatsApp.');
             }
           } catch (err) {
-            console.error('Error generando PDF de impresión:', err);
-            toast.error('No se pudo generar el PDF de impresión');
+            console.error('Error abriendo PDF de guía:', err);
+            toast.error('No se pudo abrir el PDF');
           }
         }
         setTimeout(() => handleResetForm(), 500);
