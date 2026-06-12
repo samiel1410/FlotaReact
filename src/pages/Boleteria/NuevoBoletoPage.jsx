@@ -15,6 +15,7 @@ import Swal from 'sweetalert2';
 import { BoleteriaService } from '../../services/boleteria.service';
 import { api, clienteApi } from '../../config/axios';
 import { CONFIG } from '../../config/env';
+import axios from 'axios';
 import { useSocket } from '../../hooks/useSocket';
 import './NuevoBoletoPage.css';
 

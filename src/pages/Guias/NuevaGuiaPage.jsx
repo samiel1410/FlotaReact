@@ -12,6 +12,7 @@ import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import { GuiaService } from '../../services/guia.service';
 import { CONFIG } from '../../config/env';
 import { api } from '../../config/axios';
+import axios from 'axios';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { facturaService } from '../../services/factura.service';
 import toast from 'react-hot-toast';
