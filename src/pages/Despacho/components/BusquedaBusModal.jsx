@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../../../config/axios';
 
 /**
@@ -7,23 +7,23 @@ import { api } from '../../../config/axios';
  */
 export const BusquedaBusModal = ({ onSelect, onClose, filterMode = false }) => {
   const [filtros, setFiltros] = useState({
-    bus_chasis: '',
-    bus_placa: '',
-    per_cedula: '',
-    per_nombre: ''
+    placa_busqueda: '',
+    disco_busqueda: '',
+    cedula_busqueda: '',
   });
   const [buses, setBuses] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const buscar = async (page = 1) => {
+  const buscar = async (pagina = 1) => {
     setLoading(true);
     try {
       const res = await api.get('/buses/seleccionarBuses', {
         params: {
-          ...filtros,
-          per_apellido: '',
-          numero_bloque: page,
-          tamanio_bloque: 20
+          placa_busqueda: filtros.placa_busqueda || '',
+          disco_busqueda: filtros.disco_busqueda || '',
+          cedula_busqueda: filtros.cedula_busqueda || '',
+          limit: 50,
+          page: pagina
         }
       });
       if (res.data?.success) {
@@ -36,8 +36,38 @@ export const BusquedaBusModal = ({ onSelect, onClose, filterMode = false }) => {
     }
   };
 
+  // Auto-cargar al abrir el modal
+  useEffect(() => {
+    buscar(1);
+  }, []);
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter') buscar(1);
+  };
+
+  const limpiar = () => {
+    const vacios = { placa_busqueda: '', disco_busqueda: '', cedula_busqueda: '' };
+    setFiltros(vacios);
+    setLoading(true);
+    api.get('/buses/seleccionarBuses', {
+      params: { placa_busqueda: '', disco_busqueda: '', cedula_busqueda: '', limit: 50, page: 1 }
+    }).then(res => {
+      if (res.data?.success) setBuses(res.data.data || []);
+    }).catch(err => {
+      console.error('Error buscando buses:', err);
+    }).finally(() => {
+      setLoading(false);
+    });
+  };
+
+  // El backend retorna a través de destinoConstruir:
+  // placa_buses, disco_buses, chasis_buses, codigo_buses, per_nombre_persona
+  // (NO usa prefijo bus_, usa sufijo _buses)
+  const mostrarNombreChofer = (bus) => {
+    if (bus.per_nombre_persona) return bus.per_nombre_persona;
+    if (bus.per_nombres_persona) return bus.per_nombres_persona;
+    if (bus.per_nombre) return bus.per_nombre;
+    return '-';
   };
 
   return (
@@ -55,39 +85,30 @@ export const BusquedaBusModal = ({ onSelect, onClose, filterMode = false }) => {
 
         <div className="p-6 overflow-y-auto flex flex-col gap-4">
           {/* Filtros */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Chasis</label>
-              <input
-                type="text" value={filtros.bus_chasis}
-                onChange={e => setFiltros(p => ({ ...p, bus_chasis: e.target.value }))}
-                onKeyDown={handleKeyDown}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Placa</label>
               <input
-                type="text" value={filtros.bus_placa}
-                onChange={e => setFiltros(p => ({ ...p, bus_placa: e.target.value }))}
+                type="text" value={filtros.placa_busqueda}
+                onChange={e => setFiltros(p => ({ ...p, placa_busqueda: e.target.value }))}
                 onKeyDown={handleKeyDown}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Cédula</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Disco</label>
               <input
-                type="text" value={filtros.per_cedula}
-                onChange={e => setFiltros(p => ({ ...p, per_cedula: e.target.value }))}
+                type="text" value={filtros.disco_busqueda}
+                onChange={e => setFiltros(p => ({ ...p, disco_busqueda: e.target.value }))}
                 onKeyDown={handleKeyDown}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Nombre</label>
+              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Cédula Conductor</label>
               <input
-                type="text" value={filtros.per_nombre}
-                onChange={e => setFiltros(p => ({ ...p, per_nombre: e.target.value }))}
+                type="text" value={filtros.cedula_busqueda}
+                onChange={e => setFiltros(p => ({ ...p, cedula_busqueda: e.target.value }))}
                 onKeyDown={handleKeyDown}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
@@ -100,7 +121,7 @@ export const BusquedaBusModal = ({ onSelect, onClose, filterMode = false }) => {
               {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-search"></i>}
               Buscar
             </button>
-            <button onClick={() => { setFiltros({ bus_chasis: '', bus_placa: '', per_cedula: '', per_nombre: '' }); setBuses([]); }}
+            <button onClick={limpiar}
               className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-lg text-sm font-medium transition-colors">
               <i className="fas fa-eraser mr-1"></i>Limpiar
             </button>
@@ -125,24 +146,22 @@ export const BusquedaBusModal = ({ onSelect, onClose, filterMode = false }) => {
                       {loading ? (
                         <><i className="fas fa-spinner fa-spin mr-2"></i>Buscando...</>
                       ) : (
-                        'Presione "Buscar" para ver resultados'
+                        'No se encontraron resultados'
                       )}
                     </td>
                   </tr>
                 ) : (
                   buses.map((bus, idx) => (
-                    <tr key={idx} className="hover:bg-blue-50 transition-colors">
-                      <td className="px-3 py-2 font-medium text-slate-700">{bus.bus_placa || '-'}</td>
-                      <td className="px-3 py-2 text-slate-600">{bus.bus_disco || '-'}</td>
-                      <td className="px-3 py-2 text-slate-600">{bus.bus_chasis || '-'}</td>
-                      <td className="px-3 py-2 text-slate-600">
-                        {`${bus.per_nombre || ''} ${bus.per_apellido || ''}`.trim() || '-'}
-                      </td>
+                    <tr key={bus.id_buses || idx} className="hover:bg-blue-50 transition-colors">
+                      <td className="px-3 py-2 font-medium text-slate-700">{bus.placa_buses || bus.placa || '-'}</td>
+                      <td className="px-3 py-2 text-slate-600">{bus.disco_buses || bus.disco || '-'}</td>
+                      <td className="px-3 py-2 text-slate-600">{bus.chasis_buses || bus.chasis || '-'}</td>
+                      <td className="px-3 py-2 text-slate-600">{mostrarNombreChofer(bus)}</td>
                       <td className="px-3 py-2 text-center">
                         <button
                           onClick={() => {
                             if (filterMode) {
-                              onSelect(bus.bus_codigo, bus.bus_placa);
+                              onSelect(bus.codigo_buses || bus.id_buses, bus.placa_buses || bus.placa);
                             } else {
                               onSelect(bus);
                             }

@@ -118,6 +118,18 @@ export const BoleteriaService = {
     return response.data;
   },
 
+  // ============ CAMBIO DE FECHA DE VIAJE ============
+
+  /**
+   * Cambia la fecha de viaje de un boleto (solo el mismo usuario que lo vendió)
+   * @param {number} id_boleto - ID del boleto
+   * @param {number} id_viaje_nuevo - ID del nuevo viaje
+   */
+  cambiarFechaViaje: async (id_boleto, id_viaje_nuevo) => {
+    const response = await api.post('/boleto/cambiarFechaViaje', { id_boleto, id_viaje_nuevo });
+    return response.data;
+  },
+
   // ============ SRI ============
 
   autorizarLoteSRI: async (fechas) => {

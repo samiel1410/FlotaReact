@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BoleteriaFilterPanel } from './components/BoleteriaFilterPanel';
 import { BoleteriaGrid } from './components/BoleteriaGrid';
+import { CambiarFechaViajeModal } from './components/CambiarFechaViajeModal';
 import { BoleteriaService } from '../../services/boleteria.service';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -15,6 +16,23 @@ export const BoleteriaPage = () => {
   const [filtros, setFiltros] = useState({});
   const [page, setPage] = useState(1);
   const limit = 20;
+
+  // Modal cambio de fecha
+  const [showCambiarFechaModal, setShowCambiarFechaModal] = useState(false);
+  const [boletoParaCambioFecha, setBoletoParaCambioFecha] = useState(null);
+
+  // Obtener usuario actual para permisos
+  const currentUser = (() => {
+    try {
+      const userData = JSON.parse(sessionStorage.getItem('user_data') || '{}');
+      return {
+        id_usuario: userData.id_usuario || userData.id || userData.user_id,
+        nombre_usuario: userData.nombre || userData.username || '',
+      };
+    } catch {
+      return { id_usuario: null, nombre_usuario: '' };
+    }
+  })();
 
   const loadBoletos = async (currentFiltros, currentPage) => {
     setLoading(true);
@@ -94,6 +112,15 @@ export const BoleteriaPage = () => {
     }
   };
 
+  const handleCambiarFecha = (item) => {
+    setBoletoParaCambioFecha(item);
+    setShowCambiarFechaModal(true);
+  };
+
+  const handleCambioFechaExitoso = () => {
+    loadBoletos(filtros, page);
+  };
+
   const handleReenviarSri = async (item) => {
     if (!item?.id_boleto) return;
     try {
@@ -155,9 +182,19 @@ export const BoleteriaPage = () => {
             onImprimir={handleImprimir}
             onAnular={handleAnular}
             onReenviarSri={handleReenviarSri}
+            onCambiarFecha={handleCambiarFecha}
+            currentUserId={currentUser.id_usuario}
           />
         </div>
       </div>
+
+      {/* Modal Cambiar Fecha de Viaje */}
+      <CambiarFechaViajeModal
+        isOpen={showCambiarFechaModal}
+        onClose={() => { setShowCambiarFechaModal(false); setBoletoParaCambioFecha(null); }}
+        boleto={boletoParaCambioFecha}
+        onCambioExitoso={handleCambioFechaExitoso}
+      />
     </div>
   );
 };

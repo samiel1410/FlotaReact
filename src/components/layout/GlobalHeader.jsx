@@ -62,7 +62,20 @@ export const GlobalHeader = () => {
       setSistemaModo(modo);
     });
 
-    return () => clearInterval(timer);
+    // Escuchar evento de cambio de ciudad de sucursal para refrescar datos
+    const handleCiudadChanged = () => {
+      api.get('/buscarUsuario').then(res => {
+        if (res.data?.success && res.data?.data) {
+          setUserDetails(res.data.data);
+        }
+      }).catch(() => {});
+    };
+    window.addEventListener('sucursal_ciudad_changed', handleCiudadChanged);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('sucursal_ciudad_changed', handleCiudadChanged);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -83,7 +96,8 @@ export const GlobalHeader = () => {
 
   const nombreUsuario = user?.nombre_usuario || 'Usuario';
   const rolName = user?.rol_usuario === 5 ? 'Admin' : (user?.rol_usuario === 1 ? 'Oficina' : 'Rol ' + user?.rol_usuario);
-  const ciudad = userDetails?.nombre_canton || 'Ciudad';
+  const sucursalNombre = userDetails?.nombre_sucursal || '';
+  const userCiudad = userDetails?.ciudad_sucursal || userDetails?.nombre_canton || 'Ciudad';
   const puntoGuia = userDetails?.punto_emision_usuario || '1';
   const puntoBoleteria = userDetails?.punto_emision_boleteria || '1';
 
@@ -168,7 +182,7 @@ export const GlobalHeader = () => {
             </span>
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-            <span className="flex items-center gap-1"><i className="fas fa-map-marker-alt text-slate-400"></i> {ciudad}</span>
+            <span className="flex items-center gap-1"><i className="fas fa-map-marker-alt text-slate-400"></i> {sucursalNombre ? `${sucursalNombre} - ${userCiudad}` : userCiudad}</span>
             <span className="flex items-center gap-1 font-mono bg-slate-100 px-1.5 rounded text-[10px]">B:{puntoBoleteria} G:{puntoGuia}</span>
           </div>
         </div>

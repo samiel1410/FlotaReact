@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../config/axios';
 import toast from 'react-hot-toast';
+import { BusquedaPersonalModal } from './components/BusquedaPersonalModal';
+import { BusquedaRutaModal } from './components/BusquedaRutaModal';
+import { BusquedaBusModal } from '../Despacho/components/BusquedaBusModal';
 
 const PAGE_SIZE = 40;
 
@@ -27,6 +30,7 @@ export const BuserosPage = () => {
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [searchTrigger, setSearchTrigger] = useState(0);
 
   // Totales del toolbar
   const [totales, setTotales] = useState({ cantidad_boletos: 0, vendido: 0, retenido: 0 });
@@ -37,6 +41,9 @@ export const BuserosPage = () => {
     ruta: 'Ruta:Ninguna',
     bus: 'Bus:Ninguno',
   });
+
+  // Modales de búsqueda
+  const [modalBusqueda, setModalBusqueda] = useState(null); // 'socio' | 'ruta' | 'bus'
 
   // Filtros
   const [filters, setFilters] = useState({
@@ -57,6 +64,9 @@ export const BuserosPage = () => {
     per_codigo: filters.id_personal || '',
     bus_codigo: filters.id_bus_busqueda || '',
     ruta_codigo: filters.id_ruta_busqueda || '',
+    per_nombre: filters.personal_busqueda || '',
+    bus_placa: filters.bus_busqueda || '',
+    ruta_nombre: filters.rutas_busqueda || '',
     fecha: filters.buscarPorFechaDesde || '',
     mes: filters.comboMes || '0',
     anio: filters.comboAnioFactura || '0',
@@ -89,11 +99,11 @@ export const BuserosPage = () => {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, searchTrigger]);
 
   const handleSearch = () => {
     setPage(1);
-    // loadData se dispara por el efecto al cambiar getParams
+    setSearchTrigger(t => t + 1);
   };
 
   const handleClear = () => {
@@ -110,6 +120,7 @@ export const BuserosPage = () => {
     });
     setSelectedLabels({ socio: 'Socio:Ninguno', ruta: 'Ruta:Ninguna', bus: 'Bus:Ninguno' });
     setPage(1);
+    setSearchTrigger(t => t + 1);
     setData([]);
     setTotal(0);
     setTotales({ cantidad_boletos: 0, vendido: 0, retenido: 0 });
@@ -160,7 +171,8 @@ export const BuserosPage = () => {
             <div className="flex gap-1">
               <input type="text" value={filters.personal_busqueda} onChange={e => updateFilter('personal_busqueda', e.target.value)}
                 className={inputCls} placeholder="Nombre socio..." />
-              <button className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] hover:bg-emerald-700"
+              <button onClick={() => setModalBusqueda('socio')}
+                className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] hover:bg-emerald-700"
                 title="Buscar Socio">
                 <i className="fas fa-share-square"></i>
               </button>
@@ -173,7 +185,8 @@ export const BuserosPage = () => {
             <div className="flex gap-1">
               <input type="text" value={filters.rutas_busqueda} onChange={e => updateFilter('rutas_busqueda', e.target.value)}
                 className={inputCls} placeholder="Nombre ruta..." />
-              <button className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] hover:bg-emerald-700"
+              <button onClick={() => setModalBusqueda('ruta')}
+                className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] hover:bg-emerald-700"
                 title="Buscar Ruta">
                 <i className="fas fa-share-square"></i>
               </button>
@@ -186,7 +199,8 @@ export const BuserosPage = () => {
             <div className="flex gap-1">
               <input type="text" value={filters.bus_busqueda} onChange={e => updateFilter('bus_busqueda', e.target.value)}
                 className={inputCls} placeholder="Placa..." />
-              <button className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] hover:bg-emerald-700"
+              <button onClick={() => setModalBusqueda('bus')}
+                className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] hover:bg-emerald-700"
                 title="Buscar Bus">
                 <i className="fas fa-share-square"></i>
               </button>
@@ -308,6 +322,43 @@ export const BuserosPage = () => {
           </div>
         )}
       </div>
+
+      {/* Modal Búsqueda Socio */}
+      {modalBusqueda === 'socio' && (
+        <BusquedaPersonalModal
+          onSelect={(id, nombre) => {
+            setFilters(prev => ({ ...prev, id_personal: String(id), personal_busqueda: nombre }));
+            setSelectedLabels(prev => ({ ...prev, socio: `Socio:${nombre}` }));
+            setModalBusqueda(null);
+          }}
+          onClose={() => setModalBusqueda(null)}
+        />
+      )}
+
+      {/* Modal Búsqueda Ruta */}
+      {modalBusqueda === 'ruta' && (
+        <BusquedaRutaModal
+          onSelect={(id, nombre) => {
+            setFilters(prev => ({ ...prev, id_ruta_busqueda: String(id), rutas_busqueda: nombre }));
+            setSelectedLabels(prev => ({ ...prev, ruta: `Ruta:${nombre}` }));
+            setModalBusqueda(null);
+          }}
+          onClose={() => setModalBusqueda(null)}
+        />
+      )}
+
+      {/* Modal Búsqueda Bus */}
+      {modalBusqueda === 'bus' && (
+        <BusquedaBusModal
+          filterMode={true}
+          onSelect={(busId, placa) => {
+            setFilters(prev => ({ ...prev, id_bus_busqueda: String(busId), bus_busqueda: placa }));
+            setSelectedLabels(prev => ({ ...prev, bus: `Bus:${placa}` }));
+            setModalBusqueda(null);
+          }}
+          onClose={() => setModalBusqueda(null)}
+        />
+      )}
     </div>
   );
 };

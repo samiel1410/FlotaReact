@@ -23,6 +23,7 @@ export const ListaViajes = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit] = useState(25);
+  const [searchTrigger, setSearchTrigger] = useState(0);
 
   // Filtros
   const [filtros, setFiltros] = useState({
@@ -77,14 +78,18 @@ export const ListaViajes = () => {
     } finally {
       setLoading(false);
     }
-  }, [filtros, limit]);
+  }, [filtros, limit, searchTrigger]);
 
-  useEffect(() => { fetchTrips(page); }, [page]);
+  useEffect(() => { fetchTrips(page); }, [page, searchTrigger]);
 
-  const handleBuscar = () => { setPage(1); }; // El useEffect se encarga de fetchTrips cuando cambia page
+  const handleBuscar = () => {
+    setPage(1);
+    setSearchTrigger(t => t + 1);
+  };
   const handleLimpiar = () => {
     setFiltros({ fecha_inicio: '', fecha_fin: '', id_bus: '', id_chofer: '', estado_viaje: '0', criterio_busqueda: '' });
     setPage(1);
+    setSearchTrigger(t => t + 1);
   };
 
   const totalPages = Math.ceil(total / limit);

@@ -2,22 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { api } from '../../../config/axios';
 import toast from 'react-hot-toast';
+import ToggleSwitch from '../../../components/common/ToggleSwitch';
 
 const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
   const [loading, setLoading] = useState(false);
-  const [ciudades, setCiudades] = useState([]);
-  // ── Estado para Provincia → Ciudades ─────────────────
+  const [todasCiudades, setTodasCiudades] = useState([]);
   const [provincias, setProvincias] = useState([]);
   const [selectedProvincia, setSelectedProvincia] = useState('');
-  const [loadingCantones, setLoadingCantones] = useState(false);
-
-  // Normalizador de estado para asegurar '1' o '0'
-  const normalizeStatus = (val) => {
-    const v = String(val ?? '').trim().toUpperCase();
-    const isActive = v === 'A' || v === '1' || val === 1 || val === true || v === 'ACTIVO' || v === 'S';
-    return isActive ? '1' : '0';
-  };
 
   const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
     defaultValues: {
@@ -31,90 +23,74 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
       punto_emision_sucursal: '',
       tiene_encomiendas: false,
       punto_emision_boleteria_sucursal: '',
-      estado_sucursales: '1'
+      estado_sucursales: true
     }
   });
 
   const tienePuntoEmision = watch('tiene_punto_emision');
   const tieneEncomiendas = watch('tiene_encomiendas');
+  const estadoValue = watch('estado_sucursales');
 
-  // Cargar provincias al montar
+  // Cargar provincias y TODAS las ciudades al montar (sin depender de provincia)
   useEffect(() => {
-    const fetchProvincias = async () => {
+    const fetchData = async () => {
       try {
-        const res = await api.get('/locacion/seleccionarProvincia');
-        const data = res?.data?.data || res?.data || [];
-        setProvincias(data);
-      } catch (e) {
-        console.error('Error cargando provincias:', e);
-      }
-    };
-    fetchProvincias();
-  }, []);
-
-  // Cargar cantones cuando cambia la provincia
-  useEffect(() => {
-    if (!selectedProvincia) {
-      setCiudades([]);
-      setValue('ciudad_sucursal', '');
-      return;
-    }
-    const fetchCantones = async () => {
-      setLoadingCantones(true);
-      try {
-        const res = await api.get('/canton/cantonSeleccionarCombo', {
-          params: { id_provincia: selectedProvincia }
+        const [provRes, cityRes] = await Promise.all([
+          api.get('/locacion/seleccionarProvincia'),
+          api.get('/locacion/seleccionarCiudad')
+        ]);
+        setProvincias(provRes?.data?.data || provRes?.data || []);
+        
+        const todas = (cityRes?.data?.data || cityRes?.data || []).sort((a, b) => {
+          const na = (a.nombre_canton || a.nombre || '').toLowerCase();
+          const nb = (b.nombre_canton || b.nombre || '').toLowerCase();
+          return na.localeCompare(nb);
         });
-        const data = res?.data?.data || res?.data || [];
-        // Ordenar alfabéticamente por nombre
-        const ordenados = [...data].sort((a, b) => {
-          const nombreA = (a.nombre_canton || a.nombre || '').toLowerCase();
-          const nombreB = (b.nombre_canton || b.nombre || '').toLowerCase();
-          return nombreA.localeCompare(nombreB);
-        });
-        setCiudades(ordenados);
-        setValue('ciudad_sucursal', '');
-      } catch (e) {
-        console.error('Error cargando cantones:', e);
-        setCiudades([]);
-      } finally {
-        setLoadingCantones(false);
-      }
-    };
-    fetchCantones();
-  }, [selectedProvincia, setValue]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        // 1. Si es edición, resetear el formulario con los datos mapeados
-        if (isEditing) {
+        setTodasCiudades(todas);
+        
+        // Al editar: resetear form y auto-seleccionar provincia
+        if (isEditing && initialData) {
           reset({
             ...initialData,
-            estado_sucursales: normalizeStatus(initialData.estado_sucursales ?? initialData.estado),
+            estado_sucursales: (initialData.estado_sucursales ?? initialData.estado ?? 1) == 1 || (initialData.estado_sucursales ?? initialData.estado ?? 1) === '1',
             tiene_punto_emision: !!initialData.punto_emision_sucursal,
             tiene_encomiendas: !!initialData.punto_emision_boleteria_sucursal,
-            // Aseguramos que los puntos de emisión no sean nulos para el input
             punto_emision_sucursal: initialData.punto_emision_sucursal || '',
             punto_emision_boleteria_sucursal: initialData.punto_emision_boleteria_sucursal || '',
           });
-          // Cargar todas las ciudades para edición (fallback)
-          const res = await api.get('/locacion/seleccionarCiudad');
-          const dataCiudades = res.data.data || [];
-          setCiudades(dataCiudades);
-        } else {
-          // Si es nuevo, cargar RUC de empresa
-          const resEmpresa = await api.get('/empresa/selectempresa');
-          if (resEmpresa.data.success && resEmpresa.data.data.length > 0) {
-            setValue('ruc_sucursal', resEmpresa.data.data[0].ruc_empresa);
+          
+          // Auto-seleccionar provincia
+          if (initialData.ciudad_sucursal) {
+            const match = todas.find(c =>
+              (c.nombre_canton || '').trim().toUpperCase() === initialData.ciudad_sucursal.trim().toUpperCase()
+            );
+            if (match?.id_fkprovincia) {
+              setSelectedProvincia(String(match.id_fkprovincia));
+            }
           }
         }
-      } catch (err) {
-        console.error('Error inicializando formulario:', err);
+      } catch (e) {
+        console.error('Error cargando datos:', e);
       }
     };
-    loadData();
-  }, [isEditing, initialData, reset, setValue]);
+    fetchData();
+  }, []); // Solo al montar, sin dependencias problemáticas
+
+  // Al editar con initialData, cargar RUC si es nuevo
+  useEffect(() => {
+    if (!isEditing) {
+      api.get('/empresa/selectempresa').then(res => {
+        if (res.data.success && res.data.data.length > 0) {
+          setValue('ruc_sucursal', res.data.data[0].ruc_empresa);
+        }
+      }).catch(() => {});
+    }
+  }, []);
+
+  // Ciudades visibles: filtradas por provincia o TODAS si no hay provincia seleccionada
+  const ciudadesVisibles = selectedProvincia
+    ? todasCiudades.filter(c => String(c.id_fkprovincia) === String(selectedProvincia))
+    : todasCiudades;
 
   const onFormSubmit = async (formData) => {
     setLoading(true);
@@ -186,20 +162,11 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ciudad</label>
           <select 
             {...register('ciudad_sucursal', { required: 'La ciudad es requerida' })} 
-            disabled={!selectedProvincia || loadingCantones}
-            className={`w-full h-10 px-3 text-xs font-bold border rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none ${
-              !selectedProvincia ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-slate-50'
-            }`}
+            disabled={!todasCiudades.length}
+            className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50"
           >
-            <option value="">
-              {loadingCantones
-                ? 'Cargando ciudades...'
-                : selectedProvincia
-                  ? 'Seleccione una ciudad...'
-                  : 'Primero seleccione una provincia'
-              }
-            </option>
-            {ciudades.map(c => (
+            <option value="">{todasCiudades.length ? 'Seleccione la ciudad...' : 'Cargando ciudades...'}</option>
+            {ciudadesVisibles.map(c => (
               <option key={c.id_canton || c.id || c.value} value={c.nombre_canton || c.nombre || c.label}>
                 {c.nombre_canton || c.nombre || c.label}
               </option>
@@ -253,13 +220,10 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
         {/* Estado */}
         <div>
           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Estado</label>
-          <select 
-            {...register('estado_sucursales', { required: true })} 
-            className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50"
-          >
-            <option value="1">Activo</option>
-            <option value="0">Inactivo</option>
-          </select>
+          <ToggleSwitch 
+            register={register('estado_sucursales')}
+            label={estadoValue ? 'Activo' : 'Inactivo'}
+          />
         </div>
 
         {/* Punto Emisión Guías */}

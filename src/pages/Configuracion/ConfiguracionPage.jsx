@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 import { getSistemaModo, setSistemaModoCache } from '../../services/sistema.service';
+import { WhatsAppTestForm } from './components/WhatsAppTestForm';
 
 const inputClass = "w-full pl-3 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all";
 const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2";
@@ -220,6 +221,12 @@ export const ConfiguracionPage = () => {
               }`}>
               <i className="fas fa-building text-lg"></i> Empresa
             </button>
+            <button onClick={() => setActiveTab('whatsapp')}
+              className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-bold text-sm transition-colors ${
+                activeTab === 'whatsapp' ? 'border-green-500 text-green-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}>
+              <i className="fab fa-whatsapp text-lg"></i> WhatsApp
+            </button>
           </nav>
         </div>
 
@@ -418,6 +425,35 @@ export const ConfiguracionPage = () => {
                         <label htmlFor="autorizar_boleto_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Boletos al guardar</label>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ════ TAB WHATSAPP ════ */}
+            {activeTab === 'whatsapp' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
+                    <i className="fab fa-whatsapp text-green-500 mr-2"></i>WhatsApp — Enviar Mensaje de Prueba
+                  </h2>
+
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
+                    <i className="fas fa-info-circle mr-2"></i>
+                    Envía mensajes de prueba a través de la API de WhatsApp.
+                    El servidor proxy envía la solicitud a <code className="text-xs bg-green-100 px-1 py-0.5 rounded">https://whatsappnotif.easysplus.com/</code>
+                  </div>
+
+                  <WhatsAppTestForm />
+                </div>
+
+                <div className="space-y-4">
+                  <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
+                    <i className="fas fa-clock text-slate-500 mr-2"></i>Últimos Envíos
+                  </h2>
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 text-center text-sm text-slate-400">
+                    <i className="fas fa-history text-2xl mb-2 block opacity-50"></i>
+                    Los mensajes enviados aparecerán aquí durante la sesión
                   </div>
                 </div>
               </div>

@@ -5,7 +5,7 @@ import { useAuth } from './hooks/useAuth';
 import { useIdle } from './hooks/useIdle';
 import { useSocket } from './hooks/useSocket';
 import { DynamicPage } from './pages/Common/DynamicPage';
-import { Toaster } from 'react-hot-toast';
+import { ToastContainer } from './components/common/Toast';
 import './App.css';
 
 // Lazy loading de páginas para mejorar rendimiento
@@ -85,7 +85,7 @@ const LoadingFallback = () => (
 function App() {
   return (
     <HashRouter>
-      <Toaster position="top-right" gutter={8} toastOptions={{ duration: 4000, style: { fontFamily: 'Outfit, sans-serif', borderRadius: '12px', padding: '12px 16px', fontSize: '14px', fontWeight: 500 }, success: { style: { background: '#ecfdf5', color: '#065f46', border: '1px solid #bbf7d0' } }, error: { style: { background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca' } } }} />
+      <ToastContainer />
       <Suspense fallback={<LoadingFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />

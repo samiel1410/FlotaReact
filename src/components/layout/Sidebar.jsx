@@ -230,7 +230,7 @@ export const Sidebar = () => {
               </button>
 
               <div
-                className={`overflow-hidden transition-all duration-250 ease-in-out ${isOpen ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+                className={`overflow-hidden transition-all duration-250 ease-in-out ${isOpen ? 'max-h-[950px] opacity-100' : 'max-h-0 opacity-0'
                   }`}
               >
                 <div className="ml-2 pl-2 border-l border-slate-700/60 flex flex-col gap-0.5 py-1">

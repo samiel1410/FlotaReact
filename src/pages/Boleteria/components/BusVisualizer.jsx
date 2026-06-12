@@ -4,6 +4,7 @@ import './BusVisualizer.css';
 export const BusVisualizer = ({
   asientosOcupados = [],
   asientosSeleccionados = [],
+  asientosPendientes = {},  // { [numeroAsiento]: 'nombreUsuario' }
   onAsientoClick,
   onAsientoOcupadoClick,
   capacidad = 40,
@@ -28,10 +29,12 @@ export const BusVisualizer = ({
   const gridHeight = mapaData?.gridHeight || Math.ceil(capacidad / 4);
 
   const getSeatStatus = (numeroAsiento) => {
-    if (asientosSeleccionados.includes(Number(numeroAsiento))) return 'seleccionado';
+    const num = Number(numeroAsiento);
+    if (asientosSeleccionados.includes(num)) return 'seleccionado';
 
+    // Primero verificar si está ocupado (más importante que pendiente)
     const ocupado = asientosOcupados.find(a =>
-      Number(a.asiento_boleto_detalle) === Number(numeroAsiento) || Number(a) === Number(numeroAsiento)
+      Number(a.asiento_boleto_detalle) === num || Number(a) === num
     );
     if (ocupado) {
       if (typeof ocupado === 'object' && ocupado.orden_destino !== undefined) {
@@ -46,26 +49,37 @@ export const BusVisualizer = ({
       }
       return 'ocupado';
     }
+
+    // Luego verificar si otro usuario lo está seleccionando
+    if (asientosPendientes && asientosPendientes[num]) return 'pendiente';
+
     return 'libre';
   };
 
   const getTooltip = (numeroAsiento) => {
-    const ocupado = asientosOcupados.find(a =>
-      Number(a.asiento_boleto_detalle) === Number(numeroAsiento) || Number(a) === Number(numeroAsiento)
-    );
-    if (!ocupado && !asientosSeleccionados.includes(Number(numeroAsiento))) {
-      return `Asiento ${numeroAsiento} - Disponible`;
+    const num = Number(numeroAsiento);
+
+    // Pendiente (siendo seleccionado por otro)
+    if (asientosPendientes && asientosPendientes[num]) {
+      return `Asiento ${num} - Seleccionado por ${asientosPendientes[num]}`;
     }
-    if (asientosSeleccionados.includes(Number(numeroAsiento))) {
-      return `Asiento ${numeroAsiento} - Seleccionado`;
+
+    const ocupado = asientosOcupados.find(a =>
+      Number(a.asiento_boleto_detalle) === num || Number(a) === num
+    );
+    if (!ocupado && !asientosSeleccionados.includes(num)) {
+      return `Asiento ${num} - Disponible`;
+    }
+    if (asientosSeleccionados.includes(num)) {
+      return `Asiento ${num} - Seleccionado`;
     }
     if (typeof ocupado === 'object') {
-      const estado = getSeatStatus(numeroAsiento);
-      if (estado === 'libre-parada') return `Asiento ${numeroAsiento} - Libre en esta parada`;
-      if (estado === 'ocupado-parcial') return `Asiento ${numeroAsiento} - Ocupado hasta destino`;
-      return `Asiento ${numeroAsiento} - Ocupado Fin de Viaje`;
+      const estado = getSeatStatus(num);
+      if (estado === 'libre-parada') return `Asiento ${num} - Libre en esta parada`;
+      if (estado === 'ocupado-parcial') return `Asiento ${num} - Ocupado hasta destino`;
+      return `Asiento ${num} - Ocupado Fin de Viaje`;
     }
-    return `Asiento ${numeroAsiento} - Ocupado`;
+    return `Asiento ${num} - Ocupado`;
   };
 
   const renderPiso = (pisoData, pisoIdx) => {
@@ -263,8 +277,12 @@ export const BusVisualizer = ({
           <span style={{ color: '#7f8c8d' }}>No dispone</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <div style={{ width: 10, height: 10, background: '#8b5cf6', borderRadius: 2 }}></div>
+          <span style={{ color: '#8b5cf6' }}>Seleccionado por otro</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
           <div style={{ width: 10, height: 10, background: '#3b82f6', borderRadius: 2 }}></div>
-          <span style={{ color: '#3b82f6' }}>Seleccionado</span>
+          <span style={{ color: '#3b82f6' }}>Seleccionado (tú)</span>
         </div>
       </div>
 

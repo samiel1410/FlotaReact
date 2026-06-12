@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { api } from '../../../config/axios';
 import toast from 'react-hot-toast';
+import ToggleSwitch from '../../../components/common/ToggleSwitch';
 
 const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
@@ -123,10 +124,11 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
   const onFormSubmit = async (data) => {
     setLoading(true);
     try {
+      const payload = { ...data, estado_usuario: data.estado_usuario ? '1' : '0' };
       if (isEditing) {
-        await api.post('/usuario/usuarioActualizar', { ...data, id_usuario: initialData.id_usuario });
+        await api.post('/usuario/usuarioActualizar', { ...payload, id_usuario: initialData.id_usuario });
       } else {
-        await api.post('/usuario/usuarioIngresar', data);
+        await api.post('/usuario/usuarioIngresar', payload);
       }
       toast.success(isEditing ? 'Usuario actualizado correctamente' : 'Usuario creado correctamente');
       onSubmit(data);
@@ -304,7 +306,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
           >
             <option value="">Seleccionar</option>
             {combos.sucursales.map(s => (
-              <option key={s.suc_codigo_sucursal} value={s.suc_codigo_sucursal}>{s.suc_nombre}</option>
+              <option key={s.suc_codigo_sucursal} value={s.suc_codigo_sucursal}>{s.nombre_sucursal || s.suc_nombre}</option>
             ))}
           </select>
           {errors.id_fksucursal_usuario && <span className="text-red-500 text-xs">{errors.id_fksucursal_usuario.message}</span>}
@@ -356,13 +358,9 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Estado</label>
-          <select 
-            {...register('estado_usuario')} 
-            className="w-full border-slate-300 rounded-md shadow-sm p-2 border bg-slate-50"
-          >
-            <option value="1">Activo</option>
-            <option value="0">Inactivo</option>
-          </select>
+          <ToggleSwitch 
+            register={register('estado_usuario')}
+          />
         </div>
       </div>
 

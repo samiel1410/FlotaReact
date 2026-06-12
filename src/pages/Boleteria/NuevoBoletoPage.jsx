@@ -79,6 +79,7 @@ export const NuevoBoletoPage = () => {
   const [showListadoPasajeros, setShowListadoPasajeros] = useState(false);
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [refreshAsientosKey, setRefreshAsientosKey] = useState(0);
+  const [asientosPendientes, setAsientosPendientes] = useState({}); // { [asiento]: 'nombreUsuario' }
 
   const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const [formData, setFormData] = useState({
@@ -359,6 +360,152 @@ export const NuevoBoletoPage = () => {
     cargarAsientos();
   }, [formData.idViaje, refreshAsientosKey]);
 
+  // ─── ESCUCHAR SELECCIÓN DE ASIENTOS EN TIEMPO REAL ────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      const data = e.detail;
+      if (!data || !data.id_viaje || !data.asiento) return;
+
+      // Solo si es el mismo viaje
+      if (String(data.id_viaje) !== String(formData.idViaje)) return;
+
+      const asientoNum = Number(data.asiento);
+      const usuario = data.usuario || 'Otro usuario';
+
+      setAsientosPendientes(prev => {
+        if (data.seleccionado) {
+          // Seleccionado por otro → agregar a pendientes
+          return { ...prev, [asientoNum]: usuario };
+        } else {
+          // Deseleccionado → remover
+          const next = { ...prev };
+          delete next[asientoNum];
+          return next;
+        }
+      });
+    };
+
+    window.addEventListener('asiento_seleccionando', handler);
+    return () => window.removeEventListener('asiento_seleccionando', handler);
+  }, [formData.idViaje]);
+
+  // Limpiar pendientes al cambiar de viaje
+  useEffect(() => {
+    setAsientosPendientes({});
+  }, [formData.idViaje]);
+
+  // Limpiar selecciones propias al cerrar el navegador o salir de la página
+  useEffect(() => {
+    const handleUnload = () => {
+      if (!window.__socket || !formData.idViaje || formData.asientosSeleccionados.length === 0) return;
+      const usuarioStr = sessionStorage.getItem('usuario');
+      const currentUser = usuarioStr ? JSON.parse(usuarioStr) : null;
+      const nombreUsuario = currentUser?.nombre_usuario || 'Usuario';
+      // Emitir deselección para CADA asiento que el usuario actual tenía seleccionado
+      formData.asientosSeleccionados.forEach(asiento => {
+        window.__socket.emit('asiento_seleccionando', {
+          id_viaje: formData.idViaje,
+          asiento: Number(asiento),
+          usuario: nombreUsuario,
+          seleccionado: false
+        });
+      });
+    };
+    window.addEventListener('beforeunload', handleUnload);
+    return () => window.removeEventListener('beforeunload', handleUnload);
+  }, [formData.idViaje, formData.asientosSeleccionados]);
+
+  // ─── ESCUCHAR EVENTOS SOCKET VENTA/ANULACIÓN ────────────────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      const data = e.detail;
+      if (!data || !data.id_viaje || !formData.idViaje) return;
+
+      // Solo actualizar si es el mismo viaje que estamos viendo
+      if (String(data.id_viaje) !== String(formData.idViaje)) return;
+
+      // Si se vendió, remover ese asiento de pendientes (ya no está disponible)
+      if (data.asientos && data.asientos.length > 0 && data.tipo !== 'anulacion_reserva') {
+        const vendidos = new Set(data.asientos.map(a => Number(a.asiento_boleto_detalle)));
+        setAsientosPendientes(prev => {
+          const next = { ...prev };
+          vendidos.forEach(s => delete next[s]);
+          return next;
+        });
+      }
+
+      if (!data.asientos || data.asientos.length === 0) return;
+
+      if (data.tipo === 'anulacion_reserva') {
+        // Anulación: REMOVER asientos liberados de asientosOcupados
+        const asientosLiberados = new Set(data.asientos.map(a => Number(a.asiento_boleto_detalle)));
+        setAsientosOcupados(prev => prev.filter(a => !asientosLiberados.has(Number(a.asiento_boleto_detalle))));
+        return;
+      }
+
+      // Venta o reserva: AGREGAR nuevos asientos ocupados
+      const currentUser = sessionStorage.getItem('usuario') ? JSON.parse(sessionStorage.getItem('usuario')) : null;
+      const esMismoUsuario = currentUser && data.usuario === currentUser.nombre_usuario;
+
+      setAsientosOcupados(prev => {
+        const existingSeats = new Set(prev.map(a => Number(a.asiento_boleto_detalle)));
+        const toAdd = data.asientos.filter(a => !existingSeats.has(Number(a.asiento_boleto_detalle)));
+
+        if (toAdd.length === 0) return prev;
+
+        // Agregar nuevos asientos
+        const nuevos = toAdd.map(a => ({
+          asiento_boleto_detalle: String(a.asiento_boleto_detalle),
+          nombre_cliente: a.nombre_cliente || '',
+          identificacion_cliente: a.identificacion_cliente || '',
+          total_boleto_detalle: a.total_boleto_detalle || 0,
+          id_destino_boleto: a.id_destino_boleto || null,
+          estado_boleto_detalle: 1,
+          id_boleto: data.id_boleto
+        }));
+
+        return [...prev, ...nuevos];
+      });
+
+      // Verificar conflicto: si algún asiento seleccionado por este usuario
+      // fue vendido por OTRO usuario
+      if (!esMismoUsuario) {
+        const vendidos = new Set(data.asientos.map(a => Number(a.asiento_boleto_detalle)));
+        const conflicto = formData.asientosSeleccionados.filter(s => vendidos.has(Number(s)));
+
+        if (conflicto.length > 0) {
+          toast.error(
+            `⚠️ Conflicto de asientos\nEl asiento ${conflicto.join(', ')} acaba de ser vendido por ${data.usuario || 'otro usuario'}.\nSe ha deseleccionado automáticamente.`,
+            {
+              id: `conflicto-${data.id_viaje}-${conflicto.join('-')}`,
+              duration: 8000,
+              style: {
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                color: '#991b1b',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                fontFamily: 'Outfit, sans-serif',
+                fontSize: '12px',
+                fontWeight: 500,
+                whiteSpace: 'pre-line',
+              },
+            }
+          );
+          // Deseleccionar los asientos en conflicto
+          setFormData(prev => ({
+            ...prev,
+            asientosSeleccionados: prev.asientosSeleccionados.filter(s => !vendidos.has(Number(s))),
+            pasajeros: prev.pasajeros.filter(p => !vendidos.has(p.asiento))
+          }));
+        }
+      }
+    };
+
+    window.addEventListener('boleto_insertado', handler);
+    return () => window.removeEventListener('boleto_insertado', handler);
+  }, [formData.idViaje, formData.asientosSeleccionados]);
+
   // Manejar click en asiento (igual a ExtJS AgregarAsientoAlista)
   const handleAsientoClick = (asientoId) => {
     // ExtJS: Validar que haya un cliente seleccionado primero
@@ -372,7 +519,24 @@ export const NuevoBoletoPage = () => {
       });
       return;
     }
+
+    // Obtener nombre del usuario actual para el socket
+    const usuarioStr = sessionStorage.getItem('usuario');
+    const currentUser = usuarioStr ? JSON.parse(usuarioStr) : null;
+    const nombreUsuario = currentUser?.nombre_usuario || 'Usuario';
+
     if (formData.asientosSeleccionados.includes(asientoId)) {
+      // DESELECCIONAR
+      // Emitir socket para notificar a otros que este asiento ya no está seleccionado
+      if (window.__socket && formData.idViaje) {
+        window.__socket.emit('asiento_seleccionando', {
+          id_viaje: formData.idViaje,
+          asiento: asientoId,
+          usuario: nombreUsuario,
+          seleccionado: false
+        });
+      }
+
       setFormData(prev => ({
         ...prev,
         asientosSeleccionados: prev.asientosSeleccionados.filter(a => a !== asientoId),
@@ -383,6 +547,26 @@ export const NuevoBoletoPage = () => {
         toast.error('Máximo 8 asientos por transacción.');
         return;
       }
+
+      // Verificar si el asiento está siendo seleccionado por OTRO usuario
+      if (asientosPendientes[asientoId]) {
+        toast.error(
+          `El asiento ${asientoId} ya está siendo seleccionado por ${asientosPendientes[asientoId]}`,
+          { duration: 4000 }
+        );
+        return;
+      }
+
+      // SELECCIONAR - Emitir socket para notificar a otros
+      if (window.__socket && formData.idViaje) {
+        window.__socket.emit('asiento_seleccionando', {
+          id_viaje: formData.idViaje,
+          asiento: asientoId,
+          usuario: nombreUsuario,
+          seleccionado: true
+        });
+      }
+
       // ExtJS: leer tarifa ACTUAL del form (con prev para evitar stale closure) y calcular valor/descuento
       setFormData(prev => {
         const tarifaTexto = getTarifaLabel(prev.tarifa);
@@ -1249,6 +1433,7 @@ export const NuevoBoletoPage = () => {
                     mapaAsientos={mapaAsientos}
                     asientosOcupados={asientosOcupados}
                     asientosSeleccionados={formData.asientosSeleccionados}
+                    asientosPendientes={asientosPendientes}
                     onAsientoClick={handleAsientoClick}
                     onAsientoOcupadoClick={handleAsientoOcupadoClick}
                     discoBus={discoBus}
