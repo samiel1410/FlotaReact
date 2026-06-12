@@ -219,7 +219,7 @@ export const BoleteriaPage = () => {
       <PdfViewerModal
         open={pdfModalOpen}
         onClose={() => { setPdfModalOpen(false); setPdfUrl(null); }}
-        pdfUrl={pdfUrl}
+        url={pdfUrl}
         title="Boleto de Viaje"
       />
     </div>
