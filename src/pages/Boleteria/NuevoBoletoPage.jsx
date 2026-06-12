@@ -15,6 +15,7 @@ import Swal from 'sweetalert2';
 import { BoleteriaService } from '../../services/boleteria.service';
 import { api, clienteApi } from '../../config/axios';
 import { CONFIG } from '../../config/env';
+import { useSocket } from '../../hooks/useSocket';
 import './NuevoBoletoPage.css';
 
 const TARIFAS = [
@@ -45,6 +46,8 @@ const calcularDescuento = (precio, tarifaTexto) => {
 
 export const NuevoBoletoPage = () => {
   const navigate = useNavigate();
+  useSocket(); // Inicializar el socket para que window.__socket esté disponible
+
 
   // Estados del formulario
   const [viajesDisponibles, setViajesDisponibles] = useState([]);
