@@ -137,132 +137,117 @@ razon_social_empresa FROM empresa WHERE 1";
     $pisoMostrar = !empty($boleto['piso_sub_rutas']) && $boleto['piso_sub_rutas'] != 0 ? $boleto['piso_sub_rutas'] : '1';
 
     $html1 = '
+    
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <style>
-        body {
-            font-family: Helvetica, Arial, sans-serif;
-            font-size: 7.5pt;
-            color: #000;
-            margin: 0;
-            padding: 0;
-            line-height: 1.1;
-        }
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 7.5pt; color: #000; margin: 0; padding: 0; line-height: 1.1; }
         .center { text-align: center; }
         .left { text-align: left; }
         .right { text-align: right; }
         .bold { font-weight: bold; }
         .sep { border-top: 1.5px solid #000; margin: 3px 0; }
         .sep-light { border-top: 1px solid #000; margin: 3px 0; }
-        .title { font-weight: bold; font-size: 8.5pt; margin-bottom: 2px; }
         table { width: 100%; border-collapse: collapse; }
-        td { padding: 1px 0; vertical-align: top; font-size: 7.5pt; }
-        .label { font-weight: bold; font-size: 7.5pt; }
-        .val { font-size: 7.5pt; }
-        .big-total { font-size: 11pt; font-weight: bold; }
-        .sri-info { font-size: 6pt; line-height: 1.0; }
-        .leyenda { font-size: 6pt; text-align: center; margin-top: 5px; line-height: 1.0; }
+        td { padding: 0.5px 0; vertical-align: middle; }
     </style>
 </head>
 <body>
-    <div class="header center">';
+    <div class="center">';
 
     $rutaLogo = obtenerRutaLogoEmpresa($conn);
     if ($rutaLogo) {
-        $html1 .= '<img src="' . $rutaLogo . '" width="45" style="margin-bottom:2px;"><br>';
+        $html1 .= '<img src="' . $rutaLogo . '" width="40" style="margin-bottom:2px;"><br>';
     }
 
     $html1 .= '
-        <div class="title">' . strtoupper($vals_empresa["razon_social_empresa"]) . '</div>
-        <div>RUC: ' . $vals_empresa["ruc_empresa"] . '</div>
-        <div style="text-transform: uppercase;">' . strtoupper($vals_empresa["direccion_empresa"]) . '</div>
-        <div>Oficina ' . $boleto['nombre_sucursal'] . '</div>
+        <div class="bold" style="font-size: 8.5pt;">' . strtoupper($vals_empresa["razon_social_empresa"]) . '</div>
+        <div style="font-size: 8pt; margin-top:1px;">RUC: ' . $vals_empresa["ruc_empresa"] . '</div>
+        <div style="font-size: 8pt; margin-top:1px; text-transform: uppercase;">' . strtoupper($vals_empresa["direccion_empresa"]) . '</div>
+        <div style="font-size: 8pt; margin-top:1px;">Oficina ' . $boleto['nombre_sucursal'] . '</div>
     </div>
 
-    <div class="sep"></div>
+    <div class="sep" style="border-top: 2px solid #000; margin-top:4px;"></div>
 
-    <table class="datos-factura">
+    <table style="font-size: 8pt; line-height:1.1;">
         <tr>
-            <td width="25%" class="label">Facturado a:</td>
-            <td width="75%" class="val bold">' . strtoupper($boleto['nombres_boleto']) . '</td>
+            <td width="26%" class="bold">Facturado a:</td>
+            <td width="74%" class="bold">' . strtoupper($boleto['nombres_boleto']) . '</td>
         </tr>
         <tr>
-            <td class="label">RUC/CI:</td>
-            <td class="val">' . $boleto['identificacion_boleto'] . '</td>
+            <td class="bold">RUC/CI:</td>
+            <td>' . $boleto['identificacion_boleto'] . '</td>
         </tr>
         <tr>
-            <td class="label">Teléfono:</td>
-            <td class="val">' . ($boleto['celular_boleto'] ? $boleto['celular_boleto'] : '-') . '</td>
+            <td class="bold">Teléfono:</td>
+            <td>' . ($boleto['celular_boleto'] ? $boleto['celular_boleto'] : '-') . '</td>
         </tr>
     </table>
 
-    <table class="info-viaje" style="margin-top:2px;">
+    <table style="font-size: 8pt; margin-top:3px; line-height:1.1;">
         <tr>
-            <td width="35%">Viaje ' . $boleto['id_fkviaje_boleto'] . '</td>
-            <td width="65%" class="bold">' . strtoupper($rutaMostrar) . '</td>
+            <td width="26%">Viaje ' . $boleto['id_fkviaje_boleto'] . '</td>
+            <td width="74%" class="bold">' . strtoupper($rutaMostrar) . '</td>
         </tr>
         <tr>
-            <td class="bold" style="font-size:9pt;">Bus ' . $busMostrar . '</td>
-            <td style="font-size:7pt;">Sale Origen ' . $fechaSalida . ' ' . $horaSalida . '</td>
+            <td class="bold" style="font-size: 10pt;">Bus ' . $busMostrar . '</td>
+            <td style="font-size: 7.5pt;">Sale Origen ' . $fechaSalida . ' ' . $horaSalida . '</td>
         </tr>
     </table>
 
-    <table style="margin-top:2px;">
+    <table style="margin-top:3px; font-size: 8pt;">
         <tr>
-            <td width="60%" class="bold" style="font-size:8pt; text-decoration:underline;">INFORMACIÓN DEL VIAJE</td>
+            <td width="60%" class="bold" style="font-size:8.5pt; text-decoration:underline;">INFORMACIÓN DEL VIAJE</td>
             <td width="20%" class="bold">Piso ' . $pisoMostrar . '</td>
             <td width="20%" class="bold">Anden ' . $andMostrar . '</td>
         </tr>
     </table>
-    <div class="sep"></div>';
+    
+    <div class="sep" style="border-top: 2px solid #000;"></div>';
 
-    // Lista de Pasajeros
     foreach ($detalles as $detalle) {
         $nombrePasajero = strtoupper($detalle['nombre_cliente_boleto_detalle']);
-        $fechaSalidaFormateada = formatearFechaEspanol($boleto['fecha_salida'] ?? $fechaSalida); // si no existe fecha_salida usa fechaSalida
+        $fechaSalidaFormateada = formatearFechaEspanol($boleto['fecha_salida'] ?? $fechaSalida); 
         
         $html1 .= '
-    <div class="info-pasajero">
-        <div class="bold" style="font-size:8pt;">' . $nombrePasajero . '</div>
-        <div class="center bold">>> ' . strtoupper($rutaMostrar) . ' <<</div>
-        <table class="center bold" style="margin:2px 0;">
-            <tr>
-                <td width="50%">Piso ' . $pisoMostrar . '</td>
-                <td width="50%">Anden ' . $andMostrar . '</td>
-            </tr>
-        </table>
-        <div>Salida ' . $fechaSalidaFormateada . '</div>
-        <table>
-            <tr>
-                <td width="20%">Hora</td>
-                <td width="30%" class="bold" style="font-size:9pt;">' . $horaSalida . '</td>
-                <td width="25%">Asiento</td>
-                <td width="25%" class="bold" style="font-size:10pt;">' . str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) . '</td>
-            </tr>
-        </table>
+    <div style="font-size: 8pt; line-height:1.2;">
+        <div class="bold" style="font-size:8.5pt;">' . $nombrePasajero . '</div>
+        <div class="center bold" style="font-size:8.5pt;">' . strtoupper($rutaMostrar) . '</div>
+        <div class="center bold">Piso ' . $pisoMostrar . ' &nbsp;&nbsp;&nbsp;&nbsp; Anden ' . $andMostrar . '</div>
+        
+        <div style="margin-top:2px;">Salida ' . $fechaSalidaFormateada . '</div>
+        
         <table style="margin-top:2px;">
             <tr>
-                <td width="30%" class="bold">Valor...$</td>
-                <td width="20%" class="bold" style="font-size:9pt;">' . number_format($detalle['total_boleto_detalle'], 2, ',', '.') . '</td>
-                <td width="50%" class="right">' . $detalle['tarifa_boleto_detalle'] . '</td>
+                <td width="15%" style="font-size:9pt;">Hora</td>
+                <td width="35%" class="bold" style="font-size:11pt;">' . $horaSalida . ' h</td>
+                <td width="20%" style="font-size:9pt;" align="right">Asiento</td>
+                <td width="30%" class="bold" style="font-size:14pt;" align="right">' . str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) . '</td>
             </tr>
         </table>
-    </div><br>';
+        
+        <table style="margin-top:2px;">
+            <tr>
+                <td width="25%" style="font-size:9pt;">Valor...$</td>
+                <td width="30%" class="bold" style="font-size:12pt;">' . number_format($detalle['total_boleto_detalle'], 2, ',', '.') . '</td>
+                <td width="45%" style="font-size:8pt;" align="right">' . $detalle['tarifa_boleto_detalle'] . '</td>
+            </tr>
+        </table>
+    </div>';
     }
 
     $html1 .= '
-    <div class="sep-light"></div>
-    <table style="margin-top:3px;">
+    <table style="margin-top:8px;">
         <tr>
-            <td width="40%" class="big-total">TOTAL</td>
-            <td width="60%" class="big-total">' . number_format($boleto['total_boleto'], 2, ',', '.') . '</td>
+            <td width="35%" class="bold" style="font-size:14pt;">TOTAL</td>
+            <td width="65%" class="bold" style="font-size:14pt;">' . number_format($boleto['total_boleto'], 2, ',', '.') . '</td>
         </tr>
     </table>
     <div class="sep-light"></div>
 
-    <div class="sri-info">
+    <div style="font-size: 7pt; line-height: 1.1;">
         <div>Caducidad ' . $fechaSalida . ' ' . $horaSalida . '</div>
         <div>F. Emisión ' . ($boleto['fecha_creacion_boleto'] ? date('d/m/Y H:i:s', strtotime($boleto['fecha_creacion_boleto'])) : date('d/m/Y H:i:s')) . '</div>';
         
@@ -277,11 +262,12 @@ razon_social_empresa FROM empresa WHERE 1";
     </div>
     <div class="sep-light"></div>
 
-    <div class="sri-info center">
+    <div class="center" style="font-size: 7pt; line-height: 1.1;">
         <div>COOPERATIVA DE TRANSPORTES FLOTA PELILEO</div>
         <div>Dir. Matriz Garcia Moreno s/n y Montalvo</div>
-        <div>Oficina Garcia Moreno v Montalvo</div>
-        <div class="left" style="margin-top:2px;">Registra VENTASONLINE</div>
+        
+        <div style="margin-top:5px;">Oficina Garcia Moreno v Montalvo</div>
+        <div class="left">Registra VENTASONLINE</div>
         <table class="left">
             <tr>
                 <td width="50%">Impresión ' . date('d/m/Y') . '</td>
@@ -289,17 +275,19 @@ razon_social_empresa FROM empresa WHERE 1";
             </tr>
         </table>
     </div>
+    
+    <div style="margin-top:2px;">-</div>
 
-    <div class="leyenda">
+    <div class="center" style="font-size: 6pt; margin-top: 3px; line-height: 1.05;">
         Descargue su factura electrónica desde patate.easysplus.com / Usuario y
         contraseña (Ruc o CI), Recuerde estar 15 minutos antes de la hora de salida
-        de la unidad, En caso de no estar puntual y perder el viaje NO SE
-        REEMBOLSARA EL VALOR. Una vez generado el Boleto por ningún motivo
-        se reembolsará el valor. GRACIAS POR SU COMPRENSIÓN.<br>
+        de la unidad,En caso de no estar puntual y perder el viaje NO SE
+        REEMBOLSARA EL VALOR. Una vez generado el Boleto por ningun motivo
+        se reembolsara el valos.GRACIAS POR SU COMPRENSION.<br>
         EASYSPLUS.COM
     </div>
 
-    <div class="center bold" style="margin-top:5px; font-size:7.5pt;">
+    <div class="center bold" style="margin-top:6px; font-size:8pt;">
         Vendido por: ' . $boleto['nombre_usuario'] . '
     </div>
 </body>
