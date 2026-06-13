@@ -56,7 +56,11 @@ export const GuiasPage = () => {
       
       const response = await GuiaService.getGuias(params);
       
-      setGuias(response.data || []);
+      let dataArray = response.data || [];
+      if (!Array.isArray(dataArray) && typeof dataArray === 'object') {
+        dataArray = Object.values(dataArray);
+      }
+      setGuias(dataArray);
       setTotal(response.total || 0);
     } catch (error) {
       console.error('Error cargando guías:', error);
