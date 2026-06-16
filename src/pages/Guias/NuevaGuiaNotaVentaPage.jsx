@@ -747,11 +747,12 @@ export const NuevaGuiaNotaVentaPage = () => {
                         .then(r => r.ok ? r.text() : null).then(resolve).catch(() => resolve(null));
                     });
                     qz.security.setSignaturePromise((toSign) => (resolve) => {
-                      const token = sessionStorage.getItem('auth_token') || '';
-                      const headers = { 'Content-Type': 'application/json' };
-                      if (token) headers['Authorization'] = 'Bearer ' + token;
-                      fetch('/configuracion/sign-message?request=' + encodeURIComponent(toSign), { headers })
-                        .then(r => r.ok ? r.text() : null).then(resolve).catch(() => resolve(null));
+                      api.get('/configuracion/sign-message', { params: { request: toSign } })
+                        .then(res => resolve(res.data))
+                        .catch(err => {
+                          console.error('Error signing message', err);
+                          resolve(null);
+                        });
                     });
                   };
 
