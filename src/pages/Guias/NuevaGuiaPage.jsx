@@ -764,7 +764,10 @@ export const NuevaGuiaPage = () => {
                   configurarQZ();
                   await conectarQZ();
 
-                  const config = window.qz.configs.create(printerGuias);
+                  const config = window.qz.configs.create(printerGuias, {
+                    scaleContent: true,
+                    margins: { top: 0, bottom: 0, left: 0.15, right: 0.15 }
+                  });
                   const data = [{
                     type: 'pixel',
                     format: 'pdf',

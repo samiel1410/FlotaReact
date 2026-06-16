@@ -920,7 +920,10 @@ export const NuevoBoletoPage = () => {
         configurarQZ();
         await conectarQZ();
 
-        const config = window.qz.configs.create(printerBoletos);
+        const config = window.qz.configs.create(printerBoletos, {
+          scaleContent: true,
+          margins: { top: 0, bottom: 0, left: 0.15, right: 0.15 }
+        });
         
         // Determinar URL completa del PDF basado en el entorno
         const fullPdfUrl = window.location.origin + printUrl;
