@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
 // No longer using LoginPage.css, fully relying on Tailwind CSS
 
@@ -46,8 +46,6 @@ export const LoginPage = () => {
 
   return (
     <div className="flex w-full h-screen overflow-hidden font-outfit bg-slate-50">
-      <Toaster position="top-right" toastOptions={{ style: { fontFamily: 'Outfit, sans-serif', borderRadius: '12px' } }} />
-      
       {/* Lado Izquierdo: Branding Visual (Tailwind) */}
       <div className="relative hidden lg:flex flex-1 items-center justify-center bg-[url('/images/fondo.jpg')] bg-cover bg-center overflow-hidden">
         {/* Overlay con gradiente */}

@@ -9,7 +9,7 @@ import { EntregaService } from '../../../services/entrega.service';
  * Permite capturar cédula de quien recibe y foto opcional (archivo o cámara)
  * Recrea la funcionalidad de ExtJS en EntregadoController.onentregarGuia
  */
-export const ConfirmarEntregaModal = ({ guia, destinoGuia, onClose, onSuccess }) => {
+export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, onClose, onSuccess }) => {
   const [cedula, setCedula] = useState('');
   const [fotoBase64, setFotoBase64] = useState('');
   const [fotoPreview, setFotoPreview] = useState('');
@@ -53,7 +53,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, onClose, onSuccess })
         destino_guia: destinoGuia || guia.destino_guia || '',
         cedula_recibe: cedula,
         foto_base64: fotoBase64
-      });
+      }, isNotaVenta);
 
       if (!entregaRes?.success) {
         toast.error(entregaRes?.data || 'Error al entregar la guía');
@@ -65,7 +65,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, onClose, onSuccess })
 
       // 3. Generar PDF de entrega
       try {
-        const pdfRes = await EntregaService.generarPdfEntrega(guia.id_guia, id_usuario);
+        const pdfRes = await EntregaService.generarPdfEntrega(guia.id_guia, id_usuario, isNotaVenta);
         if (pdfRes?.success && pdfRes?.ruta) {
           const w = window.open(
             `${CONFIG.PHP_URL}/tmp/${pdfRes.ruta}`,

@@ -9,16 +9,18 @@ export const EntregaService = {
   /**
    * Listado paginado de guías para entrega
    */
-  listar: async (params = {}) => {
-    const response = await api.get('/guia/guialistadoEntrega', { params });
+  listar: async (params = {}, isNotaVenta = false) => {
+    const prefix = isNotaVenta ? '/guia_nota_venta' : '/guia';
+    const response = await api.get(`${prefix}/guialistadoEntrega`, { params });
     return response.data;
   },
 
   /**
    * Verificar si guía está anulada
    */
-  verificarAnulacion: async (idGuia) => {
-    const response = await api.get('/guia/verificacionanulacion', { params: { id_guia: idGuia } });
+  verificarAnulacion: async (idGuia, isNotaVenta = false) => {
+    const prefix = isNotaVenta ? '/guia_nota_venta' : '/guia';
+    const response = await api.get(`${prefix}/verificacionanulacion`, { params: { id_guia: idGuia } });
     return response.data;
   },
 
@@ -65,17 +67,19 @@ export const EntregaService = {
   /**
    * Entregar guía con foto (cédula de quien recibe + foto opcional)
    */
-  entregarGuiaConFoto: async (payload) => {
-    const response = await api.post('/guia/entregarGuiaConFoto', payload);
+  entregarGuiaConFoto: async (payload, isNotaVenta = false) => {
+    const prefix = isNotaVenta ? '/guia_nota_venta' : '/guia';
+    const response = await api.post(`${prefix}/entregarGuiaConFoto`, payload);
     return response.data;
   },
 
   /**
    * Generar PDF de guía entregada (PHP)
    */
-  generarPdfEntrega: async (idGuia, idUsuario) => {
+  generarPdfEntrega: async (idGuia, idUsuario, isNotaVenta = false) => {
     try {
-      const phpUrl = `${CONFIG.PHP_URL}/guiaEntregadaPdf.php?id_guia=${encodeURIComponent(idGuia)}&id_usuario=${encodeURIComponent(idUsuario)}`;
+      const phpScript = isNotaVenta ? 'guiaEntregadaNotaVentaPdf.php' : 'guiaEntregadaPdf.php';
+      const phpUrl = `${CONFIG.PHP_URL}/${phpScript}?id_guia=${encodeURIComponent(idGuia)}&id_usuario=${encodeURIComponent(idUsuario)}`;
       const r = await fetch(phpUrl, { credentials: 'same-origin' });
       const data = await r.json();
       return data;
@@ -96,8 +100,9 @@ export const EntregaService = {
   /**
    * Buscar guía por ID para obtener datos completos
    */
-  buscarGuiaPorId: async (idGuia) => {
-    const response = await api.get('/guia/buscarGuiaId', { params: { id_guia: idGuia } });
+  buscarGuiaPorId: async (idGuia, isNotaVenta = false) => {
+    const prefix = isNotaVenta ? '/guia_nota_venta' : '/guia';
+    const response = await api.get(`${prefix}/buscarGuiaId`, { params: { id_guia: idGuia } });
     return response.data;
   }
 };

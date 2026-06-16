@@ -1,9 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { despachoConvenioService } from '../../../services/despachoConvenio.service';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
-export const BusquedaGuiaDespachoModal = ({ idDespachoMaestro, bus, onClose, onSelect }) => {
+export const BusquedaGuiaDespachoModal = memo(({ idDespachoMaestro, bus, onClose, onSelect }) => {
   const [guias, setGuias] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -199,4 +199,4 @@ export const BusquedaGuiaDespachoModal = ({ idDespachoMaestro, bus, onClose, onS
       </div>
     </div>
   );
-};
+});

@@ -13,6 +13,9 @@ const LoginPage = lazy(() => import('./pages/Login/LoginPage').then(m => ({ defa
 const InicioPage = lazy(() => import('./pages/Inicio/InicioPage').then(m => ({ default: m.InicioPage })));
 const GuiasPage = lazy(() => import('./pages/Guias/GuiasPage').then(m => ({ default: m.GuiasPage })));
 const NuevaGuiaPage = lazy(() => import('./pages/Guias/NuevaGuiaPage').then(m => ({ default: m.NuevaGuiaPage })));
+
+const GuiasNotaVentaPage = lazy(() => import('./pages/Guias/GuiasNotaVentaPage').then(m => ({ default: m.GuiasNotaVentaPage })));
+const NuevaGuiaNotaVentaPage = lazy(() => import('./pages/Guias/NuevaGuiaNotaVentaPage').then(m => ({ default: m.NuevaGuiaNotaVentaPage })));
 const BoleteriaPage = lazy(() => import('./pages/Boleteria/BoleteriaPage').then(m => ({ default: m.BoleteriaPage })));
 const NuevoBoletoPage = lazy(() => import('./pages/Boleteria/NuevoBoletoPage').then(m => ({ default: m.NuevoBoletoPage })));
 const RecaudadoPage = lazy(() => import('./pages/Recaudado/RecaudadoPage').then(m => ({ default: m.RecaudadoPage })));
@@ -25,6 +28,7 @@ const EstadisticasPage = lazy(() => import('./pages/Estadisticas/EstadisticasPag
 const ConfigRutasPage = lazy(() => import('./pages/ConfigRutas/ConfigRutasPage').then(m => ({ default: m.ConfigRutasPage })));
 const ImpresorasPage = lazy(() => import('./pages/Impresoras/ImpresorasPage').then(m => ({ default: m.ImpresorasPage })));
 const DespachoGuiasPage = lazy(() => import('./pages/DespachoGuias/DespachoGuiasPage').then(m => ({ default: m.DespachoGuiasPage })));
+const DespachoGuiasNotaVentaPage = lazy(() => import('./pages/DespachoGuiasNotaVenta/DespachoGuiasNotaVentaPage').then(m => ({ default: m.DespachoGuiasNotaVentaPage })));
 const DespachoPage = lazy(() => import('./pages/Despacho/DespachoPage').then(m => ({ default: m.DespachoPage })));
 const SeguimientoPage = lazy(() => import('./pages/Seguimiento/SeguimientoPage').then(m => ({ default: m.SeguimientoPage })));
 const CobrosPage = lazy(() => import('./pages/Cobros/CobrosPage').then(m => ({ default: m.CobrosPage })));
@@ -38,6 +42,7 @@ const AnulacionBoleteriaPage = lazy(() => import('./pages/AnulacionBoleteria/Anu
 const BuserosPageCustom = lazy(() => import('./pages/Buseros/BuserosPage').then(m => ({ default: m.BuserosPage })));
 const BuscarGuiaOficinaPage = lazy(() => import('./pages/Guias/BuscarGuiaOficinaPage').then(m => ({ default: m.BuscarGuiaOficinaPage })));
 const ReportesPage = lazy(() => import('./pages/Reportes/ReportesPage').then(m => ({ default: m.ReportesPage })));
+const AuditoriaPage = lazy(() => import('./pages/Auditoria/AuditoriaPage').then(m => ({ default: m.AuditoriaPage })));
 const ConfiguracionPage = lazy(() => import('./pages/Configuracion/ConfiguracionPage').then(m => ({ default: m.ConfiguracionPage })));
 const CreacionViajesPage = lazy(() => import('./pages/Viajes/CreacionViajesPage').then(m => ({ default: m.CreacionViajesPage })));
 const DespachoViajesPage = lazy(() => import('./pages/Viajes/DespachoViajesPage').then(m => ({ default: m.DespachoViajesPage })));
@@ -48,6 +53,16 @@ const EditarGuiaPage = lazy(() => import('./pages/Guias/EditarGuiaPage').then(m 
 const EntregasPage = lazy(() => import('./pages/Entregas/EntregasPage').then(m => ({ default: m.EntregasPage })));
 
 const RolesPage = lazy(() => import('./pages/Roles/RolesPage').then(m => ({ default: m.RolesPage })));
+const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage').then(m => ({ default: m.ProfilePage })));
+const PermisosRolPage = lazy(() => import('./pages/Roles/PermisosRolPage').then(m => ({ default: m.PermisosRolPage })));
+const CarteraSocioPage = lazy(() => import('./pages/CarteraSocio/CarteraSocioPage').then(m => ({ default: m.CarteraSocioPage })));
+const MultasPage = lazy(() => import('./pages/Multas/MultasPage').then(m => ({ default: m.MultasPage })));
+const CreditosAdminPage = lazy(() => import('./pages/CreditosAdmin/CreditosAdminPage').then(m => ({ default: m.CreditosAdminPage })));
+const BonosPage = lazy(() => import('./pages/Bonos/BonosPage').then(m => ({ default: m.BonosPage })));
+const CuotaAdminPage = lazy(() => import('./pages/CuotaAdmin/CuotaAdminPage').then(m => ({ default: m.CuotaAdminPage })));
+const RankingVentasPage = lazy(() => import('./pages/RankingVentas/RankingVentasPage').then(m => ({ default: m.RankingVentasPage })));
+const CierreCobrosPage = lazy(() => import('./pages/CierreCobros/CierreCobrosPage').then(m => ({ default: m.CierreCobrosPage })));
+const FacturasPage = lazy(() => import('./pages/Facturas/FacturasPage').then(m => ({ default: m.FacturasPage })));
 
 // Componente Wrapper para rutas protegidas
 const ProtectedRoute = ({ children }) => {
@@ -105,8 +120,10 @@ function App() {
           
           {/* Módulos Principales (Componentes Específicos) */}
           <Route path="guias" element={<GuiasPage />} />
+          <Route path="notas-venta" element={<GuiasNotaVentaPage />} />
 <Route path="guias/buscar-oficina" element={<BuscarGuiaOficinaPage />} />
           <Route path="boleteria" element={<BoleteriaPage />} />
+          <Route path="facturas" element={<FacturasPage />} />
           <Route path="recaudado" element={<RecaudadoPage />} />
           <Route path="asientos" element={<AsientosPage />} />
           <Route path="caja" element={<DynamicPage key="caja" configKey="caja" />} />
@@ -120,7 +137,9 @@ function App() {
           {/* Administración (Páginas Dinámicas vía pagesConfig) — key fuerza remount al navegar */}
           <Route path="buses" element={<BusesPage />} />
           <Route path="agencias" element={<DynamicPage key="sucursales" configKey="sucursales" />} />
+          <Route path="perfil" element={<ProfilePage />} />
           <Route path="roles" element={<RolesPage />} />
+          <Route path="roles/permisos/:id" element={<PermisosRolPage />} />
           <Route path="usuarios" element={<DynamicPage key="usuarios" configKey="usuarios" />} />
           <Route path="ciudades" element={<DynamicPage key="ciudades" configKey="ciudades" />} />
           <Route path="convenios" element={<DynamicPage key="convenios" configKey="convenios" />} />
@@ -140,11 +159,19 @@ function App() {
           
           {/* Operaciones & Reportes (Dinámicas o Específicas) — key fuerza remount al navegar */}
           <Route path="estadisticas" element={<EstadisticasPage />} />
+          <Route path="ranking-ventas" element={<RankingVentasPage />} />
           <Route path="reportes" element={<ReportesPage />} />
+          <Route path="auditoria" element={<AuditoriaPage />} />
           <Route path="configuracion" element={<ConfiguracionPage />} />
           <Route path="aprobaciones" element={<DynamicPage key="aprobaciones" configKey="aprobaciones" />} />
 
           <Route path="cobros" element={<CobrosPage />} />
+          <Route path="cartera-socio" element={<CarteraSocioPage />} />
+          <Route path="multas" element={<MultasPage />} />
+          <Route path="creditos-admin" element={<CreditosAdminPage />} />
+          <Route path="bonos" element={<BonosPage />} />
+          <Route path="cuota-admin" element={<CuotaAdminPage />} />
+          <Route path="cierre-cobros" element={<CierreCobrosPage />} />
           <Route path="anulaciones" element={<AnulacionesPage />} />
           <Route path="guias-companias" element={<DynamicPage key="guias-companias" configKey="guias-companias" />} />
           <Route path="entregas" element={<EntregasPage />} />
@@ -159,8 +186,11 @@ function App() {
           <Route path="config-rutas" element={<ConfigRutasPage />} />
           <Route path="impresoras" element={<ImpresorasPage />} />
           <Route path="despacho-guias" element={<DespachoGuiasPage />} />
+          <Route path="despachos-notas-venta" element={<DespachoGuiasNotaVentaPage />} />
           <Route path="despacho" element={<DespachoPage />} />
           <Route path="seguimiento" element={<SeguimientoPage />} />
+          <Route path="seguimiento-notas-venta" element={<SeguimientoPage isNotaVenta={true} />} />
+          <Route path="entregas-notas-venta" element={<EntregasPage isNotaVenta={true} />} />
           <Route path="caja-cobros" element={<DynamicPage key="caja-cobros" configKey="caja-cobros" />} />
           <Route path="facturacion" element={<FacturacionPage />} />
           <Route path="caja-boleteria" element={<DynamicPage key="caja-boleteria" configKey="caja-boleteria" />} />
@@ -176,6 +206,7 @@ function App() {
 
         {/* Pantallas completas sin Layout Principal */}
         <Route path="/guias/nueva" element={<ProtectedRoute><NuevaGuiaPage /></ProtectedRoute>} />
+        <Route path="/notas-venta/nueva" element={<ProtectedRoute><NuevaGuiaNotaVentaPage /></ProtectedRoute>} />
         <Route path="/boleteria/nuevo" element={<ProtectedRoute><NuevoBoletoPage /></ProtectedRoute>} />
         <Route path="/guias/editar/:id" element={<ProtectedRoute><EditarGuiaPage /></ProtectedRoute>} />
         <Route path="/guias/cobros/:id" element={<ProtectedRoute><CobrosRealizadosPage /></ProtectedRoute>} />

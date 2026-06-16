@@ -8,7 +8,7 @@ import { EntregaService } from '../../../services/entrega.service';
  * Modal para cobrar factura y entregar guía.
  * Recrea la funcionalidad de CobrarGuiaEntregado + onGuardarComprobantesGuia del ExtJS
  */
-export const CobrarEntregarModal = ({ guia, destinoGuia, onClose, onSuccess }) => {
+export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formasPago, setFormasPago] = useState([]);
@@ -172,7 +172,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, onClose, onSuccess }) =
             destino_guia: destinoGuia || guia.destino_guia || '',
             cedula_recibe: formData.cedula_recibe,
             foto_base64: fotoCapturada
-          });
+          }, isNotaVenta);
         } catch (e) {
           console.warn('Error guardando foto de entrega:', e);
         }
@@ -180,7 +180,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, onClose, onSuccess }) =
 
       // 4. Generar PDF de entrega
       try {
-        const pdfRes = await EntregaService.generarPdfEntrega(guia.id_guia, userRes.data.id_usuario);
+        const pdfRes = await EntregaService.generarPdfEntrega(guia.id_guia, userRes.data.id_usuario, isNotaVenta);
         if (pdfRes?.success && pdfRes?.ruta) {
           const w = window.open(
             `${CONFIG.PHP_URL}/tmp/${pdfRes.ruta}`,

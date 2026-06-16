@@ -1,10 +1,74 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { despachoConvenioService } from '../../services/despachoConvenio.service';
 import { NuevoDespachoGuiaCompaniaModal } from './components/NuevoDespachoGuiaCompaniaModal';
 import { BusquedaGuiaDespachoModal } from './components/BusquedaGuiaDespachoModal';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+
+// 🔷 Fila memoizada de la tabla principal
+const DespachoRow = memo(({ despacho, onPdf, onEditar, onAgregarGuiaClick, formatDate, renderEstado }) => (
+  <tr className="hover:bg-slate-50/70 transition-colors">
+    <td className="px-4 py-3 text-sm font-bold text-slate-700">
+      {despacho.numero_despacho_maestro_convenios || '-'}
+    </td>
+    <td className="px-4 py-3 text-sm text-slate-600">
+      {formatDate(despacho.fecha_despacho_maestro_convenios)}
+    </td>
+    <td className="px-4 py-3 text-sm text-slate-700 font-medium">
+      {despacho.nombre_bus || '-'}
+    </td>
+    <td className="px-4 py-3 text-sm text-slate-600">
+      {despacho.nombre_busero || '-'}
+    </td>
+    <td className="px-4 py-3 text-sm text-slate-600">
+      {despacho.nombre_destino || '-'}
+    </td>
+    <td className="px-4 py-3 text-center">
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+        {despacho.encomiendas || 0}
+      </span>
+    </td>
+    <td className="px-4 py-3 text-center">
+      {renderEstado(despacho.estado_despacho_maestro_convenios)}
+    </td>
+    <td className="px-4 py-3">
+      <div className="flex items-center justify-center gap-1">
+        <button onClick={() => onPdf(despacho)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all" title="PDF">
+          <i className="fas fa-file-pdf text-sm"></i>
+        </button>
+        <button onClick={() => onEditar(despacho)} className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-all" title="Editar Despacho">
+          <i className="fas fa-edit text-sm"></i>
+        </button>
+        <button onClick={() => onAgregarGuiaClick(despacho)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-all" title="Agregar Guía">
+          <i className="fas fa-plus-circle text-sm"></i>
+        </button>
+      </div>
+    </td>
+  </tr>
+));
+
+// 🔷 Fila memoizada de la tabla de detalles (guías del despacho)
+const DetalleRow = memo(({ detalle, onQuitarGuia }) => (
+  <tr className="hover:bg-slate-50">
+    <td className="px-4 py-2 text-sm font-medium text-slate-800">
+      {detalle.numero_guia_formateado || detalle.numero_guia || '-'}
+    </td>
+    <td className="px-4 py-2 text-sm text-slate-600">
+      {detalle.destino_guia || '-'}
+    </td>
+    <td className="px-4 py-2 text-sm">
+      {String(detalle.estado_despacho_detalle_convenios) === '1'
+        ? <i className="fas fa-circle text-green-500 text-xs" title="Activo"></i>
+        : <i className="fas fa-circle text-red-500 text-xs" title="Finalizado"></i>}
+    </td>
+    <td className="px-4 py-2 text-center">
+      <button onClick={() => onQuitarGuia(detalle.id_despacho_detalle_convenios)} className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition-all" title="Quitar guía del despacho">
+        <i className="fas fa-trash mr-1"></i>Quitar
+      </button>
+    </td>
+  </tr>
+));
 
 export const DespachoGuiasPage = () => {
   // ─── Estado Principal ───
@@ -374,59 +438,15 @@ export const DespachoGuiasPage = () => {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {despachos.map((d, idx) => (
-                    <tr key={d.id_despacho_maestro_convenios || idx} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-4 py-3 text-sm font-bold text-slate-700">
-                        {d.numero_despacho_maestro_convenios || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
-                        {formatDate(d.fecha_despacho_maestro_convenios)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-700 font-medium">
-                        {d.nombre_bus || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
-                        {d.nombre_busero || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
-                        {d.nombre_destino || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
-                          {d.encomiendas || 0}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {renderEstado(d.estado_despacho_maestro_convenios)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1">
-                          {/* PDF */}
-                          <button
-                            onClick={() => handlePdf(d)}
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                            title="PDF"
-                          >
-                            <i className="fas fa-file-pdf text-sm"></i>
-                          </button>
-                          {/* Editar */}
-                          <button
-                            onClick={() => handleEditarDespacho(d)}
-                            className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                            title="Editar Despacho"
-                          >
-                            <i className="fas fa-edit text-sm"></i>
-                          </button>
-                          {/* Agregar Guía */}
-                          <button
-                            onClick={() => handleAgregarGuiaClick(d)}
-                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
-                            title="Agregar Guía"
-                          >
-                            <i className="fas fa-plus-circle text-sm"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                    <DespachoRow
+                      key={d.id_despacho_maestro_convenios || idx}
+                      despacho={d}
+                      onPdf={handlePdf}
+                      onEditar={handleEditarDespacho}
+                      onAgregarGuiaClick={handleAgregarGuiaClick}
+                      formatDate={formatDate}
+                      renderEstado={renderEstado}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -531,26 +551,11 @@ export const DespachoGuiasPage = () => {
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                           {detalles.map((det, idx) => (
-                            <tr key={det.id_despacho_detalle_convenios || idx} className="hover:bg-slate-50">
-                              <td className="px-4 py-2 text-sm font-medium text-slate-800">
-                                {det.numero_guia_formateado || det.numero_guia || '-'}
-                              </td>
-                              <td className="px-4 py-2 text-sm text-slate-600">
-                                {det.destino_guia || '-'}
-                              </td>
-                              <td className="px-4 py-2 text-sm">
-                                {renderEstado(det.estado_despacho_detalle_convenios)}
-                              </td>
-                              <td className="px-4 py-2 text-center">
-                                <button
-                                  onClick={() => handleQuitarGuia(det.id_despacho_detalle_convenios)}
-                                  className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition-all"
-                                  title="Quitar guía del despacho"
-                                >
-                                  <i className="fas fa-trash mr-1"></i>Quitar
-                                </button>
-                              </td>
-                            </tr>
+                            <DetalleRow
+                              key={det.id_despacho_detalle_convenios || idx}
+                              detalle={det}
+                              onQuitarGuia={handleQuitarGuia}
+                            />
                           ))}
                         </tbody>
                       </table>

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import './GuiasGrid.css';
 
 export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onReload,
-  onViewPdf, onPrint, onEdit, onCharge, onCharges, onTrack, onAnular, onFacturar
+  onViewPdf, onPrint, onEdit, onCharge, onCharges, onTrack, onAnular, onFacturar,
+  onNuevaGuia, onAnularSeleccionadas, onAnularPendientes
 }) => {
   const [activeMenu, setActiveMenu] = useState(null);
 
@@ -41,6 +42,23 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
 
   return (
     <div className="guias-grid-container">
+      <div className="flex gap-2 p-2 bg-white border-b">
+        {onNuevaGuia && (
+          <button onClick={onNuevaGuia} className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded hover:bg-blue-700 flex items-center gap-2">
+            <i className="fas fa-plus"></i> Nueva Guía
+          </button>
+        )}
+        {onAnularSeleccionadas && (
+          <button onClick={onAnularSeleccionadas} className="px-3 py-1.5 text-sm font-medium text-white bg-red-500 rounded hover:bg-red-600 flex items-center gap-2">
+            <i className="fas fa-ban"></i> Anular Seleccionadas
+          </button>
+        )}
+        {onAnularPendientes && (
+          <button onClick={onAnularPendientes} className="px-3 py-1.5 text-sm font-medium text-white bg-orange-500 rounded hover:bg-orange-600 flex items-center gap-2">
+            <i className="fas fa-exclamation-triangle"></i> Anular Guías Pendientes
+          </button>
+        )}
+      </div>
       <div className="table-responsive">
         <table className="guias-table">
           <thead>

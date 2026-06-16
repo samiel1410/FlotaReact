@@ -83,8 +83,21 @@ export const NuevoBoletoPage = () => {
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [refreshAsientosKey, setRefreshAsientosKey] = useState(0);
   const [asientosPendientes, setAsientosPendientes] = useState({}); // { [asiento]: 'nombreUsuario' }
+  const getSessionUser = () => {
+    let user = {};
+    try {
+      const userData = sessionStorage.getItem('user_data');
+      if (userData) user = { ...user, ...JSON.parse(userData) };
+    } catch (e) {}
+    try {
+      const usuario = sessionStorage.getItem('usuario');
+      if (usuario) user = { ...user, ...JSON.parse(usuario) };
+    } catch (e) {}
+    return user;
+  };
+
   const [currentAgencia, setCurrentAgencia] = useState(() => {
-    const u = JSON.parse(sessionStorage.getItem('usuario') || '{}');
+    const u = getSessionUser();
     return u.nombre_sucursal || 'Desconocida';
   });
 
@@ -132,7 +145,7 @@ export const NuevoBoletoPage = () => {
     fetchInit();
 
     // Cargar método de impresión del usuario
-    const userId = JSON.parse(sessionStorage.getItem('usuario') || '{}').id_usuario;
+    const userId = getSessionUser().id_usuario;
     if (userId) {
       api.get('/impresoras/miConfig', { params: { id_usuario: userId } }).then(res => {
         if (res.data?.success && res.data?.data) {
@@ -265,7 +278,7 @@ export const NuevoBoletoPage = () => {
     if (!formData.fechaViaje) return;
     setLoadingViajes(true);
     try {
-      const usuario = JSON.parse(sessionStorage.getItem('usuario') || '{}');
+      const usuario = getSessionUser();
       const res = await BoleteriaService.getViajesDisponibles({
         fecha: formData.fechaViaje,
         id_sucursal: usuario.id_sucursal
@@ -421,8 +434,7 @@ export const NuevoBoletoPage = () => {
     const as = asientos || fd.asientosSeleccionados;
     
     if (window.__socket && vId && as.length > 0) {
-      const usuarioStr = sessionStorage.getItem('usuario');
-      const currentUser = usuarioStr ? JSON.parse(usuarioStr) : null;
+      const currentUser = getSessionUser();
       const nombreUsuario = currentUser?.nombre_usuario || 'Usuario';
       
       as.forEach(asiento => {
@@ -479,7 +491,7 @@ export const NuevoBoletoPage = () => {
       }
 
       // Venta o reserva: AGREGAR nuevos asientos ocupados
-      const currentUser = sessionStorage.getItem('usuario') ? JSON.parse(sessionStorage.getItem('usuario')) : null;
+      const currentUser = getSessionUser();
       const esMismoUsuario = currentUser && data.usuario === currentUser.nombre_usuario;
 
       setAsientosOcupados(prev => {
@@ -556,8 +568,7 @@ export const NuevoBoletoPage = () => {
     }
 
     // Obtener nombre del usuario actual para el socket
-    const usuarioStr = sessionStorage.getItem('usuario');
-    const currentUser = usuarioStr ? JSON.parse(usuarioStr) : null;
+    const currentUser = getSessionUser();
     const nombreUsuario = currentUser?.nombre_usuario || 'Usuario';
 
     if (formData.asientosSeleccionados.includes(asientoId)) {
@@ -733,8 +744,8 @@ export const NuevoBoletoPage = () => {
         // Fecha/hora actual como hora_boleto (ExtJS: lo calculaba automáticamente)
         hora_boleto: new Date().toTimeString().split(' ')[0],
         detalles_boletos: JSON.stringify(detalles),
-        id_caja_global: JSON.parse(sessionStorage.getItem('usuario') || '{}').id_caja_global ||
-                        JSON.parse(sessionStorage.getItem('usuario') || '{}').id_caja_boleteria_global || 0
+        id_caja_global: getSessionUser().id_caja_global ||
+                        getSessionUser().id_caja_boleteria_global || 0
       };
 
       const response = await BoleteriaService.venderBoleto(body);
@@ -760,7 +771,11 @@ export const NuevoBoletoPage = () => {
 
           const numerosValidos = Array.from(numerosUnicos).filter(num => num.length >= 9);
 
-          if (numerosValidos.length > 0) {
+          const empDataStr = sessionStorage.getItem('empresa_data');
+          const empData = empDataStr ? JSON.parse(empDataStr) : null;
+          const enviarWhatsapp = empData ? empData.enviar_whatsapp === 1 : false;
+
+          if (numerosValidos.length > 0 && enviarWhatsapp) {
             try {
               const urlGenerador = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
               await axios.get(urlGenerador);
@@ -802,7 +817,7 @@ export const NuevoBoletoPage = () => {
   // Refrescar viajes disponibles (para actualizar total_boletos y asientos)
   const refrescarViajes = useCallback(async () => {
     try {
-      const usuario = JSON.parse(sessionStorage.getItem('usuario') || '{}');
+      const usuario = getSessionUser();
       const viajesRes = await BoleteriaService.getViajesDisponibles({ 
         fecha: formData.fechaViaje || hoyLocal(),
         id_sucursal: usuario.id_sucursal
@@ -967,7 +982,7 @@ export const NuevoBoletoPage = () => {
 
   const handleAgenciaCambiada = (record) => {
     if (!record) return;
-    const usuario = JSON.parse(sessionStorage.getItem('usuario') || '{}');
+    const usuario = getSessionUser();
     usuario.id_sucursal = record.id_sucursal;
     usuario.nombre_sucursal = record.nombre_sucursal || usuario.nombre_sucursal;
     usuario.punto_emision_sucursal = record.punto_emision_sucursal || usuario.punto_emision_sucursal;
@@ -1637,7 +1652,7 @@ export const NuevoBoletoPage = () => {
       <CambiarAgenciaModal
         isOpen={showCambiarAgenciaModal}
         onClose={() => setShowCambiarAgenciaModal(false)}
-        currentIdCaja={JSON.parse(sessionStorage.getItem('usuario') || '{}').id_sucursal}
+        currentIdCaja={getSessionUser().id_sucursal}
         onAgenciaCambiada={handleAgenciaCambiada}
       />
       <ListadoPasajerosModal

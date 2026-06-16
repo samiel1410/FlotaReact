@@ -14,7 +14,6 @@ import { CONFIG } from '../../config/env';
 import { api } from '../../config/axios';
 import axios from 'axios';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
-import { facturaService } from '../../services/factura.service';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
@@ -109,9 +108,6 @@ export const NuevaGuiaPage = () => {
   const [numeroManual, setNumeroManual] = useState(false);
   const [numeroManualGuia, setNumeroManualGuia] = useState('');
   
-  // ── SRI: Autorización Automática ────────────────────────
-  const [autoAutorizarFactura, setAutoAutorizarFactura] = useState(false);
-  
   // ── NUEVO: Pagos (ExtJS: pagos store) ───────────────
   const [pagos, setPagos] = useState([]);
   const [pagadoPor, setPagadoPor] = useState('1'); // 1=Remitente, 2=Destinatario → canceladopor
@@ -127,6 +123,8 @@ export const NuevaGuiaPage = () => {
   // ── Configuración y usuario ──────────────────────────────
   const [defaultFormaPagoId, setDefaultFormaPagoId] = useState('');
   const [configTipoTarifa, setConfigTipoTarifa] = useState(0);
+  const [metodoImpresion, setMetodoImpresion] = useState('manual');
+  const [printerGuias, setPrinterGuias] = useState('');
 
   // ── Validar caja al montar (vía API, con guard) ────
   const cajaCheckRef = useRef(false);
@@ -165,6 +163,17 @@ export const NuevaGuiaPage = () => {
     if (loadedRef.current) return;
     loadedRef.current = true;
     loadCombos();
+
+    // Cargar método de impresión del usuario
+    const userId = user?.id_usuario || user?.id;
+    if (userId) {
+      api.get('/impresoras/miConfig', { params: { id_usuario: userId } }).then(res => {
+        if (res.data?.success && res.data?.data) {
+          setMetodoImpresion(res.data.data.metodo_impresion || 'manual');
+          setPrinterGuias(res.data.data.printer_guias || '');
+        }
+      }).catch(() => {});
+    }
   }, [cajaResolved]);
 
   // ── changeAquienFactura: limpiar Otros ───────────────────
@@ -241,9 +250,6 @@ export const NuevaGuiaPage = () => {
             setDefaultFormaPagoId(String(cfg.id_forma_pago_configuracion));
           }
           setConfigTipoTarifa(parseInt(cfg.tipo_tarifa_configuracion) || 0);
-          if (cfg.autorizar_factura_sri === 1 || cfg.autorizar_factura_sri === true) {
-            setAutoAutorizarFactura(true);
-          }
         }
       }
 
@@ -702,16 +708,6 @@ export const NuevaGuiaPage = () => {
         toast.success(`Guía guardada exitosamente. N° ${idGuia || ''}`);
         // Auto-imprimir / descargar PDF (como ExtJS: abrir PDF automáticamente)
         if (idGuia) {
-          if (autoAutorizarFactura && result.id_factura && !isEditing) {
-            try {
-              toast.loading('Autorizando en SRI...', { id: 'sri_toast' });
-              await facturaService.registrarAutorizacion({ id_factura: result.id_factura, estado: 'AUTORIZADO' });
-              toast.success('Autorizado en SRI', { id: 'sri_toast' });
-            } catch (e) {
-              console.error('Error autorizando factura', e);
-              toast.error('Guía guardada pero error al autorizar SRI', { id: 'sri_toast' });
-            }
-          }
           // Mostrar PDF usando el script PHP y enviar WhatsApp
           try {
             const idUsuario = user?.id_usuario || 0;
@@ -722,10 +718,71 @@ export const NuevaGuiaPage = () => {
 
             // Usar la ruta del archivo físico
             const fullPdfUrl = window.location.origin + `/php/tmp/guiaImpresion_${idGuia}.pdf`;
-            
-            setPdfTitle(`Guía N° ${idGuia}`);
-            setPdfUrl(fullPdfUrl);
-            setPdfModalOpen(true);
+
+            if (metodoImpresion === 'directa') {
+              try {
+                const ticketRes = await api.get('/guia/ticketTexto', { params: { id_guia: idGuia } });
+                const texto = typeof ticketRes.data === 'string' ? ticketRes.data : ticketRes.data?.message || '';
+
+                if (!printerGuias) {
+                  toast.error('No hay impresora de guías configurada');
+                  setPdfTitle(`Guía N° ${idGuia}`);
+                  setPdfUrl(fullPdfUrl);
+                  setPdfModalOpen(true);
+                } else {
+                  const loadQZ = () => new Promise((resolve, reject) => {
+                    if (window.qz) return resolve();
+                    const s = document.createElement('script');
+                    s.src = '/qz.js';
+                    s.onload = () => resolve();
+                    s.onerror = () => reject(new Error('No se pudo cargar qz.js'));
+                    document.head.appendChild(s);
+                  });
+
+                  const configurarQZ = () => {
+                    if (!window.qz) return;
+                    qz.security.setSignatureAlgorithm('SHA256');
+                    qz.security.setCertificatePromise((resolve) => {
+                      fetch('/digital-certificate.crt', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+                        .then(r => r.ok ? r.text() : null).then(resolve).catch(() => resolve(null));
+                    });
+                    qz.security.setSignaturePromise((toSign) => (resolve) => {
+                      const token = sessionStorage.getItem('auth_token') || '';
+                      const headers = { 'Content-Type': 'application/json' };
+                      if (token) headers['Authorization'] = 'Bearer ' + token;
+                      fetch('/configuracion/sign-message?request=' + encodeURIComponent(toSign), { headers })
+                        .then(r => r.ok ? r.text() : null).then(resolve).catch(() => resolve(null));
+                    });
+                  };
+
+                  const conectarQZ = () => {
+                    if (!window.qz) return Promise.reject('Librería no cargada');
+                    if (qz.websocket.isActive()) return Promise.resolve();
+                    return qz.websocket.connect({ retries: 1, delay: 1, usingSecure: false })
+                      .catch(() => qz.websocket.connect({ retries: 0, delay: 0, usingSecure: false, port: { insecure: [8182, 8283, 8384, 8485] } }));
+                  };
+
+                  await loadQZ();
+                  configurarQZ();
+                  await conectarQZ();
+
+                  const config = window.qz.configs.create(printerGuias);
+                  const data = [{ type: 'raw', format: 'plain', data: texto }];
+                  await window.qz.print(config, data);
+                  toast.success('Guía impresa en ' + printerGuias);
+                }
+              } catch (e) {
+                console.error('[QZ] Error al imprimir:', e);
+                toast.error('Error al imprimir vía QZ Tray. Abriendo PDF manual...');
+                setPdfTitle(`Guía N° ${idGuia}`);
+                setPdfUrl(fullPdfUrl);
+                setPdfModalOpen(true);
+              }
+            } else {
+              setPdfTitle(`Guía N° ${idGuia}`);
+              setPdfUrl(fullPdfUrl);
+              setPdfModalOpen(true);
+            }
 
             // Enviar WhatsApp al destinatario y remitente
             const telefonosAEnviar = [];
@@ -740,20 +797,26 @@ export const NuevaGuiaPage = () => {
               telefonosAEnviar.push({ numero: celRem, nombre: remitente?.nombres || 'cliente' });
             }
 
-            for (const t of telefonosAEnviar) {
-              try {
-                const mensajeGuia = `Estimado(a) ${t.nombre},\n\nAdjuntamos la guía N° ${idGuia} de su encomienda. ¡Gracias por preferirnos!`;
-                await api.post('/whatsapp/enviar', {
-                  number: t.numero,
-                  message: mensajeGuia,
-                  fileUrl: fullPdfUrl
-                });
-              } catch (e) {
-                console.error('Error enviando WhatsApp guia a ' + t.numero, e);
+            const empDataStr = sessionStorage.getItem('empresa_data');
+            const empData = empDataStr ? JSON.parse(empDataStr) : null;
+            const enviarWhatsapp = empData ? empData.enviar_whatsapp === 1 : false;
+
+            if (enviarWhatsapp) {
+              for (const t of telefonosAEnviar) {
+                try {
+                  const mensajeGuia = `Estimado(a) ${t.nombre},\n\nAdjuntamos la guía N° ${idGuia} de su encomienda. ¡Gracias por preferirnos!`;
+                  await api.post('/whatsapp/enviar', {
+                    number: t.numero,
+                    message: mensajeGuia,
+                    fileUrl: fullPdfUrl
+                  });
+                } catch (e) {
+                  console.error('Error enviando WhatsApp guia a ' + t.numero, e);
+                }
               }
-            }
-            if (telefonosAEnviar.length > 0) {
-              toast.success('Guía enviada por WhatsApp');
+              if (telefonosAEnviar.length > 0) {
+                toast.success('Guía enviada por WhatsApp');
+              }
             }
           } catch (err) {
             console.error('Error abriendo PDF de guía:', err);

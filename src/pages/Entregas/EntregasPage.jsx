@@ -7,7 +7,7 @@ import { ConfirmarEntregaModal } from './components/ConfirmarEntregaModal';
 
 const PAGE_SIZE = 25;
 
-export const EntregasPage = () => {
+export const EntregasPage = ({ isNotaVenta = false }) => {
   // ─── Estado principal ──────────────────────────────────────
   const [guias, setGuias] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -52,7 +52,7 @@ export const EntregasPage = () => {
         page: pageNum,
         limit: PAGE_SIZE
       };
-      const res = await EntregaService.listar(params);
+      const res = await EntregaService.listar(params, isNotaVenta);
       if (res?.success) {
         setGuias(res.data || []);
         setTotal(res.total || 0);
@@ -112,7 +112,7 @@ export const EntregasPage = () => {
 
     try {
       // 1. Verificar anulación
-      const anulRes = await EntregaService.verificarAnulacion(guia.id_guia);
+      const anulRes = await EntregaService.verificarAnulacion(guia.id_guia, isNotaVenta);
       const msg = anulRes?.message;
       if (msg === 2) { toast.error('La guía se encuentra anulada'); return; }
       if (msg === 3) { toast.error('La guía está pendiente de anulación'); return; }
@@ -177,7 +177,7 @@ export const EntregasPage = () => {
       }
       const idUsuario = userRes.data.id_usuario;
 
-      const pdfRes = await EntregaService.generarPdfEntrega(guia.id_guia, idUsuario);
+      const pdfRes = await EntregaService.generarPdfEntrega(guia.id_guia, idUsuario, isNotaVenta);
       if (pdfRes?.success && pdfRes?.ruta) {
         const url = `${CONFIG.PHP_URL}/tmp/${pdfRes.ruta}`;
         window.open(url, 'PDF_Entrega', 'width=800,height=600');
@@ -241,7 +241,7 @@ export const EntregasPage = () => {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
           <i className="fas fa-hand-holding-usd text-green-500"></i>
-          GUIAS ENTREGADAS
+          {isNotaVenta ? 'ENTREGAS DE NOTAS DE VENTA' : 'GUIAS ENTREGADAS'}
           <span className="text-sm font-normal text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
             {total} registro{total !== 1 ? 's' : ''}
           </span>
@@ -495,6 +495,7 @@ export const EntregasPage = () => {
         <CobrarEntregarModal
           guia={selectedGuia}
           destinoGuia={selectedGuia.destino_guia}
+          isNotaVenta={isNotaVenta}
           onClose={() => { setModalType(null); setSelectedGuia(null); }}
           onSuccess={handleModalSuccess}
         />
@@ -504,6 +505,7 @@ export const EntregasPage = () => {
         <ConfirmarEntregaModal
           guia={selectedGuia}
           destinoGuia={selectedGuia.destino_guia}
+          isNotaVenta={isNotaVenta}
           onClose={() => { setModalType(null); setSelectedGuia(null); }}
           onSuccess={handleModalSuccess}
         />

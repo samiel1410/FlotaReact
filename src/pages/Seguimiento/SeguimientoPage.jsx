@@ -45,7 +45,7 @@ const formatFecha = (fecha) => {
   }
 };
 
-export const SeguimientoPage = () => {
+export const SeguimientoPage = ({ isNotaVenta = false }) => {
   const [numeroGuia, setNumeroGuia] = useState('');
   const [resultados, setResultados] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -60,6 +60,8 @@ export const SeguimientoPage = () => {
 
   const totalPaginas = Math.max(1, Math.ceil(resultados.length / PAGE_SIZE));
 
+  const apiEndpoint = isNotaVenta ? '/seguimiento_nota_venta' : '/seguimiento';
+
   const handleBuscar = async () => {
     const guia = numeroGuia.trim();
     if (!guia) {
@@ -71,14 +73,16 @@ export const SeguimientoPage = () => {
     setBuscado(true);
     setPagina(1);
     try {
-      const res = await SeguimientoService.buscarGuiaSeguimineto(guia);
-      // La respuesta puede ser { success: true, data: [...] } o directamente un array
-      const datos = Array.isArray(res)
-        ? res
-        : Array.isArray(res?.data)
-          ? res.data
-          : Array.isArray(res?.resultados)
-            ? res.resultados
+      // Uso dinamico de API basado en isNotaVenta
+      const { api } = await import('../../config/axios');
+      const res = await api.get(`${apiEndpoint}/buscarGuiaSeguimineto?guia=${encodeURIComponent(guia)}`);
+      
+      const datos = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+          ? res.data.data
+          : Array.isArray(res.data?.resultados)
+            ? res.data.resultados
             : [];
 
       setResultados(datos);
@@ -129,13 +133,15 @@ export const SeguimientoPage = () => {
     if (!result.isConfirmed) return;
 
     try {
-      const res = await SeguimientoService.eliminarSeguimientoEntregado(record.id_seguimiento);
-      if (res?.success !== false) {
+      const { api } = await import('../../config/axios');
+      const res = await api.get(`${apiEndpoint}/eliminarSeguimientoEntregado?id_seguimiento=${record.id_seguimiento}`);
+      
+      if (res.data?.success !== false) {
         toast.success('Seguimiento eliminado');
         // Re-buscar para refrescar la lista
         handleBuscar();
       } else {
-        toast.error(res?.message || 'Error al eliminar seguimiento');
+        toast.error(res.data?.message || 'Error al eliminar seguimiento');
       }
     } catch (err) {
       console.error('[Seguimiento] Error al eliminar:', err);

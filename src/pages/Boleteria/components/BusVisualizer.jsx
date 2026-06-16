@@ -146,49 +146,69 @@ export const BusVisualizer = ({
       }
       return rows;
     } else {
-      // Mapa por defecto 2x2
-      const rows = [];
       const totalSeats = Math.min(capacidad || 40, 60);
       const seatsPerRow = 4;
-      const totalRows = Math.ceil(totalSeats / seatsPerRow);
+      const SPLIT_THRESHOLD = 26;
 
-      for (let row = 0; row < totalRows; row++) {
-        const rowButtons = [];
-        for (let col = 0; col < seatsPerRow; col++) {
-          const seatNum = row * seatsPerRow + col + 1;
-          if (seatNum > totalSeats) break;
+      const renderSeatsRange = (start, end, label) => {
+        const rows = [];
+        const count = end - start + 1;
+        const totalRows = Math.ceil(count / seatsPerRow);
 
-          const marginRight = col === 1 ? '30px' : '5px';
-          const status = getSeatStatus(seatNum);
+        for (let row = 0; row < totalRows; row++) {
+          const rowButtons = [];
+          for (let col = 0; col < seatsPerRow; col++) {
+            const seatNum = start + row * seatsPerRow + col;
+            if (seatNum > end) break;
 
-          rowButtons.push(
-            <div key={seatNum} className="seat-wrapper" style={{ marginRight }}>
-              <button
-                className={`bus-seat ${status}`}
-                onClick={() => {
-                  if (status === 'ocupado' || status === 'ocupado-parcial') {
-                    const ocupado = asientosOcupados.find(a =>
-                      Number(a.asiento_boleto_detalle) === seatNum
-                    );
-                    onAsientoOcupadoClick?.(ocupado);
-                  } else {
-                    onAsientoClick(seatNum);
-                  }
-                }}
-                title={getTooltip(seatNum)}
-              >
-                <span className="seat-number">{seatNum}</span>
-              </button>
+            const marginRight = col === 1 ? '30px' : '5px';
+            const status = getSeatStatus(seatNum);
+
+            rowButtons.push(
+              <div key={seatNum} className="seat-wrapper" style={{ marginRight }}>
+                <button
+                  className={`bus-seat ${status}`}
+                  onClick={() => {
+                    if (status === 'ocupado' || status === 'ocupado-parcial') {
+                      const ocupado = asientosOcupados.find(a =>
+                        Number(a.asiento_boleto_detalle) === seatNum
+                      );
+                      onAsientoOcupadoClick?.(ocupado);
+                    } else {
+                      onAsientoClick(seatNum);
+                    }
+                  }}
+                  title={getTooltip(seatNum)}
+                >
+                  <span className="seat-number">{seatNum}</span>
+                </button>
+              </div>
+            );
+          }
+          rows.push(
+            <div key={`row-${row}`} style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
+              {rowButtons}
             </div>
           );
         }
-        rows.push(
-          <div key={`row-${row}`} style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>
-            {rowButtons}
+        return (
+          <div style={{ textAlign: 'center' }}>
+            {label && <div style={{ fontWeight: 600, fontSize: 10, color: '#64748b', marginBottom: 2 }}>{label}</div>}
+            {rows}
+          </div>
+        );
+      };
+
+      if (totalSeats > SPLIT_THRESHOLD) {
+        return (
+          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', alignItems: 'flex-start' }}>
+            {renderSeatsRange(1, SPLIT_THRESHOLD, `Asientos 1\u2013${SPLIT_THRESHOLD}`)}
+            {renderSeatsRange(SPLIT_THRESHOLD + 1, totalSeats, `Asientos ${SPLIT_THRESHOLD + 1}\u2013${totalSeats}`)}
           </div>
         );
       }
-      return rows;
+
+      return renderSeatsRange(1, totalSeats, null);
     }
   };
 

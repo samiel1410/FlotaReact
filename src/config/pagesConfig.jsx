@@ -340,12 +340,14 @@ export const PAGES_CONFIG = {
     title: 'Alimentos', subtitle: 'Gestión de servicios de alimentación',
     icon: 'fas fa-utensils', iconBg: 'bg-orange-100', iconColor: 'text-orange-600',
     endpoint: '/alimentos/listar',
+    idField: 'id_alimentos',
+    deleteEndpoint: '/alimentos/eliminar',
     actions: { create: true, edit: true, delete: true },
     formComponent: NewAlimentoForm,
     columns: [
-      { key: 'ali_nombre', label: 'Nombre' },
-      { key: 'ali_valor', label: 'Costo', render: v => `$ ${parseFloat(v || 0).toFixed(2)}` },
-      { key: 'ali_estado', label: 'Estado', renderType: 'status' },
+      { key: 'nombre_alimentos', label: 'Nombre' },
+      { key: 'precio_alimentos', label: 'Costo', render: v => `$ ${parseFloat(v || 0).toFixed(2)}` },
+      { key: 'estado_alimentos', label: 'Estado', renderType: 'status' },
     ],
     filters: [
       { key: 'nombre', label: 'Nombre', type: 'text' },
@@ -1140,16 +1142,107 @@ export const PAGES_CONFIG = {
     title: 'Reservaciones', subtitle: 'Reservas de asientos activas',
     icon: 'fas fa-calendar-check', iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600',
     endpoint: '/boleto/listadoReservas',
+    actions: {
+      custom: [
+        {
+          id: 'confirmar', icon: 'fas fa-check-circle',
+          tooltip: 'Confirmar reserva (vender boleto)',
+          color: 'text-emerald-600 hover:bg-emerald-50 border-emerald-200',
+          showIf: (row) => row.estado_reserva == 1 || row.estado_reserva === '1',
+          handler: async (row) => {
+            const result = await Swal.fire({
+              title: '¿Confirmar reserva?',
+              text: `Se marcará el boleto #${row.id_boleto || row.numero_boleto} como VENDIDO. ¿Desea continuar?`,
+              icon: 'question',
+              showCancelButton: true,
+              confirmButtonText: 'Sí, confirmar',
+              confirmButtonColor: '#059669',
+              cancelButtonText: 'Cancelar'
+            });
+            if (!result.isConfirmed) return;
+
+            try {
+              const res = await api.post('/boleto/confirmarReserva', { id_boleto: row.id_boleto });
+              if (res.data?.success) {
+                Swal.fire('✔ Confirmada', 'La reserva se ha convertido en venta exitosamente', 'success');
+                window.dispatchEvent(new CustomEvent('refresh-list'));
+              } else {
+                Swal.fire('Error', res.data?.message || 'No se pudo confirmar la reserva', 'error');
+              }
+            } catch (e) {
+              Swal.fire('Error', e.response?.data?.message || 'Error de conexión', 'error');
+            }
+          }
+        },
+        {
+          id: 'anular', icon: 'fas fa-ban',
+          tooltip: 'Anular reserva',
+          color: 'text-rose-600 hover:bg-rose-50 border-rose-200',
+          showIf: (row) => row.estado_reserva == 1 || row.estado_reserva === '1',
+          handler: async (row) => {
+            const { value: motivo } = await Swal.fire({
+              title: 'Anular reserva',
+              text: `¿Anular la reserva #${row.id_boleto}?`,
+              icon: 'warning',
+              input: 'textarea',
+              inputPlaceholder: 'Motivo de anulación...',
+              inputAttributes: { required: 'required' },
+              showCancelButton: true,
+              confirmButtonText: 'Sí, anular',
+              confirmButtonColor: '#e11d48',
+              cancelButtonText: 'Cancelar',
+              inputValidator: (v) => !v && 'Debe ingresar un motivo'
+            });
+            if (!motivo) return;
+
+            try {
+              const res = await api.post('/boleto/anularReserva', { id_boleto: row.id_boleto, motivo_anulacion: motivo });
+              if (res.data?.success) {
+                Swal.fire('Anulada', 'Reserva anulada correctamente', 'success');
+                window.dispatchEvent(new CustomEvent('refresh-list'));
+              } else {
+                Swal.fire('Error', res.data?.message || 'No se pudo anular', 'error');
+              }
+            } catch (e) {
+              Swal.fire('Error', e.response?.data?.message || 'Error de conexión', 'error');
+            }
+          }
+        }
+      ]
+    },
     columns: [
-      { key: 'res_id', label: 'ID' },
-      { key: 'res_fecha', label: 'Fecha' },
-      { key: 'pas_nombre', label: 'Pasajero' },
-      { key: 'rut_nombre', label: 'Ruta' },
-      { key: 'res_estado', label: 'Estado' },
+      { key: 'id_boleto', label: 'N° Boleto' },
+      { key: 'numero_boleto', label: 'Número' },
+      { key: 'fecha_creacion_reserva', label: 'F. Reserva', render: v => v ? v.split(' ')[0] : '-' },
+      { key: 'nombre_reservante', label: 'Reservante' },
+      { key: 'nombres_boleto', label: 'Pasajero(s)' },
+      { key: 'identificacion_boleto', label: 'Identificación' },
+      { key: 'nombre_rutas', label: 'Ruta' },
+      {
+        key: 'estado_reserva', label: 'Estado',
+        render: v => {
+          const activa = v == 1 || v === '1';
+          return (
+            <span className={`px-2 py-0.5 rounded-lg text-[9px] uppercase font-black flex items-center gap-1 w-max border ${activa ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+              <span className={`w-1 h-1 rounded-full ${activa ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
+              {activa ? 'Activa' : 'Vencida'}
+            </span>
+          );
+        }
+      },
     ],
     filters: [
-      { key: 'pas_nombre', label: 'Pasajero', type: 'text' },
-    ]
+      { key: 'numero_boleto', label: 'N° Boleto', type: 'text' },
+      { key: 'reservante', label: 'Reservante/Identificación', type: 'text' },
+      { key: 'fecha', label: 'Fecha', type: 'date' },
+    ],
+    customParams: (page, pageSize, filters) => ({
+      numero_boleto: filters.numero_boleto || '',
+      reservante: filters.reservante || '',
+      fecha: filters.fecha || '',
+      page: page + 1,
+      limit: pageSize,
+    }),
   },
 
   clientes: {

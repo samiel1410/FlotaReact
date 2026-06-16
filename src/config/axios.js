@@ -58,7 +58,6 @@ function dispatchError(error) {
 // Extraer información útil del error de Axios
 function extractErrorInfo(error) {
   const response = error.response;
-  const request = error.request;
   const config = error.config;
 
   // Error de timeout

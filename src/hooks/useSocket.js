@@ -90,6 +90,53 @@ export const useSocket = () => {
       window.dispatchEvent(new CustomEvent('asiento_seleccionando', { detail: data }));
     });
 
+    // ─── NOTIFICACIÓN: Reserva próxima a vencer ──────────────────────────
+    newSocket.on('reserva_por_vencer', (data) => {
+      console.log('[Socket] Reserva próxima a vencer:', data);
+      // Disparar evento para que el header muestre la notificación
+      window.dispatchEvent(new CustomEvent('reserva_por_vencer', { detail: data }));
+      
+      // También mostrar toast
+      toast(data.mensaje, {
+        id: `reserva-vencer-${data.id_boleto}`,
+        duration: 10000,
+        icon: '⏰',
+        style: {
+          background: '#fffbeb',
+          border: '1px solid #fde68a',
+          color: '#92400e',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: '12px',
+          fontWeight: 500,
+          whiteSpace: 'pre-line',
+        },
+      });
+    });
+
+    // ─── NOTIFICACIÓN: Reserva confirmada ────────────────────────────────
+    newSocket.on('reserva_confirmada', (data) => {
+      console.log('[Socket] Reserva confirmada:', data);
+      window.dispatchEvent(new CustomEvent('reserva_confirmada', { detail: data }));
+      
+      toast(data.mensaje || `✅ Reserva #${data.id_boleto} confirmada`, {
+        id: `reserva-confirmada-${data.id_boleto}`,
+        duration: 6000,
+        icon: '✅',
+        style: {
+          background: '#f0fdf4',
+          border: '1px solid #bbf7d0',
+          color: '#166534',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: '12px',
+          fontWeight: 500,
+        },
+      });
+    });
+
     // ─── BOLETO INSERTADO (en tiempo real) ────────────────────────────────
     newSocket.on('boleto_insertado', (data) => {
       console.log('[Socket] Boleto insertado/anulado:', data);
@@ -100,8 +147,18 @@ export const useSocket = () => {
       window.dispatchEvent(new CustomEvent('boleto_insertado', { detail: data }));
 
       // Mostrar toast de notificación (solo si no es el propio usuario)
-      const usuarioStr = sessionStorage.getItem('usuario');
-      const currentUser = usuarioStr ? JSON.parse(usuarioStr) : null;
+      const getSessionUser = () => {
+        try {
+          const userData = sessionStorage.getItem('user_data');
+          if (userData) return JSON.parse(userData);
+        } catch (e) {}
+        try {
+          const usuario = sessionStorage.getItem('usuario');
+          if (usuario) return JSON.parse(usuario);
+        } catch (e) {}
+        return null;
+      };
+      const currentUser = getSessionUser();
       const esMismoUsuario = currentUser && data.usuario === currentUser.nombre_usuario;
 
       if (!esMismoUsuario && data.asientos && data.asientos.length > 0) {

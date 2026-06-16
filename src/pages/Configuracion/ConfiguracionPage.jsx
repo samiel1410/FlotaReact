@@ -61,6 +61,7 @@ export const ConfiguracionPage = () => {
             dir_establecimiento_empresa: conf.dir_establecimiento_empresa || '',
             autorizar_factura_sri: conf.autorizar_factura_sri === 1 || conf.autorizar_factura_sri === true,
             autorizar_boleto_sri: conf.autorizar_boleto_sri === 1 || conf.autorizar_boleto_sri === true,
+            enviar_whatsapp: conf.enviar_whatsapp === 1 || conf.enviar_whatsapp === true,
           });
         }
       } catch (error) {
@@ -154,6 +155,7 @@ export const ConfiguracionPage = () => {
         maneja_leyenda_boleteria: data.maneja_leyenda_boleteria ? 1 : 0,
         autorizar_factura_sri: data.autorizar_factura_sri ? 1 : 0,
         autorizar_boleto_sri: data.autorizar_boleto_sri ? 1 : 0,
+        enviar_whatsapp: data.enviar_whatsapp ? 1 : 0,
         dir_matriz_empresa: data.dir_matriz_empresa || data.direccion_empresa,
       };
       const response = await api.post('/configuracion/Actualizarconfiguracion', payload);
@@ -418,7 +420,7 @@ export const ConfiguracionPage = () => {
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
                         <input type="checkbox" {...register('autorizar_factura_sri')} id="autorizar_factura_sri" className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500" />
-                        <label htmlFor="autorizar_factura_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Guías (Facturas) al guardar</label>
+                        <label htmlFor="autorizar_factura_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Guías al guardar</label>
                       </div>
                       <div className="flex items-center gap-2">
                         <input type="checkbox" {...register('autorizar_boleto_sri')} id="autorizar_boleto_sri" className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500" />
@@ -435,13 +437,38 @@ export const ConfiguracionPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-6">
                   <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
-                    <i className="fab fa-whatsapp text-green-500 mr-2"></i>WhatsApp — Enviar Mensaje de Prueba
+                    <i className="fab fa-whatsapp text-green-500 mr-2"></i>Configuración de WhatsApp
                   </h2>
 
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-800">
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-start gap-4">
+                        <div className={`p-3 rounded-full ${configData?.enviar_whatsapp === false ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-500'}`}>
+                          <i className={`fab fa-whatsapp text-2xl`}></i>
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-slate-800 mb-1">
+                            Envío Automático de WhatsApp
+                          </h3>
+                          <p className="text-sm text-slate-500 max-w-sm leading-relaxed">
+                            Activa o desactiva el envío automático de notificaciones de guías, notas de venta y boletos a los clientes.
+                          </p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer ml-4">
+                        <input type="checkbox" {...register('enviar_whatsapp')} className="sr-only peer" />
+                        <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-green-500"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4 mt-8">
+                    <i className="fas fa-paper-plane text-slate-500 mr-2"></i>Enviar Mensaje de Prueba
+                  </h2>
+
+                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-sm text-slate-600 mb-4">
                     <i className="fas fa-info-circle mr-2"></i>
-                    Envía mensajes de prueba a través de la API de WhatsApp.
-                    El servidor proxy envía la solicitud a <code className="text-xs bg-green-100 px-1 py-0.5 rounded">https://whatsappnotif.easysplus.com/</code>
+                    El servidor proxy envía la solicitud a <code className="text-xs bg-slate-200 px-1 py-0.5 rounded text-slate-800">https://whatsappnotif.easysplus.com/</code>
                   </div>
 
                   <WhatsAppTestForm />

@@ -132,9 +132,9 @@ export const EstadisticasPage = () => {
                   <i className="fas fa-chart-line mr-2 text-blue-500"></i>
                   Evolución de Ingresos ($)
                 </h3>
-                <div className="h-72">
+                <div className="h-72" style={{ minHeight: '288px' }}>
                   {data?.ventasSemana?.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={260} minWidth={200}>
                       <BarChart data={data.ventasSemana} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                         <XAxis dataKey="fecha" tick={{ fontSize: 10 }} tickFormatter={v => v?.split('-')[2] + '/' + v?.split('-')[1]} />
@@ -155,9 +155,9 @@ export const EstadisticasPage = () => {
                   <i className="fas fa-chart-pie mr-2 text-emerald-500"></i>
                   Distribución por Estado
                 </h3>
-                <div className="h-64">
+                <div className="h-64" style={{ minHeight: '256px' }}>
                   {data?.estadosSri?.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={230} minWidth={200}>
                       <PieChart>
                         <Pie data={data.estadosSri} dataKey="cantidad" nameKey="estado" cx="50%" cy="50%" outerRadius={80} innerRadius={50} label={({ estado, percent }) => `${(percent * 100).toFixed(0)}%`}>
                           {data.estadosSri.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -178,9 +178,9 @@ export const EstadisticasPage = () => {
                   <i className="fas fa-map-marker-alt mr-2 text-rose-500"></i>
                   Top {data?.ventasDestino?.length || 5} Destinos
                 </h3>
-                <div className="h-64">
+                <div className="h-64" style={{ minHeight: '256px' }}>
                   {data?.ventasDestino?.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={230} minWidth={200}>
                       <PieChart>
                         <Pie data={data.ventasDestino} dataKey="total" nameKey="label" cx="50%" cy="50%" outerRadius={90} label={({ label, percent }) => `${(percent * 100).toFixed(0)}%`}>
                           {data.ventasDestino.map((_, i) => <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />)}

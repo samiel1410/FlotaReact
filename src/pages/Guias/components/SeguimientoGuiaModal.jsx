@@ -7,7 +7,7 @@ import { GuiaService } from '../../../services/guia.service';
  * Modal para ver el historial de seguimiento (Tracking) de una guía.
  * Recrea la funcionalidad de SeguimientoModal de ExtJS.
  */
-export const SeguimientoGuiaModal = ({ guia, onClose }) => {
+export const SeguimientoGuiaModal = ({ guia, onClose, isNotaVenta = false }) => {
   const [seguimientos, setSeguimientos] = useState([]);
   const [guiaInfo, setGuiaInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,13 +24,21 @@ export const SeguimientoGuiaModal = ({ guia, onClose }) => {
       setLoadingInfo(true);
       try {
         // 1. Obtener Info general de la guía
-        const infoRes = await GuiaService.informacionGuia(guia.id_guia);
+        let infoRes;
+        if (isNotaVenta) {
+          const { GuiaNotaVentaService } = await import('../../../services/guiaNotaVenta.service');
+          infoRes = await GuiaNotaVentaService.informacionGuia(guia.id_guia);
+        } else {
+          infoRes = await GuiaService.informacionGuia(guia.id_guia);
+        }
+        
         if (infoRes) {
           setGuiaInfo(infoRes.data || infoRes);
         }
 
         // 2. Obtener Historial de Seguimiento
-        const segRes = await api.get(`/seguimiento/seguimientosxguiaselect?id=${guia.id_guia}&limit=100&page=1`);
+        const endpoint = isNotaVenta ? '/seguimiento_nota_venta/seguimientosxguiaselect' : '/seguimiento/seguimientosxguiaselect';
+        const segRes = await api.get(`${endpoint}?id=${guia.id_guia}&limit=100&page=1`);
         if (segRes && segRes.data && segRes.data.success) {
           setSeguimientos(Array.isArray(segRes.data.data) ? segRes.data.data : []);
         } else {

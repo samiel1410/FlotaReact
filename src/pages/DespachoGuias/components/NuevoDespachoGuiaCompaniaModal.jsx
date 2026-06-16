@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { api } from '../../../config/axios';
 import { useAuth } from '../../../context/AuthContext';
 import { despachoConvenioService } from '../../../services/despachoConvenio.service';
 import toast from 'react-hot-toast';
 
-export const NuevoDespachoGuiaCompaniaModal = ({ onClose, onSuccess }) => {
+export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSuccess }) => {
   const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
@@ -372,4 +372,4 @@ export const NuevoDespachoGuiaCompaniaModal = ({ onClose, onSuccess }) => {
       </div>
     </div>
   );
-};
+});

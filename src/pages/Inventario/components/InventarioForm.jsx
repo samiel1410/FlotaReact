@@ -35,7 +35,7 @@ const InventarioForm = ({ initialData, onSubmit, onCancel }) => {
 
   useEffect(() => {
     Promise.all([
-      api.get('/alimentos/seleccionarAlimentos'),
+      api.get('/alimentos/listar'),
       api.get('/sucursal/sucursalselect'),
     ]).then(([aliRes, sucRes]) => {
       setAlimentos(aliRes.data.data || []);

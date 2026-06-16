@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GenericListPage } from '../../components/common/GenericListPage';
 import { PAGES_CONFIG } from '../../config/pagesConfig';
-import GestionPermisosModal from './components/GestionPermisosModal';
 
 export const RolesPage = () => {
-  const [permisosModal, setPermisosModal] = useState({ open: false, record: null });
+  const navigate = useNavigate();
 
   const config = {
     ...PAGES_CONFIG.roles,
@@ -17,7 +17,7 @@ export const RolesPage = () => {
           tooltip: 'Gestionar Permisos',
           color: 'text-amber-600',
           handler: (record) => {
-            setPermisosModal({ open: true, record });
+            navigate(`/roles/permisos/${record.id_rol}`, { state: { rol: record } });
           }
         }
       ]
@@ -27,16 +27,7 @@ export const RolesPage = () => {
   return (
     <>
       <GenericListPage config={config} />
-      {permisosModal.open && permisosModal.record && (
-        <GestionPermisosModal
-          rol={permisosModal.record}
-          onClose={() => setPermisosModal({ open: false, record: null })}
-          onSuccess={() => {
-            // Disparar evento para refrescar el listado
-            window.dispatchEvent(new CustomEvent('refresh-list'));
-          }}
-        />
-      )}
     </>
   );
 };
+

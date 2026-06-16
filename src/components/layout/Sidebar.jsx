@@ -8,32 +8,47 @@ import { useAuth } from '../../hooks/useAuth';
 // =============================================
 const MENU = [
   {
-    id: 'administracion',
-    title: 'Administración',
-    icon: 'fas fa-cog',
+    id: 'seguridad',
+    title: 'Seguridad',
+    icon: 'fas fa-shield-alt',
     items: [
       { to: '/usuarios', icon: 'fas fa-user', label: 'Usuarios', permission: 'administracion.gestion_usuarios' },
+      { to: '/roles', icon: 'fas fa-user-shield', label: 'Roles', permission: 'administracion.gestion_roles' },
+      { to: '/auditoria', icon: 'fas fa-history', label: 'Auditoría', permission: 'administracion.ver_auditoria' },
       { to: '/monitoreo', icon: 'fas fa-satellite-dish', label: 'Monitoreo en Vivo', permission: 'administracion.monitoreo_vivo' },
+      { to: '/estadisticas', icon: 'fas fa-chart-line', label: 'Estadísticas', permission: 'administracion.graficos_dashboard' },
+    ]
+  },
+  {
+    id: 'catalogos',
+    title: 'Catálogos',
+    icon: 'fas fa-book',
+    items: [
       { to: '/agencias', icon: 'fas fa-building', label: 'Agencias', permission: 'administracion.gestion_sucursales' },
       { to: '/ciudades', icon: 'fas fa-city', label: 'Ciudades', permission: 'administracion.gestion_ciudades' },
+      { to: '/provincia', icon: 'fas fa-map', label: 'Provincias', permission: 'administracion.gestion_provincias' },
+      { to: '/lugares', icon: 'fas fa-map-marker-alt', label: 'Lugares', permission: 'administracion.gestion_lugares' },
+      { to: '/destino', icon: 'fas fa-map-marker-alt', label: 'Destinos', permission: 'administracion.gestion_destinos' },
       { to: '/convenios', icon: 'fas fa-hands-helping', label: 'Convenios', permission: 'administracion.gestion_convenios' },
       { to: '/tipo-envios', icon: 'fas fa-paper-plane', label: 'Tipo de Envíos', permission: 'administracion.gestion_tipos_envios' },
       { to: '/forma-pago', icon: 'fas fa-money-bill-wave', label: 'Forma de Pago', permission: 'administracion.gestion_formas_pago' },
-      { to: '/estadisticas', icon: 'fas fa-chart-line', label: 'Estadísticas', permission: 'administracion.graficos_dashboard' },
-      { to: '/destino', icon: 'fas fa-map-marker-alt', label: 'Destinos', permission: 'administracion.gestion_destinos' },
+      { to: '/bancos', icon: 'fas fa-university', label: 'Banco', permission: 'administracion.gestion_bancos' },
+    ]
+  },
+  {
+    id: 'operaciones',
+    title: 'Operaciones',
+    icon: 'fas fa-tools',
+    items: [
       { to: '/buses', icon: 'fas fa-bus', label: 'Buses', permission: 'administracion.gestion_buses' },
-      { to: '/roles', icon: 'fas fa-user-shield', label: 'Roles', permission: 'administracion.gestion_roles' },
+      { to: '/socios', icon: 'fas fa-users', label: 'Socios', permission: 'administracion.gestion_socios' },
+      { to: '/clientes', icon: 'fas fa-user-tie', label: 'Clientes', permission: 'administracion.gestion_clientes' },
       { to: '/rutas', icon: 'fas fa-route', label: 'Rutas', permission: 'administracion.config_rutas' },
       { to: '/sub-rutas', icon: 'fas fa-code-branch', label: 'Sub-Rutas', permission: 'administracion.config_rutas' },
       { to: '/config-rutas', icon: 'fas fa-cogs', label: 'Config. Rutas', permission: 'administracion.config_rutas' },
-      { to: '/socios', icon: 'fas fa-users', label: 'Socios', permission: 'administracion.gestion_socios' },
-      { to: '/impresoras', icon: 'fas fa-print', label: 'Impresoras', permission: 'administracion.gestion_impresoras' },
-      { to: '/provincia', icon: 'fas fa-map', label: 'Provincias', permission: 'administracion.gestion_provincias' },
-      { to: '/lugares', icon: 'fas fa-map-marker-alt', label: 'Lugares', permission: 'administracion.gestion_lugares' },
-      { to: '/bancos', icon: 'fas fa-university', label: 'Banco', permission: 'administracion.gestion_bancos' },
       { to: '/alimentos', icon: 'fas fa-utensils', label: 'Alimentos', permission: 'administracion.gestion_alimentos' },
       { to: '/inventario', icon: 'fas fa-boxes', label: 'Inventario', permission: 'administracion.gestion_inventario' },
-      { to: '/clientes', icon: 'fas fa-user-tie', label: 'Clientes', permission: 'administracion.gestion_clientes' },
+      { to: '/impresoras', icon: 'fas fa-print', label: 'Impresoras', permission: 'administracion.gestion_impresoras' },
     ]
   },
   {
@@ -71,6 +86,18 @@ const MENU = [
     ]
   },
   {
+    id: 'notas_venta',
+    title: 'Notas de Venta',
+    icon: 'fas fa-receipt',
+    items: [
+      { to: '/notas-venta/nueva', icon: 'fas fa-plus-square', label: 'Nueva Nota Venta', permission: 'notas_venta.crear_nota_venta' },
+      { to: '/notas-venta', icon: 'fas fa-list-alt', label: 'Listado Notas Venta', permission: 'notas_venta.listado_notas_venta' },
+      { to: '/despachos-notas-venta', icon: 'fas fa-truck-moving', label: 'Despachos Notas Venta', permission: 'notas_venta.despacho_notas_venta' },
+      { to: '/seguimiento-notas-venta', icon: 'fas fa-box-open', label: 'Seguimiento Notas Venta', permission: 'notas_venta.seguimiento_notas_venta' },
+      { to: '/entregas-notas-venta', icon: 'fas fa-hand-holding-usd', label: 'Entrega Notas Venta', permission: 'notas_venta.entrega_notas_venta' },
+    ]
+  },
+  {
     id: 'cobros',
     title: 'Cobros',
     icon: 'fas fa-dollar-sign',
@@ -78,6 +105,12 @@ const MENU = [
       { to: '/cobros', icon: 'fas fa-list-alt', label: 'Listado Cobros', permission: 'cobros.listado_cobros' },
       { to: '/tipo-cobros', icon: 'fas fa-tags', label: 'Tipo Cobros', permission: 'cobros.tipos_cobros' },
       { to: '/caja-cobros', icon: 'fas fa-cash-register', label: 'Caja Cobros', permission: 'cobros.caja_cobros' },
+      { to: '/cartera-socio', icon: 'fas fa-wallet', label: 'Cartera Socio', permission: 'cobros.cartera_socio' },
+      { to: '/multas', icon: 'fas fa-gavel', label: 'Multas', permission: 'cobros.multas' },
+      { to: '/creditos-admin', icon: 'fas fa-hand-holding-usd', label: 'Créditos Admin.', permission: 'cobros.creditos_admin' },
+      { to: '/bonos', icon: 'fas fa-gift', label: 'Bonos', permission: 'cobros.bonos' },
+      { to: '/cuota-admin', icon: 'fas fa-calendar-alt', label: 'Cuota Admin.', permission: 'cobros.cuota_admin' },
+      { to: '/cierre-cobros', icon: 'fas fa-file-invoice', label: 'Cierre x Concepto', permission: 'cobros.cierre_cobros' },
     ]
   },
   {
@@ -118,7 +151,7 @@ const MENU = [
     title: 'Facturas',
     icon: 'fas fa-file-invoice',
     items: [
-      { to: '/recaudado', icon: 'fas fa-file-invoice-dollar', label: 'Listado Facturas', permission: 'facturas.listado_facturas' },
+      { to: '/facturas', icon: 'fas fa-file-invoice-dollar', label: 'Listado Facturas', permission: 'facturas.listado_facturas' },
     ]
   },
   {
@@ -135,6 +168,7 @@ const MENU = [
     title: 'Reportes',
     icon: 'fas fa-chart-bar',
     items: [
+      { to: '/ranking-ventas', icon: 'fas fa-trophy', label: 'Ranking Ventas', permission: 'reportes.ranking_ventas' },
       { to: '/reportes', icon: 'fas fa-file-archive', label: 'Reportes', permission: 'reportes.reportes' },
     ]
   },
@@ -142,7 +176,7 @@ const MENU = [
 
 export const Sidebar = () => {
   const location = useLocation();
-  const { user, hasPermission, userName, userRole, logout } = useAuth();
+  const { user, hasPermission } = useAuth();
   const [openCategories, setOpenCategories] = useState({});
 
   // Filtrar menú según permisos del usuario
@@ -167,19 +201,34 @@ export const Sidebar = () => {
     })).filter(cat => cat.items.length > 0);
   }, [hasPermission, user]);
 
-  // Auto-abrir la categoría activa al navegar
+  // Auto-abrir solo la categoría activa al navegar (acordeón: una a la vez)
   useEffect(() => {
     const currentPath = location.pathname;
-    filteredMenu.forEach(cat => {
+    let activeCategoryId = null;
+
+    for (const cat of filteredMenu) {
       const isActive = cat.items.some(item => currentPath.startsWith(item.to) && item.to !== '/');
       if (isActive) {
-        setOpenCategories(prev => ({ ...prev, [cat.id]: true }));
+        activeCategoryId = cat.id;
+        break;
       }
-    });
+    }
+
+    if (activeCategoryId) {
+      setOpenCategories(prev => {
+        if (prev[activeCategoryId]) return prev;
+        return { [activeCategoryId]: true };
+      });
+    }
   }, [location.pathname, filteredMenu]);
 
   const toggle = (id) =>
-    setOpenCategories(prev => ({ ...prev, [id]: !prev[id] }));
+    setOpenCategories(prev => {
+      // Si ya está abierta, cerrarla
+      if (prev[id]) return {};
+      // Si no, abrir solo esta y cerrar las demás
+      return { [id]: true };
+    });
 
   return (
     <aside className="w-64 bg-slate-900 text-white flex flex-col h-screen shadow-2xl z-20 shrink-0">
@@ -257,28 +306,6 @@ export const Sidebar = () => {
         })}
       </nav>
 
-      {/* Footer - Info del usuario */}
-      <div className="p-3 border-t border-slate-800 bg-slate-950/30 shrink-0">
-        {userName && (
-          <div className="flex items-center gap-3 bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/50">
-            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center border border-blue-400/30 shrink-0">
-              <i className="fas fa-user text-blue-400 text-xs"></i>
-            </div>
-            <div className="flex flex-col flex-1 min-w-0">
-              <span className="text-[11px] font-bold text-slate-200 truncate">{userName}</span>
-              <span className="text-[10px] text-slate-400 truncate">{Array.isArray(userRole) ? userRole.map(r => typeof r === 'string' ? r : r?.nombre).join(', ') : userRole || 'Sin rol'}</span>
-            </div>
-            <button
-              onClick={logout}
-              title="Cerrar sesión"
-              className="text-slate-400 hover:text-red-400 transition-colors shrink-0"
-            >
-              <i className="fas fa-sign-out-alt text-sm"></i>
-            </button>
-          </div>
-        )}
-
-      </div>
     </aside>
   );
 };
