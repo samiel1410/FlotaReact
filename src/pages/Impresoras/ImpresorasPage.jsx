@@ -85,7 +85,13 @@ export const ImpresorasPage = () => {
   useEffect(() => {
     loadQZ().then(() => {
       configurarQZ();
-      if (window.qz?.websocket?.isActive()) setConnected(true);
+      conectarQZ().then(() => {
+        setConnected(true);
+        window.qz.printers.details().then(details => {
+          const list = details.filter(p => p.name).map(p => ({ nombre: p.name }));
+          setPrinters(list);
+        }).catch(e => console.warn('Silent scan error', e));
+      }).catch(() => {});
     }).catch(() => {}).finally(() => setLoadingQZ(false));
   }, []);
 
@@ -125,9 +131,10 @@ export const ImpresorasPage = () => {
       return;
     }
     try {
-      const bodyStr = `id_usuario=${encodeURIComponent(uid)}&tipo=${encodeURIComponent(type)}&impresora=${encodeURIComponent(value)}`;
-      const res = await api.post('/usuario/guardarConfiguracionImpresora', bodyStr, {
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+      const res = await api.post('/usuario/guardarConfiguracionImpresora', {
+        id_usuario: uid,
+        tipo: type,
+        impresora: value
       });
       if (res.data?.success) {
         toast.success(`Configuración de impresión guardada`);
@@ -304,6 +311,9 @@ export const ImpresorasPage = () => {
                   className={selectClass} disabled={metodoImpresion === 'manual'}>
                   <option value="">Seleccione dispositivo...</option>
                   {printers.map(p => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
+                  {printerBoletos && !printers.some(p => p.nombre === printerBoletos) && (
+                    <option key={printerBoletos} value={printerBoletos}>{printerBoletos}</option>
+                  )}
                 </select>
               </div>
               <button onClick={() => testPrint(printerBoletos, 'TICKET DE PRUEBA')} disabled={testing || !printerBoletos || metodoImpresion === 'manual'}
@@ -338,6 +348,9 @@ export const ImpresorasPage = () => {
                   className={selectClass} disabled={metodoImpresion === 'manual'}>
                   <option value="">Seleccione dispositivo...</option>
                   {printers.map(p => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
+                  {printerGuias && !printers.some(p => p.nombre === printerGuias) && (
+                    <option key={printerGuias} value={printerGuias}>{printerGuias}</option>
+                  )}
                 </select>
               </div>
               <button onClick={() => testPrint(printerGuias, 'GUIA DE PRUEBA')} disabled={testing || !printerGuias || metodoImpresion === 'manual'}
