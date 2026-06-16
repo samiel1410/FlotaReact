@@ -26,13 +26,16 @@ const configurarQZ = () => {
     fetch('/digital-certificate.crt', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
       .then(r => r.ok ? r.text() : null).then(resolve).catch(() => resolve(null));
   });
-  qz.security.setSignaturePromise((toSign) => (resolve) => {
-    api.get('/configuracion/sign-message', { params: { request: toSign } })
-      .then(res => resolve(res.data))
-      .catch(err => {
-        console.error('Error signing message', err);
-        resolve(null);
-      });
+  qz.security.setSignaturePromise(function (toSign) {
+    return function (resolve) {
+      fetch('/configuracion/sign-message?request=' + toSign, { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+        .then((res) => (res.ok ? res.text() : null))
+        .then(resolve)
+        .catch((err) => {
+          console.error(err);
+          resolve(null);
+        });
+    };
   });
 };
 
