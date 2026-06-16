@@ -877,9 +877,6 @@ export const NuevoBoletoPage = () => {
     if (metodoImpresion === 'directa') {
       // Directa: QZ Tray raw print
       try {
-        const ticketRes = await api.get('/boleto/ticketTexto', { params: { id_boleto } });
-        const texto = typeof ticketRes.data === 'string' ? ticketRes.data : ticketRes.data?.message || '';
-
         if (!printerBoletos) {
           toast.error('No hay impresora de boletos configurada');
           return;
@@ -927,7 +924,16 @@ export const NuevoBoletoPage = () => {
         await conectarQZ();
 
         const config = window.qz.configs.create(printerBoletos);
-        const data = [{ type: 'raw', format: 'plain', data: texto }];
+        
+        // Determinar URL completa del PDF basado en el entorno
+        const fullPdfUrl = window.location.origin + printUrl;
+        
+        const data = [{
+          type: 'pixel',
+          format: 'pdf',
+          flavor: 'file',
+          data: fullPdfUrl
+        }];
         await window.qz.print(config, data);
         toast.success('Boleto impreso en ' + printerBoletos);
       } catch (e) {

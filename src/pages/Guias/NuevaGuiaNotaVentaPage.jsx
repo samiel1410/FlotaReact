@@ -721,9 +721,6 @@ export const NuevaGuiaNotaVentaPage = () => {
 
             if (metodoImpresion === 'directa') {
               try {
-                const ticketRes = await api.get('/guia/ticketTexto', { params: { id_guia: idGuia } });
-                const texto = typeof ticketRes.data === 'string' ? ticketRes.data : ticketRes.data?.message || '';
-
                 if (!printerGuias) {
                   toast.error('No hay impresora de guías configurada');
                   setPdfTitle(`Guía N° ${idGuia}`);
@@ -771,7 +768,12 @@ export const NuevaGuiaNotaVentaPage = () => {
                   await conectarQZ();
 
                   const config = window.qz.configs.create(printerGuias);
-                  const data = [{ type: 'raw', format: 'plain', data: texto }];
+                  const data = [{
+                    type: 'pixel',
+                    format: 'pdf',
+                    flavor: 'file',
+                    data: fullPdfUrl
+                  }];
                   await window.qz.print(config, data);
                   toast.success('Guía impresa en ' + printerGuias);
                 }
