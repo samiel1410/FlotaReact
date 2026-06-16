@@ -766,7 +766,8 @@ export const NuevaGuiaPage = () => {
 
                   const config = window.qz.configs.create(printerGuias, {
                     scaleContent: true,
-                    margins: { top: 0, bottom: 0, left: 0.15, right: 0.15 }
+                    units: 'mm',
+                    margins: { top: 0, bottom: 0, left: 8, right: 2 }
                   });
                   const data = [{
                     type: 'pixel',
