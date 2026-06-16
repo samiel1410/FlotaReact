@@ -14,6 +14,7 @@ const REPORTES_CONFIG = {
     { id: 'comprobantes', title: 'Comprobantes', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'comprobantes', type: 'pdf' },
     { id: 'guias_despacho', title: 'Guías Despacho', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'guias_despacho', type: 'pdf' },
     { id: 'guias_entregadas', title: 'Guías Entregadas', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'guias_entregadas', type: 'pdf' },
+    { id: 'guias_por_forma_pago', title: 'Guías por Forma Pago', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'guias_por_forma_pago', type: 'pdf' },
     { id: 'egresos_ingresos', title: 'Reporte Egresos/Ingresos', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'egresos_ingresos', type: 'pdf' },
   ]
 };

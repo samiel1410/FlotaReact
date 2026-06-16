@@ -1,12 +1,18 @@
 import { useState, useEffect } from 'react';
 
-const IVA_RATE = 0.12;
-
 /**
  * Grid de detalles de carga - Equivalente al Ext.grid.Panel de NuevaGuia.js
  * Columnas: CANT | TIPO ENVÍO | CONTENIDO | PESO | Precio Unit | Subtotal | Descuento | Tarifa | IVA | Total
  */
-export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlobalChange, costoEnvioPorDefecto, tiposEnvio = [], tipoEnvioId, isEditing = false, error }) => {
+const IVA_RATES = [0, 0.12, 0.13, 0.14, 0.15];
+
+const getIvaRate = (tipoEnvioId, tiposEnvio) => {
+  const te = tiposEnvio.find(t => String(t.id || t.id_tipo_envio) === String(tipoEnvioId));
+  const tipoImpuesto = te?.tipo_impuesto;
+  return (tipoImpuesto !== undefined && tipoImpuesto !== null && IVA_RATES[parseInt(tipoImpuesto)] !== undefined) ? IVA_RATES[parseInt(tipoImpuesto)] : 0;
+};
+
+export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlobalChange, costoEnvioPorDefecto, tiposEnvio = [], tipoEnvioId, isEditing = false, error, cobrarIvaGuia = true }) => {
   const [nuevo, setNuevo] = useState({
     cantidad: 1,
     tipoEnvioId: tipoEnvioId || '',
@@ -40,7 +46,8 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
     const subtotal = cantidad * precioUnitario;
     const descuento = convenio ? subtotal * ((convenio.porcentaje_descuento || convenio.descuento || 0) / 100) : 0;
     const subtotalConDescuento = subtotal - descuento;
-    const iva = subtotalConDescuento * IVA_RATE;
+    const rate = cobrarIvaGuia ? getIvaRate(nuevo.tipoEnvioId, tiposEnvio) : 0;
+    const iva = subtotalConDescuento * rate;
     const total = subtotalConDescuento + iva;
 
     const item = {
@@ -77,7 +84,8 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
       const sub = newD.cantidad * newD.precioUnitario;
       const desc = convenio ? sub * ((convenio.porcentaje_descuento || convenio.descuento || 0) / 100) : 0;
       const subConDesc = sub - desc;
-      const ivaCalc = subConDesc * IVA_RATE;
+      const rate = cobrarIvaGuia ? getIvaRate(newD.tipoEnvioId, tiposEnvio) : 0;
+      const ivaCalc = subConDesc * rate;
       return {
         ...newD,
         subtotal: sub,

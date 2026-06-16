@@ -61,6 +61,7 @@ export const NuevoBoletoPage = () => {
   const [idChofer, setIdChofer] = useState('');
   const [idAuxiliar, setIdAuxiliar] = useState('');
   const [cedulaChofer, setCedulaChofer] = useState('');
+  const [nombreChofer, setNombreChofer] = useState('');
   const [horaViaje, setHoraViaje] = useState('');
   const [pisosBus, setPisosBus] = useState(1);
   const [mapaAsientos, setMapaAsientos] = useState(null);
@@ -137,6 +138,16 @@ export const NuevoBoletoPage = () => {
           if (cfg.autorizar_boleto_sri === 1 || cfg.autorizar_boleto_sri === true) {
             setAutoAutorizarBoleto(true);
           }
+        }
+
+        // Cargar nombre real de la sucursal/agencia desde /buscarUsuario
+        try {
+          const userRes = await api.get('/buscarUsuario');
+          if (userRes.data?.success && userRes.data?.data?.nombre_sucursal) {
+            setCurrentAgencia(userRes.data.data.nombre_sucursal);
+          }
+        } catch (e) {
+          console.error('Error cargando datos de usuario:', e);
         }
       } catch (e) {
         console.error('Error cargando datos iniciales:', e);
@@ -333,6 +344,7 @@ export const NuevoBoletoPage = () => {
           setIdBus(busData.id_buses || '');
           setIdChofer(busData.id_fkpersonal_buses || '');
           setCedulaChofer(busData.per_cedula_personal || '');
+          setNombreChofer(busData.per_nombres_persona || 'Sin asignar');
           setPisosBus(busData.pisos_buses || 1);
           setMapaAsientos(busData.mapa_asientos || null);
           const selectedViaje = viajesDisponibles.find(v => String(v.id_viajes) === String(formData.idViaje));
@@ -589,11 +601,6 @@ export const NuevoBoletoPage = () => {
         pasajeros: prev.pasajeros.filter(p => p.asiento !== asientoId)
       }));
     } else {
-      if (formData.asientosSeleccionados.length >= 8) {
-        toast.error('Máximo 8 asientos por transacción.');
-        return;
-      }
-
       // Verificar si el asiento está siendo seleccionado por OTRO usuario
       if (asientosPendientes[asientoId]) {
         toast.error(
@@ -861,6 +868,7 @@ export const NuevoBoletoPage = () => {
     setIdBus('');
     setIdChofer('');
     setCedulaChofer('');
+    setNombreChofer('');
     setHoraViaje('');
     setMapaAsientos(null);
   };
@@ -912,8 +920,15 @@ export const NuevoBoletoPage = () => {
         const conectarQZ = () => {
           if (!window.qz) return Promise.reject('Librería no cargada');
           if (qz.websocket.isActive()) return Promise.resolve();
-          return qz.websocket.connect({ retries: 1, delay: 1, usingSecure: false })
-            .catch(() => qz.websocket.connect({ retries: 0, delay: 0, usingSecure: false, port: { insecure: [8182, 8283, 8384, 8485] } }));
+          const TIMEOUT_MS = 3000;
+          let timeoutId;
+          const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('Timeout')), TIMEOUT_MS);
+          });
+          return Promise.race([
+            qz.websocket.connect({ retries: 0, delay: 0, usingSecure: false }),
+            timeoutPromise
+          ]).finally(() => clearTimeout(timeoutId));
         };
 
         await loadQZ();
@@ -1541,6 +1556,16 @@ export const NuevoBoletoPage = () => {
                 <i className="fas fa-bus" style={{ marginRight: 3, color: '#e67e22', fontSize: 10 }}></i>
                 Visualización del Bus
               </div>
+              {formData.idViaje && nombreChofer && (
+                <div style={{
+                  fontSize: 9, color: '#0a365d', fontWeight: 600,
+                  marginBottom: 2, padding: '1px 0',
+                  display: 'flex', alignItems: 'center', gap: 4
+                }}>
+                  <i className="fas fa-user-tie" style={{ fontSize: 9 }}></i>
+                  Conductor: {nombreChofer}
+                </div>
+              )}
               {!formData.idViaje ? (
                 <div style={{ padding: 20, textAlign: 'center', color: '#94a3b8' }}>
                   <i className="fas fa-bus" style={{ fontSize: 32, marginBottom: 8, opacity: 0.3 }}></i>

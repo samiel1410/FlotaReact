@@ -20,7 +20,7 @@ export const GuiaNotaVentaService = {
   insertarGuia: async (parametros) => {
     // Enviar como JSON string para evitar que el interceptor convierta a form-urlencoded
     // (que destruye objetos anidados como detalle_guia y comprobante_cobro)
-    const response = await api.post('/guia_nota_venta/insertar', JSON.stringify(parametros), {
+    const response = await api.post('/guia_nota_venta/insertarGuia', JSON.stringify(parametros), {
       headers: { 'Content-Type': 'application/json' }
     });
     return response.data;

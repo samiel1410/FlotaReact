@@ -1,18 +1,24 @@
+const IVA_RATES = [0, 0.12, 0.13, 0.14, 0.15];
+
+const getIvaRate = (tipoEnvioId, tiposEnvio) => {
+  const te = (tiposEnvio || []).find(t => String(t.id || t.id_tipo_envio) === String(tipoEnvioId));
+  const tipoImpuesto = te?.tipo_impuesto;
+  return (tipoImpuesto !== undefined && tipoImpuesto !== null && IVA_RATES[parseInt(tipoImpuesto)] !== undefined) ? IVA_RATES[parseInt(tipoImpuesto)] : 0;
+};
+
 /**
  * Panel de Totales - Equivalente a la sección de totales de NuevaGuia.js
  * Muestra: Subtotal12, Subtotal0, Subtotal, Descuento, Tarifa, IVA, Total
  * Incluye radio buttons de descuento: Normal, 50% Descuento, 100% Cortesía
  */
-export const TotalesPanel = ({ detalles, descuentoTipo, onDescuentoChange }) => {
-  const IVA_RATE = 0.12;
-
+export const TotalesPanel = ({ detalles, descuentoTipo, onDescuentoChange, tiposEnvio = [], cobrarIvaGuia = true }) => {
   // Cálculos
   const subtotal12 = detalles.reduce((sum, d) => {
     const precioConIva = (d.precioUnitario || 0) * (d.cantidad || 1);
     return sum + precioConIva;
   }, 0);
 
-  const subtotal0 = 0; // Por defecto todo lleva IVA (12%)
+  const subtotal0 = 0;
   
   const subtotal = subtotal12 + subtotal0;
 
@@ -29,8 +35,19 @@ export const TotalesPanel = ({ detalles, descuentoTipo, onDescuentoChange }) => 
   const subtotalConDescuento = subtotal - descuentoCalculado;
 
   const totalTarifa = detalles.reduce((sum, d) => sum + (d.tarifa || 0), 0);
-  
-  const iva = subtotalConDescuento * IVA_RATE;
+
+  // IVA calculado por item con su propio tipo_impuesto
+  const iva = cobrarIvaGuia ? detalles.reduce((sum, d) => {
+    const qty = d.cantidad || 1;
+    const price = d.precioUnitario || 0;
+    const sub = qty * price;
+    let desc = 0;
+    if (descuentoTipo === '2') desc = sub;
+    else if (descuentoTipo === '1') desc = sub * 0.50;
+    else desc = (sub / (subtotal || 1)) * descuentoCalculado;
+    const rate = getIvaRate(d.tipoEnvioId, tiposEnvio);
+    return sum + (sub - desc) * rate;
+  }, 0) : 0;
   
   const total = subtotalConDescuento + iva + totalTarifa;
 
@@ -89,7 +106,7 @@ export const TotalesPanel = ({ detalles, descuentoTipo, onDescuentoChange }) => 
 
         {/* IVA */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
-          <span style={{ color: '#64748b', fontWeight: 500 }}>IVA (12%)</span>
+          <span style={{ color: '#64748b', fontWeight: 500 }}>IVA</span>
           <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#334155' }}>{fmt(iva)}</span>
         </div>
 

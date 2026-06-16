@@ -105,7 +105,16 @@ export const GlobalHeader = () => {
           distintivo: e.distintivo_empresa || null
         };
         setEmpresa(data);
-        sessionStorage.setItem('empresa_data', JSON.stringify(data));
+        // Cargar config para obtener cobrar_iva_guia
+        api.get('/configuracion/configuracionSeleccion').then(cfgRes => {
+          if (cfgRes.data?.data?.length > 0) {
+            const cfg = cfgRes.data.data[0];
+            data.cobrar_iva_guia = cfg.cobrar_iva_guia === 1 || cfg.cobrar_iva_guia === true ? 1 : 0;
+          }
+          sessionStorage.setItem('empresa_data', JSON.stringify(data));
+        }).catch(() => {
+          sessionStorage.setItem('empresa_data', JSON.stringify(data));
+        });
       }
     }).catch(() => {});
 

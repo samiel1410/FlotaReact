@@ -13,9 +13,41 @@ import { GuiaService } from '../../services/guia.service';
 import { CONFIG } from '../../config/env';
 import { api } from '../../config/axios';
 import axios from 'axios';
+
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+
+const IVA_RATES = [0, 0.12, 0.13, 0.14, 0.15];
+const getIvaRate = (tipoEnvioId, tiposEnvio) => {
+  const te = (tiposEnvio || []).find(t => String(t.id || t.id_tipo_envio) === String(tipoEnvioId));
+  const tipoImpuesto = te?.tipo_impuesto;
+  return (tipoImpuesto !== undefined && tipoImpuesto !== null && IVA_RATES[parseInt(tipoImpuesto)] !== undefined) ? IVA_RATES[parseInt(tipoImpuesto)] : 0;
+};
+const calcGuardarIva = (detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia) => {
+  if (!cobrarIvaGuia) return 0;
+  return detalles.reduce((sum, d) => {
+    const qty = d.cantidad || 1;
+    const price = d.precioUnitario || 0;
+    const sub = qty * price;
+    let desc = 0;
+    if (descuentoTipo === '2') desc = sub;
+    else if (descuentoTipo === '1') desc = sub * 0.50;
+    else desc = d.descuento || 0;
+    const rate = getIvaRate(d.tipoEnvioId, tiposEnvio);
+    return sum + (sub - desc) * rate;
+  }, 0);
+};
+
+const getInitialCobrarIvaGuia = () => {
+  try {
+    const empData = JSON.parse(sessionStorage.getItem('empresa_data') || '{}');
+    if (empData.cobrar_iva_guia !== undefined && empData.cobrar_iva_guia !== null) {
+      return empData.cobrar_iva_guia === 1 || empData.cobrar_iva_guia === true;
+    }
+  } catch (e) { /* ignorar */ }
+  return true;
+};
 
 /**
  * NuevaGuiaPage - Equivalente COMPLETO a NuevaGuia.js del ExtJS (2137 líneas)
@@ -123,6 +155,7 @@ export const NuevaGuiaPage = () => {
   // ── Configuración y usuario ──────────────────────────────
   const [defaultFormaPagoId, setDefaultFormaPagoId] = useState('');
   const [configTipoTarifa, setConfigTipoTarifa] = useState(0);
+  const [cobrarIvaGuia, setCobrarIvaGuia] = useState(getInitialCobrarIvaGuia);
   const [metodoImpresion, setMetodoImpresion] = useState('manual');
   const [printerGuias, setPrinterGuias] = useState('');
 
@@ -250,6 +283,9 @@ export const NuevaGuiaPage = () => {
             setDefaultFormaPagoId(String(cfg.id_forma_pago_configuracion));
           }
           setConfigTipoTarifa(parseInt(cfg.tipo_tarifa_configuracion) || 0);
+          if (cfg.cobrar_iva_guia !== undefined && cfg.cobrar_iva_guia !== null) {
+            setCobrarIvaGuia(cfg.cobrar_iva_guia === 1 || cfg.cobrar_iva_guia === true);
+          }
         }
       }
 
@@ -544,7 +580,7 @@ export const NuevaGuiaPage = () => {
       : detalles.reduce((sum, d) => sum + (d.descuento || 0), 0);
     const totalTarifa = detalles.reduce((sum, d) => sum + (d.tarifa || 0), 0);
     const subtotalConDescuento = totalSubtotal - totalDescuento;
-    const totalIva = subtotalConDescuento * 0.12;
+    const totalIva = calcGuardarIva(detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia);
     const totalGeneral = subtotalConDescuento + totalIva + totalTarifa;
 
     // ID del cliente según bandera (1=Remitente, 2=Destinatario, 3=Otros)
@@ -756,8 +792,15 @@ export const NuevaGuiaPage = () => {
                   const conectarQZ = () => {
                     if (!window.qz) return Promise.reject('Librería no cargada');
                     if (qz.websocket.isActive()) return Promise.resolve();
-                    return qz.websocket.connect({ retries: 1, delay: 1, usingSecure: false })
-                      .catch(() => qz.websocket.connect({ retries: 0, delay: 0, usingSecure: false, port: { insecure: [8182, 8283, 8384, 8485] } }));
+                    const TIMEOUT_MS = 3000;
+                    let timeoutId;
+                    const timeoutPromise = new Promise((_, reject) => {
+                      timeoutId = setTimeout(() => reject(new Error('Timeout')), TIMEOUT_MS);
+                    });
+                    return Promise.race([
+                      qz.websocket.connect({ retries: 0, delay: 0, usingSecure: false }),
+                      timeoutPromise
+                    ]).finally(() => clearTimeout(timeoutId));
                   };
 
                   await loadQZ();
@@ -1220,6 +1263,7 @@ export const NuevaGuiaPage = () => {
               tiposEnvio={tiposEnvio}
               tipoEnvioId={tipoEnvio}
               error={fieldErrors.detalles}
+              cobrarIvaGuia={cobrarIvaGuia}
             />
 
             {/* ── Número Manual ──────────────────────────── */}
@@ -1337,6 +1381,8 @@ export const NuevaGuiaPage = () => {
           <TotalesPanel 
             detalles={detalles}
             descuentoTipo={descuentoTipo}
+            tiposEnvio={tiposEnvio}
+            cobrarIvaGuia={cobrarIvaGuia}
           />
         </div>
 
@@ -1404,15 +1450,22 @@ export const NuevaGuiaPage = () => {
 
             {/* IVA */}
             <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 8px' }}>
-              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>IVA 12%</span>
+              <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>IVA</span>
               <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#475569' }}>
                 ${(() => {
+                  if (!cobrarIvaGuia) return '0.00';
                   const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
-                  let desc = 0;
-                  if (descuentoTipo === '2') desc = st12;
-                  else if (descuentoTipo === '1') desc = st12 * 0.50;
-                  else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
-                  return ((st12 - desc) * 0.12).toFixed(2);
+                  return detalles.reduce((s, d) => {
+                    const qty = d.cantidad || 1;
+                    const price = d.precioUnitario || 0;
+                    const sub = qty * price;
+                    let desc = 0;
+                    if (descuentoTipo === '2') desc = sub;
+                    else if (descuentoTipo === '1') desc = sub * 0.50;
+                    else desc = (sub / (st12 || 1)) * detalles.reduce((a, dd) => a + (dd.descuento || 0), 0);
+                    const rate = getIvaRate(d.tipoEnvioId, tiposEnvio);
+                    return s + (sub - desc) * rate;
+                  }, 0).toFixed(2);
                 })()}
               </span>
             </div>
@@ -1439,7 +1492,8 @@ export const NuevaGuiaPage = () => {
                   else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
                   const stDesc = st12 - desc;
                   const tarifa = detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
-                  return (stDesc + stDesc * 0.12 + tarifa).toFixed(2);
+                  const ivaTotal = calcGuardarIva(detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia);
+                  return (stDesc + ivaTotal + tarifa).toFixed(2);
                 })()}
               </span>
             </div>
@@ -1456,7 +1510,8 @@ export const NuevaGuiaPage = () => {
               if (descuentoTipo === '2') desc = st12;
               else if (descuentoTipo === '1') desc = st12 * 0.50;
               else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
-              const totalG = st12 - desc + (st12 - desc) * 0.12 + detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
+              const ivaTotal = calcGuardarIva(detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia);
+              const totalG = st12 - desc + ivaTotal + detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
               const totalPagado = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
               const cobrado = totalPagado >= totalG && totalG > 0;
               return (

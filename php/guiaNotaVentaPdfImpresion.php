@@ -364,6 +364,12 @@ configuracion";
   <br>DIR.EXACTA:' . $direccion_exacta . '<br>CONTACTO:' . $numero_contacto . '
   <span>
 
+  <div class="linea"></div>
+  <span class="center">
+    <strong class=""><i class="fas fa-user"></i>OBSERVACIÓN</strong>
+  </span>
+  <br>' . (!empty($observacion_guia) ? $observacion_guia : 'NINGUNA') . '
+  <span>
 
 
     <div class="linea"></div>
@@ -413,10 +419,8 @@ configuracion";
 
       <strong>ESTADO:' . $estado_factura . '</strong>
       <span style="font-size:9px">
-        <br>FORMAS DE PAGO:' . $detalles_forma_pago . '<br>POR COBRAR: $' . number_format((float) $total_cobrado, 2) . '<br>FECHA
-        / HORA DE EMISIÓN:' . $fecha_factura . '<br>USUARIO: ' . $cedula_cliente_remitente . '
-        <br>CONTRASEÑA:' . $cedula_cliente_remitente . '<br>IMPRESIÓN: ' . $fecha_actual . '<br>OBSERVACION:
-        ' . $observacion_guia . '
+        <br>FORMAS DE PAGO:' . $detalles_forma_pago . '<br>POR COBRAR: $' . number_format((float) $total_cobrado, 2) . '<br>FECHA / HORA DE EMISIÓN:' . $fecha_factura . '<br>USUARIO: ' . $cedula_cliente_remitente . '
+        <br>CONTRASEÑA:' . $cedula_cliente_remitente . '<br>IMPRESIÓN: ' . $fecha_actual
       </span>
       <br>
       <p class="center">

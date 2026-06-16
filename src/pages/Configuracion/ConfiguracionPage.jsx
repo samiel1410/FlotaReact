@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { api } from '../../config/axios';
 import { useAuth } from '../../hooks/useAuth';
@@ -18,6 +18,9 @@ export const ConfiguracionPage = () => {
   const [formasPago, setFormasPago] = useState([]);
   const [sistemaModo, setSistemaModo] = useState('prueba');
   const [savingModo, setSavingModo] = useState(false);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const fileInputRef = useRef(null);
 
   const { register, handleSubmit } = useForm({
     values: configData,
@@ -50,6 +53,7 @@ export const ConfiguracionPage = () => {
             direccion_empresa: conf.direccion_empresa || '',
             telefono_empresa: conf.telefono_empresa || '',
             correo_empresa: conf.correo_empresa || '',
+            imagen_empresa: conf.imagen_empresa || null,
 
             password_p12: '',
             ambiente_sri: String(conf.ambiente_sri || '1'),
@@ -62,6 +66,7 @@ export const ConfiguracionPage = () => {
             autorizar_factura_sri: conf.autorizar_factura_sri === 1 || conf.autorizar_factura_sri === true,
             autorizar_boleto_sri: conf.autorizar_boleto_sri === 1 || conf.autorizar_boleto_sri === true,
             enviar_whatsapp: conf.enviar_whatsapp === 1 || conf.enviar_whatsapp === true,
+            cobrar_iva_guia: conf.cobrar_iva_guia === 1 || conf.cobrar_iva_guia === true,
           });
         }
       } catch (error) {
@@ -76,6 +81,12 @@ export const ConfiguracionPage = () => {
       setSistemaModo(modo);
     });
   }, []);
+
+  useEffect(() => {
+    if (configData.imagen_empresa) {
+      setLogoPreview(`data:image/png;base64,${configData.imagen_empresa}`);
+    }
+  }, [configData.imagen_empresa]);
 
   const esProduccion = sistemaModo === 'produccion';
 
@@ -156,16 +167,34 @@ export const ConfiguracionPage = () => {
         autorizar_factura_sri: data.autorizar_factura_sri ? 1 : 0,
         autorizar_boleto_sri: data.autorizar_boleto_sri ? 1 : 0,
         enviar_whatsapp: data.enviar_whatsapp ? 1 : 0,
+        cobrar_iva_guia: data.cobrar_iva_guia ? 1 : 0,
         dir_matriz_empresa: data.dir_matriz_empresa || data.direccion_empresa,
       };
       const response = await api.post('/configuracion/Actualizarconfiguracion', payload);
       if (response.data && response.data.success) {
+        // Si hay un nuevo logo, subirlo al endpoint de empresa
+        if (logoFile) {
+          const logoReader = new FileReader();
+          const logoBase64 = await new Promise((resolve) => {
+            logoReader.onload = (e) => resolve(e.target.result);
+            logoReader.readAsDataURL(logoFile);
+          });
+          await api.post('/empresa/empresaActualizar', {
+            imagen_empresa: logoBase64,
+          });
+          setLogoFile(null);
+        }
+
         toast.success('Configuración guardada correctamente');
         // Actualizar sessionStorage para el header
         const stored = sessionStorage.getItem('empresa_data');
         if (stored) {
           const emp = JSON.parse(stored);
           emp.nombre = data.razon_social_empresa || data.nombre_comercial_empresa || emp.nombre;
+          emp.cobrar_iva_guia = data.cobrar_iva_guia ? 1 : 0;
+          if (logoPreview) {
+            emp.imagen = logoPreview.replace('data:image/png;base64,', '').replace('data:image/jpeg;base64,', '');
+          }
           sessionStorage.setItem('empresa_data', JSON.stringify(emp));
         }
       } else {
@@ -415,7 +444,43 @@ export const ConfiguracionPage = () => {
                       <input type="password" {...register('password_p12')} className={inputClass} placeholder="Certificado" />
                     </div>
                   </div>
-                  <div className="space-y-2 pt-2 border-t border-slate-100">
+                  <div className="pt-4 border-t border-slate-100">
+                    <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
+                      <i className="fas fa-image text-emerald-500 mr-2"></i>Logo de la Empresa
+                    </h2>
+                    <div className="flex items-start gap-6">
+                      <div className="flex-shrink-0">
+                        {logoPreview ? (
+                          <img src={logoPreview} alt="Logo" className="w-24 h-24 object-contain border border-slate-200 rounded-lg p-1 bg-white" />
+                        ) : (
+                          <div className="w-24 h-24 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center text-slate-400 bg-slate-50">
+                            <i className="fas fa-image text-3xl"></i>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <label className={labelClass}>Seleccionar archivo</label>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/jpg"
+                          className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              setLogoFile(file);
+                              const reader = new FileReader();
+                              reader.onload = (evt) => setLogoPreview(evt.target.result);
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-slate-400">Formatos: PNG, JPG. Se redimensionará automáticamente.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-4 border-t border-slate-100">
                     <label className={labelClass}>Autorización Automática SRI</label>
                     <div className="flex flex-col gap-2">
                       <div className="flex items-center gap-2">
@@ -425,6 +490,20 @@ export const ConfiguracionPage = () => {
                       <div className="flex items-center gap-2">
                         <input type="checkbox" {...register('autorizar_boleto_sri')} id="autorizar_boleto_sri" className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500" />
                         <label htmlFor="autorizar_boleto_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Boletos al guardar</label>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-4 border-t border-slate-100">
+                    <label className={labelClass}>IVA en Guías</label>
+                    <div className="flex items-center gap-3">
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" {...register('cobrar_iva_guia')} className="sr-only peer" />
+                        <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-emerald-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-emerald-500"></div>
+                      </label>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">Cobrar IVA en Guías</p>
+                        <p className="text-xs text-slate-400">Cuando está desactivado, el IVA se fuerza a 0 en todas las guías</p>
                       </div>
                     </div>
                   </div>

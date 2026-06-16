@@ -24,7 +24,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
       id_fksucursal_usuario: '',
       id_fkprovincia_usuario: '',
       id_fkciudad_usuario: '',
-      id_fklugar: '',
+
       estado_usuario: 1,
       per_personal_usuario: 0
     }
@@ -36,13 +36,11 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
     sucursales: [],
     provincias: [],
     ciudades: [],
-    lugares: []
   });
 
   // Watch for cascading combo values
   const selectedSucursal = watch('id_fksucursal_usuario');
   const selectedProvincia = watch('id_fkprovincia_usuario');
-  const selectedCiudad = watch('id_fkciudad_usuario');
 
   useEffect(() => {
     // Load initial standalone combos
@@ -85,23 +83,10 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
         id_fkprovincia_usuario: String(initialData.id_fkprovincia_usuario ?? ''),
         estado_usuario: initialData.estado_usuario ?? initialData.estado ?? 1,
         per_personal_usuario: initialData.per_personal_usuario || 0,
-        // id_fkciudad_usuario e id_fklugar se setean en los efectos de cascada
+        // id_fkciudad_usuario se setea en los efectos de cascada
       });
     }
   }, [initialData, reset]);
-
-  // Cascade Sucursal -> Ciudad -> Lugar logic
-  // In a full implementation we would filter based on ExtJS logic:
-  // "Al seleccionar sucursal, autoselecciona ciudad y provincia"
-  useEffect(() => {
-    if (selectedSucursal) {
-      const sucursal = combos.sucursales.find(s => String(s.suc_codigo_sucursal) === String(selectedSucursal));
-      if (sucursal && sucursal.ciudad_sucursal) {
-        // En una implementación real, aquí buscaríamos el id_canton correspondiente a sucursal.ciudad_sucursal
-        // y el id_provincia, y usaríamos setValue().
-      }
-    }
-  }, [selectedSucursal, combos.sucursales]);
 
   // Load Ciudades based on Provincia
   useEffect(() => {
@@ -116,20 +101,6 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
       });
     }
   }, [selectedProvincia, isEditing, initialData, setValue]);
-
-  // Load Lugares based on Ciudad
-  useEffect(() => {
-    if (selectedCiudad) {
-      api.get('/lugares/seleccionLugarCombo').then(res => {
-        const data = res.data.data || [];
-        setCombos(prev => ({ ...prev, lugares: data }));
-        // Asegurar selección al editar
-        if (isEditing && initialData.id_fklugar) {
-          setValue('id_fklugar', String(initialData.id_fklugar));
-        }
-      });
-    }
-  }, [selectedCiudad, isEditing, initialData, setValue]);
 
   const onFormSubmit = async (data) => {
     setLoading(true);
@@ -348,21 +319,6 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
             ))}
           </select>
           {errors.id_fkciudad_usuario && <span className="text-red-500 text-xs">{errors.id_fkciudad_usuario.message}</span>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">Lugar <span className="text-red-500">*</span></label>
-          <select 
-            {...register('id_fklugar', { required: selectedCiudad ? 'El lugar es requerido' : false })} 
-            className="w-full border-slate-300 rounded-md shadow-sm p-2 border disabled:bg-slate-100"
-            disabled={!selectedCiudad}
-          >
-            <option value="">Seleccionar Ciudad primero</option>
-            {combos.lugares.map(l => (
-              <option key={l.id_lugar} value={l.id_lugar}>{l.nombre_lugar}</option>
-            ))}
-          </select>
-          {errors.id_fklugar && <span className="text-red-500 text-xs">{errors.id_fklugar.message}</span>}
         </div>
 
         <div>
