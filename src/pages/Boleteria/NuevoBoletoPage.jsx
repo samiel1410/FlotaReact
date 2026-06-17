@@ -1240,18 +1240,6 @@ export const NuevoBoletoPage = () => {
                       const subruta = destinosViaje.find(d => String(d.id_sub_rutas) === id);
                       const precio = subruta ? parseFloat(subruta.valor_sub_rutas || 0) : 0;
                       setPrecioUnitario(precio);
-                      // Actualizar valor de pasajeros existentes
-                      if (precio > 0 && formData.pasajeros.length > 0) {
-                        setFormData(prev => ({
-                          ...prev,
-                          pasajeros: prev.pasajeros.map(p => ({
-                            ...p,
-                            id_destino: id,
-                            valor: p.tarifa === 'Normal' ? precio : (p.tarifa.includes('50%') ? precio / 2 : 0),
-                            descuento: p.tarifa === 'Normal' ? 0 : (p.tarifa === 'Gratis Cortesía' ? precio : precio / 2)
-                          }))
-                        }));
-                      }
                     }}
                     style={{ flex: 1, padding: '3px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 10 }}
                   >
