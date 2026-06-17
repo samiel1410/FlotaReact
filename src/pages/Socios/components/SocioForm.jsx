@@ -1,11 +1,49 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { api } from '../../../config/axios';
+import { CONFIG } from '../../../config/env';
 import toast from 'react-hot-toast';
 
 const SocioForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
   const [loading, setLoading] = useState(false);
+
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(
+    isEditing && initialData.ruta_imagen_personal
+      ? `${CONFIG.API_URL}/${initialData.ruta_imagen_personal}`
+      : null
+  );
+  const [eliminarFoto, setEliminarFoto] = useState(false);
+
+  const initialProfiles = isEditing && initialData.perfil_personal
+    ? String(initialData.perfil_personal).split(',').map(p => p.trim())
+    : [];
+  const [selectedProfiles, setSelectedProfiles] = useState(initialProfiles);
+
+  const handleProfileChange = (e) => {
+    const val = e.target.value;
+    if (e.target.checked) {
+      setSelectedProfiles(prev => [...prev, val]);
+    } else {
+      setSelectedProfiles(prev => prev.filter(p => p !== val));
+    }
+  };
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+      setEliminarFoto(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setSelectedFile(null);
+    setPhotoPreview(null);
+    setEliminarFoto(true);
+  };
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: isEditing ? {
@@ -40,16 +78,41 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
   });
 
   const onFormSubmit = async (data) => {
+    if (selectedProfiles.length === 0) {
+      toast.error('Debe seleccionar al menos un perfil');
+      return;
+    }
     setLoading(true);
     try {
-      const payload = { ...data, estado_personal: data.estado_personal ? '1' : '0' };
-      if (payload.fecha_nacimiento_personal) {
-        payload.fecha_nacimiento_personal = payload.fecha_nacimiento_personal.split('T')[0];
-      }
+      const formData = new FormData();
+
+      Object.keys(data).forEach(key => {
+        if (key === 'estado_personal') {
+          formData.append(key, data.estado_personal ? '1' : '0');
+        } else if (key === 'fecha_nacimiento_personal') {
+          if (data.fecha_nacimiento_personal) {
+            formData.append(key, data.fecha_nacimiento_personal.split('T')[0]);
+          } else {
+            formData.append(key, '');
+          }
+        } else if (key !== 'perfil_personal') {
+          formData.append(key, data[key] ?? '');
+        }
+      });
+
       if (isEditing) {
-        payload.id_personal = initialData.id_personal || initialData.id_socio;
+        formData.append('id_personal', initialData.id_personal || initialData.id_socio);
       }
-      await api.post('/personal/insertarActualizarPersonal', payload);
+
+      formData.append('perfil_personal', selectedProfiles.join(','));
+
+      if (selectedFile) {
+        formData.append('foto', selectedFile);
+      } else if (eliminarFoto) {
+        formData.append('eliminar_foto', '1');
+      }
+
+      await api.post('/personal/insertarActualizarPersonal', formData);
       toast.success(isEditing ? 'Socio actualizado correctamente' : 'Socio creado correctamente');
       onSubmit(data);
     } catch (err) {
@@ -72,81 +135,113 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
       {/* ── Información Básica ── */}
       <div className={sectionClass}>
         <p className={sectionTitle}><i className="fas fa-id-card text-indigo-400" />Información Básica</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-          <div>
-            <label className={labelClass}>Código Personal <span className="text-rose-500">*</span></label>
-            <input
-              type="text"
-              {...register('per_codigo_personal', {
-                required: 'El código es requerido',
-                pattern: { value: /^[0-9]+$/, message: 'Solo números' }
-              })}
-              className={inputClass}
-              placeholder="Ej: 001"
-            />
-            {errors.per_codigo_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.per_codigo_personal.message}</p>}
+        <div className="flex flex-col md:flex-row gap-6">
+          {/* Foto de Perfil */}
+          <div className="flex flex-col items-center justify-center border border-slate-200 rounded-xl p-4 bg-white min-w-[160px] self-start shadow-sm shrink-0">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">Foto de Perfil</label>
+            <div className="relative group w-24 h-24 border-2 border-dashed border-slate-200 rounded-full flex items-center justify-center overflow-hidden bg-slate-50 hover:border-indigo-400 transition-colors">
+              {photoPreview ? (
+                <img src={photoPreview} alt="Vista previa" className="w-full h-full object-cover" />
+              ) : (
+                <div className="flex flex-col items-center text-slate-400">
+                  <i className="fas fa-camera text-xl mb-1"></i>
+                  <span className="text-[9px] font-black uppercase text-slate-400">Subir Foto</span>
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                onChange={handlePhotoChange}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+            </div>
+            {photoPreview && (
+              <button
+                type="button"
+                onClick={handleRemovePhoto}
+                className="mt-2.5 text-[10px] text-rose-500 hover:text-rose-600 font-black uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+              >
+                <i className="fas fa-trash-alt"></i> Quitar Foto
+              </button>
+            )}
           </div>
 
-          <div>
-            <label className={labelClass}>Cédula <span className="text-rose-500">*</span></label>
-            <input
-              type="text"
-              maxLength={15}
-              {...register('per_cedula_personal', {
-                required: 'La cédula es requerida',
-                pattern: { value: /^[0-9]+$/, message: 'Solo números' }
-              })}
-              className={inputClass}
-              placeholder="Ej: 1800123456"
-            />
-            {errors.per_cedula_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.per_cedula_personal.message}</p>}
-          </div>
+          {/* Campos Básicos */}
+          <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass}>Código Personal <span className="text-rose-500">*</span></label>
+              <input
+                type="text"
+                {...register('per_codigo_personal', {
+                  required: 'El código es requerido',
+                  pattern: { value: /^[0-9]+$/, message: 'Solo números' }
+                })}
+                className={inputClass}
+                placeholder="Ej: 001"
+              />
+              {errors.per_codigo_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.per_codigo_personal.message}</p>}
+            </div>
 
-          <div>
-            <label className={labelClass}>Nombres <span className="text-rose-500">*</span></label>
-            <input
-              type="text"
-              {...register('per_nombres_persona', { required: 'Los nombres son requeridos' })}
-              className={inputClass}
-              placeholder="Nombres completos"
-            />
-            {errors.per_nombres_persona && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.per_nombres_persona.message}</p>}
-          </div>
+            <div>
+              <label className={labelClass}>Cédula <span className="text-rose-500">*</span></label>
+              <input
+                type="text"
+                maxLength={15}
+                {...register('per_cedula_personal', {
+                  required: 'La cédula es requerida',
+                  pattern: { value: /^[0-9]+$/, message: 'Solo números' }
+                })}
+                className={inputClass}
+                placeholder="Ej: 1800123456"
+              />
+              {errors.per_cedula_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.per_cedula_personal.message}</p>}
+            </div>
 
-          <div>
-            <label className={labelClass}>Apellidos <span className="text-rose-500">*</span></label>
-            <input
-              type="text"
-              {...register('per_apellidos_personal', { required: 'Los apellidos son requeridos' })}
-              className={inputClass}
-              placeholder="Apellidos completos"
-            />
-            {errors.per_apellidos_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.per_apellidos_personal.message}</p>}
-          </div>
+            <div>
+              <label className={labelClass}>Nombres <span className="text-rose-500">*</span></label>
+              <input
+                type="text"
+                {...register('per_nombres_persona', { required: 'Los nombres son requeridos' })}
+                className={inputClass}
+                placeholder="Nombres completos"
+              />
+              {errors.per_nombres_persona && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.per_nombres_persona.message}</p>}
+            </div>
 
-          <div>
-            <label className={labelClass}>Género <span className="text-rose-500">*</span></label>
-            <select
-              {...register('genero_personal', { required: 'El género es requerido' })}
-              className={inputClass}
-            >
-              <option value="">Seleccionar...</option>
-              <option value="1">Masculino</option>
-              <option value="2">Femenino</option>
-              <option value="3">Otro</option>
-            </select>
-            {errors.genero_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.genero_personal.message}</p>}
-          </div>
+            <div>
+              <label className={labelClass}>Apellidos <span className="text-rose-500">*</span></label>
+              <input
+                type="text"
+                {...register('per_apellidos_personal', { required: 'Los apellidos son requeridos' })}
+                className={inputClass}
+                placeholder="Apellidos completos"
+              />
+              {errors.per_apellidos_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.per_apellidos_personal.message}</p>}
+            </div>
 
-          <div>
-            <label className={labelClass}>Fecha de Nacimiento</label>
-            <input
-              type="date"
-              {...register('fecha_nacimiento_personal')}
-              className={inputClass}
-              max={new Date().toISOString().split('T')[0]}
-            />
+            <div>
+              <label className={labelClass}>Género <span className="text-rose-500">*</span></label>
+              <select
+                {...register('genero_personal', { required: 'El género es requerido' })}
+                className={inputClass}
+              >
+                <option value="">Seleccionar...</option>
+                <option value="1">Masculino</option>
+                <option value="2">Femenino</option>
+                <option value="3">Otro</option>
+              </select>
+              {errors.genero_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.genero_personal.message}</p>}
+            </div>
+
+            <div>
+              <label className={labelClass}>Fecha de Nacimiento</label>
+              <input
+                type="date"
+                {...register('fecha_nacimiento_personal')}
+                className={inputClass}
+                max={new Date().toISOString().split('T')[0]}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -207,13 +302,39 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
           <div>
-            <label className={labelClass}>Perfil</label>
-            <select {...register('perfil_personal')} className={inputClass}>
-              <option value="">Seleccionar...</option>
-              <option value="0">Conductor</option>
-              <option value="1">Auxiliar</option>
-              <option value="2">Socio</option>
-            </select>
+            <label className={labelClass}>Perfil <span className="text-rose-500">*</span></label>
+            <div className="flex flex-wrap gap-4 items-center h-9">
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  value="0"
+                  checked={selectedProfiles.includes('0')}
+                  onChange={handleProfileChange}
+                  className="w-4 h-4 text-indigo-600 border-slate-200 rounded focus:ring-indigo-500 bg-white cursor-pointer"
+                />
+                Conductor
+              </label>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  value="1"
+                  checked={selectedProfiles.includes('1')}
+                  onChange={handleProfileChange}
+                  className="w-4 h-4 text-indigo-600 border-slate-200 rounded focus:ring-indigo-500 bg-white cursor-pointer"
+                />
+                Auxiliar
+              </label>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  value="2"
+                  checked={selectedProfiles.includes('2')}
+                  onChange={handleProfileChange}
+                  className="w-4 h-4 text-indigo-600 border-slate-200 rounded focus:ring-indigo-500 bg-white cursor-pointer"
+                />
+                Socio
+              </label>
+            </div>
           </div>
 
           <div>
