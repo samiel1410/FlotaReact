@@ -11,7 +11,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
       ...initialData,
       estado_usuario: initialData.estado_usuario ?? initialData.estado ?? 1
     } : {
-      rol: '',
+      rol_usuario: '',
       id_fkrol_usuario: '',
       nombre_usuario: '',
       apellido_usuario: '',
@@ -70,7 +70,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
       // Usar reset() en lugar de múltiples setValue para sincronizar TODO el formulario
       // reset() es más robusto porque React Hook Form lo maneja como una actualización completa
       reset({
-        rol: String(initialData.rol_usuario || initialData.rol || ''),
+        rol_usuario: String(initialData.rol_usuario || initialData.rol || ''),
         id_fkrol_usuario: String(initialData.id_fkrol_usuario || ''),
         nombre_usuario: initialData.nombre_usuario || '',
         apellido_usuario: initialData.apellido_usuario || '',
@@ -136,8 +136,8 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Rol Móvil <span className="text-red-500">*</span></label>
           <select 
-            {...register('rol', { required: 'El rol móvil es requerido' })} 
-            value={watch('rol') || ''}
+            {...register('rol_usuario', { required: 'El rol móvil es requerido' })} 
+            value={watch('rol_usuario') || ''}
             className="w-full border-slate-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 p-2 border"
           >
             <option value="">Seleccionar</option>
@@ -146,7 +146,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
             <option value="4">Oficinista</option>
             <option value="5">Super Administrador</option>
           </select>
-          {errors.rol && <span className="text-red-500 text-xs">{errors.rol.message}</span>}
+          {errors.rol_usuario && <span className="text-red-500 text-xs">{errors.rol_usuario.message}</span>}
         </div>
 
         <div>
