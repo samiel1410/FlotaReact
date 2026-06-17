@@ -122,6 +122,15 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
     }
   });
 
+  // Convierte un File a base64 data URI
+  const fileToBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
   const onFormSubmit = async (data) => {
     if (selectedProfiles.length === 0) {
       toast.error('Debe seleccionar al menos un perfil');
@@ -152,7 +161,9 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
       formData.append('perfil_personal', selectedProfiles.join(','));
 
       if (selectedFile) {
-        formData.append('foto', selectedFile);
+        // Convertir la foto a base64 para evitar problemas con FormData + archivos
+        const base64Foto = await fileToBase64(selectedFile);
+        formData.append('foto', base64Foto);
       } else if (eliminarFoto) {
         formData.append('eliminar_foto', '1');
       }
