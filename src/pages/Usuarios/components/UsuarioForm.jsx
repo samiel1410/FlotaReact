@@ -137,6 +137,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
           <label className="block text-sm font-medium text-slate-700 mb-1">Rol Móvil <span className="text-red-500">*</span></label>
           <select 
             {...register('rol', { required: 'El rol móvil es requerido' })} 
+            value={watch('rol') || ''}
             className="w-full border-slate-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 p-2 border"
           >
             <option value="">Seleccionar</option>
@@ -152,6 +153,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
           <label className="block text-sm font-medium text-slate-700 mb-1">Rol Web <span className="text-red-500">*</span></label>
           <select 
             {...register('id_fkrol_usuario', { required: 'El rol web es requerido' })} 
+            value={watch('id_fkrol_usuario') || ''}
             className="w-full border-slate-300 rounded-md shadow-sm focus:border-blue-500 focus:ring focus:ring-blue-200 p-2 border"
           >
             <option value="">Seleccionar</option>
@@ -290,6 +292,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
           <label className="block text-sm font-medium text-slate-700 mb-1">Sucursal <span className="text-red-500">*</span></label>
           <select 
             {...register('id_fksucursal_usuario', { required: 'La sucursal es requerida' })} 
+            value={watch('id_fksucursal_usuario') || ''}
             className="w-full border-slate-300 rounded-md shadow-sm p-2 border"
           >
             <option value="">Seleccionar</option>
@@ -304,6 +307,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
           <label className="block text-sm font-medium text-slate-700 mb-1">Provincia <span className="text-red-500">*</span></label>
           <select 
             {...register('id_fkprovincia_usuario', { required: 'La provincia es requerida' })} 
+            value={watch('id_fkprovincia_usuario') || ''}
             className="w-full border-slate-300 rounded-md shadow-sm p-2 border"
           >
             <option value="">Seleccionar</option>
@@ -318,6 +322,7 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
           <label className="block text-sm font-medium text-slate-700 mb-1">Ciudad <span className="text-red-500">*</span></label>
           <select 
             {...register('id_fkciudad_usuario', { required: selectedProvincia ? 'La ciudad es requerida' : false })} 
+            value={watch('id_fkciudad_usuario') || ''}
             className="w-full border-slate-300 rounded-md shadow-sm p-2 border disabled:bg-slate-100"
             disabled={!selectedProvincia}
           >
