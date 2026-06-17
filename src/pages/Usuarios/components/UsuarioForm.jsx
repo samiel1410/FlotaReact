@@ -105,11 +105,19 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
   const onFormSubmit = async (data) => {
     setLoading(true);
     try {
-      const payload = { ...data, estado_usuario: data.estado_usuario ? '1' : '0' };
-      await api.post('/usuario/insertarActualizarUsuario', {
+      const payload = { 
+        ...data, 
+        estado_usuario: data.estado_usuario ? '1' : '0',
+        id_fkdestino_usuario: data.id_fkciudad_usuario // Asignamos la ciudad como destino internamente
+      };
+      const res = await api.post('/usuario/insertarActualizarUsuario', {
         ...payload,
         ...(isEditing ? { id_usuario: initialData.id_usuario } : {})
       });
+      if (res.data && res.data.success === false) {
+        toast.error('Error: ' + (res.data.data || res.data.mensaje || 'Revise los campos requeridos'));
+        return;
+      }
       toast.success(isEditing ? 'Usuario actualizado correctamente' : 'Usuario creado correctamente');
       onSubmit(data);
     } catch (err) {
