@@ -9,9 +9,19 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
   const [loading, setLoading] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState(null);
+
+  // Generar URL robusta para la vista previa de la foto en edición
+  const getPhotoUrl = (filePath) => {
+    if (!filePath) return null;
+    if (filePath.startsWith('http://') || filePath.startsWith('https://')) return filePath;
+    const baseUrl = CONFIG.API_URL ? (CONFIG.API_URL.endsWith('/') ? CONFIG.API_URL.slice(0, -1) : CONFIG.API_URL) : '';
+    const cleanPath = filePath.startsWith('/') ? filePath : `/${filePath}`;
+    return `${baseUrl}${cleanPath}`;
+  };
+
   const [photoPreview, setPhotoPreview] = useState(
     isEditing && initialData.ruta_imagen_personal
-      ? `${CONFIG.API_URL}/${initialData.ruta_imagen_personal}`
+      ? getPhotoUrl(initialData.ruta_imagen_personal)
       : null
   );
   const [eliminarFoto, setEliminarFoto] = useState(false);
