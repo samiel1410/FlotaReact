@@ -122,13 +122,27 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
     }
   });
 
-  // Convierte un File a base64 data URI
+  // Comprime y convierte un File a base64 data URI (max 300px, calidad 0.7)
   const fileToBase64 = (file) =>
     new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(img.src);
+        const MAX = 300;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = (height / width) * MAX; width = MAX; }
+          else { width = (width / height) * MAX; height = MAX; }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.onerror = () => { URL.revokeObjectURL(img.src); reject(new Error('No se pudo cargar la imagen seleccionada')); };
+      img.src = URL.createObjectURL(file);
     });
 
   const onFormSubmit = async (data) => {
@@ -168,7 +182,9 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
         formData.append('eliminar_foto', '1');
       }
 
-      await api.post('/personal/insertarActualizarPersonal', formData);
+      await api.post('/personal/insertarActualizarPersonal', formData, {
+        timeout: 60000, // 60s para la subida de foto en base64
+      });
       toast.success(isEditing ? 'Socio actualizado correctamente' : 'Socio creado correctamente');
       onSubmit(data);
     } catch (err) {
