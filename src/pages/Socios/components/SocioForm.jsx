@@ -59,6 +59,10 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
       perfil_personal: initialData.perfil_personal || '',
       tipo_licencia: String(initialData.tipo_licencia || ''),
       puntos_licencia: initialData.puntos_licencia || '',
+      nombre_apellido_emergencia: initialData.nombre_apellido_emergencia || '',
+      parentesco_emergencia: initialData.parentesco_emergencia || '',
+      celular_fijo_emergencia: initialData.celular_fijo_emergencia || '',
+      direccion_emergencia: initialData.direccion_emergencia || '',
       estado_personal: (initialData.estado_personal ?? initialData.soc_estado ?? 1) == 1 || (initialData.estado_personal ?? initialData.soc_estado ?? 1) === '1',
     } : {
       per_codigo_personal: '',
@@ -73,6 +77,10 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
       perfil_personal: '',
       tipo_licencia: '',
       puntos_licencia: '',
+      nombre_apellido_emergencia: '',
+      parentesco_emergencia: '',
+      celular_fijo_emergencia: '',
+      direccion_emergencia: '',
       estado_personal: true,
     }
   });
@@ -292,6 +300,57 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
               onChange={e => e.target.value = e.target.value.replace(/\D/g, '')}
             />
             {errors.telefono_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.telefono_personal.message}</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Contacto de Emergencia ── */}
+      <div className={sectionClass}>
+        <p className={sectionTitle}><i className="fas fa-exclamation-triangle text-rose-400" />Contacto de Emergencia</p>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className={labelClass}>Nombres y Apellidos</label>
+            <input
+              type="text"
+              {...register('nombre_apellido_emergencia')}
+              className={inputClass}
+              placeholder="Nombre de contacto"
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Parentesco</label>
+            <input
+              type="text"
+              {...register('parentesco_emergencia')}
+              className={inputClass}
+              placeholder="Ej: Esposo/a, Hijo/a"
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Celular / Teléfono</label>
+            <input
+              type="text"
+              maxLength={15}
+              {...register('celular_fijo_emergencia', {
+                pattern: { value: /^[0-9]*$/, message: 'Solo números' }
+              })}
+              className={inputClass}
+              placeholder="Ej: 0998765432"
+              onChange={e => e.target.value = e.target.value.replace(/\D/g, '')}
+            />
+            {errors.celular_fijo_emergencia && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.celular_fijo_emergencia.message}</p>}
+          </div>
+
+          <div>
+            <label className={labelClass}>Dirección</label>
+            <input
+              type="text"
+              {...register('direccion_emergencia')}
+              className={inputClass}
+              placeholder="Dirección de contacto"
+            />
           </div>
         </div>
       </div>
