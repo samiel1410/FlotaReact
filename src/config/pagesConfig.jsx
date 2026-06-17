@@ -72,7 +72,7 @@ export const PAGES_CONFIG = {
       { key: 'username_usuario', label: 'Usuario' },
       { key: 'nombre', label: 'Nombre', render: (_, r) => `${r.nombre_usuario || ''} ${r.apellido_usuario || ''}`.trim() },
       {
-        key: 'rol_usuario', label: 'Rol', render: v => {
+        key: 'rol_usuario', label: 'Rol Móvil', render: v => {
           if (v == 1) return 'Administrador';
           if (v == 2) return 'Busero';
           if (v == 4) return 'Oficinista';
@@ -80,6 +80,7 @@ export const PAGES_CONFIG = {
           return v;
         }
       },
+      { key: 'nombre_rol', label: 'Rol Web' },
       { key: 'nombre_sucursal', label: 'Sucursal' },
       { key: 'telefono_usuario', label: 'Teléfono' },
       { key: 'fecha_creacion_usuario', label: 'F. Creación', render: v => v ? v.split(' ')[0] : '' },
