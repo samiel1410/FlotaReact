@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { api } from '../../../config/axios';
-import { CONFIG } from '../../../config/env';
 import toast from 'react-hot-toast';
 
 const SocioForm = ({ initialData, onSubmit, onCancel }) => {
@@ -9,15 +8,50 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
   const [loading, setLoading] = useState(false);
 
   const [selectedFile, setSelectedFile] = useState(null);
+  const [loadingPhoto, setLoadingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [eliminarFoto, setEliminarFoto] = useState(false);
+  const blobUrlRef = useRef(null);
 
-  const getPhotoUrl = () => {
-    if (!isEditing || !initialData.ruta_imagen_personal || !initialData.id_personal) return null;
-    const baseUrl = CONFIG.API_URL ? (CONFIG.API_URL.endsWith('/') ? CONFIG.API_URL.slice(0, -1) : CONFIG.API_URL) : '';
-    return `${baseUrl}/personal/foto/${initialData.id_personal}`;
+  const revokeBlobUrl = () => {
+    if (blobUrlRef.current) {
+      URL.revokeObjectURL(blobUrlRef.current);
+      blobUrlRef.current = null;
+    }
   };
 
-  const [photoPreview, setPhotoPreview] = useState(getPhotoUrl());
-  const [eliminarFoto, setEliminarFoto] = useState(false);
+  useEffect(() => {
+    return () => revokeBlobUrl();
+  }, []);
+
+  useEffect(() => {
+    if (isEditing && initialData.ruta_imagen_personal && initialData.id_personal) {
+      loadPhoto(initialData.id_personal);
+    }
+  }, []);
+
+  const loadPhoto = async (id) => {
+    setLoadingPhoto(true);
+    try {
+      const response = await api.get(`/personal/foto/${id}`, { responseType: 'blob' });
+      revokeBlobUrl();
+      const url = URL.createObjectURL(response.data);
+      blobUrlRef.current = url;
+      setPhotoPreview(url);
+    } catch (err) {
+      setPhotoPreview(null);
+    } finally {
+      setLoadingPhoto(false);
+    }
+  };
+
+  const setPhotoPreviewWithCleanup = (url) => {
+    revokeBlobUrl();
+    if (url && typeof url === 'string' && url.startsWith('blob:')) {
+      blobUrlRef.current = url;
+    }
+    setPhotoPreview(url);
+  };
 
   const initialProfiles = isEditing && initialData.perfil_personal
     ? String(initialData.perfil_personal).split(',').map(p => p.trim())
@@ -37,14 +71,14 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
     const file = e.target.files[0];
     if (file) {
       setSelectedFile(file);
-      setPhotoPreview(URL.createObjectURL(file));
+      setPhotoPreviewWithCleanup(URL.createObjectURL(file));
       setEliminarFoto(false);
     }
   };
 
   const handleRemovePhoto = () => {
     setSelectedFile(null);
-    setPhotoPreview(null);
+    setPhotoPreviewWithCleanup(null);
     setEliminarFoto(true);
   };
 
@@ -151,7 +185,12 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
           <div className="flex flex-col items-center justify-center border border-slate-200 rounded-xl p-4 bg-white min-w-[160px] self-start shadow-sm shrink-0">
             <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">Foto de Perfil</label>
             <div className="relative group w-24 h-24 border-2 border-dashed border-slate-200 rounded-full flex items-center justify-center overflow-hidden bg-slate-50 hover:border-indigo-400 transition-colors">
-              {photoPreview ? (
+              {loadingPhoto ? (
+                <div className="flex flex-col items-center text-slate-400">
+                  <i className="fas fa-spinner fa-spin text-xl mb-1"></i>
+                  <span className="text-[9px] font-black uppercase text-slate-400">Cargando...</span>
+                </div>
+              ) : photoPreview ? (
                 <img src={photoPreview} alt="Vista previa" className="w-full h-full object-cover" />
               ) : (
                 <div className="flex flex-col items-center text-slate-400">
