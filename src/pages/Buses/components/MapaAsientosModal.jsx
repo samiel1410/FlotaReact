@@ -259,6 +259,16 @@ const MapaAsientosModal = ({ bus, isOpen, onClose, onSaved }) => {
   }
 
   async function guardarMapa() {
+    // Validar que el bus tenga conductor y auxiliar asignados
+    if (!bus.id_fkpersonal_buses || bus.id_fkpersonal_buses === '' || bus.id_fkpersonal_buses === '0') {
+      toast.error('El bus no tiene conductor asignado. Primero asígnelo en la edición del bus.');
+      return;
+    }
+    if (!bus.id_fkauxiliar_buses || bus.id_fkauxiliar_buses === '' || bus.id_fkauxiliar_buses === '0') {
+      toast.error('El bus no tiene auxiliar asignado. Primero asígnelo en la edición del bus.');
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {

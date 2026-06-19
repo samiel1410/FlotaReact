@@ -84,6 +84,7 @@ export const NuevoBoletoPage = () => {
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [refreshAsientosKey, setRefreshAsientosKey] = useState(0);
   const [asientosPendientes, setAsientosPendientes] = useState({}); // { [asiento]: 'nombreUsuario' }
+  const [tiempoRestante, setTiempoRestante] = useState(null); // null = sin viaje, objeto = { horas, minutos, segundos, pasado, totalSeg }
   const getSessionUser = () => {
     let user = {};
     try {
@@ -123,6 +124,28 @@ export const NuevoBoletoPage = () => {
     tarifa: 1, // Normal
     observacion: ''
   });
+
+  // Timer countdown basado en horaViaje
+  useEffect(() => {
+    if (!horaViaje) { setTiempoRestante(null); return; }
+    const calcular = () => {
+      const ahora = new Date();
+      const [h, m, s] = horaViaje.split(':').map(Number);
+      const salida = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), h, m, s || 0);
+      const diffSeg = Math.floor((salida - ahora) / 1000);
+      const abs = Math.abs(diffSeg);
+      setTiempoRestante({
+        horas: Math.floor(abs / 3600),
+        minutos: Math.floor((abs % 3600) / 60),
+        segundos: abs % 60,
+        pasado: diffSeg < 0,
+        totalSeg: diffSeg,
+      });
+    };
+    calcular();
+    const interval = setInterval(calcular, 1000);
+    return () => clearInterval(interval);
+  }, [horaViaje]);
 
   // Cargar destinos al montar + viajes de hoy (como ExtJS ViajesBoleto store)
   useEffect(() => {
@@ -1060,14 +1083,44 @@ export const NuevoBoletoPage = () => {
           </button>
         </div>
 
-        {/* INDICADOR DE AGENCIA ACTUAL */}
+        {/* INDICADOR DE AGENCIA ACTUAL + TIMER VIAJE */}
         <div style={{
           background: '#e0f2fe', borderRadius: 4, padding: '6px 10px',
           border: '1px solid #bae6fd', marginBottom: 5,
           display: 'flex', alignItems: 'center', gap: 6, color: '#0369a1', fontWeight: 600, fontSize: 11
         }}>
           <i className="fas fa-map-marker-alt"></i>
-          <span>Agencia actual: {currentAgencia}</span>
+          <span style={{ flex: 1 }}>Agencia actual: {currentAgencia}</span>
+
+          {/* TIMER */}
+          {formData.idViaje && tiempoRestante && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: tiempoRestante.pasado ? '#fef2f2' : tiempoRestante.totalSeg < 600 ? '#fffbeb' : '#f0fdf4',
+              border: `1px solid ${tiempoRestante.pasado ? '#fca5a5' : tiempoRestante.totalSeg < 600 ? '#fcd34d' : '#86efac'}`,
+              borderRadius: 4, padding: '3px 8px',
+            }}>
+              <i
+                className={`fas ${tiempoRestante.pasado ? 'fa-flag-checkered' : 'fa-clock'}`}
+                style={{ fontSize: 11, color: tiempoRestante.pasado ? '#dc2626' : tiempoRestante.totalSeg < 600 ? '#d97706' : '#16a34a' }}
+              />
+              <div style={{ lineHeight: 1.2 }}>
+                <div style={{ fontSize: 7, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                  {tiempoRestante.pasado ? 'En curso' : 'Para despacho'}
+                </div>
+                <div style={{
+                  fontSize: 13, fontWeight: 900, fontFamily: 'monospace',
+                  color: tiempoRestante.pasado ? '#dc2626' : tiempoRestante.totalSeg < 600 ? '#d97706' : '#16a34a',
+                }}>
+                  {tiempoRestante.pasado ? '-' : ''}{String(tiempoRestante.horas).padStart(2,'0')}:{String(tiempoRestante.minutos).padStart(2,'0')}:{String(tiempoRestante.segundos).padStart(2,'0')}
+                </div>
+              </div>
+              <div style={{ borderLeft: '1px solid #cbd5e1', paddingLeft: 6, lineHeight: 1.2 }}>
+                <div style={{ fontSize: 7, color: '#94a3b8', fontWeight: 600 }}>SALIDA</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#334155', fontFamily: 'monospace' }}>{horaViaje?.substring(0,5)}</div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* DATE FILTER SECTION */}

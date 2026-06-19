@@ -4,6 +4,7 @@ import { api } from '../../config/axios';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { SubRutaModal } from './components/SubRutaModal';
+import { TiemposParadasModal } from './components/TiemposParadasModal';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
 
 const fw = "w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800";
@@ -29,6 +30,7 @@ export const ConfigRutasPage = () => {
   const [loadingViajes, setLoadingViajes] = useState(false);
   const [saving, setSaving] = useState({});
   const [showSubRutaModal, setShowSubRutaModal] = useState(false);
+  const [showTiemposModal, setShowTiemposModal] = useState(false);
   const [editingSubRutaIdx, setEditingSubRutaIdx] = useState(null);
   const [savingSubRuta, setSavingSubRuta] = useState(false);
   const detailRef = useRef(null);
@@ -176,54 +178,131 @@ export const ConfigRutasPage = () => {
     setEditingSubRutaIdx(idx);
     setShowSubRutaModal(true);
   };
-  const handleSaveSubrutaFromModal = (data) => {
+  const handleSaveSubrutaFromModal = async (data) => {
     const sr = {
       ...data,
       id_fkruta_sub_rutas: selectedRoute.id_rutas,
     };
-    if (editingSubRutaIdx !== null) {
-      setSubrutas(prev => { const u = [...prev]; u[editingSubRutaIdx] = { ...u[editingSubRutaIdx], ...sr }; return u; });
+    
+    // Si es edición, usamos el ID existente; si no, cadena vacía
+    const isEdit = editingSubRutaIdx !== null;
+    if (isEdit) {
+      sr.id_sub_rutas = subrutas[editingSubRutaIdx].id_sub_rutas;
     } else {
-      sr.id_sub_rutas = 'nuevo-' + Date.now();
-      setSubrutas(prev => [...prev, sr]);
+      sr.id_sub_rutas = '';
     }
-    setShowSubRutaModal(false);
-    setEditingSubRutaIdx(null);
+
+    const payload = {
+      ...(isEdit ? subrutas[editingSubRutaIdx] : {}),
+      id_sub_rutas: sr.id_sub_rutas,
+      id_fkruta_sub_rutas: sr.id_fkruta_sub_rutas,
+      nombre_sub_rutas: sr.nombre_sub_rutas || (getCantonNombre(sr.id_fkorigen_sub_rutas) + ' - ' + getCantonNombre(sr.id_fkdestino_sub_rutas)),
+      valor_sub_rutas: sr.valor_sub_rutas || 0,
+      id_fkorigen_sub_rutas: sr.id_fkorigen_sub_rutas || '',
+      id_fkdestino_sub_rutas: sr.id_fkdestino_sub_rutas || '',
+      estado_sub_rutas: sr.estado_sub_rutas || '1',
+      orden_sub_rutas: sr.orden_sub_rutas || 0,
+      fecha_salida: sr.fecha_salida || new Date().toISOString().split('T')[0],
+      hora_salida: sr.hora_salida || new Date().toTimeString().split(' ')[0],
+    };
+
+    setSavingSubRuta(true);
+    try {
+      const res = await api.post('/sub_rutas/insertarActualizarSubRutas', payload);
+      if (res.data?.success) {
+        toast.success(isEdit ? 'Subruta actualizada' : 'Subruta creada');
+        await fetchSubrutas(selectedRoute.id_rutas);
+        setShowSubRutaModal(false);
+        setEditingSubRutaIdx(null);
+      } else {
+        toast.error('Error: ' + res.data?.error);
+      }
+    } catch (error) {
+      console.error('Error guardando subruta desde el modal:', error);
+      toast.error('Error al guardar la subruta en la base de datos');
+    } finally {
+      setSavingSubRuta(false);
+    }
   };
   const handleDeleteSubruta = async (i) => {
     const confirmDel = await Swal.fire({ title: '¿Eliminar sub ruta?', text: '¿Eliminar esta sub ruta?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar' });
     if (!confirmDel.isConfirmed) return;
     setSubrutas(prev => prev.filter((_, idx) => idx !== i));
   };
-  const handleMoveUp = (idx) => {
+  const handleMoveUp = async (idx) => {
     if (idx <= 0) return;
-    setSubrutas(prev => { const u = [...prev]; [u[idx - 1], u[idx]] = [u[idx], u[idx - 1]]; return u; });
+    const u = [...subrutas];
+    [u[idx - 1], u[idx]] = [u[idx], u[idx - 1]];
+    // Recalcular ordenes según posición
+    const withOrden = u.map((sr, i) => ({ ...sr, orden_sub_rutas: i + 1 }));
+    setSubrutas(withOrden);
+    await _guardarOrden(withOrden);
   };
-  const handleMoveDown = (idx) => {
-    setSubrutas(prev => {
-      if (idx >= prev.length - 1) return prev;
-      const u = [...prev]; [u[idx], u[idx + 1]] = [u[idx + 1], u[idx]]; return u;
-    });
+  const handleMoveDown = async (idx) => {
+    if (idx >= subrutas.length - 1) return;
+    const u = [...subrutas];
+    [u[idx], u[idx + 1]] = [u[idx + 1], u[idx]];
+    const withOrden = u.map((sr, i) => ({ ...sr, orden_sub_rutas: i + 1 }));
+    setSubrutas(withOrden);
+    await _guardarOrden(withOrden);
+  };
+  const _guardarOrden = async (lista) => {
+    try {
+      const detalles = lista.map(sr => ({ id_sub_ruta: sr.id_sub_rutas, orden: sr.orden_sub_rutas }));
+      await api.post('/sub_rutas/ActualizarOrdenSubRutas', { detalles_sub_ruta: JSON.stringify(detalles) });
+    } catch (e) {
+      console.error('Error actualizando orden de subrutas:', e);
+      toast.error('Error al actualizar el orden');
+    }
   };
 
   const handleSaveSubrutas = async () => {
     if (!selectedRoute) return;
     setSaving(p => ({ ...p, subrutas: true }));
     try {
+      console.log('Enviando petición para guardar subrutas:', subrutas);
       for (const sr of subrutas) {
-        await api.post('/sub_ruta/insertarActualizarSubRutas', {
+        const res = await api.post('/sub_rutas/insertarActualizarSubRutas', {
           id_sub_rutas: sr.id_sub_rutas?.toString().startsWith('nuevo') ? '' : sr.id_sub_rutas,
           id_fkruta_sub_rutas: selectedRoute.id_rutas,
           nombre_sub_rutas: sr.nombre_sub_rutas || (getCantonNombre(sr.id_fkorigen_sub_rutas) + ' - ' + getCantonNombre(sr.id_fkdestino_sub_rutas)),
           valor_sub_rutas: sr.valor_sub_rutas || 0, id_fkorigen_sub_rutas: sr.id_fkorigen_sub_rutas || '',
-          id_fkdestino_sub_rutas: sr.id_fkdestino_sub_rutas || '', minutos_sub_rutas: sr.minutos_sub_rutas || 0,
+          id_fkdestino_sub_rutas: sr.id_fkdestino_sub_rutas || '',
           estado_sub_rutas: sr.estado_sub_rutas || '1', orden_sub_rutas: sr.orden_sub_rutas || 0,
+          fecha_salida: sr.fecha_salida || new Date().toISOString().split('T')[0],
+          hora_salida: sr.hora_salida || new Date().toTimeString().split(' ')[0],
         });
+        console.log(`Respuesta de guardar subruta ${sr.nombre_sub_rutas}:`, res.data);
       }
       toast.success('Subrutas guardadas');
       await fetchSubrutas(selectedRoute.id_rutas);
-    } catch { toast.error('Error al guardar subrutas'); }
+    } catch (error) { 
+      console.error('Error al guardar subrutas en el POST:', error?.response?.data || error);
+      toast.error('Error al guardar subrutas'); 
+    }
     finally { setSaving(p => ({ ...p, subrutas: false })); }
+  };
+
+  const handleSaveTiempos = async (tiemposMapped) => {
+    if (!selectedRoute) return;
+    setSaving(p => ({ ...p, tiempos: true }));
+    try {
+      const res = await api.post('/rutas/actualizarTiemposRuta', {
+        id_rutas: selectedRoute.id_rutas,
+        tiempos_paradas: tiemposMapped
+      });
+      if (res.data?.success) {
+        toast.success('Tiempos de paradas actualizados');
+        setSelectedRoute(prev => ({ ...prev, tiempos_paradas_rutas: JSON.stringify(tiemposMapped) }));
+        setShowTiemposModal(false);
+      } else {
+        toast.error('Error: ' + res.data?.error);
+      }
+    } catch {
+      toast.error('Error al guardar tiempos de paradas');
+    } finally {
+      setSaving(p => ({ ...p, tiempos: false }));
+    }
   };
 
   const handleItinerarioChange = (i, f, v) => setItinerarios(prev => { const u = [...prev]; u[i] = { ...u[i], [f]: v }; return u; });
@@ -402,6 +481,9 @@ export const ConfigRutasPage = () => {
                 {selectedRoute && <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">{subrutas.length}</span>}
               </div>
               <div className="flex gap-1.5">
+                <button onClick={() => setShowTiemposModal(true)} disabled={!selectedRoute} className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold disabled:opacity-40 transition-all flex items-center gap-1">
+                  <i className="fas fa-clock" />Tiempos Paradas
+                </button>
                 <button onClick={handleNewSubruta} disabled={!selectedRoute} className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold disabled:opacity-40 transition-all flex items-center gap-1">
                   <i className="fas fa-plus" />Agregar Sub Ruta
                 </button>
@@ -816,6 +898,19 @@ export const ConfigRutasPage = () => {
         nextOrden={subrutas.length + 1}
         saving={savingSubRuta}
       />
+
+      {/* MODAL: Tiempos de Paradas */}
+      <TiemposParadasModal
+        open={showTiemposModal}
+        onClose={() => setShowTiemposModal(false)}
+        route={selectedRoute}
+        sucursales={sucursales}
+        subrutas={subrutas}
+        catalogoCantones={catalogoCantones}
+        onSave={handleSaveTiempos}
+        saving={saving.tiempos}
+      />
     </div>
   );
 };
+

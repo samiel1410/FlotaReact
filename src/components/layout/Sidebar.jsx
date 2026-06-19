@@ -68,6 +68,7 @@ const MENU = [
       { to: '/creacion-viajes', icon: 'fas fa-plus-square', label: 'Creación Viajes', permission: 'viajes.crear_viaje' },
       { to: '/planificacion-viajes', icon: 'fas fa-calendar-alt', label: 'Planificación', permission: 'viajes.crear_viaje' },
       { to: '/despacho-viajes', icon: 'fas fa-shipping-fast', label: 'Despacho Viajes', permission: 'viajes.despacho_viaje' },
+      { to: '/cierre-viajes', icon: 'fas fa-file-invoice', label: 'Cierre Viajes', permission: 'viajes.listado_viajes' },
     ]
   },
   {

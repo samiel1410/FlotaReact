@@ -63,6 +63,7 @@ const CuotaAdminPage = lazy(() => import('./pages/CuotaAdmin/CuotaAdminPage').th
 const RankingVentasPage = lazy(() => import('./pages/RankingVentas/RankingVentasPage').then(m => ({ default: m.RankingVentasPage })));
 const CierreCobrosPage = lazy(() => import('./pages/CierreCobros/CierreCobrosPage').then(m => ({ default: m.CierreCobrosPage })));
 const FacturasPage = lazy(() => import('./pages/Facturas/FacturasPage').then(m => ({ default: m.FacturasPage })));
+const CierreViajesPage = lazy(() => import('./pages/ReportesBoleteria/CierreViajesPage').then(m => ({ default: m.CierreViajesPage })));
 
 // Componente Wrapper para rutas protegidas
 const ProtectedRoute = ({ children }) => {
@@ -133,6 +134,7 @@ function App() {
           <Route path="despacho-viajes" element={<DespachoViajesPage />} />
           <Route path="viajes" element={<ListaViajes />} />
           <Route path="planificacion-viajes" element={<PlanificacionViajesPage />} />
+          <Route path="cierre-viajes" element={<CierreViajesPage />} />
 
           {/* Administración (Páginas Dinámicas vía pagesConfig) — key fuerza remount al navegar */}
           <Route path="buses" element={<BusesPage />} />

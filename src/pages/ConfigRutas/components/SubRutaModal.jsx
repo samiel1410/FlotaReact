@@ -11,7 +11,6 @@ export const SubRutaModal = ({ open, onClose, onSave, subruta, catalogoCantones,
       id_fkorigen_sub_rutas: '',
       id_fkdestino_sub_rutas: '',
       valor_sub_rutas: '0',
-      minutos_sub_rutas: '0',
       orden_sub_rutas: nextOrden,
       tipo_servicio: '',
       estado_sub_rutas: '1',
@@ -29,7 +28,6 @@ export const SubRutaModal = ({ open, onClose, onSave, subruta, catalogoCantones,
           id_fkorigen_sub_rutas: subruta.id_fkorigen_sub_rutas || '',
           id_fkdestino_sub_rutas: subruta.id_fkdestino_sub_rutas || '',
           valor_sub_rutas: subruta.valor_sub_rutas || '0',
-          minutos_sub_rutas: subruta.minutos_sub_rutas || '0',
           orden_sub_rutas: subruta.orden_sub_rutas || nextOrden,
           tipo_servicio: subruta.tipo_servicio || '',
           estado_sub_rutas: (subruta.estado_sub_rutas || '1').toString(),
@@ -40,7 +38,6 @@ export const SubRutaModal = ({ open, onClose, onSave, subruta, catalogoCantones,
           id_fkorigen_sub_rutas: '',
           id_fkdestino_sub_rutas: '',
           valor_sub_rutas: '0',
-          minutos_sub_rutas: '0',
           orden_sub_rutas: nextOrden,
           tipo_servicio: '',
           estado_sub_rutas: '1',
@@ -56,14 +53,18 @@ export const SubRutaModal = ({ open, onClose, onSave, subruta, catalogoCantones,
   };
 
   const onSubmit = (data) => {
+    console.log('✅ Formulario de SubRuta enviado correctamente. Datos:', data);
     const nombreAutomatico = data.nombre_sub_rutas || (getCantonNombre(data.id_fkorigen_sub_rutas) + ' - ' + getCantonNombre(data.id_fkdestino_sub_rutas));
     onSave({
       ...data,
       nombre_sub_rutas: nombreAutomatico,
       valor_sub_rutas: parseFloat(data.valor_sub_rutas) || 0,
-      minutos_sub_rutas: parseInt(data.minutos_sub_rutas) || 0,
       orden_sub_rutas: parseInt(data.orden_sub_rutas) || nextOrden,
     });
+  };
+
+  const onError = (errors) => {
+    console.log('❌ Error de validación en el formulario:', errors);
   };
 
   if (!open) return null;
@@ -78,7 +79,7 @@ export const SubRutaModal = ({ open, onClose, onSave, subruta, catalogoCantones,
           </h2>
           <button onClick={onClose} className="text-indigo-200 hover:text-white transition-colors"><i className="fas fa-times" /></button>
         </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit(onSubmit, onError)} className="p-6 space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={fl}>Origen</label>
@@ -125,10 +126,6 @@ export const SubRutaModal = ({ open, onClose, onSave, subruta, catalogoCantones,
             <div>
               <label className={fl}>Valor Tarifa ($)</label>
               <input type="number" step="0.01" {...register('valor_sub_rutas')} className={fw} min="0" />
-            </div>
-            <div>
-              <label className={fl}>Minutos de Viaje</label>
-              <input type="number" {...register('minutos_sub_rutas')} className={fw} min="0" />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">

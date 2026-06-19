@@ -148,23 +148,29 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Busero Principal</label>
-          <select {...register('id_fkpersonal_buses')} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50">
-            <option value="">Sin asignar</option>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+            Conductor <span className="text-rose-500">*</span>
+          </label>
+          <select {...register('id_fkpersonal_buses', { required: 'Seleccione un conductor' })} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50">
+            <option value="">-- Seleccione conductor --</option>
             {combos.buseros.map(b => (
               <option key={b.id_personal} value={b.id_personal}>{b.per_cedula_personal} - {b.per_nombres_persona}</option>
             ))}
           </select>
+          {errors.id_fkpersonal_buses && <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.id_fkpersonal_buses.message}</span>}
         </div>
 
         <div>
-          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Auxiliar</label>
-          <select {...register('id_fkauxiliar_buses')} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50">
-            <option value="">Sin asignar</option>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+            Auxiliar <span className="text-rose-500">*</span>
+          </label>
+          <select {...register('id_fkauxiliar_buses', { required: 'Seleccione un auxiliar' })} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50">
+            <option value="">-- Seleccione auxiliar --</option>
             {combos.auxiliares.map(a => (
               <option key={a.id_personal} value={a.id_personal}>{a.per_cedula_personal} - {a.per_nombres_persona}</option>
             ))}
           </select>
+          {errors.id_fkauxiliar_buses && <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.id_fkauxiliar_buses.message}</span>}
         </div>
       </div>
 
