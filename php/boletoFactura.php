@@ -11,7 +11,18 @@ function formatearFechaEspanol($fecha)
     $fechaObj = DateTime::createFromFormat('Y-m-d', $fecha);
 
     if (!$fechaObj) {
-        return "Fecha inválida";
+        $fechaObj = DateTime::createFromFormat('d/m/Y', $fecha);
+    }
+    if (!$fechaObj) {
+        try {
+            $fechaObj = new DateTime($fecha);
+        } catch (Exception $e) {
+            $fechaObj = false;
+        }
+    }
+
+    if (!$fechaObj) {
+        return $fecha; // Fallback a retornar la cadena original
     }
 
     $dias = [
@@ -44,7 +55,7 @@ function formatearFechaEspanol($fecha)
     $diaNumero = $fechaObj->format('d');
     $anio = $fechaObj->format('Y');
 
-    return ucfirst($nombreDia) . ', ' . $diaNumero . ' de ' . $nombreMes;
+    return ucfirst($nombreDia) . ', ' . $diaNumero . ' de ' . $nombreMes . ' ' . $anio;
 }
 
 function obtener_datos_factura($id_boleto, $conn)

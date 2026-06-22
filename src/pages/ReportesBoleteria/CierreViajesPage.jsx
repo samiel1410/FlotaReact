@@ -26,7 +26,7 @@ export const CierreViajesPage = () => {
   useEffect(() => {
     api.get('/sucursal/sucursalListar').then(r => {
       if (r.data?.success || Array.isArray(r.data?.data)) setSucursales(r.data.data || []);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const getParams = () => ({
@@ -108,7 +108,7 @@ export const CierreViajesPage = () => {
       if (result?.data && Array.isArray(result.data)) {
         // Generar CSV desde los datos planos
         const headers = ['Agencia', 'Oficinista', '# Viaje', 'Fecha', 'Hora', 'Disco', 'Placa', 'Chofer', 'Ruta', 'Subtotal', 'Retiene', 'Entrega'];
-        const csvContent = '﻿' + [
+        const csvContent = +[
           headers.join(','),
           ...result.data.map(row => [
             `"${row.agencia || ''}"`,
