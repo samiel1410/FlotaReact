@@ -18,9 +18,20 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, precioUnitar
     const nuevos = pasajeros.map(p => {
       if (p.asiento === asiento) {
         const updated = { ...p, [campo]: valor };
-        // Si cambia tarifa, recalcular valor
+        
+        // Si cambia destino, usar el valor del nuevo destino
+        if (campo === 'id_destino') {
+          const destino = destinosViaje?.find(d => String(d.id_sub_rutas) === String(valor));
+          const nuevoPrecioBase = destino ? parseFloat(destino.valor_sub_rutas || 0) : (parseFloat(p.valor || 0) + parseFloat(p.descuento || 0));
+          const pActualizado = recalcularValor(updated, nuevoPrecioBase);
+          recalcularTotal([...pasajeros.map(pp => pp.asiento === asiento ? pActualizado : pp)]);
+          return pActualizado;
+        }
+
+        // Si cambia tarifa, recalcular valor con el precio base actual
         if (campo === 'tarifa') {
-          const pActualizado = recalcularValor(updated, precioUnitario);
+          const precioBase = parseFloat(p.valor || 0) + parseFloat(p.descuento || 0);
+          const pActualizado = recalcularValor(updated, precioBase);
           // Propagar cambio de total
           recalcularTotal([...pasajeros.map(pp => pp.asiento === asiento ? pActualizado : pp)]);
           return pActualizado;
@@ -150,22 +161,7 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, precioUnitar
     }
   }, [pasajeros]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Recalcular tarifas cuando cambia precioUnitario
-  useEffect(() => {
-    if (precioUnitario > 0 && pasajeros.length > 0) {
-      const necesitaRecalculo = pasajeros.some(p => {
-        const tarifa = p.tarifa || 'Normal';
-        if (tarifa === 'Normal') return Math.abs(parseFloat(p.valor || 0) - precioUnitario) > 0.01;
-        if (tarifa.includes('50%')) return Math.abs(parseFloat(p.valor || 0) - precioUnitario / 2) > 0.01;
-        return false;
-      });
-      if (necesitaRecalculo) {
-        const recalculados = pasajeros.map(p => recalcularValor(p, precioUnitario));
-        onChange(recalculados);
-        recalcularTotal(recalculados);
-      }
-    }
-  }, [precioUnitario]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   return (
     <div className="table-responsive" style={{ width: '100%' }}>

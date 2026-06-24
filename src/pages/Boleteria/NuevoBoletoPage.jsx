@@ -743,11 +743,13 @@ export const NuevoBoletoPage = () => {
         ? totalVenta / formData.asientosSeleccionados.length
         : 0;
 
-      const detalles = formData.pasajeros.map(p => ({
-        total_boleto_detalle: parseFloat(p.valor || precioPorAsiento),
-        asiento_boleto_detalle: String(p.asiento),
-        precio_boleto_detalle: parseFloat(p.valor || precioPorAsiento),
-        descuento_boleto_detalle: parseFloat(p.descuento || 0),
+      const detalles = formData.pasajeros.map(p => {
+        const valorFinal = p.valor !== undefined && p.valor !== null && p.valor !== '' ? parseFloat(p.valor) : precioPorAsiento;
+        return {
+          total_boleto_detalle: valorFinal,
+          asiento_boleto_detalle: String(p.asiento),
+          precio_boleto_detalle: valorFinal,
+          descuento_boleto_detalle: parseFloat(p.descuento || 0),
         iva_boleto_detalle: 0,
         nombre_cliente_boleto_detalle: p.nombres || formData.nombres,
         identificacion_boleto_detalle: p.cedula || formData.identificacion,
@@ -756,7 +758,8 @@ export const NuevoBoletoPage = () => {
         // ExtJS: incluye_alimento_boleto_detalle
         incluye_alimento_boleto_detalle: alimentoInfo?.incluye_alimentos ? 1 : 0,
         precio_alimento_boleto_detalle: alimentoInfo?.incluye_alimentos ? parseFloat(alimentoInfo.precio_alimentos || 0) : 0,
-      }));
+        };
+      });
 
       // ExtJS: form.getValues() envía todos los campos, lo mismo hacemos aquí
       const body = {

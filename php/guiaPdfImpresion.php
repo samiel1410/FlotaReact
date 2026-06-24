@@ -347,8 +347,8 @@ configuracion";
   </span>
 
 
-  <br>UBICACIÓN:' . $destino_guia . ' <br>CI:' . $cedula_cliente_receptor . ' <br>RECIBE:
-  ' . $nombre_cliente_receptor . '<br>TELÉFONO: ' . $telefono_cliente_receptor . '' . $contenido_detalle . '
+  <br>UBICACIÓN:' . $destino_guia . ' <br>CI:' . $cedula_cliente_receptor . ' <br>RECIBE:'
+  . $nombre_cliente_receptor . '<br>TELÉFONO: ' . $telefono_cliente_receptor . '' . $contenido_detalle . '
 
   <div class="linea"></div>
   <span class="center">
@@ -412,9 +412,9 @@ configuracion";
 
       <strong>ESTADO:' . $estado_factura . '</strong>
       <span style="font-size:9px">
-        <br>FORMAS DE PAGO:' . $detalles_forma_pago . '<br>POR COBRAR: $' . number_format((float) $total_cobrado, 2) . '<br>FECHA
-        / HORA DE EMISIÓN:' . $fecha_factura . '<br>USUARIO: ' . $cedula_cliente_remitente . '
-        <br>CONTRASEÑA:' . $cedula_cliente_remitente . '<br>IMPRESIÓN: ' . $fecha_actual
+        <br>FORMAS DE PAGO:' . $detalles_forma_pago . '<br>POR COBRAR: $' . number_format((float) $total_cobrado, 2) . '<br>FECHA'
+        . ' / HORA DE EMISIÓN:' . $fecha_factura . '<br>USUARIO: ' . $cedula_cliente_remitente . '
+        <br>CONTRASEÑA:' . $cedula_cliente_remitente . '<br>IMPRESIÓN: ' . $fecha_actual . '
       </span>
       <br>
       <p class="center">
