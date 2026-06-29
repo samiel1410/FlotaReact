@@ -1076,11 +1076,14 @@ export const NuevoBoletoPage = () => {
           </button>
           <button
             onClick={() => setShowListadoPasajeros(true)}
+            disabled={!formData.idViaje}
             style={{
-              flex: 1, background: '#0a365d', color: 'white', fontWeight: 'bold',
-              border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 10
+              flex: 1, background: !formData.idViaje ? '#94a3b8' : '#0a365d', color: 'white', fontWeight: 'bold',
+              border: 'none', borderRadius: 4, padding: '4px 8px', cursor: !formData.idViaje ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 10,
+              opacity: !formData.idViaje ? 0.7 : 1
             }}
+            title={!formData.idViaje ? 'Seleccione un viaje primero' : ''}
           >
             <i className="fas fa-list"></i> Listado Pasajeros
           </button>

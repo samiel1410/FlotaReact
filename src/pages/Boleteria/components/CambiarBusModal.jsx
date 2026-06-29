@@ -57,7 +57,9 @@ export const CambiarBusModal = ({ isOpen, onClose, viajeId, currentBusId, curren
     if (!selectedBus || selectedBus === '') return;
     const buscarPersonalDelBus = async () => {
       try {
-        const res = await api.get('/personal/buscarPorBus', { params: { id_bus: selectedBus } });
+        const busObj = buses.find(b => String(b.id_buses || b.id) === String(selectedBus));
+        const paramValue = busObj ? (busObj.disco_buses || busObj.codigo_buses || selectedBus) : selectedBus;
+        const res = await api.get('/personal/buscarPorBus', { params: { id_bus: paramValue } });
         if (res.data?.success && res.data?.data?.length > 0) {
           const data = res.data.data[0];
           if (data.id_fkpersonal_buses) {
