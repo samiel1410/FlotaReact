@@ -6,6 +6,7 @@ import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 import { getSistemaModo, setSistemaModoCache } from '../../services/sistema.service';
 import { WhatsAppTestForm } from './components/WhatsAppTestForm';
+import { CONFIG } from '../../config/env';
 
 const inputClass = "w-full pl-3 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all";
 const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2";
@@ -20,7 +21,9 @@ export const ConfiguracionPage = () => {
   const [savingModo, setSavingModo] = useState(false);
   const [logoPreview, setLogoPreview] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
+  const [firmaFile, setFirmaFile] = useState(null);
   const fileInputRef = useRef(null);
+  const firmaInputRef = useRef(null);
 
   const { register, handleSubmit } = useForm({
     values: configData,
@@ -160,6 +163,55 @@ export const ConfiguracionPage = () => {
 
   const handleSave = async (data) => {
     try {
+      let finalFirmaPath = null;
+      let finalPassword = data.password_p12;
+
+      // 1. Upload Firma if selected
+      if (firmaFile) {
+        const formData = new FormData();
+        formData.append('firma', firmaFile);
+        formData.append('ruc_empresa', data.ruc_empresa || 'DEFAULT_RUC');
+
+        try {
+          const resFirma = await fetch(CONFIG.API_FIRMA + '/subir-firma', {
+            method: 'POST',
+            body: formData
+          });
+          const firmaResult = await resFirma.json();
+          if (firmaResult.success) {
+            finalFirmaPath = firmaResult.path;
+          } else {
+            toast.error('Error al subir firma: ' + (firmaResult.message || firmaResult.error || ''));
+            return;
+          }
+        } catch (e) {
+          console.error(e);
+          toast.error('Error al conectar con el servicio de firmas');
+          return;
+        }
+      }
+
+      // 2. Encrypt password if provided
+      if (finalPassword && finalPassword.trim() !== '') {
+        try {
+          // fetch direct to avoid api interceptor messing with content-type for non-backend url
+          const resClave = await fetch(CONFIG.API_FIRMA + '/encrypt-clave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clave: finalPassword })
+          });
+          const claveResult = await resClave.json();
+          if (claveResult && claveResult.clave_encriptada) {
+            finalPassword = claveResult.clave_encriptada;
+          }
+        } catch (e) {
+          console.error('Error encrypting password', e);
+        }
+      } else {
+        delete data.password_p12;
+        finalPassword = undefined;
+      }
+
       const payload = {
         ...data,
         maneja_leyenda: data.maneja_leyenda ? 1 : 0,
@@ -170,6 +222,10 @@ export const ConfiguracionPage = () => {
         cobrar_iva_guia: data.cobrar_iva_guia ? 1 : 0,
         dir_matriz_empresa: data.dir_matriz_empresa || data.direccion_empresa,
       };
+
+      if (finalFirmaPath) payload.firma_empresa = finalFirmaPath;
+      if (finalPassword !== undefined) payload.password_p12 = finalPassword;
+
       const response = await api.post('/configuracion/Actualizarconfiguracion', payload);
       if (response.data && response.data.success) {
         // Si hay un nuevo logo, subirlo al endpoint de empresa
@@ -441,8 +497,25 @@ export const ConfiguracionPage = () => {
                     </div>
                     <div>
                       <label className={labelClass}>Password P12</label>
-                      <input type="password" {...register('password_p12')} className={inputClass} placeholder="Certificado" />
+                      <input type="password" {...register('password_p12')} className={inputClass} placeholder="Dejar en blanco si no cambia" />
                     </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Firma (.p12 / .pfx)</label>
+                    <input
+                      ref={firmaInputRef}
+                      type="file"
+                      accept=".p12,.pfx"
+                      className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) setFirmaFile(file);
+                        else setFirmaFile(null);
+                      }}
+                    />
+                    {configData.password_p12 !== undefined && (
+                      <p className="text-xs text-slate-400 mt-1">Ya existe una firma cargada. Sube una nueva para reemplazarla.</p>
+                    )}
                   </div>
                   <div className="pt-4 border-t border-slate-100">
                     <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">

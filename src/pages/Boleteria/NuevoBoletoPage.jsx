@@ -151,8 +151,12 @@ export const NuevoBoletoPage = () => {
   useEffect(() => {
     const fetchInit = async () => {
       try {
+        const usuario = getSessionUser();
         const [viajesRes, configRes] = await Promise.all([
-          BoleteriaService.getViajesDisponibles({ fecha: hoyLocal() }),
+          BoleteriaService.getViajesDisponibles({ 
+            fecha: hoyLocal(),
+            id_sucursal: usuario.id_sucursal
+          }),
           api.get('/configuracion/configuracionSeleccion')
         ]);
         if (viajesRes.success && viajesRes.data) setViajesDisponibles(viajesRes.data);

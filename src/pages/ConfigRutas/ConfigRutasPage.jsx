@@ -146,11 +146,22 @@ export const ConfigRutasPage = () => {
       };
       if (editingRoute) payload.id_rutas = editingRoute.id_rutas;
       const res = await api.post('/rutas/insertarActualizarRutas', payload);
-      if (res.data?.success) {
+      
+      let resData = res.data;
+      if (typeof resData === 'string') {
+        try { resData = JSON.parse(resData); } catch(e) {}
+      }
+      if (Array.isArray(resData)) {
+        resData = resData[0];
+      }
+
+      if (resData?.success) {
         toast.success(editingRoute ? 'Ruta actualizada' : 'Ruta creada');
         setShowModal(false); setEditingRoute(null);
         await fetchRoutes();
-      } else toast.error(res.data?.mensaje || 'Error al guardar');
+      } else {
+        toast.error(resData?.mensaje || (typeof res.data === 'object' ? JSON.stringify(res.data) : 'Error al guardar'));
+      }
     } catch (err) {
       toast.error('Error: ' + (err.response?.data?.mensaje || err.message));
     } finally { setSaving(p => ({ ...p, route: false })); }
