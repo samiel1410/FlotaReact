@@ -7,12 +7,16 @@ import { PasajerosGrid } from './components/PasajerosGrid';
 import { BoletoTotalesPanel } from './components/BoletoTotalesPanel';
 import { NuevoClienteModal } from './components/NuevoClienteModal';
 import { CambiarBusModal } from './components/CambiarBusModal';
+import { ReagendarBoletoModal } from './components/ReagendarBoletoModal';
 import { CambiarAgenciaModal } from './components/CambiarAgenciaModal';
 import { ListadoPasajerosModal } from './components/ListadoPasajerosModal';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
+import Modal from '../../components/common/Modal';
+import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { BoleteriaService } from '../../services/boleteria.service';
+import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import { api, clienteApi } from '../../config/axios';
 import { CONFIG } from '../../config/env';
 import axios from 'axios';
@@ -79,22 +83,30 @@ export const NuevoBoletoPage = () => {
   const [showNuevoClienteModal, setShowNuevoClienteModal] = useState(false);
   const [clienteAEditar, setClienteAEditar] = useState(null);
   const [showCambiarBusModal, setShowCambiarBusModal] = useState(false);
+  const [showReagendarModal, setShowReagendarModal] = useState(false);
+  const [boletoAReagendar, setBoletoAReagendar] = useState(null);
   const [showCambiarAgenciaModal, setShowCambiarAgenciaModal] = useState(false);
   const [showListadoPasajeros, setShowListadoPasajeros] = useState(false);
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [refreshAsientosKey, setRefreshAsientosKey] = useState(0);
   const [asientosPendientes, setAsientosPendientes] = useState({}); // { [asiento]: 'nombreUsuario' }
   const [tiempoRestante, setTiempoRestante] = useState(null); // null = sin viaje, objeto = { horas, minutos, segundos, pasado, totalSeg }
+  const [localCajaId, setLocalCajaId] = useState(null);
+  const [cajaResolved, setCajaResolved] = useState(false);
+  const [cajaChecking, setCajaChecking] = useState(true);
+  const [showCajaModal, setShowCajaModal] = useState(false);
+  const cajaCheckRef = useRef(false);
+
   const getSessionUser = () => {
     let user = {};
     try {
       const userData = sessionStorage.getItem('user_data');
       if (userData) user = { ...user, ...JSON.parse(userData) };
-    } catch (e) {}
+    } catch (e) { }
     try {
       const usuario = sessionStorage.getItem('usuario');
       if (usuario) user = { ...user, ...JSON.parse(usuario) };
-    } catch (e) {}
+    } catch (e) { }
     return user;
   };
 
@@ -103,7 +115,7 @@ export const NuevoBoletoPage = () => {
     return u.nombre_sucursal || 'Desconocida';
   });
 
-  const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+  const hoyLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
   const [formData, setFormData] = useState({
     idCliente: '',
     fechaViaje: hoyLocal(),
@@ -147,13 +159,42 @@ export const NuevoBoletoPage = () => {
     return () => clearInterval(interval);
   }, [horaViaje]);
 
+  // 1. Validar caja activa antes de cargar datos
+  useEffect(() => {
+    if (cajaCheckRef.current) return;
+    cajaCheckRef.current = true;
+    const validar = async () => {
+      try {
+        const user = getSessionUser();
+        const res = await cajaBoleteriaService.validarCaja();
+        const cajaId = res.id_caja || res.data?.id_caja;
+
+        if (res.success && cajaId) {
+          setLocalCajaId(cajaId);
+          setCajaResolved(true);
+        } else {
+          setShowCajaModal(true);
+          setCajaResolved(false);
+        }
+      } catch (e) {
+        console.error('Error validando caja:', e);
+        setShowCajaModal(true);
+        setCajaResolved(false);
+      } finally {
+        setCajaChecking(false);
+      }
+    };
+    validar();
+  }, []);
+
   // Cargar destinos al montar + viajes de hoy (como ExtJS ViajesBoleto store)
   useEffect(() => {
+    if (!cajaResolved) return;
     const fetchInit = async () => {
       try {
         const usuario = getSessionUser();
         const [viajesRes, configRes] = await Promise.all([
-          BoleteriaService.getViajesDisponibles({ 
+          BoleteriaService.getViajesDisponibles({
             fecha: hoyLocal(),
             id_sucursal: usuario.id_sucursal
           }),
@@ -190,9 +231,9 @@ export const NuevoBoletoPage = () => {
           setMetodoImpresion(res.data.data.metodo_impresion || 'manual');
           setPrinterBoletos(res.data.data.printer_boletos || '');
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
-  }, []);
+  }, [cajaResolved]);
 
   // Mostrar detalle de boleto al hacer clic en asiento ocupado (ExtJS: mostrarDetalleBoleto)
   const handleAsientoOcupadoClick = (ocupado) => {
@@ -224,8 +265,8 @@ export const NuevoBoletoPage = () => {
       if (result.isConfirmed && ocupado.id_boleto) {
         imprimirBoleto(ocupado.id_boleto);
       } else if (result.isDenied && ocupado.id_boleto) {
-        setShowCambiarBusModal(true);
-        // TODO: pasar datos del boleto al modal de reubicación
+        setBoletoAReagendar(ocupado);
+        setShowReagendarModal(true);
       }
     });
   };
@@ -471,11 +512,11 @@ export const NuevoBoletoPage = () => {
     const fd = formDataRef.current;
     const vId = viajeId || fd.idViaje;
     const as = asientos || fd.asientosSeleccionados;
-    
+
     if (window.__socket && vId && as.length > 0) {
       const currentUser = getSessionUser();
       const nombreUsuario = currentUser?.nombre_usuario || 'Usuario';
-      
+
       as.forEach(asiento => {
         window.__socket.emit('asiento_seleccionando', {
           id_viaje: vId,
@@ -493,7 +534,7 @@ export const NuevoBoletoPage = () => {
       deseleccionarAsientosActuales();
     };
     window.addEventListener('beforeunload', handleUnload);
-    
+
     return () => {
       window.removeEventListener('beforeunload', handleUnload);
       // Deseleccionar al desmontar (cuando se cierra la ventana en SPA)
@@ -702,7 +743,7 @@ export const NuevoBoletoPage = () => {
 
     if (errores.length > 0) {
       toast.error(
-        <div style={{whiteSpace:'pre-wrap',textAlign:'left',fontSize:12,lineHeight:1.6}}>
+        <div style={{ whiteSpace: 'pre-wrap', textAlign: 'left', fontSize: 12, lineHeight: 1.6 }}>
           <strong>Complete los siguientes campos:</strong>
           {'\n' + errores.map(e => '\n• ' + e.replace('• ', '')).join('')}
         </div>,
@@ -715,7 +756,7 @@ export const NuevoBoletoPage = () => {
     const minutosBoleto = horaAMinutos(new Date().toTimeString().split(' ')[0]);
     const minutosViaje = horaAMinutos(horaViaje);
     const esHoy = !formData.fechaViaje || formData.fechaViaje === hoyLocal();
-    
+
     if (esHoy && minutosViaje > 0 && minutosBoleto > minutosViaje) {
       toast.error('Este viaje ya está en despacho, no se pueden vender boletos', { duration: 5000 });
       return;
@@ -754,14 +795,14 @@ export const NuevoBoletoPage = () => {
           asiento_boleto_detalle: String(p.asiento),
           precio_boleto_detalle: valorFinal,
           descuento_boleto_detalle: parseFloat(p.descuento || 0),
-        iva_boleto_detalle: 0,
-        nombre_cliente_boleto_detalle: p.nombres || formData.nombres,
-        identificacion_boleto_detalle: p.cedula || formData.identificacion,
-        tarifa_boleto_detalle: p.tarifa || 'Normal',
-        id_destino: parseInt(p.id_destino || subrutaSeleccionada) || null,
-        // ExtJS: incluye_alimento_boleto_detalle
-        incluye_alimento_boleto_detalle: alimentoInfo?.incluye_alimentos ? 1 : 0,
-        precio_alimento_boleto_detalle: alimentoInfo?.incluye_alimentos ? parseFloat(alimentoInfo.precio_alimentos || 0) : 0,
+          iva_boleto_detalle: 0,
+          nombre_cliente_boleto_detalle: p.nombres || formData.nombres,
+          identificacion_boleto_detalle: p.cedula || formData.identificacion,
+          tarifa_boleto_detalle: p.tarifa || 'Normal',
+          id_destino: parseInt(p.id_destino || subrutaSeleccionada) || null,
+          // ExtJS: incluye_alimento_boleto_detalle
+          incluye_alimento_boleto_detalle: alimentoInfo?.incluye_alimentos ? 1 : 0,
+          precio_alimento_boleto_detalle: alimentoInfo?.incluye_alimentos ? parseFloat(alimentoInfo.precio_alimentos || 0) : 0,
         };
       });
 
@@ -781,8 +822,8 @@ export const NuevoBoletoPage = () => {
         // Fecha/hora actual como hora_boleto (ExtJS: lo calculaba automáticamente)
         hora_boleto: new Date().toTimeString().split(' ')[0],
         detalles_boletos: JSON.stringify(detalles),
-        id_caja_global: getSessionUser().id_caja_global ||
-                        getSessionUser().id_caja_boleteria_global || 0
+        id_caja_global: localCajaId || getSessionUser().id_caja_global ||
+          getSessionUser().id_caja_boleteria_global || 0
       };
 
       const response = await BoleteriaService.venderBoleto(body);
@@ -801,9 +842,9 @@ export const NuevoBoletoPage = () => {
           const numerosUnicos = new Set();
           if (formData.celular) numerosUnicos.add(formData.celular.replace(/\D/g, ''));
           if (formData.pasajeros && formData.pasajeros.length > 0) {
-              formData.pasajeros.forEach(p => {
-                  if (p.celular) numerosUnicos.add(p.celular.replace(/\D/g, ''));
-              });
+            formData.pasajeros.forEach(p => {
+              if (p.celular) numerosUnicos.add(p.celular.replace(/\D/g, ''));
+            });
           }
 
           const numerosValidos = Array.from(numerosUnicos).filter(num => num.length >= 9);
@@ -816,10 +857,10 @@ export const NuevoBoletoPage = () => {
             try {
               const urlGenerador = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
               await axios.get(urlGenerador);
-              
+
               const fileUrl = window.location.origin + `/php/tmp/boleto_${idBoleto}.pdf`;
               const mensaje = `Estimado(a) ${formData.nombres || 'pasajero'},\n\nAdjuntamos su boleto de viaje para su próximo traslado. ¡Buen viaje!`;
-              
+
               for (const celular of numerosValidos) {
                 try {
                   await api.post('/whatsapp/enviar', {
@@ -827,12 +868,12 @@ export const NuevoBoletoPage = () => {
                     message: mensaje,
                     fileUrl: fileUrl
                   });
-                } catch(e) {
+                } catch (e) {
                   console.error('Error enviando WhatsApp boleto a', celular, e);
                 }
               }
               toast.success(`Boleto enviado por WhatsApp a ${numerosValidos.length} destinatario(s)`);
-            } catch(e) {
+            } catch (e) {
               console.error('Error preparando PDF boleto para WhatsApp', e);
             }
           }
@@ -855,7 +896,7 @@ export const NuevoBoletoPage = () => {
   const refrescarViajes = useCallback(async () => {
     try {
       const usuario = getSessionUser();
-      const viajesRes = await BoleteriaService.getViajesDisponibles({ 
+      const viajesRes = await BoleteriaService.getViajesDisponibles({
         fecha: formData.fechaViaje || hoyLocal(),
         id_sucursal: usuario.id_sucursal
       });
@@ -906,11 +947,11 @@ export const NuevoBoletoPage = () => {
   // Abrir impresión del boleto (ExtJS: onimpresionBoleto)
   const imprimirBoleto = async (id_boleto) => {
     const printUrl = `/php/tmp/boleto_${id_boleto}.pdf`;
-    
+
     // Generar PDF asegurando el guardado en disco
     try {
       await axios.get(`/php/boletoFactura.php?id_boleto=${id_boleto}`);
-    } catch(e) {}
+    } catch (e) { }
 
     if (metodoImpresion === 'directa') {
       // Directa: QZ Tray raw print
@@ -970,10 +1011,10 @@ export const NuevoBoletoPage = () => {
           units: 'mm',
           margins: { top: 0, bottom: 0, left: 8, right: 2 }
         });
-        
+
         // Determinar URL completa del PDF basado en el entorno
         const fullPdfUrl = window.location.origin + printUrl;
-        
+
         const data = [{
           type: 'pixel',
           format: 'pdf',
@@ -1045,12 +1086,60 @@ export const NuevoBoletoPage = () => {
     sessionStorage.setItem('usuario', JSON.stringify(usuario));
     setCurrentAgencia(record.nombre_sucursal || usuario.nombre_sucursal || 'Desconocida');
     toast.success(`Agencia cambiada a: ${record.nombre_sucursal || record.id_sucursal}`);
-    
+
     // Limpiar formulario y resetear datos del viaje anterior
     limpiarFormulario();
     // Refrescar viajes con nueva agencia (como ExtJS)
     buscarViajes();
   };
+
+  if (cajaChecking) {
+    return (
+      <div className="loading-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div className="loading-spinner" />
+        <p style={{ marginLeft: 10 }}>Verificando caja...</p>
+      </div>
+    );
+  }
+
+  const handleCerrarModalCaja = () => {
+    setShowCajaModal(false);
+    window.location.href = '/boleteria';
+  };
+
+  const handleCrearCaja = async (data) => {
+    try {
+      const usuario = getSessionUser();
+      const res = await cajaBoleteriaService.insertarAperturaCaja({
+        ...data,
+        id_sucursal: usuario.id_sucursal,
+        id_usuario: usuario.id_usuario
+      });
+      if (res.success) {
+        setLocalCajaId(res.data?.id_caja || res.id_caja);
+        setShowCajaModal(false);
+        setCajaResolved(true);
+        toast.success('Caja aperturada correctamente');
+        // Refrescar viajes con nueva agencia (como ExtJS)
+        buscarViajes();
+      } else {
+        toast.error('Error al aperturar caja: ' + res.message);
+      }
+    } catch (err) {
+      toast.error('Error al aperturar caja: ' + (err.message || 'Desconocido'));
+    }
+  };
+
+  if (!cajaResolved) {
+    return (
+      <div className="nuevo-boleto-container" style={{ backgroundColor: '#f5f5f5', height: '100vh', display: 'flex' }}>
+        <Modal isOpen={showCajaModal} onClose={handleCerrarModalCaja} title="Aperturar Caja">
+          <AperturaCajaForm onSubmit={handleCrearCaja} onCancel={handleCerrarModalCaja} />
+        </Modal>
+      </div>
+    );
+  }
+
 
   return (
     <div className="nuevo-boleto-container" style={{ backgroundColor: '#f5f5f5' }}>
@@ -1122,12 +1211,12 @@ export const NuevoBoletoPage = () => {
                   fontSize: 13, fontWeight: 900, fontFamily: 'monospace',
                   color: tiempoRestante.pasado ? '#dc2626' : tiempoRestante.totalSeg < 600 ? '#d97706' : '#16a34a',
                 }}>
-                  {tiempoRestante.pasado ? '-' : ''}{String(tiempoRestante.horas).padStart(2,'0')}:{String(tiempoRestante.minutos).padStart(2,'0')}:{String(tiempoRestante.segundos).padStart(2,'0')}
+                  {tiempoRestante.pasado ? '-' : ''}{String(tiempoRestante.horas).padStart(2, '0')}:{String(tiempoRestante.minutos).padStart(2, '0')}:{String(tiempoRestante.segundos).padStart(2, '0')}
                 </div>
               </div>
               <div style={{ borderLeft: '1px solid #cbd5e1', paddingLeft: 6, lineHeight: 1.2 }}>
                 <div style={{ fontSize: 7, color: '#94a3b8', fontWeight: 600 }}>SALIDA</div>
-                <div style={{ fontSize: 12, fontWeight: 800, color: '#334155', fontFamily: 'monospace' }}>{horaViaje?.substring(0,5)}</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#334155', fontFamily: 'monospace' }}>{horaViaje?.substring(0, 5)}</div>
               </div>
             </div>
           )}
@@ -1200,18 +1289,28 @@ export const NuevoBoletoPage = () => {
                   setDiscoBus(v.bus_disco || v.bus_codigo || '');
                   setCapacidadBus(v.capacidad_buses || 40);
                   setHoraViaje(v.hora || v.hora_salida || '');
-                  setIdBus(v.id_buses || v.bus_id || '');
+                  setIdBus(v.id_fkbus_viajes || v.id_buses || v.bus_id || '');
                 }}
                 style={{
                   flex: '0 0 auto', padding: '4px 10px', border: 'none', borderRadius: 3,
                   cursor: 'pointer', fontWeight: 'bold', fontSize: 10, whiteSpace: 'nowrap',
-                  background: formData.idViaje === String(v.id_viajes) ? '#0a365d' : 'white',
-                  color: formData.idViaje === String(v.id_viajes) ? 'white' : '#475569',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.08)'
+                  background: formData.idViaje === String(v.id_viajes)
+                    ? (v.es_viaje_extra === 1 ? '#d97706' : '#0a365d')
+                    : (v.es_viaje_extra === 1 ? '#fef3c7' : 'white'),
+                  color: formData.idViaje === String(v.id_viajes)
+                    ? 'white'
+                    : (v.es_viaje_extra === 1 ? '#92400e' : '#475569'),
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
+                  borderLeft: v.es_viaje_extra === 1 ? '3px solid #f59e0b' : '3px solid transparent'
                 }}
               >
+                {v.es_viaje_extra === 1 && (
+                  <span title="Viaje Extra" style={{ marginRight: 3 }}>
+                    <i className="fas fa-star" style={{ fontSize: 7, color: formData.idViaje === String(v.id_viajes) ? '#fde68a' : '#f59e0b' }}></i>
+                  </span>
+                )}
                 <i className="fas fa-clock" style={{ marginRight: 3, fontSize: 9 }}></i>
-                {v.hora_origen_salida ? v.hora_origen_salida.substring(0,5) : v.hora || v.hora_salida}
+                {v.hora_origen_salida ? v.hora_origen_salida.substring(0, 5) : v.hora || v.hora_salida}
                 <span style={{ marginLeft: 4, opacity: 0.7 }}>
                   {v.nombre_rutas || v.nombre_aux}
                 </span>
@@ -1265,7 +1364,7 @@ export const NuevoBoletoPage = () => {
                       if (v) {
                         setDiscoBus(v.bus_disco || v.bus_codigo || '');
                         setHoraViaje(v.hora_origen_salida || v.hora_salida_rutas || v.hora || v.hora_salida || '');
-                        setIdBus(v.id_buses || v.bus_id || '');
+                        setIdBus(v.id_fkbus_viajes || v.id_buses || v.bus_id || '');
                       }
                     }}
                     style={{ flex: 1, padding: '3px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 10 }}
@@ -1273,7 +1372,7 @@ export const NuevoBoletoPage = () => {
                     <option value="">Seleccione...</option>
                     {viajesDisponibles.map((v, idx) => (
                       <option key={v?.id_viajes ?? `viaje-opt-${idx}`} value={v.id_viajes}>
-                        {`${v.nombre_rutas || v.nombre_aux || `Viaje ${v.id_viajes}`} - ${v.hora_origen_salida ? v.hora_origen_salida.substring(0,5) : v.hora || v.hora_salida} - Bus ${v.bus_disco || v.bus_codigo}`}
+                        {`${v.nombre_rutas || v.nombre_aux || `Viaje ${v.id_viajes}`} - ${v.hora_origen_salida ? v.hora_origen_salida.substring(0, 5) : v.hora || v.hora_salida} - Bus ${v.bus_disco || v.bus_codigo}${v.es_viaje_extra === 1 ? ' ⭐ EXTRA' : ''}`}
                       </option>
                     ))}
                   </select>
@@ -1736,6 +1835,21 @@ export const NuevoBoletoPage = () => {
         currentChoferId={idChofer}
         onCambioExitoso={handleCambioBusExitoso}
       />
+      <ReagendarBoletoModal
+        isOpen={showReagendarModal}
+        onClose={() => { setShowReagendarModal(false); setBoletoAReagendar(null); }}
+        boletoOriginal={boletoAReagendar}
+        onSuccess={() => {
+          setRefreshAsientosKey(k => k + 1); // Refresh seats to show the old seat empty
+          if (boletoAReagendar?.asiento_boleto_detalle) {
+            setAsientosPendientes(prev => {
+              const next = { ...prev };
+              delete next[boletoAReagendar.asiento_boleto_detalle];
+              return next;
+            });
+          }
+        }}
+      />
       <CambiarAgenciaModal
         isOpen={showCambiarAgenciaModal}
         onClose={() => setShowCambiarAgenciaModal(false)}
@@ -1754,6 +1868,7 @@ export const NuevoBoletoPage = () => {
         title="Boleto - Vista previa"
         showPrintButton
       />
+
     </div>
   );
 };

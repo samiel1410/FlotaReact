@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { GuiaService } from '../../../services/guia.service';
+import Modal from '../../../components/common/Modal';
 
 /**
  * CompaniaPanel - Equivalente a "Datos de la Compañía" del ExtJS
@@ -9,9 +10,10 @@ import { GuiaService } from '../../../services/guia.service';
  * - Fieldset Datos Compañía (Nombre, RUC, Teléfono - solo lectura)
  * - Botón Buscar compañía
  */
-export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCompania, error }) => {
+export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCompania, error, destinos = [], onSeleccionarDestino }) => {
   const [rucBusqueda, setRucBusqueda] = useState('');
   const [buscando, setBuscando] = useState(false);
+  const [showModalCompanias, setShowModalCompanias] = useState(false);
   const compania = companiaProp || null;
 
   const inputClass = "w-full h-8 px-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700";
@@ -54,6 +56,8 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
     onSeleccionarCompania?.(null);
   };
 
+  const destinosConCompania = destinos.filter(d => d.idfk_compania_asociada_destino && d.nombre_compania_asociada);
+
   const sectionTitle = { fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '-0.01em' };
 
   return (
@@ -77,11 +81,19 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
             readOnly={!!compania} />
         </div>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'end' }}>
+          <button onClick={() => setShowModalCompanias(true)}
+            type="button"
+            className="h-8 px-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md text-xs font-bold shadow-sm"
+            title="Ver compañías asociadas">
+            <i className="fas fa-list"></i>
+          </button>
           <button onClick={handleBuscarCompania} disabled={buscando || !!compania}
+            type="button"
             className="h-8 px-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-300 text-white rounded-md text-xs font-bold shadow-sm">
             <i className={`fas ${buscando ? 'fa-spinner fa-spin' : 'fa-search'}`}></i>
           </button>
           <button onClick={handleClear}
+            type="button"
             className="h-8 px-2 bg-slate-200 hover:bg-slate-300 text-slate-600 rounded-md text-xs font-bold">
             <i className="fas fa-eraser"></i> Limpiar
           </button>
@@ -106,6 +118,34 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
 
       {/* Campo oculto para ID */}
       <input type="hidden" name="id_compania" value={compania?.id || compania?.id_compania || ''} />
+
+      <Modal open={showModalCompanias} onClose={() => setShowModalCompanias(false)} title="Compañías Asociadas por Destino" size="md">
+        <div className="p-4 max-h-[60vh] overflow-y-auto">
+          {destinosConCompania.length === 0 ? (
+            <div className="text-center text-slate-500 py-4 text-sm">No hay destinos con compañías asociadas</div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {destinosConCompania.map(d => (
+                <div key={d.id || d.id_destino} 
+                  onClick={() => {
+                    if (onSeleccionarDestino) {
+                      onSeleccionarDestino(String(d.id || d.id_destino), d.nombre || d.nombre_destino || '');
+                    }
+                    setShowModalCompanias(false);
+                  }}
+                  className="p-3 border border-slate-200 rounded-lg hover:bg-indigo-50 cursor-pointer transition-colors flex justify-between items-center"
+                >
+                  <div>
+                    <div className="text-xs font-bold text-slate-700">{d.nombre_compania_asociada}</div>
+                    <div className="text-[10px] text-slate-500">Destino: {d.nombre || d.nombre_destino}</div>
+                  </div>
+                  <i className="fas fa-chevron-right text-slate-300"></i>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };

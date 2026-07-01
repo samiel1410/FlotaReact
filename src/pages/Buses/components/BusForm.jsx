@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 export const BusForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
   const [loading, setLoading] = useState(false);
-  const [combos, setCombos] = useState({ buseros: [], auxiliares: [] });
+  const [combos, setCombos] = useState({ buseros: [], auxiliares: [], socios: [] });
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm({
     defaultValues: isEditing ? {
@@ -25,30 +25,35 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
       pisos_buses: 1,
       estado_buses: true,
       id_fkpersonal_buses: '',
-      id_fkauxiliar_buses: ''
+      id_fkauxiliar_buses: '',
+      id_fksocio_buses: ''
     }
   });
 
   useEffect(() => {
     const loadCombos = async () => {
       try {
-        const [buserosRes, auxiliaresRes] = await Promise.all([
+        const [buserosRes, auxiliaresRes, sociosRes] = await Promise.all([
           api.get('/personal/personalSelectCombo'),
-          api.get('/personal/auxiliarSelectCombo')
+          api.get('/personal/auxiliarSelectCombo'),
+          api.get('/personal/socioSelectCombo')
         ]);
         // Filtrar duplicados por id_personal en caso de que el backend envíe múltiples filas por la misma persona
         const uniqueBuseros = Array.from(new Map((buserosRes.data.data || []).map(item => [item.id_personal, item])).values());
         const uniqueAuxiliares = Array.from(new Map((auxiliaresRes.data.data || []).map(item => [item.id_personal, item])).values());
+        const uniqueSocios = Array.from(new Map((sociosRes.data.data || []).map(item => [item.id_personal, item])).values());
 
         setCombos({
           buseros: uniqueBuseros,
-          auxiliares: uniqueAuxiliares
+          auxiliares: uniqueAuxiliares,
+          socios: uniqueSocios
         });
 
         // Asegurar selección al editar
         if (isEditing) {
           if (initialData.id_fkpersonal_buses) setValue('id_fkpersonal_buses', initialData.id_fkpersonal_buses);
           if (initialData.id_fkauxiliar_buses) setValue('id_fkauxiliar_buses', initialData.id_fkauxiliar_buses);
+          if (initialData.id_fksocio_buses) setValue('id_fksocio_buses', initialData.id_fksocio_buses);
         }
       } catch (err) {
         console.error('Error cargando combos de buses:', err);
@@ -147,7 +152,7 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
           </label>
         </div>
 
-        <div className="md:col-span-2">
+        <div className="md:col-span-1">
           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
             Conductor <span className="text-rose-500">*</span>
           </label>
@@ -158,6 +163,19 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
             ))}
           </select>
           {errors.id_fkpersonal_buses && <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.id_fkpersonal_buses.message}</span>}
+        </div>
+
+        <div className="md:col-span-1">
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+            Socio <span className="text-rose-500">*</span>
+          </label>
+          <select {...register('id_fksocio_buses', { required: 'Seleccione un socio' })} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50">
+            <option value="">-- Seleccione socio --</option>
+            {combos.socios.map(s => (
+              <option key={s.id_personal} value={s.id_personal}>{s.per_cedula_personal} - {s.per_nombres_persona}</option>
+            ))}
+          </select>
+          {errors.id_fksocio_buses && <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.id_fksocio_buses.message}</span>}
         </div>
 
         <div>

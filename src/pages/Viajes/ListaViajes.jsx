@@ -5,6 +5,7 @@ import ViajesService from '../../services/viajes.service';
 import { DespachoViajeModal } from './components/DespachoViajeModal';
 import { ItinerarioViajeModal } from './components/ItinerarioViajeModal';
 import { ConfigurarAlimentosModal } from './components/ConfigurarAlimentosModal';
+import { useAuth } from '../../context/AuthContext';
 
 const inputCls = 'w-full h-9 px-3 text-xs font-semibold border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none bg-white';
 const labelCls = 'block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1';
@@ -18,6 +19,7 @@ const ESTADOS = [
 ];
 
 export const ListaViajes = () => {
+  const { user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
@@ -64,7 +66,7 @@ export const ListaViajes = () => {
   const fetchTrips = useCallback(async (pageNum = 1) => {
     setLoading(true);
     try {
-      const params = { ...filtros, page: pageNum, limit };
+      const params = { ...filtros, page: pageNum, limit, id_sucursal: user?.id_sucursal || user?.sucursal };
       Object.keys(params).forEach(k => { if (!params[k] || params[k] === '0') delete params[k]; });
       const response = await ViajesService.getTrips(params);
       if (response.success) {
@@ -78,7 +80,7 @@ export const ListaViajes = () => {
     } finally {
       setLoading(false);
     }
-  }, [filtros, limit, searchTrigger]);
+  }, [filtros, limit, searchTrigger, user]);
 
   useEffect(() => { fetchTrips(page); }, [page, searchTrigger]);
 
@@ -121,14 +123,81 @@ export const ListaViajes = () => {
     });
   };
 
-  const handleItinerario = (trip) => {
-    setMenuAbierto(null);
-    setModalItinerario(trip);
-  };
+
 
   const handleAlimentos = (trip) => {
     setMenuAbierto(null);
     setModalAlimentos(trip);
+  };
+
+  const handleReversarDespacho = async (trip) => {
+    setMenuAbierto(null);
+    const result = await Swal.fire({
+      title: '¿Reversar Despacho?',
+      text: 'El viaje volverá a estar "En Curso". Se eliminará el registro del despacho y los cobros relacionados volverán a estar pendientes. ¿Está seguro?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Sí, reversar',
+      cancelButtonText: 'Cancelar'
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await ViajesService.reversarDespacho(trip.id_viajes);
+        if (response.success) {
+          toast.success('Despacho reversado correctamente');
+          fetchTrips(page);
+        } else {
+          toast.error(response.message || 'Error al reversar el despacho');
+        }
+      } catch (error) {
+        toast.error('Error de red al intentar reversar el despacho');
+      }
+    }
+  };
+
+  const handleTiempoExtra = async (trip) => {
+    setMenuAbierto(null);
+    const result = await Swal.fire({
+      title: 'Habilitar Tiempo Extra',
+      html: `
+        <p style="font-size: 14px; color: #666; margin-bottom: 15px;">
+          Ingresa los minutos extras que deseas habilitar para permitir la venta de boletos en este viaje despachado:
+        </p>
+        <input type="number" id="swal-input-minutos" class="swal2-input" placeholder="Ej. 30" value="30" min="1" step="1">
+      `,
+      icon: 'info',
+      showCancelButton: true,
+      confirmButtonColor: '#3085d6',
+      cancelButtonColor: '#d33',
+      confirmButtonText: 'Habilitar',
+      cancelButtonText: 'Cancelar',
+      preConfirm: () => {
+        const input = document.getElementById('swal-input-minutos');
+        if (!input || !input.value || parseInt(input.value) <= 0) {
+          Swal.showValidationMessage('Debes ingresar un número válido de minutos mayor a 0');
+          return false;
+        }
+        return parseInt(input.value);
+      }
+    });
+
+    if (result.isConfirmed) {
+      const minutos = result.value;
+      try {
+        const response = await ViajesService.habilitarTiempoExtra(trip.id_viajes, minutos);
+        if (response.success) {
+          toast.success(`Tiempo extra habilitado correctamente. (${minutos} min)`);
+          fetchTrips(page);
+        } else {
+          toast.error(response.message || 'Error al habilitar tiempo extra');
+        }
+      } catch (error) {
+        toast.error('Error de red al intentar habilitar tiempo extra');
+      }
+    }
   };
 
   // ─── RENDER ESTADO ────────────────────────────────────────────────────
@@ -282,20 +351,21 @@ export const ListaViajes = () => {
                         e.stopPropagation();
                         setMenuAbierto(menuAbierto === t.id_viajes ? null : t.id_viajes);
                       }}
-                        className="h-7 w-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all">
+                        className="h-7 w-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-all relative">
                         <i className="fas fa-ellipsis-v"></i>
                       </button>
                       {menuAbierto === t.id_viajes && (
                         <>
                           <div className="fixed inset-0 z-10" onClick={() => setMenuAbierto(null)} />
-                          <div className="absolute right-0 top-full mt-1 z-20 w-48 bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden">
+                          <div className={`absolute right-10 ${idx >= trips.length - 2 && trips.length > 3 ? 'bottom-0 mb-1' : 'top-0 mt-1'} z-[9999] w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden`}>
                             {[
-                              { icon: 'fa-eye', label: 'Despachar Viaje', action: () => handleDespachar(t), color: 'text-emerald-600' },
-                              { icon: 'fa-file-pdf', label: 'PDF Despacho', action: () => handlePdfDespacho(t), color: 'text-rose-600' },
-                              { icon: 'fa-print', label: 'Imprimir Pasajeros', action: () => handleImprimirPasajeros(t), color: 'text-blue-600' },
-                              { icon: 'fa-route', label: 'Configurar Itinerario', action: () => handleItinerario(t), color: 'text-purple-600' },
-                              { icon: 'fa-utensils', label: 'Configurar Alimentos', action: () => handleAlimentos(t), color: 'text-orange-600' },
-                            ].map((item, i) => (
+                              { icon: 'fa-eye', label: 'Despachar Viaje', action: () => handleDespachar(t), color: 'text-emerald-600', show: t.estado_viajes == 1 },
+                              { icon: 'fa-undo', label: 'Reversar Despacho', action: () => handleReversarDespacho(t), color: 'text-rose-600', show: t.estado_viajes == 2 },
+                              { icon: 'fa-clock', label: 'Habilitar Tiempo Extra', action: () => handleTiempoExtra(t), color: 'text-blue-600', show: t.estado_viajes == 2 },
+                              { icon: 'fa-file-pdf', label: 'PDF Despacho', action: () => handlePdfDespacho(t), color: 'text-rose-600', show: t.estado_viajes == 2 },
+                              { icon: 'fa-print', label: 'Imprimir Pasajeros', action: () => handleImprimirPasajeros(t), color: 'text-blue-600', show: true },
+                              { icon: 'fa-utensils', label: 'Configurar Alimentos', action: () => handleAlimentos(t), color: 'text-orange-600', show: true },
+                            ].filter(item => item.show !== false).map((item, i) => (
                               <button key={i} onClick={item.action}
                                 className="w-full flex items-center gap-3 px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors text-left">
                                 <i className={`fas ${item.icon} ${item.color} w-4 text-center`}></i>

@@ -121,6 +121,7 @@ const MENU = [
     items: [
       { to: '/boleteria', icon: 'fas fa-list', label: 'Listado Boletos', permission: 'boletos.listado_boletos' },
       { to: '/boleteria/nuevo', icon: 'fas fa-plus-circle', label: 'Nuevo Boleto', permission: 'boletos.nuevo_boleto' },
+      { to: '/boleteria/reagendados', icon: 'fas fa-exchange-alt', label: 'Reagendamientos', permission: 'boletos.listado_boletos' },
       { to: '/facturacion', icon: 'fas fa-file-invoice-dollar', label: 'Facturación', permission: 'boletos.facturacion_boletos' },
       { to: '/caja-boleteria', icon: 'fas fa-cash-register', label: 'Caja Boletería', permission: 'boletos.caja_boleteria' },
       { to: '/reportes-boleteria', icon: 'fas fa-chart-bar', label: 'Reportes Boletería', permission: 'boletos.reportes_boleteria' },

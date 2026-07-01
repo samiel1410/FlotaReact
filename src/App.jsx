@@ -18,6 +18,7 @@ const GuiasNotaVentaPage = lazy(() => import('./pages/Guias/GuiasNotaVentaPage')
 const NuevaGuiaNotaVentaPage = lazy(() => import('./pages/Guias/NuevaGuiaNotaVentaPage').then(m => ({ default: m.NuevaGuiaNotaVentaPage })));
 const BoleteriaPage = lazy(() => import('./pages/Boleteria/BoleteriaPage').then(m => ({ default: m.BoleteriaPage })));
 const NuevoBoletoPage = lazy(() => import('./pages/Boleteria/NuevoBoletoPage').then(m => ({ default: m.NuevoBoletoPage })));
+const ReagendamientosPage = lazy(() => import('./pages/Boleteria/ReagendamientosPage').then(m => ({ default: m.ReagendamientosPage })));
 const RecaudadoPage = lazy(() => import('./pages/Recaudado/RecaudadoPage').then(m => ({ default: m.RecaudadoPage })));
 const AsientosPage = lazy(() => import('./pages/Asientos/AsientosPage').then(m => ({ default: m.AsientosPage })));
 const MonitoreoPage = lazy(() => import('./pages/Monitoreo/MonitoreoPage').then(m => ({ default: m.MonitoreoPage })));
@@ -124,6 +125,7 @@ function App() {
           <Route path="notas-venta" element={<GuiasNotaVentaPage />} />
 <Route path="guias/buscar-oficina" element={<BuscarGuiaOficinaPage />} />
           <Route path="boleteria" element={<BoleteriaPage />} />
+          <Route path="boleteria/reagendados" element={<ReagendamientosPage />} />
           <Route path="facturas" element={<FacturasPage />} />
           <Route path="recaudado" element={<RecaudadoPage />} />
           <Route path="asientos" element={<AsientosPage />} />

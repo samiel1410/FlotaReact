@@ -234,7 +234,7 @@ export const NuevaGuiaPage = () => {
         id: d.idfk_compania_asociada_destino,
         id_compania_asociada: d.idfk_compania_asociada_destino,
         nombre: d.nombre_compania_asociada || '',
-        ruc: '',
+        ruc: d.ruc_compania_asociada || d.ruc_compania || d.ruc || '',
         telefono: d.numero_contacto || '',
         correo: ''
       });
@@ -1077,6 +1077,8 @@ export const NuevaGuiaPage = () => {
             compania={compania}
             onSeleccionarCompania={handleSetCompania}
             error={fieldErrors.compania}
+            destinos={destinos}
+            onSeleccionarDestino={(id, txt) => handleSetDestino(id, txt)}
           />
         </div>
 

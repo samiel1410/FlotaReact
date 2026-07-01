@@ -233,7 +233,7 @@ export const NuevaGuiaNotaVentaPage = () => {
         id: d.idfk_compania_asociada_destino,
         id_compania_asociada: d.idfk_compania_asociada_destino,
         nombre: d.nombre_compania_asociada || '',
-        ruc: '',
+        ruc: d.ruc_compania_asociada || d.ruc_compania || d.ruc || '',
         telefono: d.numero_contacto || '',
         correo: ''
       });
@@ -429,7 +429,7 @@ export const NuevaGuiaNotaVentaPage = () => {
 
   const handleCerrarModalCaja = () => {
     setShowCajaModal(false);
-    navigate('/guias');
+    navigate('/notas-venta');
   };
 
   // ── Handler buscar "Otros" por identidad ──────────────
@@ -920,7 +920,7 @@ export const NuevaGuiaNotaVentaPage = () => {
       const confirmCancel = await Swal.fire({ title: '¿Cancelar?', text: '¿Desea cancelar la guía? Se perderán los cambios.', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, cancelar', cancelButtonText: 'No' });
       if (!confirmCancel.isConfirmed) return;
     }
-    navigate('/guias');
+    navigate('/notas-venta');
   };
 
   if (cajaChecking || loading) {
@@ -951,8 +951,8 @@ export const NuevaGuiaNotaVentaPage = () => {
               <i className="fas fa-plus-circle text-sm"></i>
             </div>
             <div>
-              <h1 className="text-sm font-extrabold text-slate-800 uppercase tracking-tight leading-none">{isEditing ? `Editar Guía N° ${idGuiaEdit}` : 'Nueva Guía'}</h1>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">{isEditing ? 'Modificación de Encomienda' : 'Registro de Encomienda'}</p>
+              <h1 className="text-sm font-extrabold text-slate-800 uppercase tracking-tight leading-none">{isEditing ? `Editar Nota Venta N° ${idGuiaEdit}` : 'Nueva Nota Venta'}</h1>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mt-0.5">{isEditing ? 'Modificación de Nota Venta' : 'Registro de Nota Venta'}</p>
             </div>
           </div>
         </div>
@@ -1074,6 +1074,8 @@ export const NuevaGuiaNotaVentaPage = () => {
             compania={compania}
             onSeleccionarCompania={handleSetCompania}
             error={fieldErrors.compania}
+            destinos={destinos}
+            onSeleccionarDestino={(id, txt) => handleSetDestino(id, txt)}
           />
         </div>
 

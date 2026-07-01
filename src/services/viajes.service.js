@@ -99,6 +99,24 @@ const ViajesService = {
     }
   },
 
+  reversarDespacho: async (id_viaje) => {
+    try {
+      const response = await api.post('/viajes/reversarDespacho', { id_viaje });
+      return response.data;
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Error al reversar despacho' };
+    }
+  },
+
+  habilitarTiempoExtra: async (id_viaje, minutos) => {
+    try {
+      const response = await api.post('/viajes/habilitarTiempoExtra', { id_viaje, minutos });
+      return response.data;
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Error al habilitar tiempo extra' };
+    }
+  },
+
   // ─── ITINERARIO ─────────────────────────────────────────────────────────
   getItinerario: async (id_viaje) => {
     try {

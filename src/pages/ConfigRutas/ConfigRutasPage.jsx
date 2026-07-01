@@ -873,7 +873,7 @@ export const ConfigRutasPage = () => {
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div><label className={fl}>Piso</label><input type="number" {...register('piso_rutas')} className={fw} /></div>
-                <div><label className={fl}>Andén</label><input type="number" {...register('andes_rutas')} className={fw} /></div>
+                <div><label className={fl}>Andén</label><input type="text" {...register('andes_rutas')} className={fw} /></div>
                 <div className="flex items-end pb-2">
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" {...register('estado_ruta')} className="sr-only peer" />
