@@ -75,7 +75,7 @@ export const CajaCobrosPage = () => {
     if (!caja || caja.estado_caja === 'CERRADA') { toast.error('Ya está cerrada'); return; }
     const { value: form, isDismissed } = await Swal.fire({
       title: `Cierre #${caja.numero_caja}`, width: 650,
-      html: `<div style="text-align:left"><div style="display:flex;gap:8px;flex-wrap:wrap">${denomHtml('ci')}</div><hr/><div style="flex:1"><label style="display:block;font-weight:bold;font-size:12px">Total Cierre ($)</label><input id="ci-total" class="swal2-input" type="text" readonly value="0.00" style="width:100%;padding:8px;font-size:14px;font-weight:bold;text-align:right;background:#f3f4f6"/></div><hr/><div style="display:flex;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><label style="display:block;font-weight:bold;font-size:11px">N° Comprobante</label><input id="ci-num" class="swal2-input" style="width:100%;padding:6px 10px;font-size:13px"/></div><div style="flex:1;min-width:200px"><label style="display:block;font-weight:bold;font-size:11px">Banco</label><input id="ci-banco" class="swal2-input" style="width:100%;padding:6px 10px;font-size:13px"/></div></div></div>`,
+      html: `<div style="text-align:left"><h3 style="font-weight:bold;font-size:14px;margin-bottom:10px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:5px;">Ingrese el monto del cierre (Monedas y Billetes)</h3><div style="display:flex;gap:8px;flex-wrap:wrap">${denomHtml('ci')}</div><hr/><div style="flex:1"><label style="display:block;font-weight:bold;font-size:12px">Total Cierre ($)</label><input id="ci-total" class="swal2-input" type="text" readonly value="0.00" style="width:100%;padding:8px;font-size:14px;font-weight:bold;text-align:right;background:#f3f4f6"/></div><hr/><div style="display:flex;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><label style="display:block;font-weight:bold;font-size:11px">N° Comprobante</label><input id="ci-num" class="swal2-input" style="width:100%;padding:6px 10px;font-size:13px"/></div><div style="flex:1;min-width:200px"><label style="display:block;font-weight:bold;font-size:11px">Banco</label><input id="ci-banco" class="swal2-input" style="width:100%;padding:6px 10px;font-size:13px"/></div></div></div>`,
       showCancelButton: true, confirmButtonText: 'Cerrar', confirmButtonColor: '#dc2626',
       didOpen: () => didOpenDenom('ci'),
       preConfirm: () => ({ id_caja: caja.id_caja_retenciones, cierre_total_caja: parseFloat(document.getElementById('ci-total')?.value||'0')||0, numero_comprobante_cierre: document.getElementById('ci-num')?.value||'', banco_cierre: document.getElementById('ci-banco')?.value||'', ...denomPre('ci') })
@@ -182,15 +182,14 @@ export const CajaCobrosPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {openCaja ? (
+            {openCaja && (
               <button onClick={() => abrirCierre(openCaja)} className="h-8 px-3 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2">
                 <i className="fas fa-door-closed"></i><span>CERRAR</span>
               </button>
-            ) : (
-              <button onClick={abrirApertura} className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 border border-emerald-700/50">
-                <i className="fas fa-plus"></i><span>NUEVA APERTURA</span>
-              </button>
             )}
+            <button onClick={abrirApertura} className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 border border-emerald-700/50">
+              <i className="fas fa-plus"></i><span>NUEVA APERTURA</span>
+            </button>
             <button onClick={loadData} className="h-8 w-8 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-lg flex items-center justify-center" disabled={loading} title="Actualizar">
               <i className={`fas fa-sync-alt text-[11px] ${loading ? 'fa-spin text-blue-500' : ''}`}></i>
             </button>
@@ -226,7 +225,7 @@ export const CajaCobrosPage = () => {
             }}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2 shadow-sm"
             disabled={loading}>
-            <i className="fas fa-door-open"></i><span>Buscar Caja Aperturada</span>
+            <i className="fas fa-door-open"></i><span>Buscar Mi Caja Abierta</span>
           </button>
           <button onClick={() => {
               setFilters({});

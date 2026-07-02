@@ -156,6 +156,9 @@ export const CajaBoleteriaPage = () => {
       width: 650,
       html: `
         <div style="text-align:left">
+          <h3 style="font-weight:bold;font-size:14px;margin-bottom:10px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:5px;">
+            Ingrese el monto del cierre (Monedas y Billetes)
+          </h3>
           <div style="display:flex;gap:8px;flex-wrap:wrap">${denomToHtml('ci')}</div>
           <hr style="margin:12px 0"/>
           <div style="flex:1">
@@ -324,7 +327,7 @@ export const CajaBoleteriaPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {openCaja ? (
+            {openCaja && (
               <>
                 <button onClick={() => openModalCierre(openCaja)}
                   className="h-8 px-3 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2">
@@ -335,12 +338,11 @@ export const CajaBoleteriaPage = () => {
                   <i className="fas fa-edit"></i><span>EDITAR</span>
                 </button>
               </>
-            ) : (
-              <button onClick={openModalAperturaNueva}
-                className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 border border-emerald-700/50">
-                <i className="fas fa-plus"></i><span>NUEVA APERTURA</span>
-              </button>
             )}
+            <button onClick={openModalAperturaNueva}
+              className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 border border-emerald-700/50">
+              <i className="fas fa-plus"></i><span>NUEVA APERTURA</span>
+            </button>
             <button onClick={loadData}
               className="h-8 w-8 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-lg flex items-center justify-center"
               disabled={loading} title="Actualizar">
@@ -378,7 +380,7 @@ export const CajaBoleteriaPage = () => {
             }}
             className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2 shadow-sm"
             disabled={loading}>
-            <i className="fas fa-door-open"></i><span>Buscar Caja Aperturada</span>
+            <i className="fas fa-door-open"></i><span>Buscar Mi Caja Abierta</span>
           </button>
           <button onClick={() => {
               setFilters({});
