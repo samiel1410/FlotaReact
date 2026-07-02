@@ -267,7 +267,7 @@ body{
 
         <p class="center">
 		   <img width="64px"   class=" center" src="data:image/*;base64,'.$imagen_empresa.'"/><br>
-		 <span class="titulo_inicio">Cooperativa de Transportes Flota Pelileo</span> <br>
+		 <span class="titulo_inicio">'.$razon_social_empresa.'</span> <br>
         <span class="titulo_inicio">RUC:'.$ruc_empresa.'</span> <br>
         <span class="titulo_inicio">GUÍA DE DESPACHO ELECTRÓNICA</span> <br>
         <span class="titulo_inicio">N ° '.$numero_guia.'</span> <br>
