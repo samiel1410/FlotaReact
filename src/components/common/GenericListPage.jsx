@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useListado } from '../../hooks/useListado';
 import { api } from '../../config/axios';
 import Modal from './Modal';
@@ -83,6 +83,10 @@ export const GenericListPage = ({ config }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [iframeModal, setIframeModal] = useState({ open: false, url: '', title: 'Documento' });
+  const [customModal, setCustomModal] = useState({ open: false, component: null, props: {}, title: '', width: 'max-w-5xl' });
+
+  const openCustomModal = (component, props, title, width = 'max-w-5xl') => setCustomModal({ open: true, component, props, title, width });
+  const closeCustomModal = () => setCustomModal({ open: false, component: null, props: {}, title: '', width: 'max-w-5xl' });
 
   // Ref para evitar stale closure en el event listener refresh-list
   const refreshCallbackRef = useRef();
@@ -196,7 +200,7 @@ export const GenericListPage = ({ config }) => {
             {actions.bulkActions && actions.bulkActions.map(action => (
               <button
                 key={action.id}
-                onClick={action.handler}
+                onClick={() => action.handler && action.handler({ openCustomModal, closeCustomModal, refreshList: handleRefresh })}
                 disabled={loading}
                 className={`h-8 px-3 flex items-center gap-2 ${action.color || 'bg-slate-100 text-slate-700 hover:bg-slate-200'} rounded-lg border border-slate-200 transition-all active:scale-95 disabled:opacity-50 text-[10px] font-bold`}
               >
@@ -343,7 +347,7 @@ export const GenericListPage = ({ config }) => {
                                     setIframeModal({ open: true, url, title: action.modalTitle || 'Documento' });
                                   }
                                 }
-                                if (action.handler) action.handler(row);
+                                if (action.handler) action.handler(row, { openCustomModal, closeCustomModal, refreshList: handleRefresh });
                               }}
                               className={`w-7 h-7 rounded-lg bg-white border border-slate-200 ${action.color || 'text-slate-600'} hover:border-slate-300 hover:shadow-sm flex items-center justify-center transition-all hover:scale-110`}
                               title={action.tooltip}
@@ -430,6 +434,16 @@ export const GenericListPage = ({ config }) => {
       {iframeModal.open && (
         <Modal isOpen={true} onClose={() => setIframeModal({ open: false, url: '', title: 'Documento' })} title={iframeModal.title} width="max-w-6xl">
           <iframe src={iframeModal.url} className="w-full h-[80vh] border-0 rounded-lg" title={iframeModal.title} />
+        </Modal>
+      )}
+
+      {customModal.open && customModal.component && (
+        <Modal isOpen={true} onClose={closeCustomModal} title={customModal.title} width={customModal.width}>
+          {React.createElement(customModal.component, {
+            ...customModal.props,
+            onClose: closeCustomModal,
+            onCancel: closeCustomModal
+          })}
         </Modal>
       )}
     </div>
