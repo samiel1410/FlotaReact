@@ -52,7 +52,20 @@ export const GenericListPage = ({ config }) => {
     // Usamos la ref para siempre tener los valores más recientes de fetch, localFilters y page
     const handleRefreshList = () => refreshCallbackRef.current();
     window.addEventListener('refresh-list', handleRefreshList);
-    return () => window.removeEventListener('refresh-list', handleRefreshList);
+
+    const handleSetCajaFilter = (e) => {
+      if (e.detail && typeof e.detail === 'object') {
+        const newFilters = { ...localFilters, ...e.detail };
+        setLocalFilters(newFilters);
+        fetch(newFilters, 0);
+      }
+    };
+    window.addEventListener('set-caja-filter', handleSetCajaFilter);
+
+    return () => {
+      window.removeEventListener('refresh-list', handleRefreshList);
+      window.removeEventListener('set-caja-filter', handleSetCajaFilter);
+    };
   }, []); // eslint-disable-line
 
   const handleSearch = () => { fetch(localFilters, 0); };

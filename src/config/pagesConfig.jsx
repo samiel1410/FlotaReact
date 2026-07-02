@@ -18,6 +18,7 @@ import NewDestinoForm from '../pages/Destino/components/NewDestinoForm';
 import ClienteForm from '../pages/Clientes/components/ClienteForm';
 import { GenericForm } from '../components/common/GenericForm';
 import { NuevaGuiaCompaniaForm } from '../pages/Guias/components/NuevaGuiaCompaniaForm';
+import { createAperturaAction, createBuscarCajaAction, createCerrarAction } from './cajaUtils';
 import { api } from '../config/axios';
 import Swal from 'sweetalert2';
 import comprobantesService from '../services/comprobantes.service';
@@ -623,6 +624,10 @@ export const PAGES_CONFIG = {
       limit: pageSize,
     }),
     actions: {
+      bulkActions: [
+        createAperturaAction('/caja/insertarAperturaCaja'),
+        createBuscarCajaAction()
+      ],
       custom: [
         {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
@@ -682,21 +687,7 @@ export const PAGES_CONFIG = {
             window.open(`${baseUrl}/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja}`, '_blank');
           }
         },
-
-        {
-          id: 'cerrar', icon: 'fas fa-sign-out-alt', tooltip: 'Cerrar Caja',
-          color: 'text-rose-600 hover:bg-rose-50',
-          showIf: (row) => row.estado_caja === 'APERTURADA',
-          handler: async (row) => {
-            const result = await Swal.fire({ title: 'Cerrar Caja', text: `¿Cerrar la caja #${row.numero_caja}?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, cerrar', confirmButtonColor: '#e11d48', cancelButtonText: 'Cancelar' });
-            if (!result.isConfirmed) return;
-            try {
-              const res = await api.post('/caja/cerrarCaja', { id_caja: row.id_caja });
-              if (res.data?.success) { Swal.fire('Éxito', 'Caja cerrada correctamente', 'success'); window.dispatchEvent(new CustomEvent('refresh-list')); }
-              else Swal.fire('Error', res.data?.message || 'No se pudo cerrar', 'error');
-            } catch { Swal.fire('Error', 'Error al cerrar la caja', 'error'); }
-          }
-        },
+        createCerrarAction('id_caja', '/caja/cerrarCaja'),
         {
           id: 'solicitud', icon: 'fas fa-share-square', tooltip: 'Solicitar Edición',
           color: 'text-sky-600 hover:bg-sky-50',
@@ -767,6 +758,10 @@ export const PAGES_CONFIG = {
       limit: pageSize,
     }),
     actions: {
+      bulkActions: [
+        createAperturaAction('/caja_boleteria/insertarAperturaCaja'),
+        createBuscarCajaAction()
+      ],
       custom: [
         {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
@@ -849,21 +844,7 @@ export const PAGES_CONFIG = {
             }
           }
         },
-
-        {
-          id: 'cerrar', icon: 'fas fa-sign-out-alt', tooltip: 'Cerrar Caja',
-          color: 'text-rose-600 hover:bg-rose-50',
-          showIf: (row) => row.estado_caja === 'APERTURADA',
-          handler: async (row) => {
-            const result = await Swal.fire({ title: 'Cerrar Caja Boletería', text: `¿Cerrar la caja #${row.numero_caja}?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, cerrar', confirmButtonColor: '#e11d48', cancelButtonText: 'Cancelar' });
-            if (!result.isConfirmed) return;
-            try {
-              const res = await api.post('/caja_boleteria/cerrarCaja', { id_caja: row.id_caja_boleteria });
-              if (res.data?.success) { Swal.fire('Éxito', 'Caja cerrada correctamente', 'success'); window.dispatchEvent(new CustomEvent('refresh-list')); }
-              else Swal.fire('Error', res.data?.message || 'No se pudo cerrar', 'error');
-            } catch { Swal.fire('Error', 'Error al cerrar la caja', 'error'); }
-          }
-        },
+        createCerrarAction('id_caja_boleteria', '/caja_boleteria/cerrarCaja'),
         {
           id: 'solicitud', icon: 'fas fa-share-square', tooltip: 'Solicitar Edición',
           color: 'text-sky-600 hover:bg-sky-50',
@@ -934,6 +915,10 @@ export const PAGES_CONFIG = {
       limit: pageSize,
     }),
     actions: {
+      bulkActions: [
+        createAperturaAction('/cajaretenciones/insertarAperturaCaja'),
+        createBuscarCajaAction()
+      ],
       custom: [
         {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
@@ -1016,21 +1001,7 @@ export const PAGES_CONFIG = {
             }
           }
         },
-
-        {
-          id: 'cerrar', icon: 'fas fa-sign-out-alt', tooltip: 'Cerrar Caja',
-          color: 'text-rose-600 hover:bg-rose-50',
-          showIf: (row) => row.estado_caja === 'APERTURADA',
-          handler: async (row) => {
-            const result = await Swal.fire({ title: 'Cerrar Caja Cobros', text: `¿Cerrar la caja #${row.numero_caja}?`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, cerrar', confirmButtonColor: '#e11d48', cancelButtonText: 'Cancelar' });
-            if (!result.isConfirmed) return;
-            try {
-              const res = await api.post('/cajaretenciones/cerrarCaja', { id_caja: row.id_caja_retenciones });
-              if (res.data?.success) { Swal.fire('Éxito', 'Caja cerrada correctamente', 'success'); window.dispatchEvent(new CustomEvent('refresh-list')); }
-              else Swal.fire('Error', res.data?.message || 'No se pudo cerrar', 'error');
-            } catch { Swal.fire('Error', 'Error al cerrar la caja', 'error'); }
-          }
-        },
+        createCerrarAction('id_caja_retenciones', '/cajaretenciones/cerrarCaja'),
         {
           id: 'solicitud', icon: 'fas fa-share-square', tooltip: 'Solicitar Edición',
           color: 'text-sky-600 hover:bg-sky-50',
