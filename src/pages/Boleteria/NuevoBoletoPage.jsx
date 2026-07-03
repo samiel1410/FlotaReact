@@ -1144,7 +1144,7 @@ export const NuevoBoletoPage = () => {
   return (
     <div className="nuevo-boleto-container" style={{ backgroundColor: '#f5f5f5' }}>
       {/* CONTENIDO SCROLLABLE (padding inferior para que no lo tape el footer fixed) */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '5px', paddingBottom: '60px' }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '5px', paddingBottom: '70px' }}>
         {/* TOP TOOLBAR */}
         <div style={{ display: 'flex', gap: 5, marginBottom: 5 }}>
           <button
@@ -1152,7 +1152,7 @@ export const NuevoBoletoPage = () => {
             style={{
               flex: 1, background: '#0a365d', color: 'white', fontWeight: 'bold',
               border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 10
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 13
             }}
           >
             <i className="fas fa-bus"></i> Cambiar Bus
@@ -1162,7 +1162,7 @@ export const NuevoBoletoPage = () => {
             style={{
               flex: 1, background: '#0a365d', color: 'white', fontWeight: 'bold',
               border: 'none', borderRadius: 4, padding: '4px 8px', cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 10
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 13
             }}
           >
             <i className="fas fa-building"></i> Cambio Agencia
@@ -1173,7 +1173,7 @@ export const NuevoBoletoPage = () => {
             style={{
               flex: 1, background: !formData.idViaje ? '#94a3b8' : '#0a365d', color: 'white', fontWeight: 'bold',
               border: 'none', borderRadius: 4, padding: '4px 8px', cursor: !formData.idViaje ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 10,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontSize: 13,
               opacity: !formData.idViaje ? 0.7 : 1
             }}
             title={!formData.idViaje ? 'Seleccione un viaje primero' : ''}
@@ -1230,7 +1230,7 @@ export const NuevoBoletoPage = () => {
         }}>
           <i className="fas fa-calendar-alt" style={{ fontSize: 14, color: '#0a365d' }}></i>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 5 }}>
-            <label style={{ fontSize: 10, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+            <label style={{ fontSize: 13, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
               Fecha de Viaje:
             </label>
             <input
@@ -1248,7 +1248,7 @@ export const NuevoBoletoPage = () => {
               style={{
                 background: '#0a365d', color: 'white', fontWeight: 'bold',
                 border: 'none', borderRadius: 4, padding: '5px 12px',
-                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13
               }}
             >
               {loadingViajes ? (
@@ -1267,7 +1267,7 @@ export const NuevoBoletoPage = () => {
           display: 'flex', gap: 4, overflowX: 'auto', flexWrap: 'nowrap'
         }}>
           {viajesDisponibles.length === 0 ? (
-            <div style={{ padding: '8px', color: '#94a3b8', fontSize: 10, width: '100%', textAlign: 'center' }}>
+            <div style={{ padding: '8px', color: '#94a3b8', fontSize: 13, width: '100%', textAlign: 'center' }}>
               <i className="fas fa-bus"></i> Seleccione fecha y busque viajes disponibles
             </div>
           ) : (
@@ -1293,7 +1293,7 @@ export const NuevoBoletoPage = () => {
                 }}
                 style={{
                   flex: '0 0 auto', padding: '4px 10px', border: 'none', borderRadius: 3,
-                  cursor: 'pointer', fontWeight: 'bold', fontSize: 10, whiteSpace: 'nowrap',
+                  cursor: 'pointer', fontWeight: 'bold', fontSize: 13, whiteSpace: 'nowrap',
                   background: formData.idViaje === String(v.id_viajes)
                     ? (v.es_viaje_extra === 1 ? '#d97706' : '#0a365d')
                     : (v.es_viaje_extra === 1 ? '#fef3c7' : 'white'),
@@ -1309,7 +1309,7 @@ export const NuevoBoletoPage = () => {
                     <i className="fas fa-star" style={{ fontSize: 7, color: formData.idViaje === String(v.id_viajes) ? '#fde68a' : '#f59e0b' }}></i>
                   </span>
                 )}
-                <i className="fas fa-clock" style={{ marginRight: 3, fontSize: 9 }}></i>
+                <i className="fas fa-clock" style={{ marginRight: 3, fontSize: 12 }}></i>
                 {v.hora_origen_salida ? v.hora_origen_salida.substring(0, 5) : v.hora || v.hora_salida}
                 <span style={{ marginLeft: 4, opacity: 0.7 }}>
                   {v.nombre_rutas || v.nombre_aux}
@@ -1320,7 +1320,7 @@ export const NuevoBoletoPage = () => {
                 <span style={{
                   marginLeft: 3, padding: '1px 4px', borderRadius: 2,
                   background: formData.idViaje === String(v.id_viajes) ? 'rgba(255,255,255,0.2)' : '#e2e8f0',
-                  fontSize: 9
+                  fontSize: 12
                 }}>
                   {v.asientos_libres || 0} libres
                 </span>
@@ -1340,16 +1340,16 @@ export const NuevoBoletoPage = () => {
               padding: 5, boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}>
               <div style={{
-                fontSize: 10, fontWeight: 700, color: '#1e293b', marginBottom: 5,
+                fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 5,
                 borderBottom: '1px solid #e2e8f0', paddingBottom: 3
               }}>
-                <i className="fas fa-route" style={{ marginRight: 4, color: '#e67e22', fontSize: 10 }}></i>
+                <i className="fas fa-route" style={{ marginRight: 4, color: '#e67e22', fontSize: 13 }}></i>
                 Detalles del Viaje
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
                 {/* Viaje combo + refresh */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <label style={{ fontSize: 9, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap', width: 32 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap', width: 32 }}>
                     Viaje:
                   </label>
                   <select
@@ -1367,7 +1367,7 @@ export const NuevoBoletoPage = () => {
                         setIdBus(v.id_fkbus_viajes || v.id_buses || v.bus_id || '');
                       }
                     }}
-                    style={{ flex: 1, padding: '3px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 10 }}
+                    style={{ flex: 1, padding: '3px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13 }}
                   >
                     <option value="">Seleccione...</option>
                     {viajesDisponibles.map((v, idx) => (
@@ -1381,17 +1381,17 @@ export const NuevoBoletoPage = () => {
                     title="Refrescar viajes"
                     style={{
                       background: '#035f2c', color: 'white', border: 'none',
-                      borderRadius: 3, width: 22, height: 22, cursor: 'pointer',
+                      borderRadius: 3, width: 28, height: 28, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}
                   >
-                    <i className="fas fa-sync-alt" style={{ fontSize: 9 }}></i>
+                    <i className="fas fa-sync-alt" style={{ fontSize: 12 }}></i>
                   </button>
                 </div>
 
                 {/* Destino combo + refresh */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                  <label style={{ fontSize: 9, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap', width: 40 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap', width: 40 }}>
                     Destino:
                   </label>
                   <select
@@ -1403,7 +1403,7 @@ export const NuevoBoletoPage = () => {
                       const precio = subruta ? parseFloat(subruta.valor_sub_rutas || 0) : 0;
                       setPrecioUnitario(precio);
                     }}
-                    style={{ flex: 1, padding: '3px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 10 }}
+                    style={{ flex: 1, padding: '3px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13 }}
                   >
                     <option value="">Seleccione...</option>
                     {destinosViaje.map((d, idx) => (
@@ -1416,7 +1416,7 @@ export const NuevoBoletoPage = () => {
                     title="Refrescar destinos"
                     style={{
                       background: '#035f2c', color: 'white', border: 'none',
-                      borderRadius: 3, width: 22, height: 22, cursor: 'pointer',
+                      borderRadius: 3, width: 28, height: 28, cursor: 'pointer',
                       display: 'flex', alignItems: 'center', justifyContent: 'center'
                     }}
                     onClick={() => {
@@ -1434,14 +1434,14 @@ export const NuevoBoletoPage = () => {
                       }
                     }}
                   >
-                    <i className="fas fa-sync-alt" style={{ fontSize: 9 }}></i>
+                    <i className="fas fa-sync-alt" style={{ fontSize: 12 }}></i>
                   </button>
                 </div>
 
                 {/* Alimento label (ExtJS: lbl_alimento_viaje) */}
                 {alimentoInfo?.incluye_alimentos && (
-                  <div style={{ gridColumn: 'span 2', fontSize: 9, color: '#d35400', fontWeight: 'bold', fontStyle: 'italic' }}>
-                    <i className="fas fa-utensils" style={{ fontSize: 9 }}></i> Incluye: {alimentoInfo.nombre_alimentos} (${parseFloat(alimentoInfo.precio_alimentos || 0).toFixed(2)})
+                  <div style={{ gridColumn: 'span 2', fontSize: 12, color: '#d35400', fontWeight: 'bold', fontStyle: 'italic' }}>
+                    <i className="fas fa-utensils" style={{ fontSize: 12 }}></i> Incluye: {alimentoInfo.nombre_alimentos} (${parseFloat(alimentoInfo.precio_alimentos || 0).toFixed(2)})
                   </div>
                 )}
               </div>
@@ -1453,16 +1453,16 @@ export const NuevoBoletoPage = () => {
               padding: 5, boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}>
               <div style={{
-                fontSize: 10, fontWeight: 700, color: '#1e293b', marginBottom: 4,
+                fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 4,
                 borderBottom: '1px solid #e2e8f0', paddingBottom: 2
               }}>
-                <i className="fas fa-user" style={{ marginRight: 4, color: '#0a365d', fontSize: 10 }}></i>
+                <i className="fas fa-user" style={{ marginRight: 4, color: '#0a365d', fontSize: 13 }}></i>
                 Datos del Pasajero
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
                 {/* CI / Identificación */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <label style={{ fontSize: 9, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
                     Num CI:
                   </label>
                   <input
@@ -1472,25 +1472,25 @@ export const NuevoBoletoPage = () => {
                     onKeyDown={e => e.key === 'Enter' && buscarPasajeroPorCI(formData.identificacion)}
                     maxLength={15}
                     placeholder="Cédula"
-                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 10, height: 24 }}
+                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
                   <button title="Buscar cliente"
                     onClick={() => buscarPasajeroPorCI(formData.identificacion)}
-                    style={{ background: '#0a365d', color: 'white', border: 'none', borderRadius: 3, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ background: '#0a365d', color: 'white', border: 'none', borderRadius: 3, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <i className="fas fa-search" style={{ fontSize: 9 }}></i>
+                    <i className="fas fa-search" style={{ fontSize: 12 }}></i>
                   </button>
                   <button title="Limpiar"
-                    style={{ background: '#FF9800', color: 'white', border: 'none', borderRadius: 3, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ background: '#FF9800', color: 'white', border: 'none', borderRadius: 3, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     onClick={() => setFormData(prev => ({ ...prev, idCliente: '', identificacion: '', nombres: '', celular: '', direccion: '', correo: '', fechaNacimiento: '', tarifa: 1 }))}
                   >
-                    <i className="fas fa-redo" style={{ fontSize: 9 }}></i>
+                    <i className="fas fa-redo" style={{ fontSize: 12 }}></i>
                   </button>
                   <button title="Crear cliente"
                     onClick={() => { setClienteAEditar(null); setShowNuevoClienteModal(true); }}
-                    style={{ background: '#0a365d', color: 'white', border: 'none', borderRadius: 3, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    style={{ background: '#0a365d', color: 'white', border: 'none', borderRadius: 3, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <i className="fas fa-user-plus" style={{ fontSize: 9 }}></i>
+                    <i className="fas fa-user-plus" style={{ fontSize: 12 }}></i>
                   </button>
                   {formData.idCliente && (
                     <button title="Actualizar cliente"
@@ -1506,14 +1506,14 @@ export const NuevoBoletoPage = () => {
                         });
                         setShowNuevoClienteModal(true);
                       }}
-                      style={{ background: '#FF9800', color: 'white', border: 'none', borderRadius: 3, width: 22, height: 22, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      style={{ background: '#FF9800', color: 'white', border: 'none', borderRadius: 3, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                     >
-                      <i className="fas fa-pen" style={{ fontSize: 9 }}></i>
+                      <i className="fas fa-pen" style={{ fontSize: 12 }}></i>
                     </button>
                   )}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <label style={{ fontSize: 9, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
                     Nombres:
                   </label>
                   <input
@@ -1521,11 +1521,11 @@ export const NuevoBoletoPage = () => {
                     value={formData.nombres}
                     onChange={e => setFormData(prev => ({ ...prev, nombres: e.target.value }))}
                     placeholder="Nombre completo"
-                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 10, height: 24 }}
+                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <label style={{ fontSize: 9, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
                     F. Nac:
                   </label>
                   <input
@@ -1537,40 +1537,40 @@ export const NuevoBoletoPage = () => {
                       const tarifa = tarifaDesdeEdad(edad);
                       setFormData(prev => ({ ...prev, fechaNacimiento: fecha, tarifa }));
                     }}
-                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 10, height: 24 }}
+                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <label style={{ fontSize: 9, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
                     Dir:
                   </label>
                   <input
                     type="text"
                     value={formData.direccion}
                     onChange={e => setFormData(prev => ({ ...prev, direccion: e.target.value }))}
-                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 10, height: 24 }}
+                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <label style={{ fontSize: 9, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
                     Celular:
                   </label>
                   <input
                     type="text"
                     value={formData.celular}
                     onChange={e => setFormData(prev => ({ ...prev, celular: e.target.value.replace(/\D/g, '') }))}
-                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 10, height: 24 }}
+                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <label style={{ fontSize: 9, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', whiteSpace: 'nowrap' }}>
                     Correo:
                   </label>
                   <input
                     type="email"
                     value={formData.correo}
                     onChange={e => setFormData(prev => ({ ...prev, correo: e.target.value }))}
-                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 10, height: 24 }}
+                    style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
                 </div>
               </div>
@@ -1582,23 +1582,23 @@ export const NuevoBoletoPage = () => {
               padding: 5, boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}>
               <div style={{
-                fontSize: 10, fontWeight: 700, color: '#1e293b', marginBottom: 4,
+                fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 4,
                 borderBottom: '1px solid #e2e8f0', paddingBottom: 2
               }}>
-                <i className="fas fa-cog" style={{ marginRight: 4, color: '#e67e22', fontSize: 10 }}></i>
+                <i className="fas fa-cog" style={{ marginRight: 4, color: '#e67e22', fontSize: 13 }}></i>
                 Opciones de Boleto
               </div>
               <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                 {/* Tarifa radio group */}
                 <div style={{ flex: 1 }}>
-                  <label style={{ fontSize: 9, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 2 }}>
+                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 2 }}>
                     Tarifa:
                   </label>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2px' }}>
                     {TARIFAS.map(t => (
                       <label key={t.value} style={{
                         display: 'flex', alignItems: 'center', gap: 2,
-                        fontSize: 9, cursor: 'pointer', padding: '1px 3px',
+                        fontSize: 12, cursor: 'pointer', padding: '1px 3px',
                         borderRadius: 2, background: formData.tarifa === t.value ? '#dbeafe' : 'transparent'
                       }}>
                         <input
@@ -1620,7 +1620,7 @@ export const NuevoBoletoPage = () => {
                     onClick={() => setEsReserva(!esReserva)}
                     style={{
                       padding: '4px 10px', border: '2px solid', borderRadius: 3,
-                      fontWeight: 'bold', fontSize: 9, cursor: 'pointer',
+                      fontWeight: 'bold', fontSize: 12, cursor: 'pointer',
                       background: esReserva ? '#FF9800' : 'linear-gradient(to bottom, #f0f0f0, #e8e8e8)',
                       borderColor: esReserva ? '#F57C00' : '#ddd',
                       color: esReserva ? 'white' : 'gray',
@@ -1641,7 +1641,7 @@ export const NuevoBoletoPage = () => {
                   rows={1}
                   style={{
                     width: '100%', padding: '3px 6px', border: '1px solid #cbd5e1',
-                    borderRadius: 3, fontSize: 10, resize: 'none', height: 22
+                    borderRadius: 3, fontSize: 13, resize: 'none', height: 22
                   }}
                 />
               </div>
@@ -1653,10 +1653,10 @@ export const NuevoBoletoPage = () => {
               padding: 4, boxShadow: '0 1px 2px rgba(0,0,0,0.04)'
             }}>
               <div style={{
-                fontSize: 10, fontWeight: 700, color: '#1e293b', marginBottom: 3,
+                fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 3,
                 borderBottom: '1px solid #e2e8f0', paddingBottom: 2
               }}>
-                <i className="fas fa-users" style={{ marginRight: 4, color: '#0a365d', fontSize: 10 }}></i>
+                <i className="fas fa-users" style={{ marginRight: 4, color: '#0a365d', fontSize: 13 }}></i>
                 Lista de Asientos
               </div>
               <PasajerosGrid
@@ -1693,26 +1693,26 @@ export const NuevoBoletoPage = () => {
               {/* Alimento info */}
               {alimentoInfo?.incluye_alimentos && (
                 <div style={{
-                  fontSize: 9, color: '#d35400', fontWeight: 'bold', fontStyle: 'italic',
+                  fontSize: 12, color: '#d35400', fontWeight: 'bold', fontStyle: 'italic',
                   textAlign: 'center', marginBottom: 2
                 }}>
-                  <i className="fas fa-utensils" style={{ fontSize: 9 }}></i> Incluye: {alimentoInfo.nombre_alimentos} (${parseFloat(alimentoInfo.precio_alimentos || 0).toFixed(2)})
+                  <i className="fas fa-utensils" style={{ fontSize: 12 }}></i> Incluye: {alimentoInfo.nombre_alimentos} (${parseFloat(alimentoInfo.precio_alimentos || 0).toFixed(2)})
                 </div>
               )}
               <div style={{
-                fontSize: 10, fontWeight: 700, color: '#1e293b', marginBottom: 3,
+                fontSize: 13, fontWeight: 700, color: '#1e293b', marginBottom: 3,
                 borderBottom: '1px solid #e2e8f0', paddingBottom: 2
               }}>
-                <i className="fas fa-bus" style={{ marginRight: 3, color: '#e67e22', fontSize: 10 }}></i>
+                <i className="fas fa-bus" style={{ marginRight: 3, color: '#e67e22', fontSize: 13 }}></i>
                 Visualización del Bus
               </div>
               {formData.idViaje && nombreChofer && (
                 <div style={{
-                  fontSize: 9, color: '#0a365d', fontWeight: 600,
+                  fontSize: 12, color: '#0a365d', fontWeight: 600,
                   marginBottom: 2, padding: '1px 0',
                   display: 'flex', alignItems: 'center', gap: 4
                 }}>
-                  <i className="fas fa-user-tie" style={{ fontSize: 9 }}></i>
+                  <i className="fas fa-user-tie" style={{ fontSize: 12 }}></i>
                   Conductor: {nombreChofer}
                 </div>
               )}
@@ -1743,45 +1743,46 @@ export const NuevoBoletoPage = () => {
       </div>
 
       {/* FOOTER FIJO: siempre visible al fondo del viewport */}
-      <div style={{
+      <div className="nb-footer" style={{
         position: 'fixed',
         bottom: 0,
         left: 0,
         right: 0,
         background: 'white',
-        borderTop: '1px solid #ddd',
-        padding: '6px 16px',
+        borderTop: '2px solid #0a365d',
+        padding: '10px 16px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         gap: 10,
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.05)',
-        zIndex: 1000
+        boxShadow: '0 -4px 15px rgba(0,0,0,0.1)',
+        zIndex: 1000,
+        minHeight: 56
       }}>
         {/* Lado izquierdo: Bus, Total Bus, Cantidad, Precio Unitario, Total a Pagar */}
-        <div style={{ display: 'flex', gap: 20, alignItems: 'center', fontSize: 12 }}>
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           {formData.idViaje && (
             <>
-              <span style={{ whiteSpace: 'nowrap' }}>
-                BUS: <strong style={{ color: '#0a365d' }}>{discoBus || '---'}</strong>
+              <span style={{ whiteSpace: 'nowrap', fontSize: 14 }}>
+                BUS: <strong style={{ color: '#0a365d', fontSize: 15 }}>{discoBus || '---'}</strong>
               </span>
-              <div style={{ width: 1, height: 20, background: '#ddd' }}></div>
-              <span style={{ whiteSpace: 'nowrap' }}>
-                TOTAL BUS: <strong style={{ color: '#035f2c' }}>${parseFloat(totalRecaudado || 0).toFixed(2)}</strong>
+              <div style={{ width: 1, height: 28, background: '#cbd5e1' }}></div>
+              <span style={{ whiteSpace: 'nowrap', fontSize: 14 }}>
+                TOTAL BUS: <strong style={{ color: '#035f2c', fontSize: 16 }}>${parseFloat(totalRecaudado || 0).toFixed(2)}</strong>
               </span>
-              <div style={{ width: 1, height: 20, background: '#ddd' }}></div>
+              <div style={{ width: 1, height: 28, background: '#cbd5e1' }}></div>
             </>
           )}
-          <span>
-            Cantidad: <strong style={{ color: '#0a365d' }}>{formData.asientosSeleccionados.length}</strong>
+          <span style={{ fontSize: 14, whiteSpace: 'nowrap' }}>
+            Cantidad: <strong style={{ color: '#0a365d', fontSize: 22, fontFamily: 'monospace', fontWeight: 800 }}>{formData.asientosSeleccionados.length}</strong>
           </span>
-          <div style={{ width: 1, height: 20, background: '#ddd' }}></div>
-          <span>
-            P. Unit: <strong style={{ color: '#0a365d' }}>${parseFloat(precioUnitario || 0).toFixed(2)}</strong>
+          <div style={{ width: 1, height: 28, background: '#cbd5e1' }}></div>
+          <span style={{ fontSize: 14, whiteSpace: 'nowrap' }}>
+            P. Unit: <strong style={{ color: '#e67e22', fontSize: 22, fontFamily: 'monospace', fontWeight: 800 }}>${parseFloat(precioUnitario || 0).toFixed(2)}</strong>
           </span>
-          <div style={{ width: 1, height: 20, background: '#ddd' }}></div>
-          <span style={{ fontWeight: 600 }}>
-            Total a Pagar: <strong style={{ color: '#059669', fontSize: 14 }}>${parseFloat(totalVenta || 0).toFixed(2)}</strong>
+          <div style={{ width: 1, height: 28, background: '#cbd5e1' }}></div>
+          <span style={{ fontSize: 14, whiteSpace: 'nowrap', fontWeight: 600 }}>
+            Total a Pagar: <strong style={{ color: '#059669', fontSize: 26, fontFamily: 'monospace', fontWeight: 900 }}>${parseFloat(totalVenta || 0).toFixed(2)}</strong>
           </span>
         </div>
 
@@ -1792,8 +1793,8 @@ export const NuevoBoletoPage = () => {
             disabled={isSubmitting}
             style={{
               background: 'linear-gradient(to right, #035f2c, #0a7f3f)',
-              color: 'white', fontWeight: 'bold', fontSize: 12,
-              border: 'none', borderRadius: 5, padding: '8px 20px',
+              color: 'white', fontWeight: 'bold', fontSize: 14,
+              border: 'none', borderRadius: 5, padding: '10px 24px',
               cursor: isSubmitting ? 'not-allowed' : 'pointer',
               boxShadow: '0 3px 6px rgba(0,0,0,0.15)',
               display: 'flex', alignItems: 'center', gap: 6, opacity: isSubmitting ? 0.7 : 1
@@ -1810,8 +1811,8 @@ export const NuevoBoletoPage = () => {
             onClick={handleCancelar}
             style={{
               background: 'linear-gradient(to right, #d32f2f, #f44336)',
-              color: 'white', fontWeight: 'bold', fontSize: 12,
-              border: 'none', borderRadius: 5, padding: '8px 20px',
+              color: 'white', fontWeight: 'bold', fontSize: 14,
+              border: 'none', borderRadius: 5, padding: '10px 24px',
               cursor: 'pointer', boxShadow: '0 3px 6px rgba(0,0,0,0.15)',
               display: 'flex', alignItems: 'center', gap: 6
             }}

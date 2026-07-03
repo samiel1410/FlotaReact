@@ -193,7 +193,7 @@ export const BusVisualizer = ({
         }
         return (
           <div style={{ textAlign: 'center' }}>
-            {label && <div style={{ fontWeight: 600, fontSize: 10, color: '#64748b', marginBottom: 2 }}>{label}</div>}
+            {label && <div style={{ fontWeight: 600, fontSize: 12, color: '#64748b', marginBottom: 2 }}>{label}</div>}
             {rows}
           </div>
         );
@@ -240,9 +240,9 @@ export const BusVisualizer = ({
           background: 'linear-gradient(to bottom, #bdc3c7, #95a5a6)',
           padding: 3, marginBottom: 4, borderRadius: '3px 3px 12px 12px',
           textAlign: 'center', color: 'white', fontWeight: 'bold',
-          fontSize: 8, letterSpacing: 0.5
+          fontSize: 10, letterSpacing: 0.5
         }}>
-          <i className="fas fa-arrow-up" style={{ fontSize: 8 }}></i> FRENTE
+          <i className="fas fa-arrow-up" style={{ fontSize: 10 }}></i> FRENTE
         </div>
 
         {/* Tabs para pisos */}
@@ -274,7 +274,7 @@ export const BusVisualizer = ({
       {/* LEYENDA */}
       <div style={{
         display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 6px',
-        marginTop: 4, fontSize: 8
+        marginTop: 4, fontSize: 10
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{ width: 10, height: 10, background: 'white', border: '1px solid #bdc3c7', borderRadius: 2 }}></div>

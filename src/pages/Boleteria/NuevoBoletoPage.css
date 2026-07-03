@@ -128,3 +128,90 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ======================================================
+   BASE: aplica a TODAS las resoluciones
+   ====================================================== */
+.nuevo-boleto-container input[type="text"],
+.nuevo-boleto-container input[type="date"],
+.nuevo-boleto-container input[type="email"],
+.nuevo-boleto-container select,
+.nuevo-boleto-container textarea {
+  font-size: 14px !important;
+  height: 34px !important;
+  padding: 4px 8px !important;
+}
+.nuevo-boleto-container input[type="radio"] {
+  width: 16px !important;
+  height: 16px !important;
+  accent-color: #035f2c !important;
+}
+.nb-footer {
+  font-size: 14px !important;
+  padding: 8px 20px !important;
+}
+.nb-footer input,
+.nb-footer select {
+  font-size: 14px !important;
+  height: 34px !important;
+}
+.nb-footer button {
+  font-size: 14px !important;
+  padding: 8px 18px !important;
+}
+
+/* ======================================================
+   ≥1600px
+   ====================================================== */
+@media (min-width: 1600px) {
+  .nuevo-boleto-container input[type="text"],
+  .nuevo-boleto-container input[type="date"],
+  .nuevo-boleto-container input[type="email"],
+  .nuevo-boleto-container select,
+  .nuevo-boleto-container textarea {
+    font-size: 15px !important;
+    height: 38px !important;
+    padding: 5px 9px !important;
+  }
+  .nb-footer {
+    font-size: 15px !important;
+    padding: 10px 24px !important;
+  }
+  .nb-footer input,
+  .nb-footer select {
+    font-size: 15px !important;
+    height: 36px !important;
+  }
+  .nb-footer button {
+    font-size: 15px !important;
+    padding: 9px 20px !important;
+  }
+}
+
+/* ======================================================
+   ≥1920px
+   ====================================================== */
+@media (min-width: 1920px) {
+  .nuevo-boleto-container input[type="text"],
+  .nuevo-boleto-container input[type="date"],
+  .nuevo-boleto-container input[type="email"],
+  .nuevo-boleto-container select,
+  .nuevo-boleto-container textarea {
+    font-size: 16px !important;
+    height: 40px !important;
+    padding: 5px 10px !important;
+  }
+  .nb-footer {
+    font-size: 16px !important;
+    padding: 12px 28px !important;
+  }
+  .nb-footer input,
+  .nb-footer select {
+    font-size: 16px !important;
+    height: 38px !important;
+  }
+  .nb-footer button {
+    font-size: 16px !important;
+    padding: 10px 22px !important;
+  }
+}

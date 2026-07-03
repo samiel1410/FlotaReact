@@ -53,7 +53,7 @@ $id_usuario_global AND id_fksucursal_usuario=suc_codigo_sucursal";
   $query_guia = "SELECT origen_guia,
 destino_guia,numero_guia,punto_emision_sucursal,observacion_guia,id_fkcompania_asociada,id_fkusuario_guia,UPPER(nombre_cliente_remitente)
 as nombre_cliente_remitente,punto_emision_usuario,UPPER(nombre_cliente_receptor) as
-nombre_cliente_receptor,cedula_cliente_remitente,cedula_cliente_receptor,telefono_cliente_emisor,telefono_cliente_receptor,subtotal_12_guia,subtotal_0_guia,subtotal_guia,total_guia,descuento_guia,valor_tarifa_adicional_guia,impuesto_iva_guia
+nombre_cliente_receptor,cedula_cliente_remitente,cedula_cliente_receptor,telefono_cliente_emisor,telefono_cliente_receptor,subtotal_12_guia,subtotal_0_guia,subtotal_guia,total_guia,descuento_guia,valor_tarifa_adicional_guia,impuesto_iva_guia,estado_cobro_guia
 ,CONCAT(usuario.nombre_usuario,' ',usuario.apellido_usuario) as usuario FROM guia,sucursal2,usuario WHERE id_guia =
 $id_guia AND sucursal_guia=suc_codigo_sucursal AND id_fkusuario_guia=id_usuario";
   $recuperar_guia = mysqli_query($conn, $query_guia) or die(mysqli_error($conn));
@@ -208,10 +208,9 @@ s.punto_emision_sucursal";
 
   $total_cobrado = $total_factura - $suma_total;
   
-  if ($id_factura > 0) {
+  if ($id_factura > 0 && $suma_total > 0) {
       $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "NO COBRADA";
   } else {
-      // Si no hay factura, usamos el estado de la propia guía
       $estado_factura = ($vals_guia['estado_cobro_guia'] == 'COBRADA') ? "COBRADA" : "NO COBRADA";
   }
 
@@ -357,12 +356,13 @@ configuracion";
   <br>DIR.EXACTA:' . $direccion_exacta . '<br>CONTACTO:' . $numero_contacto . '
   <span>
 
+  ' . (!empty($observacion_guia) && trim($observacion_guia) !== '' && strtolower(trim($observacion_guia)) !== 'null' ? '
   <div class="linea"></div>
   <span class="center">
     <strong class=""><i class="fas fa-user"></i>OBSERVACIÓN</strong>
   </span>
-  <br>' . (!empty($observacion_guia) ? $observacion_guia : 'NINGUNA') . '
-  <span>
+  <br>' . htmlspecialchars($observacion_guia) . '
+  <span>' : '') . '
 
 
     <div class="linea"></div>
@@ -434,14 +434,7 @@ configuracion";
       ' . $leyenda . ' <br>
       ' . ($reimpreso_por ? '<div style="text-align:center; font-style:italic; font-size:9px; margin-top:5px;">Reimpreso por: ' . htmlspecialchars($reimpreso_por) . '</div>' : '') . '
 
-
-
-
-
-
-
-
-
+      <div style="height: 15px;"></div>
 </body>
 
 </html>
@@ -505,7 +498,9 @@ configuracion";
   );
   // $pdf->SetXY(112, 65);
 
-  $pdf->SetXY(5, $posicion_codigo + 92);
+  // Obtener la posicion Y actual despues del contenido HTML
+  $y_actual = $pdf->GetY();
+  $pdf->SetXY(5, $y_actual + 5);
   // Codigo de barras
   if (!empty($clave_acceso)) {
     $pdf->write1DBarcode($clave_acceso, 'C128', '', '', '100', 18, 0.4, $style, 'N');

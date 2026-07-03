@@ -24,4 +24,5 @@ dist-ssr
 *.sw?
 nul
 php/tmp/
+php/vendor/
 tmp/

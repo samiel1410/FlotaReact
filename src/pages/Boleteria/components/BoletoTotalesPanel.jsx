@@ -47,23 +47,23 @@ export const BoletoTotalesPanel = ({ cantidadAsientos, precioUnitario, totales, 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: isCompact ? '4px' : '15px' }}>
         {/* CANTIDAD */}
         <div style={boxStyle}>
-          <div style={{ fontSize: isCompact ? '8px' : '11px', color: '#64748b', fontWeight: 'bold', marginBottom: isCompact ? '1px' : '5px' }}>CANTIDAD</div>
-          <div style={{ fontSize: isCompact ? '18px' : '36px', color: '#34495e', fontWeight: 800, fontFamily: 'monospace' }}>
+          <div style={{ fontSize: isCompact ? '12px' : '13px', color: '#64748b', fontWeight: 'bold', marginBottom: isCompact ? '2px' : '5px' }}>CANTIDAD</div>
+          <div style={{ fontSize: isCompact ? '28px' : '40px', color: '#34495e', fontWeight: 800, fontFamily: 'monospace' }}>
             {cantidadAsientos}
           </div>
         </div>
 
         {/* PRECIO UNITARIO */}
         <div style={boxStyle}>
-          <div style={{ fontSize: isCompact ? '8px' : '11px', color: '#64748b', fontWeight: 'bold', marginBottom: isCompact ? '1px' : '5px', textAlign: 'center' }}>PRECIO UNITARIO</div>
+          <div style={{ fontSize: isCompact ? '12px' : '13px', color: '#64748b', fontWeight: 'bold', marginBottom: isCompact ? '2px' : '5px', textAlign: 'center' }}>PRECIO UNITARIO</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: isCompact ? '12px' : '20px', color: '#e67e22', fontWeight: 'bold' }}>$</span>
+            <span style={{ fontSize: isCompact ? '20px' : '22px', color: '#e67e22', fontWeight: 'bold' }}>$</span>
             <input
               type="text"
               value={precioLocal}
               onChange={handlePrecioChange}
               style={{
-                fontSize: isCompact ? '16px' : '28px',
+                fontSize: isCompact ? '28px' : '32px',
                 fontWeight: 'bold',
                 color: '#e67e22',
                 width: '100%',
@@ -72,7 +72,7 @@ export const BoletoTotalesPanel = ({ cantidadAsientos, precioUnitario, totales, 
                 background: 'transparent',
                 outline: 'none',
                 fontFamily: 'monospace',
-                height: isCompact ? '24px' : 'auto'
+                height: isCompact ? '32px' : 'auto'
               }}
             />
           </div>
@@ -80,8 +80,8 @@ export const BoletoTotalesPanel = ({ cantidadAsientos, precioUnitario, totales, 
 
         {/* TOTAL */}
         <div style={totalBoxStyle}>
-          <div style={{ fontSize: isCompact ? '8px' : '11px', color: '#16a085', fontWeight: 'bold', marginBottom: isCompact ? '1px' : '5px' }}>TOTAL A PAGAR</div>
-          <div style={{ fontSize: isCompact ? '18px' : '36px', color: '#16a085', fontWeight: 800, fontFamily: 'monospace' }}>
+          <div style={{ fontSize: isCompact ? '12px' : '13px', color: '#16a085', fontWeight: 'bold', marginBottom: isCompact ? '2px' : '5px' }}>TOTAL A PAGAR</div>
+          <div style={{ fontSize: isCompact ? '28px' : '40px', color: '#16a085', fontWeight: 800, fontFamily: 'monospace' }}>
             ${totales.total.toFixed(2)}
           </div>
         </div>
