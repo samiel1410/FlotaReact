@@ -66,9 +66,9 @@ b.fecha_boleto, b.total_boleto, b.numero_boleto,
 b.punto_emision_boleto, b.sucursal_emision_boleto, b.id_fkviaje_boleto,
 b.nombre_origen, b.nombre_destino, b.clave_acceso_boletos, b.fecha_creacion_boleto,
 s.nombre_sucursal, u.nombre_usuario, bu.disco_buses, bu.placa_buses,
-r.nombre_rutas, b.celular_boleto, b.tipo_boleto, b.estado_boleto,
+r.nombre_rutas, r.andes_rutas, r.piso_rutas, b.celular_boleto, b.tipo_boleto, b.estado_boleto,
 sr.anden_sub_rutas, sr.piso_sub_rutas, sr.fecha_salida, sr.hora_salida,
-v.incluye_alimentos, v.hora_origen_salida,
+v.incluye_alimentos, v.hora_origen_salida, v.fecha_cierre,
 (SELECT GROUP_CONCAT(nombre_alimentos SEPARATOR ', ')
 FROM alimentos
 WHERE FIND_IN_SET(id_alimentos, REPLACE(v.id_fkalimento_viajes, ' ', ''))) as nombres_alimentos
@@ -139,7 +139,8 @@ razon_social_empresa FROM empresa WHERE 1";
     $pdf->SetSubject('Boleto de Transporte');
 
     // Usar datos del boleto y viaje directamente
-    $fechaSalida = !empty($boleto['fecha_cierre']) ? date('d/m/Y', strtotime($boleto['fecha_cierre'])) : date('d/m/Y');
+    $fechaSalidaRaw = !empty($boleto['fecha_cierre']) ? $boleto['fecha_cierre'] : $boleto['fecha_salida'];
+    $fechaSalida = (!empty($fechaSalidaRaw) && $fechaSalidaRaw !== '0000-00-00') ? date('d/m/Y', strtotime($fechaSalidaRaw)) : date('d/m/Y');
     $horaSalida = !empty($boleto['hora_origen_salida']) ? $boleto['hora_origen_salida'] : $boleto['hora_salida'];
     
     $viajeMostrar = !empty($boleto['nombre_rutas']) ? $boleto['nombre_rutas'] : '—';
@@ -154,8 +155,8 @@ razon_social_empresa FROM empresa WHERE 1";
     }
 
     $busMostrar = !empty($boleto['disco_buses']) ? $boleto['disco_buses'] : '—';
-    $andMostrar = !empty($boleto['anden_sub_rutas']) && $boleto['anden_sub_rutas'] != '0' ? $boleto['anden_sub_rutas'] : '—';
-    $pisoMostrar = !empty($boleto['piso_sub_rutas']) && $boleto['piso_sub_rutas'] != 0 ? $boleto['piso_sub_rutas'] : '1';
+    $andMostrar = !empty($boleto['anden_sub_rutas']) && $boleto['anden_sub_rutas'] != '0' ? $boleto['anden_sub_rutas'] : (!empty($boleto['andes_rutas']) && $boleto['andes_rutas'] != '0' ? $boleto['andes_rutas'] : '—');
+    $pisoMostrar = !empty($boleto['piso_sub_rutas']) && $boleto['piso_sub_rutas'] != 0 ? $boleto['piso_sub_rutas'] : (!empty($boleto['piso_rutas']) && $boleto['piso_rutas'] != 0 ? $boleto['piso_rutas'] : '1');
 
     $html1 = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
         body{font-family:Helvetica,Arial,sans-serif;font-size:6.5pt;color:#000;margin:0;padding:0;line-height:1}
@@ -183,7 +184,7 @@ razon_social_empresa FROM empresa WHERE 1";
     </table>
     <table>
         <tr><td width="26%">Viaje ' . $boleto['id_fkviaje_boleto'] . '</td><td width="74%" class="bold">' . strtoupper($viajeMostrar) . '</td></tr>
-        <tr><td class="bold" style="font-size:8pt">Bus ' . $busMostrar . '</td><td style="font-size:6.5pt">Sale Origen ' . $fechaSalida . ' ' . $horaSalida . '</td></tr>
+        <tr><td class="bold" style="font-size:8pt">Bus ' . $busMostrar . '</td><td style="font-size:6.5pt">Sale Origen <span class="bold">' . $fechaSalida . ' ' . $horaSalida . '</span></td></tr>
     </table>
     <table>
         <tr><td width="60%" class="bold" style="font-size:7pt;text-decoration:underline">INFORMACIÓN DEL VIAJE</td><td width="20%" class="bold">Piso ' . $pisoMostrar . '</td><td width="20%" class="bold">Andén ' . $andMostrar . '</td></tr>
@@ -192,7 +193,7 @@ razon_social_empresa FROM empresa WHERE 1";
 
     foreach ($detalles as $detalle) {
         $nombrePasajero = strtoupper($detalle['nombre_cliente_boleto_detalle']);
-        $fechaSalidaFormateada = formatearFechaEspanol($boleto['fecha_salida'] ?? $fechaSalida); 
+        $fechaSalidaFormateada = formatearFechaEspanol($fechaSalida); 
         
         $html1 .= '<table style="margin-top:1px">
             <tr><td class="bold" style="font-size:7pt">' . $nombrePasajero . '</td><td class="bold" style="font-size:10pt" align="right">Asiento ' . str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) . '</td></tr>
@@ -205,7 +206,6 @@ razon_social_empresa FROM empresa WHERE 1";
     $html1 .= '<table style="margin-top:3px">
         <tr><td width="35%" class="bold" style="font-size:10pt">TOTAL</td><td width="65%" class="bold" style="font-size:10pt" align="right">$' . number_format($boleto['total_boleto'], 2, ',', '.') . '</td></tr>
     </table>
-    <div class="sep-light"></div>
     <div style="font-size:6pt;line-height:1">
         <div>Caducidad ' . $fechaSalida . ' ' . $horaSalida . '</div>
         <div>F. Emisión ' . ($boleto['fecha_creacion_boleto'] ? date('d/m/Y H:i:s', strtotime($boleto['fecha_creacion_boleto'])) : date('d/m/Y H:i:s')) . '</div>';
