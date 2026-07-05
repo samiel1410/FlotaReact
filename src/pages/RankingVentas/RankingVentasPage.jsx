@@ -66,7 +66,7 @@ export const RankingVentasPage = () => {
   };
 
   // Tabla de ranking
-  const TablaRanking = ({ titulo, icono, datos, total, colorHeader, colorBg }) => {
+  const TablaRanking = ({ titulo, icono, datos, total, colorHeader, colName = "Oficinista" }) => {
     if (!datos || datos.length === 0) {
       return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -89,7 +89,7 @@ export const RankingVentasPage = () => {
             <span className="text-xl">{icono}</span>
             <div>
               <h3 className="text-base font-black text-white uppercase tracking-tight">{titulo}</h3>
-              <p className="text-[10px] text-white/70 font-medium">{datos.length} oficinistas</p>
+              <p className="text-[10px] text-white/70 font-medium">{datos.length} {colName.toLowerCase()}s</p>
             </div>
           </div>
           <div className="text-right">
@@ -103,7 +103,7 @@ export const RankingVentasPage = () => {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
                 <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-12">#</th>
-                <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">Oficinista</th>
+                <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">{colName}</th>
                 <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-20">Cantidad</th>
                 <th className="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Vendido</th>
                 <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-16">%</th>
@@ -129,11 +129,11 @@ export const RankingVentasPage = () => {
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
                           i === 0 ? 'bg-amber-200 text-amber-800' : 'bg-blue-100 text-blue-600'
                         }`}>
-                          {(row.nombre_usuario || '?')[0]?.toUpperCase()}
+                          {(row.nombre_usuario || row.nombre_destino || '?')[0]?.toUpperCase()}
                         </div>
                         <div>
                           <p className={`text-sm ${i === 0 ? 'font-black text-amber-900' : 'font-semibold text-slate-700'}`}>
-                            {row.nombre_usuario || 'Sin nombre'}
+                            {row.nombre_usuario || row.nombre_destino || 'Sin nombre'}
                             {i === 0 && <span className="ml-1.5 text-[9px] bg-amber-200 text-amber-800 px-1.5 py-0.5 rounded-full font-bold">LÍDER</span>}
                           </p>
                         </div>
@@ -283,23 +283,41 @@ export const RankingVentasPage = () => {
               <span className="text-slate-500 font-medium">Cargando ranking de ventas...</span>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <TablaRanking
-                titulo="Boletería"
-                icono="🎫"
-                datos={data?.boleteria}
-                total={data?.total_boleteria || 0}
-                colorHeader="bg-gradient-to-r from-blue-600 to-blue-500"
-                colorBg="blue"
-              />
-              <TablaRanking
-                titulo="Encomiendas (Guías)"
-                icono="📦"
-                datos={data?.guias}
-                total={data?.total_guias || 0}
-                colorHeader="bg-gradient-to-r from-emerald-600 to-emerald-500"
-                colorBg="emerald"
-              />
+            <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <TablaRanking
+                  titulo="Boletería"
+                  icono="🎫"
+                  datos={data?.boleteria}
+                  total={data?.total_boleteria || 0}
+                  colorHeader="bg-gradient-to-r from-blue-600 to-blue-500"
+                />
+                <TablaRanking
+                  titulo="Encomiendas (Guías)"
+                  icono="📦"
+                  datos={data?.guias}
+                  total={data?.total_guias || 0}
+                  colorHeader="bg-gradient-to-r from-emerald-600 to-emerald-500"
+                />
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <TablaRanking
+                  titulo="Ranking Destinos Boletería"
+                  icono="🌍"
+                  datos={data?.destinosBoleteria}
+                  total={data?.total_boleteria || 0}
+                  colorHeader="bg-gradient-to-r from-indigo-600 to-indigo-500"
+                  colName="Destino"
+                />
+                <TablaRanking
+                  titulo="Ranking Destinos Guías"
+                  icono="📍"
+                  datos={data?.destinosGuias}
+                  total={data?.total_guias || 0}
+                  colorHeader="bg-gradient-to-r from-cyan-600 to-cyan-500"
+                  colName="Destino"
+                />
+              </div>
             </div>
           )}
         </div>

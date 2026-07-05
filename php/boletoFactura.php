@@ -184,7 +184,7 @@ razon_social_empresa FROM empresa WHERE 1";
     </table>
     <table>
         <tr><td width="26%">Viaje ' . $boleto['id_fkviaje_boleto'] . '</td><td width="74%" class="bold">' . strtoupper($viajeMostrar) . '</td></tr>
-        <tr><td class="bold" style="font-size:8pt">Bus ' . $busMostrar . '</td><td style="font-size:6.5pt">Sale Origen <span class="bold">' . $fechaSalida . ' ' . $horaSalida . '</span></td></tr>
+        <tr><td class="bold" style="font-size:8pt">Bus ' . $busMostrar . '</td><td class="bold" style="font-size:8pt">Sale Origen ' . $fechaSalida . ' ' . $horaSalida . '</td></tr>
     </table>
     <table>
         <tr><td width="60%" class="bold" style="font-size:7pt;text-decoration:underline">INFORMACIÓN DEL VIAJE</td><td width="20%" class="bold">Piso ' . $pisoMostrar . '</td><td width="20%" class="bold">Andén ' . $andMostrar . '</td></tr>
@@ -199,7 +199,7 @@ razon_social_empresa FROM empresa WHERE 1";
             <tr><td class="bold" style="font-size:7pt">' . $nombrePasajero . '</td><td class="bold" style="font-size:10pt" align="right">Asiento ' . str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) . '</td></tr>
             <tr><td colspan="2" class="center bold" style="font-size:7pt">' . strtoupper($rutaPasajero) . '</td></tr>
             <tr><td>Salida ' . $fechaSalidaFormateada . ' ' . $horaSalida . 'h</td><td align="right">Valor $' . number_format($detalle['total_boleto_detalle'], 2, ',', '.') . '</td></tr>
-            <tr><td colspan="2" style="font-size:6pt">Piso ' . $pisoMostrar . ' | Andén ' . $andMostrar . ' | Tarifa: ' . $detalle['tarifa_boleto_detalle'] . '</td></tr>
+            <tr><td colspan="2" style="font-size:6pt">Tarifa: ' . $detalle['tarifa_boleto_detalle'] . '</td></tr>
         </table>';
     }
 

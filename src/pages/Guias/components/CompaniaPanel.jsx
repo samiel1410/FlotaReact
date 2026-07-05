@@ -84,7 +84,7 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
           <button onClick={() => setShowModalCompanias(true)}
             type="button"
             className="h-8 px-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md text-xs font-bold shadow-sm"
-            title="Ver compañías asociadas">
+            title="Seleccionar Destino">
             <i className="fas fa-list"></i>
           </button>
           <button onClick={handleBuscarCompania} disabled={buscando || !!compania}
@@ -119,13 +119,13 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
       {/* Campo oculto para ID */}
       <input type="hidden" name="id_compania" value={compania?.id || compania?.id_compania || ''} />
 
-      <Modal open={showModalCompanias} onClose={() => setShowModalCompanias(false)} title="Compañías Asociadas por Destino" size="md">
+      <Modal open={showModalCompanias} onClose={() => setShowModalCompanias(false)} title="Seleccionar Destino" size="md">
         <div className="p-4 max-h-[60vh] overflow-y-auto">
-          {destinosConCompania.length === 0 ? (
-            <div className="text-center text-slate-500 py-4 text-sm">No hay destinos con compañías asociadas</div>
+          {!destinos || destinos.length === 0 ? (
+            <div className="text-center text-slate-500 py-4 text-sm">No hay destinos disponibles</div>
           ) : (
             <div className="flex flex-col gap-2">
-              {destinosConCompania.map(d => (
+              {destinos.map(d => (
                 <div key={d.id || d.id_destino} 
                   onClick={() => {
                     if (onSeleccionarDestino) {
@@ -136,8 +136,10 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
                   className="p-3 border border-slate-200 rounded-lg hover:bg-indigo-50 cursor-pointer transition-colors flex justify-between items-center"
                 >
                   <div>
-                    <div className="text-xs font-bold text-slate-700">{d.nombre_compania_asociada}</div>
-                    <div className="text-[10px] text-slate-500">Destino: {d.nombre || d.nombre_destino}</div>
+                    <div className="text-xs font-bold text-slate-700">{d.nombre || d.nombre_destino}</div>
+                    {d.nombre_compania_asociada && (
+                      <div className="text-[10px] text-slate-500">Compañía asociada: {d.nombre_compania_asociada}</div>
+                    )}
                   </div>
                   <i className="fas fa-chevron-right text-slate-300"></i>
                 </div>

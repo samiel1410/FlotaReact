@@ -16,6 +16,7 @@ const REPORTES_CONFIG = {
     { id: 'guias_entregadas', title: 'Guías Entregadas', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'guias_entregadas', type: 'pdf' },
     { id: 'guias_por_forma_pago', title: 'Guías por Forma Pago', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'guias_por_forma_pago', type: 'pdf' },
     { id: 'egresos_ingresos', title: 'Reporte Egresos/Ingresos', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'egresos_ingresos', type: 'pdf' },
+    { id: 'cierre_viajes', title: 'Cierre de Viajes', icon: 'fas fa-bus', color: 'text-red-600', bg: 'bg-red-100', tipo: 'cierre_viajes_pdf', type: 'pdf' },
   ]
 };
 

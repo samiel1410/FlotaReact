@@ -180,7 +180,7 @@ const ReporteModal = ({ reporte, onClose }) => {
   useEffect(() => {
     const tipo = reporte?.tipo;
     const needed = [];
-    if (['guias', 'guias_pdf', 'facturas', 'comprobantes', 'boletos_oficina','guias_entregadas','egresos_ingresos', 'guias_por_forma_pago'].includes(tipo)) needed.push('sucursales', 'usuarios');
+    if (['guias', 'guias_pdf', 'facturas', 'comprobantes', 'boletos_oficina','guias_entregadas','egresos_ingresos', 'guias_por_forma_pago', 'cierre_viajes_pdf'].includes(tipo)) needed.push('sucursales', 'usuarios');
     if (tipo === 'guias_asociados') needed.push('companias');
     if (tipo === 'comprobantes') needed.push('formasPago');
     if (tipo === 'guias_despacho') needed.push('buses', 'personal');
@@ -206,6 +206,7 @@ const ReporteModal = ({ reporte, onClose }) => {
         'guias_entregadas': 'guias_entregadas',
         'egresos_ingresos': 'egresos_ingresos',
         'guias_por_forma_pago': 'guias_por_forma_pago',
+        'cierre_viajes_pdf': 'cierre_viajes_pdf',
       };
 
       // ── REPORTE GUÍAS POR FORMA DE PAGO (directo, sin cola) ──
@@ -437,8 +438,8 @@ const ReporteModal = ({ reporte, onClose }) => {
 
         {/* Formulario */}
         <div className="flex-1 overflow-auto p-6 space-y-4">
-          {/* Guías (Excel y PDF), Facturas, Comprobantes, Boletos Oficina, Guías Entregadas, Egresos/Ingresos, Guías por Forma Pago: Sucursal + Usuario */}
-          {['guias', 'guias_pdf', 'facturas', 'comprobantes', 'boletos_oficina', 'guias_entregadas', 'egresos_ingresos', 'guias_por_forma_pago'].includes(reporte.tipo) && (
+          {/* Guías (Excel y PDF), Facturas, Comprobantes, Boletos Oficina, Guías Entregadas, Egresos/Ingresos, Guías por Forma Pago, Cierre Viajes: Sucursal + Usuario */}
+          {['guias', 'guias_pdf', 'facturas', 'comprobantes', 'boletos_oficina', 'guias_entregadas', 'egresos_ingresos', 'guias_por_forma_pago', 'cierre_viajes_pdf'].includes(reporte.tipo) && (
             <>
               <SelectField label="Sucursal" value={filters.sucursal}
                 onChange={e => setFilters(f => ({ ...f, sucursal: e.target.value }))}

@@ -50,7 +50,7 @@ $id_usuario_global AND id_fksucursal_usuario=suc_codigo_sucursal";
 
 
 
-  $query_guia = "SELECT origen_guia,
+  $query_guia = "SELECT origen_guia, sucursal2.nombre_sucursal,
 destino_guia,numero_guia,punto_emision_sucursal,observacion_guia,id_fkcompania_asociada,id_fkusuario_guia,UPPER(nombre_cliente_remitente)
 as nombre_cliente_remitente,punto_emision_usuario,UPPER(nombre_cliente_receptor) as
 nombre_cliente_receptor,cedula_cliente_remitente,cedula_cliente_receptor,telefono_cliente_emisor,telefono_cliente_receptor,subtotal_12_guia,subtotal_0_guia,subtotal_guia,total_guia,descuento_guia,valor_tarifa_adicional_guia,impuesto_iva_guia,estado_cobro_guia
@@ -207,7 +207,7 @@ s.punto_emision_sucursal";
   }
 
   $total_cobrado = $total_factura - $suma_total;
-  
+
   if ($id_factura > 0 && $suma_total > 0) {
       $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "NO COBRADA";
   } else {
@@ -313,7 +313,7 @@ configuracion";
     <span class="titulo_inicio">N ° ' . $numero_guia . '</span> <br>
 
   </p>
-  <span class="center">OFICINA - ' . $ubicacion_usuaurio . '</span>
+  <span class="center">OFICINA - ' . (!empty($ubicacion_usuaurio) ? $ubicacion_usuaurio : $vals_guia["nombre_sucursal"]) . '</span>
 
   <div class="linea"></div>
 
@@ -369,7 +369,7 @@ configuracion";
     <span class="center">
       <strong class=""><i class="fas fa-user"></i>DETALLE DEL PAGO</strong>
     </span>
-    <br>OFICINISTA: ' . $usuario . '<br>FACTURA ELEC. N° ' . $numero_factura . '
+    <br>OFICINISTA: ' . $usuario . '<br>FACTURA ELEC. N° ' . $numero_factura . '<br>GUÍA N° ' . $numero_guia . '
     <span>
 
 
@@ -440,37 +440,16 @@ configuracion";
 </html>
 ';
 
-  // set document information
-
-  // Print text using writeHTMLCell()
-
-
-
-
-  // set default monospaced font
-
-
-  // set auto page breaks
-
-
-  // set some language-dependent strings (optional)
-
-  // ---------------------------------------------------------
-
   $pdf->SetFont('helvetica', '', 5);
   $pdf->SetMargins(0, 0, 0, true);
+  $pdf->SetAutoPageBreak(FALSE, 0); // Disable auto page break
   // add a page
-  $pdf->AddPage('P', array(500, 110));
+  $pdf->AddPage('P', array(110, 800)); // Make height very large
 
   $pdf->SetLineStyle(array('width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => 3, 'color' => array(0, 0, 0)));
 
   // Dibujar un rectángulo con borde punteado
   $pdf->Rect(5, 30, 100, 25, 'D');
-
-
-
-
-  // Add a page
 
   // Write HTML content
 
@@ -529,20 +508,6 @@ configuracion";
   echo json_encode($array);
 }
 
-
-
-// Guardar el archivo en el servidor
-
-
-// Limpiar el búfer de salida
-
-
-
-
-
 //============================================================+
 // END OF FILE
 //============================================================+
-
-
-?>

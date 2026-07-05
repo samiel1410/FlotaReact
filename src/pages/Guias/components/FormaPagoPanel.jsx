@@ -60,7 +60,7 @@ export const FormaPagoPanel = ({ detalles, convenio, onPagosChange, pagadoPor, o
   // ── Auto-agregar pago cuando hay detalles ──
   useEffect(() => {
     // No hay detalles o no hay forma de pago por defecto → no crear
-    if (detalles.length === 0 || !defaultFormaPagoId) return;
+    if (detalles.length === 0 || !defaultFormaPagoId || pagadoPor === '2') return;
 
     const autoPago = pagos.find(p => p._auto);
 
@@ -90,7 +90,7 @@ export const FormaPagoPanel = ({ detalles, convenio, onPagosChange, pagadoPor, o
       onPagosChange?.(newPagos);
       autoDeletedRef.current = false;
     }
-  }, [detalles.length, totalGeneral]);
+  }, [detalles.length, totalGeneral, pagadoPor]);
 
   const totalPagado = pagos.reduce((sum, p) => sum + (parseFloat(p.monto) || 0), 0);
   const diferencia = totalPagado - totalGeneral;
@@ -152,11 +152,19 @@ export const FormaPagoPanel = ({ detalles, convenio, onPagosChange, pagadoPor, o
         <label className={labelClass}>Pagado por</label>
         <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#475569' }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-            <input type="radio" name="pagadoPor" value="1" checked={pagadoPor === '1'} onChange={(e) => onPagadoPorChange?.(e.target.value)} />
+            <input type="radio" name="pagadoPor" value="1" checked={pagadoPor === '1'} onChange={(e) => {
+              onPagadoPorChange?.(e.target.value);
+              autoDeletedRef.current = false;
+            }} />
             Remitente
           </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
-            <input type="radio" name="pagadoPor" value="2" checked={pagadoPor === '2'} onChange={(e) => onPagadoPorChange?.(e.target.value)} />
+            <input type="radio" name="pagadoPor" value="2" checked={pagadoPor === '2'} onChange={(e) => {
+              onPagadoPorChange?.(e.target.value);
+              setPagos([]);
+              onPagosChange?.([]);
+              autoDeletedRef.current = true;
+            }} />
             Destinatario
           </label>
         </div>

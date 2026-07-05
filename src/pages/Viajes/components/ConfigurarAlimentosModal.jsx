@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../../../config/axios';
-import ViajesService from '../../../services/viajes.service';
 
 export const ConfigurarAlimentosModal = ({ trip, onClose }) => {
   const [alimentos, setAlimentos] = useState([]);
@@ -85,9 +84,8 @@ export const ConfigurarAlimentosModal = ({ trip, onClose }) => {
                 return (
                   <div key={a.id_alimentos}
                     onClick={() => toggleItem(String(a.id_alimentos))}
-                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all text-xs font-bold ${
-                      isSel ? 'bg-orange-50 border border-orange-200 text-orange-700' : 'bg-slate-50 border border-slate-100 text-slate-600 hover:bg-slate-100'
-                    }`}>
+                    className={`flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all text-xs font-bold ${isSel ? 'bg-orange-50 border border-orange-200 text-orange-700' : 'bg-slate-50 border border-slate-100 text-slate-600 hover:bg-slate-100'
+                      }`}>
                     <span>{a.nombre_alimentos}</span>
                     <span className="font-black">${parseFloat(a.precio_alimentos || 0).toFixed(2)}</span>
                   </div>
