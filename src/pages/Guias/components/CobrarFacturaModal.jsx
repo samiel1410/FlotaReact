@@ -54,17 +54,7 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = fal
               onClose();
               return;
             }
-            
-            // Obtenemos todos los cobros existentes para sumar el monto ya pagado
-            const cobrosRes = await GuiaNotaVentaService.getComprobantesPorCaja(guia.id_guia, { limit: 100 });
-            const listCobros = (cobrosRes && cobrosRes.data) ? (Array.isArray(cobrosRes.data.data) ? cobrosRes.data.data : cobrosRes.data) : [];
-            const cobrado = Array.isArray(listCobros) ? listCobros.reduce((acc, c) => {
-              if (c.estado_comprobante_cobro === 'ANULADA') return acc;
-              return acc + (parseFloat(c.monto_comprobante_cobro) || 0);
-            }, 0) : 0;
-            
-            const totalAFacturar = parseFloat(gInfo.total_guia || 0);
-            const restante = totalAFacturar - cobrado;
+            const restante = parseFloat(gInfo.por_cobrar !== undefined ? gInfo.por_cobrar : (gInfo.total_guia || 0));
 
             if (restante <= 0) {
               toast.success('La nota de venta ya se encuentra cobrada en su totalidad');
