@@ -110,7 +110,7 @@ export const CobrosRealizadosModal = ({ guia, onClose, onUpdate, isNotaVenta = f
         fetchedRef.current = true;
         if (onUpdate) onUpdate();
       } else {
-        toast.error(respuesta?.message || 'No se pudo anular el comprobante');
+        toast.error(respuesta?.message || (typeof respuesta?.data === 'string' ? respuesta.data : 'No se pudo anular el comprobante'));
       }
     } catch (err) {
       console.error(err);

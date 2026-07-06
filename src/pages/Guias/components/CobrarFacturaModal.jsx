@@ -185,7 +185,7 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = fal
         if (onSuccess) onSuccess();
         onClose();
       } else {
-        toast.error(respuesta?.message || 'Error al registrar el cobro');
+        toast.error(respuesta?.message || (typeof respuesta?.data === 'string' ? respuesta.data : 'Error al registrar el cobro'));
       }
     } catch (err) {
       console.error(err);
