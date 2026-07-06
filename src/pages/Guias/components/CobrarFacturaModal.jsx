@@ -8,7 +8,7 @@ import { GuiaService } from '../../../services/guia.service';
  * Modal para cobrar una factura asociada a una guía.
  * Recrea la funcionalidad de CobrarFactura de ExtJS.
  */
-export const CobrarFacturaModal = ({ guia, onClose, onSuccess }) => {
+export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = false }) => {
   const [loadingInit, setLoadingInit] = useState(true);
   const [saving, setSaving] = useState(false);
   const [facturaData, setFacturaData] = useState(null);
@@ -39,36 +39,77 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess }) => {
           setFormasPago(fPagosRes.data);
         }
 
-        // 2. Obtener datos de la factura a cobrar sumando
-        const factDataRes = await api.get(`/factura/autorizadofacturaxguia?id_guia=${guia.id_guia}`);
-        
-        if (factDataRes && factDataRes.data && factDataRes.data.length > 0) {
-          const fData = factDataRes.data[0];
+        if (isNotaVenta) {
+          // Para Notas de Venta, no hay factura. Cobramos el total_guia directamente.
+          const { GuiaNotaVentaService } = await import('../../../services/guiaNotaVenta.service');
           
-          // Obtener suma ya cobrada
-          const sumRes = await api.get(`/factura/facturaidguicobradasuma?id_guia=${guia.id_guia}`);
-          const cobrado = (sumRes && sumRes.success && sumRes.data) ? parseFloat(sumRes.data) : 0;
-          
-          const totalAFacturar = parseFloat(fData.total_factura || 0);
-          const restante = totalAFacturar - cobrado;
+          // Obtenemos los detalles del remitente y el total de la guía
+          const infoRes = await GuiaNotaVentaService.informacionGuia(guia.id_guia);
+          if (infoRes) {
+            const gInfo = infoRes.data || infoRes;
+            
+            // Obtenemos todos los cobros existentes para sumar el monto ya pagado
+            const cobrosRes = await GuiaNotaVentaService.getComprobantesPorCaja(guia.id_guia, { limit: 100 });
+            const listCobros = (cobrosRes && cobrosRes.data) ? (Array.isArray(cobrosRes.data.data) ? cobrosRes.data.data : cobrosRes.data) : [];
+            const cobrado = Array.isArray(listCobros) ? listCobros.reduce((acc, c) => acc + (parseFloat(c.monto_comprobante_cobro) || 0), 0) : 0;
+            
+            const totalAFacturar = parseFloat(gInfo.total_guia || 0);
+            const restante = totalAFacturar - cobrado;
 
-          if (restante <= 0) {
-            toast.success('La guía ya se encuentra cobrada en su totalidad');
+            if (restante <= 0) {
+              toast.success('La nota de venta ya se encuentra cobrada en su totalidad');
+              onClose();
+              return;
+            }
+
+            setFacturaData({
+              id_factura: null,
+              id_fkcliente_factura: gInfo.id_fkcliente_remitente,
+              punto_emision_sucursal: 'NV',
+              punto_emision_factura: '000',
+              numero_factura: gInfo.numero_guia_final || gInfo.numero_guia || gInfo.id_guia,
+              total_factura: restante.toFixed(2)
+            });
+            setFormData(prev => ({
+              ...prev,
+              monto: restante.toFixed(2)
+            }));
+          } else {
+            toast.error('No se pudo obtener la información de la Nota de Venta');
             onClose();
-            return;
           }
-          
-          setFacturaData({
-            ...fData,
-            total_factura: restante.toFixed(2)
-          });
-          setFormData(prev => ({
-            ...prev,
-            monto: restante.toFixed(2)
-          }));
         } else {
-          toast.error('No se pudo obtener la información de cobro');
-          onClose();
+          // 2. Obtener datos de la factura a cobrar sumando
+          const factDataRes = await api.get(`/factura/autorizadofacturaxguia?id_guia=${guia.id_guia}`);
+          
+          if (factDataRes && factDataRes.data && factDataRes.data.length > 0) {
+            const fData = factDataRes.data[0];
+            
+            // Obtener suma ya cobrada
+            const sumRes = await api.get(`/factura/facturaidguicobradasuma?id_guia=${guia.id_guia}`);
+            const cobrado = (sumRes && sumRes.success && sumRes.data) ? parseFloat(sumRes.data) : 0;
+            
+            const totalAFacturar = parseFloat(fData.total_factura || 0);
+            const restante = totalAFacturar - cobrado;
+
+            if (restante <= 0) {
+              toast.success('La guía ya se encuentra cobrada en su totalidad');
+              onClose();
+              return;
+            }
+            
+            setFacturaData({
+              ...fData,
+              total_factura: restante.toFixed(2)
+            });
+            setFormData(prev => ({
+              ...prev,
+              monto: restante.toFixed(2)
+            }));
+          } else {
+            toast.error('No se pudo obtener la información de cobro');
+            onClose();
+          }
         }
       } catch (err) {
         console.error('Error inicializando modal de cobro', err);
@@ -114,7 +155,6 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess }) => {
 
     setSaving(true);
     try {
-      // payload for comprobantecobro/comprobanteCobroInsertarActualizar
       const payload = {
         id: "",
         fecha: formData.fecha,
@@ -124,20 +164,28 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess }) => {
         idfactura: facturaData.id_factura,
         estado: 'COBRADA',
         idformapago: formData.idformapago,
-        tipo: 1, // 1 for factura, maybe? Based on ExtJS or defaults
+        tipo: isNotaVenta ? 2 : 1, // 2 para guía directa/nota de venta, 1 para factura
         observacion: formData.observacion || ' ',
         id_guia: guia.id_guia,
         destino_guia: guia.destino_guia || guia.destino || '',
         archivocomprobante: formData.archivocomprobante
       };
 
-      const res = await api.post('/comprobantecobro/comprobanteCobroInsertarActualizar', payload);
-      if (res.data && res.data.success) {
+      let res;
+      if (isNotaVenta) {
+        const { GuiaNotaVentaService } = await import('../../../services/guiaNotaVenta.service');
+        res = await GuiaNotaVentaService.insertarComprobante(payload);
+      } else {
+        res = await api.post('/comprobantecobro/comprobanteCobroInsertarActualizar', payload);
+      }
+      
+      const respuesta = isNotaVenta ? res : (res?.data || res);
+      if (respuesta && respuesta.success) {
         toast.success('Cobro registrado correctamente');
         if (onSuccess) onSuccess();
         onClose();
       } else {
-        toast.error(res.data?.message || 'Error al registrar el cobro');
+        toast.error(respuesta?.message || 'Error al registrar el cobro');
       }
     } catch (err) {
       console.error(err);
@@ -180,9 +228,9 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess }) => {
         <form onSubmit={handleSubmit} className="p-6 flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-1">Factura</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">{isNotaVenta ? 'Nota de Venta' : 'Factura'}</label>
               <div className="text-slate-900 font-medium px-3 py-2 bg-white border border-slate-200 rounded-md">
-                {nombreFactura}
+                {isNotaVenta ? `Guía #${facturaData.numero_factura}` : nombreFactura}
               </div>
             </div>
             <div>

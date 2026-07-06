@@ -184,6 +184,16 @@ export const GuiaNotaVentaService = {
     return response.data;
   },
 
+  insertarComprobante: async (payload) => {
+    const response = await api.post('/guia_nota_venta/insertarComprobante', payload);
+    return response.data;
+  },
+
+  anularComprobante: async (id, motivoAnulacion) => {
+    const response = await api.post('/guia_nota_venta/anularComprobante', { id, motivoAnulacion });
+    return response.data;
+  },
+
   // ── Formas de pago ──────────────────────────────────────
   getFormasPagoCombo: async () => {
     const response = await api.get('/formapago/formapagoSeleccionPaginadoCombo');

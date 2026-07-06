@@ -465,6 +465,7 @@ export const GuiasNotaVentaPage = () => {
       {cobrarModalOpen && selectedGuiaCobrar && (
         <CobrarFacturaModal
           guia={selectedGuiaCobrar}
+          isNotaVenta={true}
           onClose={() => { setCobrarModalOpen(false); setSelectedGuiaCobrar(null); }}
           onSuccess={handleCobroSuccess}
         />
@@ -473,6 +474,7 @@ export const GuiasNotaVentaPage = () => {
       {cobrosModalOpen && selectedGuiaCobros && (
         <CobrosRealizadosModal
           guia={selectedGuiaCobros}
+          isNotaVenta={true}
           onClose={() => { setCobrosModalOpen(false); setSelectedGuiaCobros(null); }}
           onUpdate={() => loadGuias(filtros, page)}
         />

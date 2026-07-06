@@ -8,7 +8,7 @@ import { useAuth } from '../../../hooks/useAuth';
  * Modal de cobros realizados por guía.
  * Incluye anulación de comprobantes, replicando CobrosRealizados + AnularComprobanteCobro de ExtJS.
  */
-export const CobrosRealizadosModal = ({ guia, onClose, onUpdate }) => {
+export const CobrosRealizadosModal = ({ guia, onClose, onUpdate, isNotaVenta = false }) => {
   const [cobros, setCobros] = useState([]);
   const [loading, setLoading] = useState(true);
   const fetchedRef = useRef(false);
@@ -24,7 +24,14 @@ export const CobrosRealizadosModal = ({ guia, onClose, onUpdate }) => {
   const cargarCobros = async () => {
     setLoading(true);
     try {
-      const res = await GuiaService.getComprobantesPorCaja(guia.id_guia);
+      let res;
+      if (isNotaVenta) {
+        const { GuiaNotaVentaService } = await import('../../../services/guiaNotaVenta.service');
+        res = await GuiaNotaVentaService.getComprobantesPorCaja(guia.id_guia);
+      } else {
+        res = await GuiaService.getComprobantesPorCaja(guia.id_guia);
+      }
+      
       if (res && res.success) {
         setCobros(Array.isArray(res.data) ? res.data : []);
       } else {
@@ -81,11 +88,20 @@ export const CobrosRealizadosModal = ({ guia, onClose, onUpdate }) => {
     anulandoRef.current = true;
     setAnulando(true);
     try {
-      const res = await api.post('/comprobantecobro/anularComprobante', {
-        id: anularModal.cobro.id_comprobante_cobro,
-        motivoAnulacion: motivoAnulacion.toUpperCase()
-      });
-      if (res && res.data && res.data.success) {
+      let res;
+      if (isNotaVenta) {
+        const { GuiaNotaVentaService } = await import('../../../services/guiaNotaVenta.service');
+        res = await GuiaNotaVentaService.anularComprobante(anularModal.cobro.id_comprobante_cobro, motivoAnulacion.toUpperCase());
+      } else {
+        res = await api.post('/comprobantecobro/anularComprobante', {
+          id: anularModal.cobro.id_comprobante_cobro,
+          motivoAnulacion: motivoAnulacion.toUpperCase()
+        });
+      }
+      
+      const respuesta = isNotaVenta ? res : (res?.data || res);
+
+      if (respuesta && respuesta.success) {
         toast.success('Comprobante anulado correctamente');
         setAnularModal({ open: false, cobro: null });
         // Reload cobros
@@ -94,7 +110,7 @@ export const CobrosRealizadosModal = ({ guia, onClose, onUpdate }) => {
         fetchedRef.current = true;
         if (onUpdate) onUpdate();
       } else {
-        toast.error(res?.data?.message || 'No se pudo anular el comprobante');
+        toast.error(respuesta?.message || 'No se pudo anular el comprobante');
       }
     } catch (err) {
       console.error(err);
@@ -116,7 +132,13 @@ export const CobrosRealizadosModal = ({ guia, onClose, onUpdate }) => {
     try {
       const idUsuario = user?.id_usuario || 0;
       // Replicando onanularTodoGuia -> Anulacion -> anularadministrador
-      const res = await GuiaService.anularAdministrador(guia.id_guia, idUsuario, motivoAnulacion.toUpperCase());
+      let res;
+      if (isNotaVenta) {
+        const { GuiaNotaVentaService } = await import('../../../services/guiaNotaVenta.service');
+        res = await GuiaNotaVentaService.anularAdministrador(guia.id_guia, idUsuario, motivoAnulacion.toUpperCase());
+      } else {
+        res = await GuiaService.anularAdministrador(guia.id_guia, idUsuario, motivoAnulacion.toUpperCase());
+      }
       
       if (res && res.success) {
         toast.success('Guía anulada correctamente');
