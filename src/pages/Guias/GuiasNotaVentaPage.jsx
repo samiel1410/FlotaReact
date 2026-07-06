@@ -170,25 +170,7 @@ export const GuiasNotaVentaPage = () => {
         return;
       }
 
-      // 2. Verificar si tiene factura autorizada
-      try {
-        let factVerif = null;
-        try {
-          factVerif = await GuiaService.autorizadoFacturaPorGuia(item.id_guia);
-        } catch (err) {
-          // fallback
-          factVerif = await GuiaService.verificarFacturaAutorizada(item.id_guia);
-        }
-
-        if (factVerif && (factVerif.tipo === 0 || (factVerif.data && factVerif.data.length > 0))) {
-          toast.error('Esta guía se encuentra vinculada a una factura autorizada');
-          return;
-        }
-      } catch (e) {
-        console.warn('No se pudo verificar factura autorizada', e);
-      }
-
-      // 3. Navegar a edición
+      // 3. Navegar a edición (No se verifica factura porque es Nota de Venta)
       navigate(`/guias/editar/${item.id_guia}`);
     } catch (err) {
       console.error(err);
@@ -211,26 +193,7 @@ export const GuiasNotaVentaPage = () => {
         return;
       }
       
-      // 2. Verificar si ya tiene factura autorizada
-      try {
-        let factVerif = null;
-        try {
-          factVerif = await GuiaService.autorizadoFacturaPorGuia(item.id_guia);
-        } catch (err) {
-          // fallback
-          factVerif = await GuiaService.verificarFacturaAutorizada(item.id_guia);
-        }
-
-        if (factVerif && (factVerif.tipo === 0 || (factVerif.data && factVerif.data.length > 0))) {
-          toast.error('Esta guía ya se encuentra con una factura asociada');
-          return;
-        }
-      } catch (e) {
-        // Si el endpoint no existe, continuar
-        console.warn('No se pudo verificar factura autorizada', e);
-      }
-      
-      // 3. Confirmar con el usuario
+      // 3. Confirmar con el usuario (No se verifica factura porque es Nota de Venta)
       const confirmFacturar = await Swal.fire({ title: '¿Facturar guía?', text: `¿Seguro desea facturar la guía ${item.numero_guia_final}?`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, facturar', cancelButtonText: 'Cancelar' });
       if (!confirmFacturar.isConfirmed) return;
       
@@ -258,36 +221,11 @@ export const GuiasNotaVentaPage = () => {
         return;
       }
 
-      // Verificación de facturas (replicando autorización de ExtJS)
-      let factVerif = null;
-      try {
-        factVerif = await GuiaService.autorizadoFacturaPorGuia(item.id_guia);
-      } catch (err) {
-        factVerif = await GuiaService.verificarFacturaAutorizada(item.id_guia);
-      }
-      const tieneFactura = factVerif && (factVerif.tipo === 0 || (factVerif.data && factVerif.data.length > 0));
-
       const idUsuario = user?.id_usuario || 0;
       const rol = Number(userRole);
 
       if (msg === 1) {
-        // Guía activa (estado 1)
-        if (tieneFactura) {
-          if (rol === 1 || rol === 5) {
-            toast.error('Esta guía tiene una factura asociada. Anule la factura primero en Cobros Realizados.');
-            // En ExtJS se abría la ventana de ComprobantesGuia. En React podemos redirigir:
-            // navigate(`/guias/cobros/${item.id_guia}`);
-            return;
-          } else if (rol === 4) {
-            toast.error('No tiene permisos para anular una guía con factura asociada.');
-            return;
-          } else {
-            toast.error('Esta guía ya se encuentra con una factura asociada');
-            return;
-          }
-        }
-
-        // Proceder con anulación si no tiene factura o si ExtJS lo permitía
+        // Guía activa (estado 1) - Proceder con anulación (sin verificar factura en Nota de Venta)
         if (rol === 1 || rol === 4 || rol === 5) {
           const { value: motivo } = await Swal.fire({ title: 'Motivo de anulación', input: 'text', inputLabel: 'Motivo de anulación para la guía ' + item.numero_guia_final + ':', showCancelButton: true, confirmButtonText: 'Anular', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
           if (!motivo) return;
@@ -312,11 +250,6 @@ export const GuiasNotaVentaPage = () => {
       } else if (msg === 3) {
         // Guía pendiente a anular (estado 3)
         if (rol === 1 || rol === 5) {
-          if (tieneFactura) {
-             toast.error('Esta guía tiene una factura asociada. Anule la factura primero en Cobros Realizados.');
-             return;
-          }
-          
           const { value: motivo } = await Swal.fire({ title: 'Motivo de anulación', input: 'text', inputLabel: 'Motivo de anulación para la guía pendiente ' + item.numero_guia_final + ':', showCancelButton: true, confirmButtonText: 'Anular', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
           if (!motivo) return;
 
@@ -340,26 +273,10 @@ export const GuiasNotaVentaPage = () => {
   };
 
   const handleCharge = async (item) => {
-    // ExtJS logic: check if there's an associated authorized invoice
-    try {
-      let factVerif = null;
-      try {
-        factVerif = await GuiaService.autorizadoFacturaPorGuia(item.id_guia);
-      } catch (err) {
-        factVerif = await GuiaService.verificarFacturaAutorizada(item.id_guia);
-      }
-
-      if (!factVerif || factVerif.tipo === 0 || (factVerif.data && factVerif.data.length === 0)) {
-        toast.error('Esta guía no se encuentra con una factura asociada');
-        return;
-      }
-
-      setSelectedGuiaCobrar(item);
-      setCobrarModalOpen(true);
-    } catch (err) {
-      console.error(err);
-      toast.error('Error verificando la factura de la guía');
-    }
+    // Para Notas de Venta NO se requiere verificar que tenga una factura autorizada,
+    // ya que la nota de venta es el comprobante en sí mismo.
+    setSelectedGuiaCobrar(item);
+    setCobrarModalOpen(true);
   };
 
   const handleCobroSuccess = () => {

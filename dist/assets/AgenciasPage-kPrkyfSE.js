@@ -1,1 +1,0 @@
-import"./rolldown-runtime-QTnfLwEv.js";import{h as e,t}from"./vendor-react-40t3QHIC.js";import{i as n,n as r}from"./index-Ci37AlDT.js";e();var i=t(),a=()=>(0,i.jsx)(n,{config:r.sucursales});export{a as AgenciasPage};
