@@ -39,11 +39,19 @@ export const SeguimientoGuiaModal = ({ guia, onClose, isNotaVenta = false }) => 
         // 2. Obtener Historial de Seguimiento
         const endpoint = isNotaVenta ? '/seguimiento_nota_venta/seguimientosxguiaselect' : '/seguimiento/seguimientosxguiaselect';
         const segRes = await api.get(`${endpoint}?id=${guia.id_guia}&limit=100&page=1`);
-        if (segRes && segRes.data && segRes.data.success) {
-          setSeguimientos(Array.isArray(segRes.data.data) ? segRes.data.data : []);
-        } else {
-          setSeguimientos([]);
+        let newSeg = [];
+        if (segRes && segRes.data) {
+          if (Array.isArray(segRes.data)) {
+            newSeg = segRes.data;
+          } else if (Array.isArray(segRes.data.data)) {
+            newSeg = segRes.data.data;
+          } else if (Array.isArray(segRes.data.root)) {
+            newSeg = segRes.data.root;
+          }
+        } else if (Array.isArray(segRes)) {
+          newSeg = segRes;
         }
+        setSeguimientos(newSeg);
       } catch (err) {
         console.error(err);
         toast.error('No se pudo cargar la información de seguimiento');
@@ -176,7 +184,7 @@ export const SeguimientoGuiaModal = ({ guia, onClose, isNotaVenta = false }) => 
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {seguimientos.map((s, i) => {
+                        {(Array.isArray(seguimientos) ? seguimientos : []).map((s, i) => {
                           const badge = getEstadoBadge(s.estado_seguimiento);
                           return (
                             <tr key={s.id_seguimiento || i} className="hover:bg-slate-50">
