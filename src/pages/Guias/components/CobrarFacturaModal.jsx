@@ -46,12 +46,22 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = fal
           // Obtenemos los detalles del remitente y el total de la guía
           const infoRes = await GuiaNotaVentaService.informacionGuia(guia.id_guia);
           if (infoRes) {
-            const gInfo = infoRes.data || infoRes;
+            let gInfo = infoRes.data || infoRes;
+            if (Array.isArray(gInfo)) gInfo = gInfo[0];
+            
+            if (!gInfo) {
+              toast.error('La guía no contiene información válida');
+              onClose();
+              return;
+            }
             
             // Obtenemos todos los cobros existentes para sumar el monto ya pagado
             const cobrosRes = await GuiaNotaVentaService.getComprobantesPorCaja(guia.id_guia, { limit: 100 });
             const listCobros = (cobrosRes && cobrosRes.data) ? (Array.isArray(cobrosRes.data.data) ? cobrosRes.data.data : cobrosRes.data) : [];
-            const cobrado = Array.isArray(listCobros) ? listCobros.reduce((acc, c) => acc + (parseFloat(c.monto_comprobante_cobro) || 0), 0) : 0;
+            const cobrado = Array.isArray(listCobros) ? listCobros.reduce((acc, c) => {
+              if (c.estado_comprobante_cobro === 'ANULADA') return acc;
+              return acc + (parseFloat(c.monto_comprobante_cobro) || 0);
+            }, 0) : 0;
             
             const totalAFacturar = parseFloat(gInfo.total_guia || 0);
             const restante = totalAFacturar - cobrado;
