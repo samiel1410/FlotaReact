@@ -295,8 +295,8 @@ export const ListaViajes = () => {
         </div>
 
         {/* Grid */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="overflow-x-auto">
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-visible">
+          <div className="overflow-visible">
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider">
