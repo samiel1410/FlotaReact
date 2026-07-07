@@ -69,7 +69,7 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
     };
 
     onChange([...detalles, item]);
-    setNuevo({ cantidad: 1, tipoEnvioId: tipoEnvioId || '', tipoEnvioNombre: '', contenido: '', peso: '', precioUnitario: '' });
+    setNuevo({ cantidad: 1, tipoEnvioId: tipoEnvioId || '', tipoEnvioNombre: nuevo.tipoEnvioNombre || '', contenido: '', peso: '', precioUnitario: costoEnvioPorDefecto || '' });
   };
 
   const handleRemove = (id) => {

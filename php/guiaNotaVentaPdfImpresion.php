@@ -216,10 +216,10 @@ s.punto_emision_sucursal";
   $total_cobrado = $total_factura - $suma_total;
   
   if ($id_factura > 0) {
-      $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "NO COBRADA";
+      $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "POR COBRAR";
   } else {
       // Si no hay factura, usamos el estado de la propia guía
-      $estado_factura = ($vals_guia['estado_cobro_guia'] == 'COBRADA') ? "COBRADA" : "NO COBRADA";
+      $estado_factura = ($vals_guia['estado_cobro_guia'] == 'COBRADA') ? "COBRADA" : "POR COBRAR";
   }
 
   // COMPROBANTES

@@ -90,7 +90,6 @@ $id_fkcompania_asociada AND lugar_destino ='$destino_guia'";
   $vals_detalle_compania = mysqli_fetch_array($recuperar_detalles_compnai);
   $nombre_compania = $vals_detalle_compania['nombre_compania_asociada'];
   $direccion_compania_asociada = $vals_detalle_compania['direccion_compania_asociada'];
-  $direccion_exacta = $vals_detalle_compania['direccion_exacta'];
   $numero_contacto = $vals_detalle_compania['numero_contacto'];
 
   //NUMERO GUIA
@@ -208,10 +207,10 @@ s.punto_emision_sucursal";
 
   $total_cobrado = $total_factura - $suma_total;
 
-  if ($id_factura > 0 && $suma_total > 0) {
-      $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "NO COBRADA";
+  if ($id_factura > 0) {
+      $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "POR COBRAR";
   } else {
-      $estado_factura = ($vals_guia['estado_cobro_guia'] == 'COBRADA') ? "COBRADA" : "NO COBRADA";
+      $estado_factura = ($vals_guia['estado_cobro_guia'] == 'COBRADA') ? "COBRADA" : "POR COBRAR";
   }
 
   // COMPROBANTES
@@ -353,7 +352,7 @@ configuracion";
   <span class="center">
     <strong class=""><i class="fas fa-user"></i>RETIRAR EN:</strong>
   </span><br>DIRECCIÓN:' . $direccion_compania_asociada . ' <br>EMPRESA:' . $nombre_compania . '
-  <br>DIR.EXACTA:' . $direccion_exacta . '<br>CONTACTO:' . $numero_contacto . '
+   <br>CONTACTO:' . $numero_contacto . '
   <span>
 
   ' . (!empty($observacion_guia) && trim($observacion_guia) !== '' && strtolower(trim($observacion_guia)) !== 'null' ? '
