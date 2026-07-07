@@ -197,8 +197,8 @@ razon_social_empresa FROM empresa WHERE 1";
         
         $html1 .= '<table style="margin-top:1px">
             <tr><td class="bold" style="font-size:7pt">' . $nombrePasajero . '</td><td class="bold" style="font-size:10pt" align="right">Asiento ' . str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) . '</td></tr>
-            <tr><td colspan="2" class="center bold" style="font-size:7pt">' . strtoupper($rutaPasajero) . '</td></tr>
-            <tr><td>Salida ' . $fechaSalidaFormateada . ' ' . $horaSalida . 'h</td><td align="right">Valor $' . number_format($detalle['total_boleto_detalle'], 2, ',', '.') . '</td></tr>
+            <tr><td colspan="2" class="bold" style="font-size:7pt" align="right">' . strtoupper($rutaPasajero) . '</td></tr>
+            <tr><td colspan="2" align="right" class="bold" style="font-size:9pt">Valor $' . number_format($detalle['total_boleto_detalle'], 2, ',', '.') . '</td></tr>
             <tr><td colspan="2" style="font-size:6pt">Tarifa: ' . $detalle['tarifa_boleto_detalle'] . '</td></tr>
         </table>';
     }
@@ -228,13 +228,7 @@ razon_social_empresa FROM empresa WHERE 1";
             <tr><td width="50%">Impresión ' . date('d/m/Y') . '</td><td width="50%">' . date('H:i') . '</td></tr>
         </table>
     </div>
-    <div class="center" style="font-size:5.5pt;line-height:1;margin-top:1px">
-        Descargue su factura electrónica desde patate.easysplus.com / Usuario y contraseña (Ruc o CI),
-        Recuerde estar 15 minutos antes de la hora de salida de la unidad, En caso de no estar puntual
-        y perder el viaje NO SE REEMBOLSARA EL VALOR. Una vez generado el Boleto por ningún motivo
-        se reembolsara el valor. GRACIAS POR SU COMPRENSION.<br>
-        EASYSPLUS.COM
-    </div>
+  
     <div class="center bold" style="font-size:6.5pt">Vendido por: ' . $boleto['nombre_usuario'] . '</div>
 </body></html>';
 

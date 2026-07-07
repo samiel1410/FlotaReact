@@ -51,7 +51,7 @@ $id_usuario_global AND id_fksucursal_usuario=suc_codigo_sucursal";
 
 
   $query_guia = "SELECT origen_guia, sucursal2.nombre_sucursal,
-destino_guia,numero_guia,punto_emision_sucursal,observacion_guia,id_fkcompania_asociada,id_fkusuario_guia,UPPER(nombre_cliente_remitente)
+destino_guia,numero_guia,numero_manual_guia,punto_emision_sucursal,observacion_guia,id_fkcompania_asociada,id_fkusuario_guia,UPPER(nombre_cliente_remitente)
 as nombre_cliente_remitente,punto_emision_usuario,UPPER(nombre_cliente_receptor) as
 nombre_cliente_receptor,cedula_cliente_remitente,cedula_cliente_receptor,telefono_cliente_emisor,telefono_cliente_receptor,subtotal_12_guia,subtotal_0_guia,subtotal_guia,total_guia,descuento_guia,valor_tarifa_adicional_guia,impuesto_iva_guia,estado_cobro_guia
 ,CONCAT(usuario.nombre_usuario,' ',usuario.apellido_usuario) as usuario FROM guia,sucursal2,usuario WHERE id_guia =
@@ -81,6 +81,7 @@ $id_guia AND sucursal_guia=suc_codigo_sucursal AND id_fkusuario_guia=id_usuario"
   $punto_emision_guia = $vals_guia["punto_emision_usuario"];
   $id_fkcompania_asociada = $vals_guia["id_fkcompania_asociada"];
   $usuario = $vals_guia["usuario"];
+  $numero_manual_guia = $vals_guia["numero_manual_guia"];
 
   //COMPANIA ASOCIADA
   $query_datos_compania = "SELECT nombre_compania_asociada,nombre_destino as
@@ -309,7 +310,7 @@ configuracion";
     <span class="titulo_inicio">' . $razon_social_empresa . '</span> <br>
     <span class="titulo_inicio">RUC:' . $ruc_empresa . '</span> <br>
     <span class="titulo_inicio">GUÍA DE DESPACHO ELECTRÓNICA</span> <br>
-    <span class="titulo_inicio">N ° ' . $numero_guia . '</span> <br>
+    <span class="titulo_inicio">N ° ' . $numero_guia . (!empty($numero_manual_guia) ? '<br>N ° MANUAL: ' . $numero_manual_guia : '') . '</span> <br>
 
   </p>
   <span class="center">OFICINA - ' . (!empty($ubicacion_usuaurio) ? $ubicacion_usuaurio : $vals_guia["nombre_sucursal"]) . '</span>
