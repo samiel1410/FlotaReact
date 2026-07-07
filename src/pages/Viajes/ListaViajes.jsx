@@ -27,13 +27,16 @@ export const ListaViajes = () => {
   const [limit] = useState(25);
   const [searchTrigger, setSearchTrigger] = useState(0);
 
+  const isAdmin = user?.id_fkrol_usuario == 1 || user?.id_fkrol_usuario == 2 || user?.id_rol == 1 || user?.id_rol == 2 || user?.rol == 1 || user?.rol == 2;
+  const today = new Date().toISOString().split('T')[0];
+
   // Filtros
   const [filtros, setFiltros] = useState({
-    fecha_inicio: '',
-    fecha_fin: '',
+    fecha_inicio: today,
+    fecha_fin: today,
     id_bus: '',
     id_chofer: '',
-    estado_viaje: '0',
+    estado_viaje: '2',
     criterio_busqueda: '',
   });
 
@@ -89,7 +92,8 @@ export const ListaViajes = () => {
     setSearchTrigger(t => t + 1);
   };
   const handleLimpiar = () => {
-    setFiltros({ fecha_inicio: '', fecha_fin: '', id_bus: '', id_chofer: '', estado_viaje: '0', criterio_busqueda: '' });
+    const today = new Date().toISOString().split('T')[0];
+    setFiltros({ fecha_inicio: today, fecha_fin: today, id_bus: '', id_chofer: '', estado_viaje: '2', criterio_busqueda: '' });
     setPage(1);
     setSearchTrigger(t => t + 1);
   };
@@ -360,7 +364,7 @@ export const ListaViajes = () => {
                           <div className={`absolute right-10 ${idx >= trips.length - 2 && trips.length > 3 ? 'bottom-0 mb-1' : 'top-0 mt-1'} z-[9999] w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden`}>
                             {[
                               { icon: 'fa-eye', label: 'Despachar Viaje', action: () => handleDespachar(t), color: 'text-emerald-600', show: t.estado_viajes == 1 },
-                              { icon: 'fa-undo', label: 'Reversar Despacho', action: () => handleReversarDespacho(t), color: 'text-rose-600', show: t.estado_viajes == 2 },
+                              { icon: 'fa-undo', label: 'Reversar Despacho', action: () => handleReversarDespacho(t), color: 'text-rose-600', show: t.estado_viajes == 2 && isAdmin },
                               { icon: 'fa-clock', label: 'Habilitar Tiempo Extra', action: () => handleTiempoExtra(t), color: 'text-blue-600', show: t.estado_viajes == 2 },
                               { icon: 'fa-file-pdf', label: 'PDF Despacho', action: () => handlePdfDespacho(t), color: 'text-rose-600', show: t.estado_viajes == 2 },
                               { icon: 'fa-print', label: 'Imprimir Pasajeros', action: () => handleImprimirPasajeros(t), color: 'text-blue-600', show: true },

@@ -140,6 +140,84 @@ export const DespachoViajesPage = () => {
         } else {
           toast.success('Viaje despachado exitosamente');
         }
+        
+        // Validación para imprimir con QZ Tray o abrir en pestaña nueva
+        const metodoImpresion = localStorage.getItem('metodo_impresion') || 'manual';
+        const printerBoletos = localStorage.getItem('printer_boletos') || localStorage.getItem('printer_guias');
+        const id_viajes = selectedTrip.id_viajes || selectedTrip.id_viaje;
+        const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
+        const pdfUrl = `${baseUrl}/php/despachoViajePdf.php?id_viajes=${id_viajes}`;
+
+        if (metodoImpresion === 'directa') {
+          try {
+            if (!printerBoletos) {
+              toast.error('No hay impresora configurada. Abriendo PDF manual...');
+              window.open(pdfUrl, '_blank');
+            } else {
+              const loadQZ = () => new Promise((resolve, reject) => {
+                if (window.qz) return resolve();
+                const s = document.createElement('script');
+                s.src = '/qz.js';
+                s.onload = () => resolve();
+                s.onerror = () => reject(new Error('No se pudo cargar qz.js'));
+                document.head.appendChild(s);
+              });
+
+              const configurarQZ = () => {
+                if (!window.qz) return;
+                qz.security.setSignatureAlgorithm('SHA256');
+                qz.security.setCertificatePromise((resolve) => {
+                  fetch('/digital-certificate.crt', { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } })
+                    .then(r => r.ok ? r.text() : null).then(resolve).catch(() => resolve(null));
+                });
+                qz.security.setSignaturePromise((toSign) => (resolve) => {
+                  api.get('/configuracion/sign-message', { params: { request: toSign } })
+                    .then(res => resolve(res.data))
+                    .catch(err => resolve(null));
+                });
+              };
+
+              const conectarQZ = () => {
+                if (!window.qz) return Promise.reject('Librería no cargada');
+                if (qz.websocket.isActive()) return Promise.resolve();
+                const TIMEOUT_MS = 3000;
+                let timeoutId;
+                const timeoutPromise = new Promise((_, reject) => {
+                  timeoutId = setTimeout(() => reject(new Error('Timeout')), TIMEOUT_MS);
+                });
+                return Promise.race([
+                  qz.websocket.connect({ retries: 0, delay: 0, usingSecure: false }),
+                  timeoutPromise
+                ]).finally(() => clearTimeout(timeoutId));
+              };
+
+              await loadQZ();
+              configurarQZ();
+              await conectarQZ();
+
+              const config = window.qz.configs.create(printerBoletos, {
+                scaleContent: true,
+                units: 'mm',
+                margins: { top: 0, bottom: 0, left: 8, right: 2 }
+              });
+              const data = [{
+                type: 'pixel',
+                format: 'pdf',
+                flavor: 'file',
+                data: pdfUrl
+              }];
+              await window.qz.print(config, data);
+              toast.success('Despacho impreso en ' + printerBoletos);
+            }
+          } catch (e) {
+            console.error('[QZ] Error al imprimir despacho:', e);
+            toast.error('Error al imprimir vía QZ. Abriendo PDF...');
+            window.open(pdfUrl, '_blank');
+          }
+        } else {
+          window.open(pdfUrl, '_blank');
+        }
+
         setSelectedTrip(null);
         setDetailData(null);
         setActiveTab(0);
