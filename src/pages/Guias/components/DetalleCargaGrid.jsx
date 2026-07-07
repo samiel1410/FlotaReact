@@ -104,7 +104,7 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
     <div>
       {/* Fila de ingreso rápido (oculto en edición) */}
       {!isEditing && (
-        <div className="quick-add-row" style={{ display: 'grid', gridTemplateColumns: '55px 1fr 75px 95px 35px', gap: '6px', marginBottom: '12px', alignItems: 'end' }}>
+        <div className="quick-add-row" style={{ display: 'grid', gridTemplateColumns: '55px 1fr 75px 85px 85px 35px', gap: '6px', marginBottom: '12px', alignItems: 'end' }}>
           <div>
             <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>Cant.</label>
             <input type="number" min="1" className={inputClass} value={nuevo.cantidad} onChange={(e) => setNuevo({...nuevo, cantidad: e.target.value})} />
@@ -120,6 +120,10 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
           <div>
             <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>P. Unitario</label>
             <input type="number" step="0.01" className={inputClassRight} value={nuevo.precioUnitario} onChange={(e) => setNuevo({...nuevo, precioUnitario: e.target.value})} placeholder="0.00" />
+          </div>
+          <div>
+            <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>Total</label>
+            <input type="text" className={`${inputClassRight} bg-slate-50 text-slate-500`} readOnly value={`$${((parseInt(nuevo.cantidad) || 1) * (parseFloat(nuevo.precioUnitario) || 0)).toFixed(2)}`} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <button type="button" onClick={handleAdd} style={{ height: '28px', width: '28px', borderRadius: '50%', background: '#10b981', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Agregar bulto">
