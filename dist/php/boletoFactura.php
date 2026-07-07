@@ -73,8 +73,8 @@ v.incluye_alimentos, v.hora_origen_salida, v.fecha_cierre,
 FROM alimentos
 WHERE FIND_IN_SET(id_alimentos, REPLACE(v.id_fkalimento_viajes, ' ', ''))) as nombres_alimentos
 FROM boletos b
-LEFT JOIN sucursal2 s ON b.id_fksucursal_boleto = s.suc_codigo_sucursal
 LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
+LEFT JOIN sucursal2 s ON u.id_fksucursal_usuario = s.suc_codigo_sucursal
 LEFT JOIN buses bu ON b.id_fkbus_boleto = bu.id_buses
 LEFT JOIN viajes v ON b.id_fkviaje_boleto = v.id_viajes
 LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
