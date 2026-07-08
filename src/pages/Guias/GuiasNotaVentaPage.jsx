@@ -15,7 +15,7 @@ import { SeguimientoGuiaModal } from './components/SeguimientoGuiaModal';
 import { CajaNotaVentaContent } from './components/CajaNotaVentaContent';
 
 export const GuiasNotaVentaPage = () => {
-  const { user, userRole } = useAuth();
+  const { user, userRole, hasPermission } = useAuth();
   const [activeTab, setActiveTab] = useState('guias');
   const [guias, setGuias] = useState([]);
   const [total, setTotal] = useState(0);
@@ -399,17 +399,19 @@ export const GuiasNotaVentaPage = () => {
             <i className="fas fa-truck text-xs"></i>
             Guías
           </button>
-          <button
-            onClick={() => setActiveTab('cajas')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all ${
-              activeTab === 'cajas'
-                ? 'border-amber-500 text-amber-700 bg-amber-50/50'
-                : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            <i className="fas fa-cash-register text-xs"></i>
-            Cajas
-          </button>
+          {hasPermission('cajas.caja_notas_venta') && (
+            <button
+              onClick={() => setActiveTab('cajas')}
+              className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all ${
+                activeTab === 'cajas'
+                  ? 'border-amber-500 text-amber-700 bg-amber-50/50'
+                  : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+              }`}
+            >
+              <i className="fas fa-cash-register text-xs"></i>
+              Cajas
+            </button>
+          )}
         </div>
       </div>
 

@@ -108,7 +108,10 @@ const ALL_PERMISSIONS = {
     permisos: {
       listado_cajas: 'Listado de Cajas',
       comprobantes: 'Comprobantes',
-      cajas_comprobantes: 'Cajas de Comprobantes'
+      cajas_comprobantes: 'Cajas de Comprobantes',
+      caja_notas_venta: 'Cajas de Notas de Venta',
+      solicitar_edicion_caja: 'Solicitar Edición de Caja',
+      aprobar_edicion_caja: 'Aprobar Edición de Caja'
     }
   },
   anulaciones: {

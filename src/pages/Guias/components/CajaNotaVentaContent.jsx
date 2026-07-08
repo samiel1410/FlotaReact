@@ -5,6 +5,7 @@ import Modal from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import cajaService from '../../../services/caja.service';
+import { useAuth } from '../../../hooks/useAuth';
 
 const DENOMINACIONES = [
   { key: '100', label: 'Billetes $100', field: '100', valor: 100 },
@@ -27,6 +28,7 @@ const DENOMINACIONES = [
  * listado, apertura, cierre, comprobante, detalle, editar, arqueo, solicitudes.
  */
 export const CajaNotaVentaContent = () => {
+  const { user } = useAuth();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -395,9 +397,9 @@ export const CajaNotaVentaContent = () => {
           </div>
         )}
         <button onClick={handleApertura}
-          className="h-8 px-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[10px] font-black rounded-lg flex items-center gap-2 active:scale-95 uppercase">
-          <i className="fas fa-cash-register"></i> Nueva Apertura
-        </button>
+            className="h-8 px-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[10px] font-black rounded-lg flex items-center gap-2 active:scale-95 uppercase">
+            <i className="fas fa-cash-register"></i> Nueva Apertura
+          </button>
       </div>
 
       {/* ── GRID ─────────────────────────────────────────────────────────── */}
