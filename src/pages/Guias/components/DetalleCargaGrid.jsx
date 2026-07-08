@@ -40,13 +40,16 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
   const handleAdd = () => {
     if (!nuevo.contenido || !nuevo.precioUnitario) return;
     const cantidad = parseInt(nuevo.cantidad) || 1;
-    const precioUnitario = parseFloat(nuevo.precioUnitario) || 0;
+    const precioConIva = parseFloat(nuevo.precioUnitario) || 0;
     const peso = parseFloat(nuevo.peso) || 0;
+    const rate = cobrarIvaGuia ? getIvaRate(nuevo.tipoEnvioId, tiposEnvio) : 0;
 
-    const subtotal = cantidad * precioUnitario;
+    // Desglose: precio incluye IVA → precioBase = precio / (1 + rate)
+    const precioBase = rate > 0 ? precioConIva / (1 + rate) : precioConIva;
+    const ivaUnitario = precioConIva - precioBase;
+    const subtotal = cantidad * precioBase;
     const descuento = convenio ? subtotal * ((convenio.porcentaje_descuento || convenio.descuento || 0) / 100) : 0;
     const subtotalConDescuento = subtotal - descuento;
-    const rate = cobrarIvaGuia ? getIvaRate(nuevo.tipoEnvioId, tiposEnvio) : 0;
     const iva = subtotalConDescuento * rate;
     const total = subtotalConDescuento + iva;
 
@@ -57,7 +60,7 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
       tipoEnvio: nuevo.tipoEnvioNombre,
       contenido: nuevo.contenido,
       peso,
-      precioUnitario,
+      precioUnitario: precioBase,
       subtotal,
       descuento,
       tarifa: 0,
@@ -80,11 +83,18 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
     const updated = detalles.map(d => {
       if (d.id !== id) return d;
       const newD = { ...d, [field]: value };
-      // Recalcular
-      const sub = newD.cantidad * newD.precioUnitario;
+      const rate = cobrarIvaGuia ? getIvaRate(newD.tipoEnvioId, tiposEnvio) : 0;
+
+      // Si cambió precioUnitario, recalcular desglose (precio incluye IVA)
+      if (field === 'precioUnitario') {
+        const precioConIva = newD.precioUnitario || 0;
+        const precioBase = rate > 0 ? precioConIva / (1 + rate) : precioConIva;
+        newD.precioUnitario = precioBase;
+      }
+
+      const sub = (newD.cantidad || 1) * newD.precioUnitario;
       const desc = convenio ? sub * ((convenio.porcentaje_descuento || convenio.descuento || 0) / 100) : 0;
       const subConDesc = sub - desc;
-      const rate = cobrarIvaGuia ? getIvaRate(newD.tipoEnvioId, tiposEnvio) : 0;
       const ivaCalc = subConDesc * rate;
       return {
         ...newD,

@@ -3,8 +3,10 @@ import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import ViajesService from '../../services/viajes.service';
 import { api } from '../../config/axios';
+import { useAuth } from '../../hooks/useAuth';
 
 export const CreacionViajesPage = () => {
+  const { user } = useAuth();
   const { register, handleSubmit, formState: { errors }, reset } = useForm({
     defaultValues: {
       fecha: new Date().toISOString().split('T')[0],
@@ -22,8 +24,11 @@ export const CreacionViajesPage = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
+        const idSucursal = user?.id_sucursal || user?.sucursal || null;
+        const params = idSucursal ? { id_sucursal: idSucursal } : {};
+
         const [routesRes, busesRes] = await Promise.all([
-          api.get('/rutas/rutasSeleccionCombo'),
+          api.get('/rutas/rutasSeleccionCombo', { params }),
           api.get('/buses/seleccionarBusesCombo')
         ]);
         setRoutes(routesRes.data?.data || routesRes.data || []);
@@ -36,7 +41,7 @@ export const CreacionViajesPage = () => {
       }
     };
     fetchInitialData();
-  }, []);
+  }, [user]);
 
   const onSubmit = async (data) => {
     setLoading(true);

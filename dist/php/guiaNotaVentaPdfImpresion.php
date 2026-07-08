@@ -139,75 +139,31 @@ $id_usuario_guia";
   $ubicacion_usuaurio = $vals_ubicacion['lugar_destino'];
 
 
-  ///
-  $sql_datos_factura = "SELECT
-f.id_factura,
-f.punto_emision_factura,
-s.punto_emision_sucursal,
-f.numero_factura,
-f.fecha_creacion_factura,
-f.clave_acceso_factura,
-f.total_factura,
-f.fecha_factura
-
-FROM
-guia_nota_venta g
-LEFT JOIN
-factura f ON f.id_fkguia_factura = g.id_guia
-LEFT JOIN
-sucursal2 s ON f.id_fksucursal_factura = s.suc_codigo_sucursal
-WHERE
-g.id_guia = $id_guia
-GROUP BY
-f.id_factura,
-f.clave_acceso_factura,
-f.fecha_factura,
-s.punto_emision_sucursal";
-
-
-
-
-  $recuperar_datos_factura = mysqli_query($conn, $sql_datos_factura) or die(mysqli_error($conn));
-  $vals_datos_factura = mysqli_fetch_array($recuperar_datos_factura);
-
   $detalles_forma_pago = "";
   $suma_total = 0;
   $total_cobrado = 0;
 
-  $id_factura = (isset($vals_datos_factura) && isset($vals_datos_factura["id_factura"])) ? (int) $vals_datos_factura["id_factura"] : 0;
+  $total_factura = $total_guia;
+  $clave_acceso = "";
+  $fecha_factura = "S/N";
 
-  if ($id_factura > 0) {
-    $total_factura = $vals_datos_factura["total_factura"];
-    $clave_acceso = $vals_datos_factura["clave_acceso_factura"];
-    $punto_emision_factura = $vals_datos_factura["punto_emision_factura"];
-    $punto_emision_sucursal = $vals_datos_factura["punto_emision_sucursal"];
-    $fecha_factura = $vals_datos_factura["fecha_creacion_factura"];
-    $resultado_factura = sprintf("%09s", $vals_datos_factura['numero_factura']);
-    $numero_factura = $punto_emision_sucursal . '-' . $punto_emision_factura . '-' . $resultado_factura;
+  $sql_pagos = "SELECT
+  COALESCE(SUM(cc.monto_comprobante_cobro), 0) AS total,
+  fp.id_forma_pago,
+  fp.nombre_forma_pago
+  FROM
+  comprobante_cobro_nota_venta cc
+  LEFT JOIN
+  forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
+  WHERE
+  cc.id_fkfactura_comprobante_cobro = $id_guia AND cc.estado_comprobante_cobro = 'COBRADA'
+  GROUP BY
+  fp.id_forma_pago";
 
-    $sql_pagos = "SELECT
-    COALESCE(SUM(cc.monto_comprobante_cobro), 0) AS total,
-    fp.id_forma_pago,
-    fp.nombre_forma_pago
-    FROM
-    comprobante_cobro cc
-    LEFT JOIN
-    forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
-    WHERE
-    cc.id_fkfactura_comprobante_cobro = $id_factura AND cc.estado_comprobante_cobro = 'COBRADA'
-    GROUP BY
-    fp.id_forma_pago";
-
-    $recuperar_datos_factura_formas = mysqli_query($conn, $sql_pagos) or die(mysqli_error($conn));
-    while ($vals_datos_facturaR = mysqli_fetch_array($recuperar_datos_factura_formas)) {
-      $detalles_forma_pago .= '' . $vals_datos_facturaR["nombre_forma_pago"] . ': $' . number_format((float) $vals_datos_facturaR["total"], 2) . ' ';
-      $suma_total = $suma_total + $vals_datos_facturaR["total"];
-    }
-  } else {
-    $total_factura = $total_guia;
-    $numero_factura = "PENDIENTE";
-    $fecha_factura = "S/N";
-    $clave_acceso = "";
+  $recuperar_datos_factura_formas = mysqli_query($conn, $sql_pagos) or die(mysqli_error($conn));
+  while ($vals_datos_facturaR = mysqli_fetch_array($recuperar_datos_factura_formas)) {
+    $detalles_forma_pago .= '' . $vals_datos_facturaR["nombre_forma_pago"] . ': $' . number_format((float) $vals_datos_facturaR["total"], 2) . ' ';
+    $suma_total = $suma_total + $vals_datos_facturaR["total"];
   }
 
   if ($detalles_forma_pago == "") {
@@ -216,12 +172,7 @@ s.punto_emision_sucursal";
 
   $total_cobrado = $total_factura - $suma_total;
   
-  if ($id_factura > 0) {
-      $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "POR COBRAR";
-  } else {
-      // Si no hay factura, usamos el estado de la propia guía
-      $estado_factura = ($vals_guia['estado_cobro_guia'] == 'COBRADA') ? "COBRADA" : "POR COBRAR";
-  }
+  $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "POR COBRAR";
 
   // COMPROBANTES
 
@@ -377,7 +328,7 @@ configuracion";
     <span class="center">
       <strong class=""><i class="fas fa-user"></i>DETALLE DEL PAGO</strong>
     </span>
-    <br>OFICINISTA: ' . $usuario . '<br>FACTURA ELEC. N° ' . $numero_factura . '
+    <br>OFICINISTA: ' . $usuario . '
     <span>
 
 

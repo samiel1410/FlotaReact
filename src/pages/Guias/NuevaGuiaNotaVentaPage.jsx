@@ -33,7 +33,7 @@ const calcGuardarIva = (detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia) => {
     if (descuentoTipo === '2') desc = sub;
     else if (descuentoTipo === '1') desc = sub * 0.50;
     else desc = d.descuento || 0;
-    const rate = getIvaRate(d.tipoEnvioId, tiposEnvio);
+    const rate = cobrarIvaGuia ? getIvaRate(d.tipoEnvioId, tiposEnvio) : 0;
     return sum + (sub - desc) * rate;
   }, 0);
 };
@@ -1453,18 +1453,7 @@ export const NuevaGuiaNotaVentaPage = () => {
               <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#475569' }}>
                 ${(() => {
                   if (!cobrarIvaGuia) return '0.00';
-                  const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
-                  return detalles.reduce((s, d) => {
-                    const qty = d.cantidad || 1;
-                    const price = d.precioUnitario || 0;
-                    const sub = qty * price;
-                    let desc = 0;
-                    if (descuentoTipo === '2') desc = sub;
-                    else if (descuentoTipo === '1') desc = sub * 0.50;
-                    else desc = (sub / (st12 || 1)) * detalles.reduce((a, dd) => a + (dd.descuento || 0), 0);
-                    const rate = getIvaRate(d.tipoEnvioId, tiposEnvio);
-                    return s + (sub - desc) * rate;
-                  }, 0).toFixed(2);
+                  return detalles.reduce((s, d) => s + (d.iva || 0), 0).toFixed(2);
                 })()}
               </span>
             </div>

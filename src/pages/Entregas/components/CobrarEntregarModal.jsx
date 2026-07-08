@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { CameraCapture } from './CameraCapture';
 import { CONFIG } from '../../../config/env';
 import { EntregaService } from '../../../services/entrega.service';
+import { GuiaService } from '../../../services/guia.service';
 
 /**
  * Modal para cobrar factura y entregar guía.
@@ -15,6 +16,9 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   const [facturaData, setFacturaData] = useState(null);
   const [showCamera, setShowCamera] = useState(false);
   const [fotoCapturada, setFotoCapturada] = useState('');
+  const [esLaPersona, setEsLaPersona] = useState(false);
+  const [clienteFotoUrl, setClienteFotoUrl] = useState(null);
+  const [buscandoCliente, setBuscandoCliente] = useState(false);
 
   const [formData, setFormData] = useState({
     monto: '',
@@ -27,10 +31,6 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   });
 
   const fileInputRef = useRef(null);
-
-  useEffect(() => {
-    initModal();
-  }, []);
 
   const initModal = async () => {
     try {
@@ -84,6 +84,44 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    initModal();
+    if (guia.cedula_cliente_receptor && !formData.cedula_recibe) {
+      setFormData(prev => ({ ...prev, cedula_recibe: guia.cedula_cliente_receptor }));
+    }
+  }, [guia]);
+
+  // Buscar cliente cuando cambia la cédula
+  useEffect(() => {
+    const buscarCliente = async (ident) => {
+      setBuscandoCliente(true);
+      try {
+        const res = await GuiaService.buscarClientePorIdentificacion(ident);
+        if (res?.success && res.data && res.data.length > 0) {
+          const cliente = res.data[0];
+          if (cliente.foto_cliente) {
+            setClienteFotoUrl(`${CONFIG.API_URL || 'http://localhost:3002'}/cliente/fotos/${cliente.foto_cliente}`);
+          } else {
+            setClienteFotoUrl(null);
+          }
+        } else {
+          setClienteFotoUrl(null);
+        }
+      } catch (e) {
+        setClienteFotoUrl(null);
+      }
+      setBuscandoCliente(false);
+    };
+
+    const cedula = formData.cedula_recibe;
+    if (cedula && (cedula.length === 10 || cedula.length === 13)) {
+      buscarCliente(cedula);
+    } else {
+      setClienteFotoUrl(null);
+      setEsLaPersona(false);
+    }
+  }, [formData.cedula_recibe]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -363,14 +401,72 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Foto de entrega</label>
-                <button
-                  onClick={() => setShowCamera(true)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-lg font-medium transition-colors"
-                >
-                  <i className="fas fa-camera"></i>
-                  {fotoCapturada ? 'Foto capturada ✓' : 'Tomar Foto'}
-                </button>
+                <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                  <label className="block text-sm font-semibold text-slate-700 mb-2 text-center">Identidad / Foto de Entrega <span className="text-red-500">*</span></label>
+                  
+                  {buscandoCliente && (
+                    <div className="flex items-center justify-center py-2">
+                      <i className="fas fa-spinner fa-spin text-blue-500 mr-2"></i>
+                      <span className="text-xs text-slate-500">Buscando datos del cliente...</span>
+                    </div>
+                  )}
+                  
+                  {!buscandoCliente && clienteFotoUrl && !fotoCapturada && (
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="text-xs text-slate-500 font-medium bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
+                        Foto registrada en el sistema:
+                      </span>
+                      <img src={clienteFotoUrl} alt="Cliente" className="h-24 w-24 object-cover rounded-full border-4 border-white shadow-md" />
+                      <div className="flex flex-col gap-1 mt-1 w-full">
+                        <button 
+                          onClick={() => setEsLaPersona(!esLaPersona)} 
+                          className={`w-full px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm ${esLaPersona ? 'bg-green-600 text-white ring-2 ring-green-300 ring-offset-1' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+                        >
+                          <i className={`fas ${esLaPersona ? 'fa-check-circle' : 'fa-check'} mr-1`}></i> {esLaPersona ? 'Sí, es la persona' : 'Confirmar: Sí es la persona'}
+                        </button>
+                        <button 
+                          onClick={() => setShowCamera(true)}
+                          className="w-full px-3 py-1.5 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-xs font-bold transition-colors shadow-sm"
+                        >
+                          <i className="fas fa-camera mr-1"></i> Tomar nueva foto
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!buscandoCliente && !clienteFotoUrl && !fotoCapturada && (
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="bg-red-50 text-red-600 px-3 py-2 rounded-lg border border-red-100 text-center shadow-sm w-full">
+                        <i className="fas fa-exclamation-triangle mb-1 block"></i>
+                        <p className="text-[10px] font-bold uppercase tracking-wider mb-1">Sin foto registrada</p>
+                      </div>
+                      <button
+                        onClick={() => setShowCamera(true)}
+                        className="flex items-center justify-center gap-2 px-4 py-2 w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition-all shadow-md transform hover:-translate-y-0.5"
+                      >
+                        <i className="fas fa-camera"></i> Tomar Foto Obligatoria
+                      </button>
+                    </div>
+                  )}
+                  
+                  {fotoCapturada && (
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="text-[10px] text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded-full border border-green-200 shadow-sm flex items-center gap-1">
+                        <i className="fas fa-check-circle"></i> Nueva foto capturada
+                      </span>
+                      <div className="relative inline-block mt-1">
+                        <img src={fotoCapturada} alt="Preview" className="h-24 w-24 object-cover rounded-full border-4 border-green-100 shadow-md" />
+                        <button
+                          onClick={() => setFotoCapturada('')}
+                          className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center shadow hover:bg-red-600 transition-colors ring-2 ring-white"
+                          title="Eliminar foto"
+                        >
+                          <i className="fas fa-trash-alt text-[10px]"></i>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -387,7 +483,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
             <button
               onClick={handleSubmit}
               className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-60"
-              disabled={saving}
+              disabled={saving || !formData.cedula_recibe || (!esLaPersona && !fotoCapturada)}
             >
               {saving ? (
                 <><i className="fas fa-spinner fa-spin"></i> Procesando...</>

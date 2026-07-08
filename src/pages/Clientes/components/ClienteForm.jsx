@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { api } from '../../../config/axios';
+import { CONFIG } from '../../../config/env';
 import toast from 'react-hot-toast';
 
 const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
   const [loading, setLoading] = useState(false);
+  const [fotoPreview, setFotoPreview] = useState(initialData?.foto_cliente ? `${CONFIG.API_URL || 'http://localhost:3002'}/cliente/fotos/${initialData.foto_cliente}` : null);
+  const [fotoBase64, setFotoBase64] = useState(null);
 
   const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: isEditing ? {
@@ -32,6 +35,7 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
     try {
       const payload = { ...data, estado_clientes: data.estado_clientes ? '1' : '0' };
       if (isEditing) payload.id_clientes = initialData.id_clientes;
+      if (fotoBase64) payload.foto_cliente = fotoBase64;
 
       const res = await api.post('/cliente/ingresarActualizarCliente', payload);
       if (res.data?.success) {
@@ -50,8 +54,61 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
   const inputClass = "w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800";
   const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5";
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const webpDataUrl = canvas.toDataURL('image/webp', 0.8);
+        setFotoPreview(webpDataUrl);
+        setFotoBase64(webpDataUrl);
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-5">
+      <div className="flex flex-col items-center mb-6">
+        <div className="relative w-28 h-28 mb-3 rounded-full overflow-hidden border-4 border-slate-100 shadow-sm bg-slate-50 flex items-center justify-center">
+          {fotoPreview ? (
+            <img src={fotoPreview} alt="Preview" className="object-cover w-full h-full" />
+          ) : (
+            <i className="fas fa-camera text-3xl text-slate-300"></i>
+          )}
+          <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 cursor-pointer transition-opacity">
+            <i className="fas fa-upload text-white text-xl"></i>
+            <input type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+          </label>
+        </div>
+        <span className="text-xs text-slate-500 font-medium">Foto del Cliente</span>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Tipo Identificación *</label>

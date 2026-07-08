@@ -158,7 +158,7 @@ export const TiemposParadasModal = ({ open, onClose, route, subrutas, catalogoCa
                             min="0"
                             placeholder="0"
                             className="w-16 bg-transparent text-center font-black text-indigo-700 text-lg focus:outline-none placeholder-indigo-300" 
-                            value={tiempos[index] === 0 && !tiempos[index].toString() ? '' : tiempos[index]}
+                            value={tiempos[index] ?? ''}
                             onChange={e => {
                               const newT = [...tiempos];
                               newT[index] = e.target.value === '' ? '' : parseInt(e.target.value);
