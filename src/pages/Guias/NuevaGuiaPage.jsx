@@ -10,7 +10,6 @@ import Modal from '../../components/common/Modal';
 import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
 import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import { GuiaService } from '../../services/guia.service';
-import { CONFIG } from '../../config/env';
 import { api } from '../../config/axios';
 import axios from 'axios';
 
@@ -18,26 +17,8 @@ import { PdfViewerModal } from '../../components/PdfViewerModal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
-const IVA_RATES = [0, 0.12, 0.13, 0.14, 0.15];
-const getIvaRate = (tipoEnvioId, tiposEnvio) => {
-  const te = (tiposEnvio || []).find(t => String(t.id || t.id_tipo_envio) === String(tipoEnvioId));
-  const tipoImpuesto = te?.tipo_impuesto;
-  return (tipoImpuesto !== undefined && tipoImpuesto !== null && IVA_RATES[parseInt(tipoImpuesto)] !== undefined) ? IVA_RATES[parseInt(tipoImpuesto)] : 0;
-};
-const calcGuardarIva = (detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia) => {
-  if (!cobrarIvaGuia) return 0;
-  return detalles.reduce((sum, d) => {
-    const qty = d.cantidad || 1;
-    const price = d.precioUnitario || 0;
-    const sub = qty * price;
-    let desc = 0;
-    if (descuentoTipo === '2') desc = sub;
-    else if (descuentoTipo === '1') desc = sub * 0.50;
-    else desc = d.descuento || 0;
-    const rate = cobrarIvaGuia ? getIvaRate(d.tipoEnvioId, tiposEnvio) : 0;
-    return sum + (sub - desc) * rate;
-  }, 0);
-};
+import { calcGuardarIva } from '../../utils/ivaUtils';
+
 
 const getInitialCobrarIvaGuia = () => {
   try {
@@ -64,13 +45,13 @@ const getInitialCobrarIvaGuia = () => {
 export const NuevaGuiaPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
   // ── Validación de caja al entrar ─────────────────────
   const [cajaResolved, setCajaResolved] = useState(false);
   const [showCajaModal, setShowCajaModal] = useState(false);
   const [localCajaId, setLocalCajaId] = useState(null);
   const [cajaChecking, setCajaChecking] = useState(true);
-  
+
   // ── Loading ──────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -83,13 +64,13 @@ export const NuevaGuiaPage = () => {
   const editarGuiaObj = location.state?.editarGuia; // Objeto de respuesta de API (data, data_detalle) o array
   const idGuiaEdit = location.state?.idGuia;
   const isEditing = !!idGuiaEdit;
-  
+
   // ── Combos ───────────────────────────────────────────
   const [sucursales, setSucursales] = useState([]);
   const [destinos, setDestinos] = useState([]);
   const [tiposEnvio, setTiposEnvio] = useState([]);
   const [selectedTipoEnvioObj, setSelectedTipoEnvioObj] = useState(null);
-  
+
   // ── Cabecera (ExtJS: origen_guia, destino_guia, tipo_envio) ────
   const [origen, setOrigen] = useState(user?.nombre_canton || user?.canton || '');
   const origenOriginalRef = useRef(user?.nombre_canton || user?.canton || '');
@@ -97,15 +78,15 @@ export const NuevaGuiaPage = () => {
   const [destinoTexto, setDestinoTexto] = useState(''); // texto para el input
   const [destinoAbierto, setDestinoAbierto] = useState(false);
   const [tipoEnvio, setTipoEnvio] = useState('');
-  
+
   // ── Clientes (ExtJS: remitente, destinatario) ────────
   const [remitente, setRemitente] = useState(null);
   const [destinatario, setDestinatario] = useState(null);
   const [convenio, setConvenio] = useState(null);
-  
+
   // ── NUEVO: "A quién se factura" (ExtJS: facturar_a) ─
   const [facturarA, setFacturarA] = useState('1'); // 1=Remitente, 2=Destinatario, 3=Otros
-  
+
   // ── NUEVO: Otros (ExtJS: datos otros - tercer remitente/destinatario)
   const [otrosIdentidad, setOtrosIdentidad] = useState('');
   const [otrosNombre, setOtrosNombre] = useState('');
@@ -122,28 +103,28 @@ export const NuevaGuiaPage = () => {
     email_cliente: '',
     telefono_cliente: ''
   });
-  
+
   // ── NUEVO: Compañía (ExtJS: id_compania) ────────────
   const [compania, setCompania] = useState(null);
-  
+
   // ── Detalle (ExtJS: store items) ────────────────────
   const [detalles, setDetalles] = useState([]);
-  
+
   // ── Descuento (ExtJS: tipodescuento - 0=Normal, 1=50%, 2=100%) ─
   const [descuentoTipo, setDescuentoTipo] = useState('0');
-  
+
   // ── Valor Declarado (ExtJS: valor_declarado, porcentaje, valor_declarado_valor) ─
   const [valorDeclaradoActivo, setValorDeclaradoActivo] = useState(false);
   const [valorDeclaradoPorcentaje, setValorDeclaradoPorcentaje] = useState('');
   const [valorDeclaradoValor, setValorDeclaradoValor] = useState('');
-  
+
   const [numeroManual, setNumeroManual] = useState(false);
   const [numeroManualGuia, setNumeroManualGuia] = useState('');
-  
+
   // ── NUEVO: Pagos (ExtJS: pagos store) ───────────────
   const [pagos, setPagos] = useState([]);
   const [pagadoPor, setPagadoPor] = useState('1'); // 1=Remitente, 2=Destinatario → canceladopor
-  
+
   // ── Modal PDF ────────────────────────────────────────
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
@@ -151,7 +132,7 @@ export const NuevaGuiaPage = () => {
 
   // ── Observación (ExtJS: observacion) ─────────────────
   const [observacion, setObservacion] = useState('');
-  
+
   // ── Configuración y usuario ──────────────────────────────
   const [defaultFormaPagoId, setDefaultFormaPagoId] = useState('');
   const [configTipoTarifa, setConfigTipoTarifa] = useState(0);
@@ -205,7 +186,7 @@ export const NuevaGuiaPage = () => {
           setMetodoImpresion(res.data.data.metodo_impresion || 'manual');
           setPrinterGuias(res.data.data.printer_guias || '');
         }
-      }).catch(() => {});
+      }).catch(() => { });
     }
   }, [cajaResolved]);
 
@@ -259,7 +240,7 @@ export const NuevaGuiaPage = () => {
         GuiaService.configuracionSeleccion(),
         GuiaService.buscarUsuario()
       ]);
-      
+
       // ── Normalizar combos ──
       if (sucRes.status === 'fulfilled') {
         const raw = sucRes.value?.data || [];
@@ -334,7 +315,7 @@ export const NuevaGuiaPage = () => {
 
       // Origen, Destino
       setOrigen(cabecera.origen_guia || cabecera.origen || '');
-      
+
       const destinoText = cabecera.destino_guia || cabecera.destino || '';
       setDestinoTexto(destinoText);
       const dMatch = destinos.find(d => (d.nombre || '').toLowerCase() === destinoText.toLowerCase());
@@ -377,7 +358,7 @@ export const NuevaGuiaPage = () => {
       if (detallesArr.length > 0) {
         const idTipo = detallesArr[0].id_fktipo_envio_detalle_guia || detallesArr[0].id_tipo_envio;
         if (idTipo) setTipoEnvio(String(idTipo));
-        
+
         const mapDetalles = detallesArr.map(d => ({
           contenido: d.contenido_guia || d.contenido_detalle_guia || '',
           peso: parseFloat(d.peso_guia || d.peso_detalle_guia) || 0,
@@ -394,7 +375,7 @@ export const NuevaGuiaPage = () => {
       // Otros
       setDescuentoTipo(String(cabecera.tipodescuento || cabecera.descuento_tipo || cabecera.tipo_descuento_guia || '0'));
       setObservacion(cabecera.observacion_guia || cabecera.observacion || '');
-      
+
       const vDec = parseFloat(cabecera.valor_declarado_valor || cabecera.valor_declarado || 0);
       if (vDec > 0) {
         setValorDeclaradoActivo(true);
@@ -531,12 +512,12 @@ export const NuevaGuiaPage = () => {
   };
 
   // ── Wrappers para limpiar errores al cambiar campos ──
-  const handleSetRemitente = (data) => { setRemitente(data); setFieldErrors(prev => ({...prev, remitente: undefined})); };
-  const handleSetDestinatario = (data) => { setDestinatario(data); setFieldErrors(prev => ({...prev, destinatario: undefined})); };
-  const handleSetCompania = (data) => { setCompania(data); setFieldErrors(prev => ({...prev, compania: undefined})); };
-  const handleSetDestino = (id, texto) => { setDestino(id); setDestinoTexto(texto); setFieldErrors(prev => ({...prev, destino: undefined})); };
-  const handleSetTipoEnvio = (val) => { setTipoEnvio(val); setFieldErrors(prev => ({...prev, tipoEnvio: undefined})); };
-  const handleSetDetalles = (data) => { setDetalles(data); setFieldErrors(prev => ({...prev, detalles: undefined})); };
+  const handleSetRemitente = (data) => { setRemitente(data); setFieldErrors(prev => ({ ...prev, remitente: undefined })); };
+  const handleSetDestinatario = (data) => { setDestinatario(data); setFieldErrors(prev => ({ ...prev, destinatario: undefined })); };
+  const handleSetCompania = (data) => { setCompania(data); setFieldErrors(prev => ({ ...prev, compania: undefined })); };
+  const handleSetDestino = (id, texto) => { setDestino(id); setDestinoTexto(texto); setFieldErrors(prev => ({ ...prev, destino: undefined })); };
+  const handleSetTipoEnvio = (val) => { setTipoEnvio(val); setFieldErrors(prev => ({ ...prev, tipoEnvio: undefined })); };
+  const handleSetDetalles = (data) => { setDetalles(data); setFieldErrors(prev => ({ ...prev, detalles: undefined })); };
 
   const bandera = parseInt(facturarA) || 1; // 1=Remitente, 2=Destinatario, 3=Otros
   const canceladopor = pagadoPor === '1' ? 0 : 1; // 0=Remitente, 1=Destinatario
@@ -575,9 +556,9 @@ export const NuevaGuiaPage = () => {
 
     // Calcular totales
     const totalSubtotal = detalles.reduce((sum, d) => sum + (d.subtotal || 0), 0);
-    const totalDescuento = descuentoTipo === '2' ? totalSubtotal 
-      : descuentoTipo === '1' ? totalSubtotal * 0.5 
-      : detalles.reduce((sum, d) => sum + (d.descuento || 0), 0);
+    const totalDescuento = descuentoTipo === '2' ? totalSubtotal
+      : descuentoTipo === '1' ? totalSubtotal * 0.5
+        : detalles.reduce((sum, d) => sum + (d.descuento || 0), 0);
     const totalTarifa = detalles.reduce((sum, d) => sum + (d.tarifa || 0), 0);
     const subtotalConDescuento = totalSubtotal - totalDescuento;
     const totalIva = calcGuardarIva(detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia);
@@ -608,7 +589,7 @@ export const NuevaGuiaPage = () => {
 
       // Caja global (del usuario autenticado o recién creada)
       id_caja_global: localCajaId || user?.id_caja_global || null,
-      
+
       // Remitente (usa idclienterem como ExtJS)
       idclienterem: remitente.id_cliente || 0,
       id_remitente: remitente.id_cliente || null,
@@ -620,7 +601,7 @@ export const NuevaGuiaPage = () => {
       telefonoemisor: remitente.telefono,
       email_remitente: remitente.email,
       correoemisor: remitente.email,
-      
+
       // Destinatario (usa idclienterec como ExtJS)
       idclienterec: destinatario.id_cliente || 0,
       id_destinatario: destinatario.id_cliente || null,
@@ -635,18 +616,18 @@ export const NuevaGuiaPage = () => {
       email_destinatario: destinatario.email,
       correorecptor: destinatario.email,
       telefono2_destinatario: destinatario.telefono2 || '',
-      
+
       // A quién se factura
       facturar_a: parseInt(facturarA) || 1,
       a_quien_factura: parseInt(facturarA) || 1,
-      
+
       // Compañía (ExtJS field name: idcompania)
       id_compania: compania?.id || compania?.id_compania || null,
       idcompania: compania?.id || compania?.id_compania || null,
       nombre_compania: compania?.nombre || '',
       ruc_compania: compania?.ruc || '',
       telefono_compania: compania?.telefono || '',
-      
+
       // Otros (si facturar_a = 3)
       id_cliente_otros: 0,
       identidad_otros: facturarA === '3' ? otrosIdentidad : null,
@@ -656,23 +637,23 @@ export const NuevaGuiaPage = () => {
       email_otros: facturarA === '3' ? otrosCorreo : null,
       correo_otros: facturarA === '3' ? otrosCorreo : null,
       direccion_otros: facturarA === '3' ? otrosDireccion : null,
-      
+
       // Descuento (tipodescuento como en ExtJS)
       descuento_tipo: descuentoTipo,
       tipodescuento: descuentoTipo,
-      
+
       // Valor Declarado (ExtJS: porcentaje + valor_declarado_valor)
       porcentaje: valorDeclaradoActivo ? (parseFloat(valorDeclaradoPorcentaje) || 0) : 0,
       valor_declarado: valorDeclaradoActivo
         ? (parseFloat(valorDeclaradoValor) || (totalGeneral * (parseFloat(valorDeclaradoPorcentaje) || 0) / 100) || 0)
         : 0,
       valor_declarado_valor: valorDeclaradoActivo ? (parseFloat(valorDeclaradoValor) || 0) : 0,
-      
+
       // Número Manual
       numero_manual: numeroManual ? 1 : 0,
       si_numero_manual: numeroManual ? 1 : 0,
       numero_manual_guia: numeroManual ? numeroManualGuia : null,
-      
+
       // Detalles (array con nombres exactos que espera el backend = ExtJS)
       detalle_guia: detalles.map(d => ({
         id_fktipo_envio_detalle_guia: parseInt(tipoEnvio) || null,
@@ -689,7 +670,7 @@ export const NuevaGuiaPage = () => {
         id_guia: 0,
         sucursal: parseInt(user?.id_sucursal || user?.sucursal) || 0
       })),
-      
+
       // Pagos (array con nombres exactos = ExtJS)
       comprobante_cobro: pagos.map(p => ({
         concepto_detalle: p.nombre || '',
@@ -698,7 +679,7 @@ export const NuevaGuiaPage = () => {
         id_fkforma: p.id_forma_pago,
         observacion_comprobante: p.detalle || ''
       })),
-      
+
       // Totales calculados
       subtotal_12: totalSubtotal,
       subtotal12: totalSubtotal,
@@ -710,11 +691,11 @@ export const NuevaGuiaPage = () => {
       valor_tarifa_adicional_guia: totalTarifa,
       impuestoiva: totalIva,
       total_factura: totalGeneral,
-      
+
       // Valor total (display)
       valor_total: totalGeneral,
       total: totalGeneral,
-      
+
       // Metadatos
       observacion: observacion,
       id_usuario: user?.id_usuario || user?.id,
@@ -723,17 +704,17 @@ export const NuevaGuiaPage = () => {
       estado: 'Pendiente'
     };
 
-      // Si es edición, pasamos el id_guia
-      if (isEditing) {
-        parametros.id_guia = parseInt(idGuiaEdit);
-      }
+    // Si es edición, pasamos el id_guia
+    if (isEditing) {
+      parametros.id_guia = parseInt(idGuiaEdit);
+    }
 
     setSaving(true);
     try {
-      const result = isEditing 
-        ? await GuiaService.actualizarGuia(parametros) 
+      const result = isEditing
+        ? await GuiaService.actualizarGuia(parametros)
         : await GuiaService.insertarGuia(parametros);
-      
+
       if (result && result.success) {
         // Verificar tipo de respuesta (tipo 3 = no hay caja aperturada)
         if (result.tipo === 3) {
@@ -748,7 +729,7 @@ export const NuevaGuiaPage = () => {
           try {
             const idUsuario = user?.id_usuario || 0;
             const generatorUrl = window.location.origin + `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}`;
-            
+
             // Llamar al PHP para generar el PDF
             await axios.get(generatorUrl);
 
@@ -836,7 +817,7 @@ export const NuevaGuiaPage = () => {
 
             // Enviar WhatsApp al destinatario y remitente
             const telefonosAEnviar = [];
-            
+
             const celDest = (destinatario?.telefono || destinatario?.telefono2 || '').replace(/\D/g, '');
             if (celDest.length >= 9) {
               telefonosAEnviar.push({ numero: celDest, nombre: destinatario?.nombres || 'cliente' });
@@ -963,7 +944,7 @@ export const NuevaGuiaPage = () => {
 
       {/* ── CONTENIDO SCROLLABLE ──────────────────────────── */}
       <div className="flex-1 overflow-y-auto p-5 space-y-5">
-        
+
         {/* ═══════════════════════════════════════════════════
             FILA 1: Info Básica (50%) + Datos Compañía (50%)
             ExtJS: layout column 50/50
@@ -993,7 +974,7 @@ export const NuevaGuiaPage = () => {
                       const val = e.target.value;
                       setDestinoTexto(val);
                       setDestino(''); // Limpiar selección mientras escribe
-                      setFieldErrors(prev => ({...prev, destino: undefined}));
+                      setFieldErrors(prev => ({ ...prev, destino: undefined }));
                       setDestinoAbierto(true);
                     }}
                     onFocus={() => {
@@ -1057,23 +1038,23 @@ export const NuevaGuiaPage = () => {
                   <option value="3">Otros</option>
                 </select>
               </div>
-              </div>
-              {/* Observación - dentro de Info Básica como en ExtJS */}
-              <div style={{ marginTop: '10px' }}>
-                <label className={labelClass}>Observación</label>
-                <textarea 
-                  className={inputClass} rows="2"
-                  placeholder="Observaciones de la guía (opcional)..."
-                  value={observacion}
-                  onChange={(e) => setObservacion(e.target.value)}
-                  style={{ resize: 'vertical', minHeight: '36px', paddingTop: '6px' }}
-                ></textarea>
-              </div>
             </div>
+            {/* Observación - dentro de Info Básica como en ExtJS */}
+            <div style={{ marginTop: '10px' }}>
+              <label className={labelClass}>Observación</label>
+              <textarea
+                className={inputClass} rows="2"
+                placeholder="Observaciones de la guía (opcional)..."
+                value={observacion}
+                onChange={(e) => setObservacion(e.target.value)}
+                style={{ resize: 'vertical', minHeight: '36px', paddingTop: '6px' }}
+              ></textarea>
+            </div>
+          </div>
 
           {/* Compañía */}
-          <CompaniaPanel 
-            cliente={remitente} 
+          <CompaniaPanel
+            cliente={remitente}
             compania={compania}
             onSeleccionarCompania={handleSetCompania}
             error={fieldErrors.compania}
@@ -1087,7 +1068,7 @@ export const NuevaGuiaPage = () => {
             ExtJS: layout column 0.33/0.33/0.33
         ═══════════════════════════════════════════════════ */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-          <RemitenteDestinatarioForm 
+          <RemitenteDestinatarioForm
             tipo="Remitente"
             cliente={remitente}
             onChange={handleSetRemitente}
@@ -1095,14 +1076,14 @@ export const NuevaGuiaPage = () => {
             onDestinatarioAutoFill={handleDestinatarioAutoFill}
             error={fieldErrors.remitente}
           />
-          <RemitenteDestinatarioForm 
+          <RemitenteDestinatarioForm
             tipo="Destinatario"
             cliente={destinatario}
             onChange={handleSetDestinatario}
             remitenteId={remitente?.id_cliente}
             error={fieldErrors.destinatario}
           />
-          
+
           {/* ── OTROS (tercera persona) ──────────────────── */}
           <div className={cardClass} style={{ padding: '16px', opacity: facturarA !== '3' ? 0.5 : 1 }}>
             <h3 style={sectionTitle}>
@@ -1114,8 +1095,8 @@ export const NuevaGuiaPage = () => {
 
             {/* Identidad + Botones */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
-              <input type="text" className={inputClass} placeholder="Identidad..." 
-                value={otrosIdentidad} onChange={(e) => setOtrosIdentidad(e.target.value.replace(/\D/g, ''))} 
+              <input type="text" className={inputClass} placeholder="Identidad..."
+                value={otrosIdentidad} onChange={(e) => setOtrosIdentidad(e.target.value.replace(/\D/g, ''))}
                 disabled={facturarA !== '3'}
                 style={{ flex: 1 }} />
               <button onClick={handleBuscarOtros} disabled={otrosLoading || facturarA !== '3'}
@@ -1140,13 +1121,13 @@ export const NuevaGuiaPage = () => {
                   <div>
                     <label className={labelClass}>Identificación *</label>
                     <input className={inputClass} value={otrosNewCliente.identificacion_cliente}
-                      onChange={(e) => setOtrosNewCliente({...otrosNewCliente, identificacion_cliente: e.target.value.replace(/\D/g, '')})}
+                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, identificacion_cliente: e.target.value.replace(/\D/g, '') })}
                       maxLength={13} />
                   </div>
                   <div>
                     <label className={labelClass}>Tipo ID</label>
                     <select className={inputClass} value={otrosNewCliente.tipo_identificacion_cliente}
-                      onChange={(e) => setOtrosNewCliente({...otrosNewCliente, tipo_identificacion_cliente: e.target.value})}>
+                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, tipo_identificacion_cliente: e.target.value })}>
                       <option value="C">Cédula</option>
                       <option value="R">RUC</option>
                       <option value="P">Pasaporte</option>
@@ -1155,22 +1136,22 @@ export const NuevaGuiaPage = () => {
                   <div style={{ gridColumn: 'span 2' }}>
                     <label className={labelClass}>Nombre / Razón Social *</label>
                     <input className={inputClass} value={otrosNewCliente.nombre_cliente}
-                      onChange={(e) => setOtrosNewCliente({...otrosNewCliente, nombre_cliente: e.target.value.toUpperCase()})} />
+                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, nombre_cliente: e.target.value.toUpperCase() })} />
                   </div>
                   <div>
                     <label className={labelClass}>Dirección</label>
                     <input className={inputClass} value={otrosNewCliente.direccion_cliente}
-                      onChange={(e) => setOtrosNewCliente({...otrosNewCliente, direccion_cliente: e.target.value.toUpperCase()})} />
+                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, direccion_cliente: e.target.value.toUpperCase() })} />
                   </div>
                   <div>
                     <label className={labelClass}>Teléfono</label>
                     <input className={inputClass} value={otrosNewCliente.telefono_cliente}
-                      onChange={(e) => setOtrosNewCliente({...otrosNewCliente, telefono_cliente: e.target.value.replace(/\D/g, '')})} />
+                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, telefono_cliente: e.target.value.replace(/\D/g, '') })} />
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
                     <label className={labelClass}>Email</label>
                     <input className={inputClass} type="email" value={otrosNewCliente.email_cliente}
-                      onChange={(e) => setOtrosNewCliente({...otrosNewCliente, email_cliente: e.target.value})} />
+                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, email_cliente: e.target.value })} />
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', marginTop: '10px' }}>
@@ -1185,31 +1166,31 @@ export const NuevaGuiaPage = () => {
                 </div>
               </div>
             ) : (
-            <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label className={labelClass}>Razón Social</label>
-                <input type="text" className={inputRO} readOnly value={otrosNombre} />
-              </div>
-              <div>
-                <label className={labelClass}>Teléfono</label>
-                <input type="text" className={inputRO} readOnly value={otrosTelefono} />
-              </div>
-              <div>
-                <label className={labelClass}>Correo</label>
-                <input type="text" className={inputRO} readOnly value={otrosCorreo} />
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label className={labelClass}>Dirección</label>
-                <input type="text" className={inputRO} readOnly value={otrosDireccion} />
-              </div>
-            </div>
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label className={labelClass}>Razón Social</label>
+                    <input type="text" className={inputRO} readOnly value={otrosNombre} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Teléfono</label>
+                    <input type="text" className={inputRO} readOnly value={otrosTelefono} />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Correo</label>
+                    <input type="text" className={inputRO} readOnly value={otrosCorreo} />
+                  </div>
+                  <div style={{ gridColumn: 'span 2' }}>
+                    <label className={labelClass}>Dirección</label>
+                    <input type="text" className={inputRO} readOnly value={otrosDireccion} />
+                  </div>
+                </div>
 
-            <button onClick={handleLimpiarOtros}
-              className="w-full h-7 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-[10px] font-bold">
-              <i className="fas fa-eraser mr-1"></i> Limpiar
-            </button>
-            </>
+                <button onClick={handleLimpiarOtros}
+                  className="w-full h-7 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md text-[10px] font-bold">
+                  <i className="fas fa-eraser mr-1"></i> Limpiar
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1219,7 +1200,7 @@ export const NuevaGuiaPage = () => {
             ExtJS: layout column 50/50
         ═══════════════════════════════════════════════════ */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'start' }}>
-          
+
           {/* ── Encomienda: Detalle + Valor Declarado + Número Manual ── */}
           <div className={cardClass} style={{ padding: '16px' }}>
             <h3 style={sectionTitle}>
@@ -1257,8 +1238,8 @@ export const NuevaGuiaPage = () => {
                 ))}
               </select>
             </div>
-            <DetalleCargaGrid 
-              detalles={detalles} 
+            <DetalleCargaGrid
+              detalles={detalles}
               onChange={handleSetDetalles}
               convenio={convenio}
               costoEnvioPorDefecto={selectedTipoEnvioObj?.costo_envio}
@@ -1271,7 +1252,7 @@ export const NuevaGuiaPage = () => {
             {/* ── Número Manual ──────────────────────────── */}
             <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#475569', fontWeight: 600 }}>
-                <input type="checkbox" checked={numeroManual} onChange={(e) => setNumeroManual(e.target.checked)} 
+                <input type="checkbox" checked={numeroManual} onChange={(e) => setNumeroManual(e.target.checked)}
                   className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
                 Número Manual
               </label>
@@ -1351,7 +1332,7 @@ export const NuevaGuiaPage = () => {
 
             {/* ── Forma de Pago ───────────────────────────── */}
             {!isEditing ? (
-              <FormaPagoPanel 
+              <FormaPagoPanel
                 detalles={detalles}
                 convenio={convenio}
                 onPagosChange={setPagos}
@@ -1376,11 +1357,11 @@ export const NuevaGuiaPage = () => {
             FILA 4: Totales
         ═══════════════════════════════════════════════════ */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'start' }}>
-          
+
           <div></div>
 
           {/* Totales */}
-          <TotalesPanel 
+          <TotalesPanel
             detalles={detalles}
             descuentoTipo={descuentoTipo}
             tiposEnvio={tiposEnvio}
@@ -1398,12 +1379,12 @@ export const NuevaGuiaPage = () => {
           FILA 5: Totales + Botones Guardar / Cancelar (sticky)
       ═══════════════════════════════════════════════════ */}
       <div style={{ position: 'sticky', bottom: 0, background: 'white', borderTop: '2px solid #e2e8f0', boxShadow: '0 -6px 20px rgba(0,0,0,0.08)', zIndex: 40, flexShrink: 0 }}>
-        
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'stretch', padding: '10px 28px' }}>
-          
+
           {/* ── Contenedor Izquierdo: Totales ──────────────── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-            
+
             {/* Cantidad de items */}
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '4px 12px', background: '#f1f5f9', borderRadius: '8px', minWidth: '60px' }}>
               <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cantidad</span>
@@ -1493,7 +1474,7 @@ export const NuevaGuiaPage = () => {
 
           {/* ── Contenedor Derecho: Estado cobro + Botones ── */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            
+
             {/* Estado de cobro */}
             {(() => {
               const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
@@ -1507,8 +1488,8 @@ export const NuevaGuiaPage = () => {
               const cobrado = totalPagado >= totalG && totalG > 0;
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: cobrado ? '#f0fdf4' : '#fffbeb', padding: '6px 12px', borderRadius: '8px' }}>
-                  <i className={`fas ${cobrado ? 'fa-check-circle' : 'fa-hourglass-half'}`} 
-                     style={{ color: cobrado ? '#059669' : '#f59e0b', fontSize: '14px' }}></i>
+                  <i className={`fas ${cobrado ? 'fa-check-circle' : 'fa-hourglass-half'}`}
+                    style={{ color: cobrado ? '#059669' : '#f59e0b', fontSize: '14px' }}></i>
                   <span style={{ fontSize: '13px', fontWeight: 800, color: cobrado ? '#059669' : '#d97706' }}>
                     {cobrado ? 'Cobrado' : 'No cobrado'}
                   </span>

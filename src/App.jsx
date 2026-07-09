@@ -52,6 +52,7 @@ const PlanificacionViajesPage = lazy(() => import('./pages/Viajes/PlanificacionV
 const CobrosRealizadosPage = lazy(() => import('./pages/Guias/CobrosRealizadosPage').then(m => ({ default: m.CobrosRealizadosPage })));
 const EditarGuiaPage = lazy(() => import('./pages/Guias/EditarGuiaPage').then(m => ({ default: m.EditarGuiaPage })));
 const EntregasPage = lazy(() => import('./pages/Entregas/EntregasPage').then(m => ({ default: m.EntregasPage })));
+const CajaNotaVentaPage = lazy(() => import('./pages/Guias/CajaNotaVentaPage').then(m => ({ default: m.CajaNotaVentaPage })));
 
 const RolesPage = lazy(() => import('./pages/Roles/RolesPage').then(m => ({ default: m.RolesPage })));
 const ProfilePage = lazy(() => import('./pages/Profile/ProfilePage').then(m => ({ default: m.ProfilePage })));
@@ -195,6 +196,7 @@ function App() {
           <Route path="seguimiento" element={<SeguimientoPage />} />
           <Route path="seguimiento-notas-venta" element={<SeguimientoPage isNotaVenta={true} />} />
           <Route path="entregas-notas-venta" element={<EntregasPage isNotaVenta={true} />} />
+          <Route path="cajas-notas-venta" element={<CajaNotaVentaPage />} />
           <Route path="caja-cobros" element={<DynamicPage key="caja-cobros" configKey="caja-cobros" />} />
           <Route path="facturacion" element={<FacturacionPage />} />
           <Route path="caja-boleteria" element={<DynamicPage key="caja-boleteria" configKey="caja-boleteria" />} />

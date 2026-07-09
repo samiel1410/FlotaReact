@@ -160,7 +160,7 @@ authApi.interceptors.request.use(config => {
 // Instancia separada para búsqueda de clientes (clientesfp.easysplus.com)
 export const clienteApi = axios.create({
   baseURL: CONFIG.CLIENTE_URL, // Se establece aquí para que axios lo tome correctamente
-  timeout: 10000,
+  timeout: 5000, // Reducido para que el fallback al backend local entre más rápido
   headers: {
     'Content-Type': 'application/json',
   },

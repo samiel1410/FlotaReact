@@ -4,7 +4,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import Modal from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
-import cajaService from '../../../services/caja.service';
+import cajaService from '../../../services/cajaNotaVenta.service';
 import { useAuth } from '../../../hooks/useAuth';
 
 const DENOMINACIONES = [

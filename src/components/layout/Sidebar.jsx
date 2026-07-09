@@ -96,6 +96,7 @@ const MENU = [
       { to: '/despachos-notas-venta', icon: 'fas fa-truck-moving', label: 'Despachos Notas Venta', permission: 'notas_venta.despacho_notas_venta' },
       { to: '/seguimiento-notas-venta', icon: 'fas fa-box-open', label: 'Seguimiento Notas Venta', permission: 'notas_venta.seguimiento_notas_venta' },
       { to: '/entregas-notas-venta', icon: 'fas fa-hand-holding-usd', label: 'Entrega Notas Venta', permission: 'notas_venta.entrega_notas_venta' },
+      { to: '/cajas-notas-venta', icon: 'fas fa-cash-register', label: 'Cajas Notas Venta', permission: 'cajas.caja_notas_venta' },
     ]
   },
   {
@@ -209,7 +210,9 @@ export const Sidebar = () => {
     let activeCategoryId = null;
 
     for (const cat of filteredMenu) {
-      const isActive = cat.items.some(item => currentPath.startsWith(item.to) && item.to !== '/');
+      const isActive = cat.items.some(item => 
+        item.to !== '/' && (currentPath === item.to || currentPath.startsWith(`${item.to}/`))
+      );
       if (isActive) {
         activeCategoryId = cat.id;
         break;

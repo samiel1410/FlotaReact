@@ -116,14 +116,14 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
                       <>
                         <div className="dropdown-overlay" onClick={() => setActiveMenu(null)}></div>
                         <div className="action-menu">
-                          <button onClick={() => { setActiveMenu(null); onViewPdf && onViewPdf(item); }}><i className="far fa-file-pdf" style={{color: 'red'}}></i> Visualizar Pdf</button>
-                          <button onClick={() => { setActiveMenu(null); onPrint && onPrint(item); }}><i className="fas fa-print" style={{color: 'gray'}}></i> Imprimir</button>
-                          <button onClick={() => { setActiveMenu(null); onEdit && onEdit(item); }}><i className="fas fa-edit" style={{color: 'orange'}}></i> Editar Guía</button>
-                          <button onClick={() => { setActiveMenu(null); onCharge && onCharge(item); }}><i className="fas fa-hand-holding-usd" style={{color: 'green'}}></i> Cobrar</button>
-                          <button onClick={() => { setActiveMenu(null); onCharges && onCharges(item); }}><i className="fas fa-money-bill-wave" style={{color: 'blue'}}></i> Cobros Realizados</button>
-                          <button onClick={() => { setActiveMenu(null); onTrack && onTrack(item); }}><i className="fas fa-eye" style={{color: '#333'}}></i> Seguimiento</button>
-                          <button onClick={() => { setActiveMenu(null); onAnular && onAnular(item); }}><i className="fas fa-ban" style={{color: 'red'}}></i> Anular</button>
-                          <button onClick={() => { setActiveMenu(null); onFacturar && onFacturar(item); }}><i className="fas fa-file-invoice-dollar" style={{color: '#2c3e50'}}></i> Facturar</button>
+                          {onViewPdf && <button onClick={() => { setActiveMenu(null); onViewPdf(item); }}><i className="far fa-file-pdf" style={{color: 'red'}}></i> Visualizar Pdf</button>}
+                          {onPrint && <button onClick={() => { setActiveMenu(null); onPrint(item); }}><i className="fas fa-print" style={{color: 'gray'}}></i> Imprimir</button>}
+                          {onEdit && <button onClick={() => { setActiveMenu(null); onEdit(item); }}><i className="fas fa-edit" style={{color: 'orange'}}></i> Editar Guía</button>}
+                          {onCharge && <button onClick={() => { setActiveMenu(null); onCharge(item); }}><i className="fas fa-hand-holding-usd" style={{color: 'green'}}></i> Cobrar</button>}
+                          {onCharges && <button onClick={() => { setActiveMenu(null); onCharges(item); }}><i className="fas fa-money-bill-wave" style={{color: 'blue'}}></i> Cobros Realizados</button>}
+                          {onTrack && <button onClick={() => { setActiveMenu(null); onTrack(item); }}><i className="fas fa-eye" style={{color: '#333'}}></i> Seguimiento</button>}
+                          {onAnular && <button onClick={() => { setActiveMenu(null); onAnular(item); }}><i className="fas fa-ban" style={{color: 'red'}}></i> Anular</button>}
+                          {onFacturar && <button onClick={() => { setActiveMenu(null); onFacturar(item); }}><i className="fas fa-file-invoice-dollar" style={{color: '#2c3e50'}}></i> Facturar</button>}
                         </div>
                       </>
                     )}

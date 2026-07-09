@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { GuiasFilterPanel } from './components/GuiasFilterPanel';
 import { GuiasGrid } from './components/GuiasGrid';
 import { GuiaNotaVentaService as GuiaService } from '../../services/guiaNotaVenta.service';
@@ -12,11 +12,9 @@ import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { CobrarFacturaModal } from './components/CobrarFacturaModal';
 import { CobrosRealizadosModal } from './components/CobrosRealizadosModal';
 import { SeguimientoGuiaModal } from './components/SeguimientoGuiaModal';
-import { CajaNotaVentaContent } from './components/CajaNotaVentaContent';
 
 export const GuiasNotaVentaPage = () => {
   const { user, userRole, hasPermission } = useAuth();
-  const [activeTab, setActiveTab] = useState('guias');
   const [guias, setGuias] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -180,37 +178,7 @@ export const GuiasNotaVentaPage = () => {
     }
   };
 
-  const handleFacturar = async (item) => {
-    try {
-      // 1. Verificar si la guía está anulada/pendiente (ExtJS: verificacionanulacion)
-      const verif = await GuiaService.verificarAnulacion(item.id_guia);
-      const msg = verif.message ?? verif.data?.message;
-      
-      if (msg === 2) {
-        toast.error('La guía se encuentra anulada');
-        return;
-      }
-      if (msg === 3) {
-        toast.error('La guía está pendiente a anular');
-        return;
-      }
-      
-      // 3. Confirmar con el usuario (No se verifica factura porque es Nota de Venta)
-      const confirmFacturar = await Swal.fire({ title: '¿Facturar guía?', text: `¿Seguro desea facturar la guía ${item.numero_guia_final}?`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, facturar', cancelButtonText: 'Cancelar' });
-      if (!confirmFacturar.isConfirmed) return;
-      
-      const r = await GuiaService.facturarGuia(item.id_guia);
-      if (r && r.success) {
-        toast.success('Guía facturada correctamente');
-        loadGuias(filtros, page);
-      } else {
-        toast.error(r?.message || 'Error al facturar');
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error('Error al facturar la guía');
-    }
-  };
+
 
   const handleAnular = async (item) => {
     try {
@@ -386,70 +354,36 @@ export const GuiasNotaVentaPage = () => {
           </div>
         </div>
 
-        {/* ── TABS ───────────────────────────────────────────────────────── */}
-        <div className="flex border-b border-slate-200 px-4">
-          <button
-            onClick={() => setActiveTab('guias')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all ${
-              activeTab === 'guias'
-                ? 'border-indigo-500 text-indigo-700 bg-indigo-50/50'
-                : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
-            }`}
-          >
-            <i className="fas fa-truck text-xs"></i>
-            Guías
-          </button>
-          {hasPermission('cajas.caja_notas_venta') && (
-            <button
-              onClick={() => setActiveTab('cajas')}
-              className={`flex items-center gap-2 px-4 py-2.5 text-[10px] font-black uppercase tracking-wider border-b-2 transition-all ${
-                activeTab === 'cajas'
-                  ? 'border-amber-500 text-amber-700 bg-amber-50/50'
-                  : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
-              }`}
-            >
-              <i className="fas fa-cash-register text-xs"></i>
-              Cajas
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* ── CONTENIDO: Guías o Cajas ─────────────────────────────────────── */}
-      {activeTab === 'guias' ? (
-        <div className="guias-content">
-          <div className={`filter-panel-container ${showFilters ? 'open' : 'collapsed'}`}>
-            <GuiasFilterPanel onSearch={handleSearch} visible={showFilters} />
-          </div>
+      {/* ── CONTENIDO: Guías ─────────────────────────────────────── */}
+      <div className="guias-content">
+        <div className={`filter-panel-container ${showFilters ? 'open' : 'collapsed'}`}>
+          <GuiasFilterPanel onSearch={handleSearch} visible={showFilters} isNotaVenta={true} />
+        </div>
 
-          <div className="guias-grid-wrapper">
-            <GuiasGrid
-              data={guias}
-              loading={loading}
-              page={page}
-              limit={limit}
-              total={total}
-              onPageChange={handlePageChange}
-              onReload={() => loadGuias(filtros, page)}
-              onViewPdf={handleViewPdf}
-              onPrint={handlePrint}
-              onEdit={handleEdit}
-              onFacturar={handleFacturar}
-              onAnular={handleAnular}
-              onCharge={handleCharge}
-              onCharges={handleCharges}
-              onTrack={handleTrack}
-              onNuevaGuia={handleNuevaGuia}
-              onAnularSeleccionadas={handleAnularSeleccionadas}
-              onAnularPendientes={handleAnularPendientes}
-            />
-          </div>
+        <div className="guias-grid-wrapper">
+          <GuiasGrid
+            data={guias}
+            loading={loading}
+            page={page}
+            limit={limit}
+            total={total}
+            onPageChange={handlePageChange}
+            onReload={() => loadGuias(filtros, page)}
+            onViewPdf={handleViewPdf}
+            onPrint={handlePrint}
+            onEdit={handleEdit}
+            onAnular={handleAnular}
+            onCharge={handleCharge}
+            onCharges={handleCharges}
+            onTrack={handleTrack}
+            onNuevaGuia={handleNuevaGuia}
+            onAnularSeleccionadas={handleAnularSeleccionadas}
+            onAnularPendientes={handleAnularPendientes}
+          />
         </div>
-      ) : (
-        <div className="flex-1 flex flex-col min-h-0 p-2">
-          <CajaNotaVentaContent />
-        </div>
-      )}
+      </div>
 
       {/* Mini-modal selector de impresión — idéntico a Impresion.js de ExtJS */}
       {printSelectorOpen && selectedPrintItem && (

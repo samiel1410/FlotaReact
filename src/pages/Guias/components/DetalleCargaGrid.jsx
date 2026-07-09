@@ -1,16 +1,10 @@
 import { useState, useEffect } from 'react';
+import { getIvaRate, desgloseItem } from '../../../utils/ivaUtils';
 
 /**
  * Grid de detalles de carga - Equivalente al Ext.grid.Panel de NuevaGuia.js
  * Columnas: CANT | TIPO ENVÍO | CONTENIDO | PESO | Precio Unit | Subtotal | Descuento | Tarifa | IVA | Total
  */
-const IVA_RATES = [0, 0.12, 0.13, 0.14, 0.15];
-
-const getIvaRate = (tipoEnvioId, tiposEnvio) => {
-  const te = tiposEnvio.find(t => String(t.id || t.id_tipo_envio) === String(tipoEnvioId));
-  const tipoImpuesto = te?.tipo_impuesto;
-  return (tipoImpuesto !== undefined && tipoImpuesto !== null && IVA_RATES[parseInt(tipoImpuesto)] !== undefined) ? IVA_RATES[parseInt(tipoImpuesto)] : 0;
-};
 
 export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlobalChange, costoEnvioPorDefecto, tiposEnvio = [], tipoEnvioId, isEditing = false, error, cobrarIvaGuia = true }) => {
   const [nuevo, setNuevo] = useState({
@@ -40,18 +34,12 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
   const handleAdd = () => {
     if (!nuevo.contenido || !nuevo.precioUnitario) return;
     const cantidad = parseInt(nuevo.cantidad) || 1;
-    const precioConIva = parseFloat(nuevo.precioUnitario) || 0;
+    const precioIngresado = parseFloat(nuevo.precioUnitario) || 0;
     const peso = parseFloat(nuevo.peso) || 0;
     const rate = cobrarIvaGuia ? getIvaRate(nuevo.tipoEnvioId, tiposEnvio) : 0;
+    const porcDesc = convenio ? (convenio.porcentaje_descuento || convenio.descuento || 0) : 0;
 
-    // Desglose: precio incluye IVA → precioBase = precio / (1 + rate)
-    const precioBase = rate > 0 ? precioConIva / (1 + rate) : precioConIva;
-    const ivaUnitario = precioConIva - precioBase;
-    const subtotal = cantidad * precioBase;
-    const descuento = convenio ? subtotal * ((convenio.porcentaje_descuento || convenio.descuento || 0) / 100) : 0;
-    const subtotalConDescuento = subtotal - descuento;
-    const iva = subtotalConDescuento * rate;
-    const total = subtotalConDescuento + iva;
+    const { subtotal, descuento, iva, total } = desgloseItem(precioIngresado, cantidad, rate, porcDesc);
 
     const item = {
       id: Date.now(),
@@ -60,7 +48,7 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
       tipoEnvio: nuevo.tipoEnvioNombre,
       contenido: nuevo.contenido,
       peso,
-      precioUnitario: precioBase,
+      precioUnitario: precioIngresado,
       subtotal,
       descuento,
       tarifa: 0,
@@ -82,27 +70,11 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
   const handleUpdateField = (id, field, value) => {
     const updated = detalles.map(d => {
       if (d.id !== id) return d;
-      const newD = { ...d, [field]: value };
+      const newD = { ...d, [field]: field === 'precioUnitario' ? (parseFloat(value) || 0) : value };
       const rate = cobrarIvaGuia ? getIvaRate(newD.tipoEnvioId, tiposEnvio) : 0;
-
-      // Si cambió precioUnitario, recalcular desglose (precio incluye IVA)
-      if (field === 'precioUnitario') {
-        const precioConIva = newD.precioUnitario || 0;
-        const precioBase = rate > 0 ? precioConIva / (1 + rate) : precioConIva;
-        newD.precioUnitario = precioBase;
-      }
-
-      const sub = (newD.cantidad || 1) * newD.precioUnitario;
-      const desc = convenio ? sub * ((convenio.porcentaje_descuento || convenio.descuento || 0) / 100) : 0;
-      const subConDesc = sub - desc;
-      const ivaCalc = subConDesc * rate;
-      return {
-        ...newD,
-        subtotal: sub,
-        descuento: desc,
-        iva: ivaCalc,
-        total: subConDesc + ivaCalc
-      };
+      const porcDesc = convenio ? (convenio.porcentaje_descuento || convenio.descuento || 0) : 0;
+      const { subtotal, descuento, iva, total } = desgloseItem(newD.precioUnitario, newD.cantidad || 1, rate, porcDesc);
+      return { ...newD, subtotal, descuento, iva, total };
     });
     onChange(updated);
   };

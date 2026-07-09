@@ -3,7 +3,7 @@ import { GuiaService } from '../../../services/guia.service';
 import { useNavigate } from 'react-router-dom';
 import './GuiasFilterPanel.css';
 
-export const GuiasFilterPanel = ({ onSearch, visible = true }) => {
+export const GuiasFilterPanel = ({ onSearch, visible = true, isNotaVenta = false }) => {
   const navigate = useNavigate();
   const [usuarios, setUsuarios] = useState([]);
   
@@ -92,9 +92,9 @@ export const GuiasFilterPanel = ({ onSearch, visible = true }) => {
   return (
     <div className={`guias-filter-panel ${visible ? 'open' : 'collapsed'}`}>
       <div className="filter-header">
-        <h3>Búsqueda de Guías</h3>
-        <button className="btn-nueva-guia" onClick={() => navigate('/guias/nueva')}>
-          <i className="fas fa-plus-circle"></i> Nueva Guía
+        <h3>{isNotaVenta ? 'Búsqueda de Notas de Venta' : 'Búsqueda de Guías'}</h3>
+        <button className="btn-nueva-guia" onClick={() => navigate(isNotaVenta ? '/notas-venta/nueva' : '/guias/nueva')}>
+          <i className="fas fa-plus-circle"></i> {isNotaVenta ? 'Nueva Nota Venta' : 'Nueva Guía'}
         </button>
       </div>
 
@@ -122,10 +122,12 @@ export const GuiasFilterPanel = ({ onSearch, visible = true }) => {
           </div>
 
           {/* Row 2 */}
-          <div className="form-group">
-            <label>Factura</label>
-            <input type="text" name="numero_factura" value={formData.numero_factura} onChange={handleChange} />
-          </div>
+          {!isNotaVenta && (
+            <div className="form-group">
+              <label>Factura</label>
+              <input type="text" name="numero_factura" value={formData.numero_factura} onChange={handleChange} />
+            </div>
+          )}
 
           <div className="form-group">
             <label>Nombre Remitente</label>

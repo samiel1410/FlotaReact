@@ -1,10 +1,4 @@
-const IVA_RATES = [0, 0.12, 0.13, 0.14, 0.15];
-
-const getIvaRate = (tipoEnvioId, tiposEnvio) => {
-  const te = (tiposEnvio || []).find(t => String(t.id || t.id_tipo_envio) === String(tipoEnvioId));
-  const tipoImpuesto = te?.tipo_impuesto;
-  return (tipoImpuesto !== undefined && tipoImpuesto !== null && IVA_RATES[parseInt(tipoImpuesto)] !== undefined) ? IVA_RATES[parseInt(tipoImpuesto)] : 0;
-};
+import { getIvaRate } from '../../../utils/ivaUtils';
 
 /**
  * Panel de Totales - Equivalente a la sección de totales de NuevaGuia.js
