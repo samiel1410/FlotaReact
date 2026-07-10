@@ -50,7 +50,7 @@ $id_usuario_global AND id_fksucursal_usuario=suc_codigo_sucursal";
 
 
 
-  $query_guia = "SELECT origen_guia,
+  $query_guia = "SELECT origen_guia, sucursal2.nombre_sucursal,
 destino_guia,numero_guia,numero_manual_guia,punto_emision_sucursal,observacion_guia,id_fkcompania_asociada,id_fkusuario_guia,UPPER(nombre_cliente_remitente)
 as nombre_cliente_remitente,punto_emision_usuario,UPPER(nombre_cliente_receptor) as
 nombre_cliente_receptor,cedula_cliente_remitente,cedula_cliente_receptor,telefono_cliente_emisor,telefono_cliente_receptor,subtotal_12_guia,subtotal_0_guia,subtotal_guia,total_guia,descuento_guia,valor_tarifa_adicional_guia,impuesto_iva_guia
@@ -273,7 +273,7 @@ configuracion";
     <span class="titulo_inicio">N ° ' . $numero_guia . (!empty($numero_manual_guia) ? '<br>N ° MANUAL: ' . $numero_manual_guia : '') . '</span> <br>
 
   </p>
-  <span class="center">OFICINA - ' . $ubicacion_usuaurio . '</span>
+  <span class="center">OFICINA - ' . (!empty($ubicacion_usuaurio) ? $ubicacion_usuaurio : $vals_guia["nombre_sucursal"]) . '</span>
 
   <div class="linea"></div>
 
@@ -316,19 +316,20 @@ configuracion";
   <br>DIR.EXACTA:' . $direccion_exacta . '<br>CONTACTO:' . $numero_contacto . '
   <span>
 
+  ' . (!empty($observacion_guia) && trim($observacion_guia) !== '' && strtolower(trim($observacion_guia)) !== 'null' ? '
   <div class="linea"></div>
   <span class="center">
     <strong class=""><i class="fas fa-user"></i>OBSERVACIÓN</strong>
   </span>
-  <br>' . (!empty($observacion_guia) ? $observacion_guia : 'NINGUNA') . '
-  <span>
+  <br>' . htmlspecialchars($observacion_guia) . '
+  <span>' : '') . '
 
 
     <div class="linea"></div>
     <span class="center">
       <strong class=""><i class="fas fa-user"></i>DETALLE DEL PAGO</strong>
     </span>
-    <br>OFICINISTA: ' . $usuario . '
+    <br>OFICINISTA: ' . $usuario . '<br>GUÍA N° ' . $numero_guia . '
     <span>
 
 
@@ -392,14 +393,7 @@ configuracion";
       ' . $leyenda . ' <br>
       ' . ($reimpreso_por ? '<div style="text-align:center; font-style:italic; font-size:9px; margin-top:5px;">Reimpreso por: ' . htmlspecialchars($reimpreso_por) . '</div>' : '') . '
 
-
-
-
-
-
-
-
-
+      <div style="height: 15px;"></div>
 </body>
 
 </html>
@@ -424,18 +418,14 @@ configuracion";
 
   $pdf->SetFont('helvetica', '', 5);
   $pdf->SetMargins(0, 0, 0, true);
+  $pdf->SetAutoPageBreak(FALSE, 0); // Disable auto page break
   // add a page
-  $pdf->AddPage('P', array(500, 110));
+  $pdf->AddPage('P', array(110, 800)); // Make height very large
 
   $pdf->SetLineStyle(array('width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => 3, 'color' => array(0, 0, 0)));
 
   // Dibujar un rectángulo con borde punteado
   $pdf->Rect(5, 30, 100, 25, 'D');
-
-
-
-
-  // Add a page
 
   // Write HTML content
 
@@ -463,7 +453,9 @@ configuracion";
   );
   // $pdf->SetXY(112, 65);
 
-  $pdf->SetXY(5, $posicion_codigo + 92);
+  // Obtener la posicion Y actual despues del contenido HTML
+  $y_actual = $pdf->GetY();
+  $pdf->SetXY(5, $y_actual + 5);
   // Codigo de barras
   if (!empty($clave_acceso)) {
     $pdf->write1DBarcode($clave_acceso, 'C128', '', '', '100', 18, 0.4, $style, 'N');
