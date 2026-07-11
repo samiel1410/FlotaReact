@@ -24,7 +24,7 @@ dist-ssr
 *.sw?
 nul
 # Build output
-dist/
+
 
 # PHP temp / generated
 php/tmp/
