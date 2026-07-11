@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
-import { api } from '../../config/axios';
+import { api, clienteApi } from '../../config/axios';
 import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
@@ -22,10 +22,13 @@ export const ConfiguracionPage = () => {
   const [logoPreview, setLogoPreview] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [firmaFile, setFirmaFile] = useState(null);
+  const [buscandoRuc, setBuscandoRuc] = useState(false);
+  const [rucDesbloqueado, setRucDesbloqueado] = useState(false);
+  const [rucTieneDatos, setRucTieneDatos] = useState(false);
   const fileInputRef = useRef(null);
   const firmaInputRef = useRef(null);
 
-  const { register, handleSubmit } = useForm({
+  const { register, handleSubmit, setValue, getValues } = useForm({
     values: configData,
     resetOptions: { keepDirtyValues: true }
   });
@@ -66,11 +69,13 @@ export const ConfiguracionPage = () => {
             leyenda_sri: conf.leyenda_sri || '',
             dir_matriz_empresa: conf.dir_matriz_empresa || conf.direccion_empresa || '',
             dir_establecimiento_empresa: conf.dir_establecimiento_empresa || '',
+            actividad_economica_empresa: conf.actividad_economica_empresa || '',
             autorizar_factura_sri: conf.autorizar_factura_sri === 1 || conf.autorizar_factura_sri === true,
             autorizar_boleto_sri: conf.autorizar_boleto_sri === 1 || conf.autorizar_boleto_sri === true,
             enviar_whatsapp: conf.enviar_whatsapp === 1 || conf.enviar_whatsapp === true,
             cobrar_iva_guia: conf.cobrar_iva_guia === 1 || conf.cobrar_iva_guia === true,
           });
+          setRucTieneDatos(!!conf.ruc_empresa);
         }
       } catch (error) {
         console.error("Error cargando configuración:", error);
@@ -262,6 +267,73 @@ export const ConfiguracionPage = () => {
     }
   };
 
+  // ── Búsqueda de RUC en API de clientes ──────────────────────
+  const handleSearchRuc = useCallback(async () => {
+    const ruc = getValues('ruc_empresa')?.trim();
+    if (!ruc || ruc.length < 10) {
+      toast.error('Ingrese un RUC/Cédula válido (mínimo 10 dígitos)');
+      return;
+    }
+    setBuscandoRuc(true);
+    try {
+      const response = await clienteApi.get('/cliente/clientebusquedaIdentificacion', {
+        params: { identificacion_busqueda: ruc }
+      });
+      const result = response.data;
+      if (result.success && result.total > 0 && result.data?.length > 0) {
+        const c = result.data[0];
+
+        setValue('razon_social_empresa', c.razon_social || c.nombre_cliente || '');
+        setValue('nombre_comercial_empresa', c.nombre_comercial || '');
+        setValue('direccion_empresa', c.direccion_cliente || '');
+        setValue('telefono_empresa', c.telefono_cliente || '');
+        setValue('correo_empresa', c.email_cliente || '');
+        setValue('dir_matriz_empresa', c.direccion_cliente || '');
+
+        setValue('actividad_economica_empresa', c.actividad_economica || '');
+
+        // Régimen fiscal (texto del SRI → número del select)
+        if (c.regimen) {
+          const regimenMap = {
+            'GENERAL': '1',
+            'RIMPE EMPRENDEDOR': '2',
+            'RIMPE POPULAR': '3',
+            'MICROEMPRESA': '4',
+            'RISE': '5',
+            'AGROPECUARIO': '6'
+          };
+          const key = c.regimen.toUpperCase().trim();
+          setValue('regimen_fiscal', regimenMap[key] || '1');
+        }
+
+        // Datos SRI
+        if (c.obligado_contabilidad) {
+          setValue('obligado_contabilidad', c.obligado_contabilidad === 'SI' ? 'SI' : 'NO');
+        }
+        if (c.agente_retencion) {
+          setValue('contribuyente_especial', c.agente_retencion);
+        }
+        if (c.estado_contribuyente || c.tipo_contribuyente) {
+          const leyenda = [c.estado_contribuyente, c.tipo_contribuyente].filter(Boolean).join(' — ');
+          setValue('leyenda_sri', leyenda);
+        }
+
+        // Bloquear para evitar sobreescritura accidental
+        setRucTieneDatos(true);
+        setRucDesbloqueado(false);
+
+        toast.success(`Datos cargados: ${c.razon_social || c.nombre_cliente}`);
+      } else {
+        toast.error('No se encontraron datos para ese RUC');
+      }
+    } catch (err) {
+      console.error('Error buscando RUC:', err);
+      toast.error('Error al consultar RUC: ' + (err.response?.data?.mensaje || err.message));
+    } finally {
+      setBuscandoRuc(false);
+    }
+  }, [setValue, getValues]);
+
   if (loading) {
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-slate-50">
@@ -418,6 +490,65 @@ export const ConfiguracionPage = () => {
                   <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
                     <i className="fas fa-info-circle text-emerald-500 mr-2"></i>Información General
                   </h2>
+
+                  {/* RUC con buscador - ARRIBA DE TODO */}
+                  <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-4 -mx-1">
+                    <label className={labelClass}>
+                      RUC / Cédula
+                      <span className="text-[10px] font-normal text-slate-400 ml-2">
+                        (Busca y llena datos automáticamente)
+                      </span>
+                    </label>
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <input
+                          type="text"
+                          maxLength={15}
+                          {...register('ruc_empresa')}
+                          className={inputClass + ' pr-8 ' + (rucTieneDatos && !rucDesbloqueado ? 'bg-slate-100 text-slate-500 cursor-not-allowed' : '')}
+                          placeholder="Ej: 0190155722001"
+                          readOnly={rucTieneDatos && !rucDesbloqueado}
+                          onCopy={rucTieneDatos && !rucDesbloqueado ? (e) => e.preventDefault() : undefined}
+                        />
+                        {rucTieneDatos && !rucDesbloqueado && (
+                          <i className="fas fa-lock absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 text-sm"></i>
+                        )}
+                      </div>
+
+                      {rucTieneDatos && !rucDesbloqueado ? (
+                        <button
+                          type="button"
+                          onClick={() => setRucDesbloqueado(true)}
+                          className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+                          title="Habilitar búsqueda para actualizar datos"
+                        >
+                          <i className="fas fa-unlock-alt"></i>
+                          <span className="hidden sm:inline">Desbloquear</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleSearchRuc}
+                          disabled={buscandoRuc}
+                          className="px-3 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 text-white rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+                          title="Buscar datos de la empresa por RUC"
+                        >
+                          {buscandoRuc ? (
+                            <i className="fas fa-spinner fa-spin"></i>
+                          ) : (
+                            <><i className="fas fa-search"></i><span className="hidden sm:inline">Buscar</span></>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                    {rucTieneDatos && !rucDesbloqueado && (
+                      <p className="text-[11px] text-amber-600 font-medium mt-1.5 flex items-center gap-1">
+                        <i className="fas fa-check-circle"></i>
+                        Datos cargados. Presiona "Desbloquear" para buscar de nuevo.
+                      </p>
+                    )}
+                  </div>
+
                   <div>
                     <label className={labelClass}>Razón Social</label>
                     <input type="text" {...register('razon_social_empresa')} className={inputClass} placeholder="Nombre legal de la empresa" />
@@ -425,10 +556,6 @@ export const ConfiguracionPage = () => {
                   <div>
                     <label className={labelClass}>Nombre Comercial</label>
                     <input type="text" {...register('nombre_comercial_empresa')} className={inputClass} placeholder="Si está vacío se usa Razón Social" />
-                  </div>
-                  <div>
-                    <label className={labelClass}>RUC</label>
-                    <input type="text" {...register('ruc_empresa')} className={inputClass} placeholder="Ej: 0190155722001" />
                   </div>
                   <div>
                     <label className={labelClass}>Dirección</label>
@@ -441,6 +568,10 @@ export const ConfiguracionPage = () => {
                   <div>
                     <label className={labelClass}>Correo</label>
                     <input type="email" {...register('correo_empresa')} className={inputClass} placeholder="correo@empresa.com" />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Actividad Económica</label>
+                    <input type="text" {...register('actividad_economica_empresa')} className={inputClass + ' bg-slate-100 text-slate-600'} placeholder="Se carga automáticamente del SRI" readOnly />
                   </div>
                 </div>
 

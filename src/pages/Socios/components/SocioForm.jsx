@@ -185,7 +185,7 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
         setValue('celular_personal', c.telefono_cliente || '');
         setValue('genero_personal', mapSexo(c.sexo));
         setValue('estado_civil_personal', mapEstadoCivil(c.estado_civil));
-        setValue('fecha_nacimiento_personal', c.fecha_nacimiento || '');
+        setValue('fecha_nacimiento_personal', c.fecha_nacimiento ? String(c.fecha_nacimiento).split('T')[0] : '');
         setValue('direccion_emergencia', c.direccion_cliente || '');
 
         toast.success(`Cliente encontrado: ${c.nombre_cliente}`, { duration: 3000 });

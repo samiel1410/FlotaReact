@@ -127,11 +127,14 @@ export const GenericListPage = ({ config }) => {
           {
             loading: 'Eliminando...',
             success: (res) => {
-              if (res.data.success) {
+              // Éxito real: success=true Y (tipo=1 ó sin tipo definido)
+              // Algunos endpoints devuelven success=true con tipo=3 (bloqueado por dependencia)
+              const isRealSuccess = res.data.success && (res.data.tipo === undefined || res.data.tipo === 1);
+              if (isRealSuccess) {
                 handleSearch();
                 return 'Eliminado correctamente';
               }
-              throw new Error(res.data.mensaje || 'No se pudo eliminar');
+              throw new Error(res.data.message || res.data.mensaje || 'No se pudo eliminar');
             },
             error: (err) => `Error: ${err.message || 'Error de servidor'}`
           }
