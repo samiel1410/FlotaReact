@@ -4,6 +4,7 @@ import Swal from 'sweetalert2';
 import Modal from '../../components/common/Modal';
 
 const formatCurrency = (v) => `$${parseFloat(v || 0).toFixed(2)}`;
+const formatFecha = (f) => f ? (f.split('T')[0] || f.split(' ')[0]) : '-';
 
 const PagarDeudaModal = ({ deuda, onClose, onSuccess }) => {
   const [monto, setMonto] = useState(deuda?.saldo_pendiente || 0);
@@ -51,6 +52,24 @@ const PagarDeudaModal = ({ deuda, onClose, onSuccess }) => {
   );
 };
 
+const capitalize = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+
+const tiposDeuda = [
+  { id: 1, label: 'Multas', color: 'bg-red-500' },
+  { id: 2, label: 'Créditos', color: 'bg-purple-500' },
+  { id: 3, label: 'Cuota Admin.', color: 'bg-blue-500' },
+  { id: 4, label: 'Accidentes', color: 'bg-orange-500' },
+  { id: 5, label: 'Tumurahua', color: 'bg-teal-500' },
+];
+
+const opcionesEstado = [
+  { value: '', label: 'Todos' },
+  { value: 'pendiente', label: 'Pendiente' },
+  { value: 'parcial', label: 'Parcial' },
+  { value: 'pagado', label: 'Pagado' },
+  { value: 'anulado', label: 'Anulado' },
+];
+
 export const CarteraSocioPage = () => {
   const [busqueda, setBusqueda] = useState('');
   const [tipoBusqueda, setTipoBusqueda] = useState('cedula');
@@ -58,55 +77,87 @@ export const CarteraSocioPage = () => {
   const [cartera, setCartera] = useState(null);
   const [pagarDeuda, setPagarDeuda] = useState(null);
 
+  // Filter state
+  const [socioId, setSocioId] = useState(null);
+  const [busId, setBusId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [filtroFechaDesde, setFiltroFechaDesde] = useState('');
+  const [filtroFechaHasta, setFiltroFechaHasta] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('');
+
+  const hoyStr = new Date().toISOString().split('T')[0];
+
+  // Re-fetch when socio/bus, filters, or refreshKey change
+  useEffect(() => {
+    if (!socioId && !busId) return;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const params = {};
+        if (socioId) params.id_socio = socioId;
+        if (busId) params.id_bus = busId;
+        if (filtroFechaDesde) params.fecha_desde = filtroFechaDesde;
+        if (filtroFechaHasta) params.fecha_hasta = filtroFechaHasta;
+        if (filtroTipo) params.id_tipo_deuda = filtroTipo;
+        if (filtroEstado) params.estado = filtroEstado;
+
+        const res = await api.get('/deuda/carteraSocio', { params });
+        if (res.data?.success) setCartera(res.data);
+        else Swal.fire('Error', res.data?.error || 'Error al consultar', 'error');
+      } catch (err) {
+        Swal.fire('Error', err.message, 'error');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [socioId, busId, filtroFechaDesde, filtroFechaHasta, filtroTipo, filtroEstado, refreshKey]);
+
   const buscar = async () => {
     if (!busqueda) { Swal.fire('Aviso', 'Ingrese un valor de búsqueda', 'warning'); return; }
     setLoading(true);
     setCartera(null);
     try {
-      let params = {};
       if (tipoBusqueda === 'cedula') {
-        const [pRes] = await Promise.all([
-          api.get('/personal/personalSeleccionPaginado', { params: { per_cedula_personal: busqueda, limit: 1 } })
-        ]);
+        const pRes = await api.get('/personal/personalSeleccionPaginado', { params: { per_cedula_personal: busqueda, limit: 1 } });
         const socio = pRes.data?.data?.[0];
         if (!socio) { Swal.fire('Error', 'Socio no encontrado', 'error'); setLoading(false); return; }
-        params = { id_socio: socio.id_personal };
+        setSocioId(socio.id_personal);
+        setBusId(null);
       } else {
-        const [bRes] = await Promise.all([
-          api.get('/buses/seleccionarBuses', { params: { disco_buses: busqueda, limit: 1 } })
-        ]);
+        const bRes = await api.get('/buses/seleccionarBuses', { params: { disco_buses: busqueda, limit: 1 } });
         const bus = bRes.data?.data?.[0];
         if (!bus) { Swal.fire('Error', 'Bus no encontrado', 'error'); setLoading(false); return; }
-        params = { id_bus: bus.id_buses };
+        setSocioId(null);
+        setBusId(bus.id_buses);
       }
-      const res = await api.get('/deuda/carteraSocio', { params });
-      if (res.data?.success) setCartera(res.data);
-      else Swal.fire('Error', res.data?.error || 'Error al consultar', 'error');
     } catch (err) {
       Swal.fire('Error', err.message, 'error');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const cardsResumen = [
-    { label: 'Multas', color: 'bg-red-500', filter: 1 },
-    { label: 'Créditos', color: 'bg-purple-500', filter: 2 },
-    { label: 'Cuota Admin.', color: 'bg-blue-500', filter: 3 },
-    { label: 'Accidentes', color: 'bg-orange-500', filter: 4 },
-    { label: 'Tumurahua', color: 'bg-teal-500', filter: 5 },
-  ];
+  const limpiarFiltros = () => {
+    setFiltroFechaDesde('');
+    setFiltroFechaHasta('');
+    setFiltroTipo('');
+    setFiltroEstado('');
+  };
 
-  const getResumenValue = (tipoId) => cartera?.resumen?.find(r => r.id_tipo_deuda === tipoId)?.total_pendiente || 0;
+  const cardsResumen = tiposDeuda.map(t => ({
+    ...t,
+    valor: cartera?.resumen?.find(r => r.id_tipo_deuda === t.id)?.total_pendiente || 0
+  }));
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {pagarDeuda && <PagarDeudaModal deuda={pagarDeuda} onClose={() => setPagarDeuda(null)} onSuccess={() => { setPagarDeuda(null); buscar(); }} />}
+      {pagarDeuda && <PagarDeudaModal deuda={pagarDeuda} onClose={() => setPagarDeuda(null)} onSuccess={() => { setPagarDeuda(null); setRefreshKey(k => k + 1); }} />}
 
       <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
         <i className="fas fa-wallet text-emerald-600"></i> Cartera del Socio
       </h1>
 
+      {/* ─── BÚSQUEDA ──────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-lg p-5">
         <div className="flex flex-wrap items-end gap-3">
           <div>
@@ -132,6 +183,7 @@ export const CarteraSocioPage = () => {
 
       {cartera && (
         <>
+          {/* ─── INFO SOCIO ──────────────────────────────────── */}
           <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-center gap-4">
             <i className="fas fa-user-circle text-3xl text-emerald-600"></i>
             <div>
@@ -144,18 +196,58 @@ export const CarteraSocioPage = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {cardsResumen.map(card => {
-              const valor = getResumenValue(card.filter);
-              return (
-                <div key={card.label} className={`${card.color} rounded-lg p-4 text-white`}>
-                  <p className="text-xs opacity-80">{card.label}</p>
-                  <p className="text-xl font-bold">{formatCurrency(valor)}</p>
-                </div>
-              );
-            })}
+          {/* ─── FILTROS ────────────────────────────────────── */}
+          <div className="bg-white border border-slate-200 rounded-lg p-4">
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Fecha Desde</label>
+                <input type="date" className="border border-slate-300 rounded px-3 py-2 text-sm w-[150px]"
+                  value={filtroFechaDesde} max={hoyStr}
+                  onChange={e => setFiltroFechaDesde(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Fecha Hasta</label>
+                <input type="date" className="border border-slate-300 rounded px-3 py-2 text-sm w-[150px]"
+                  value={filtroFechaHasta} max={hoyStr}
+                  onChange={e => setFiltroFechaHasta(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Tipo</label>
+                <select className="border border-slate-300 rounded px-3 py-2 text-sm w-[140px]"
+                  value={filtroTipo} onChange={e => setFiltroTipo(e.target.value)}>
+                  <option value="">Todos</option>
+                  {tiposDeuda.map(t => (
+                    <option key={t.id} value={t.id}>{t.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">Estado</label>
+                <select className="border border-slate-300 rounded px-3 py-2 text-sm w-[140px]"
+                  value={filtroEstado} onChange={e => setFiltroEstado(e.target.value)}>
+                  {opcionesEstado.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+              </div>
+              <button onClick={limpiarFiltros}
+                className="px-3 py-2 text-sm border border-slate-300 rounded-lg hover:bg-slate-50 flex items-center gap-1">
+                <i className="fas fa-undo-alt"></i> Limpiar
+              </button>
+            </div>
           </div>
 
+          {/* ─── TARJETAS RESUMEN ────────────────────────────── */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {cardsResumen.map(card => (
+              <div key={card.label} className={`${card.color} rounded-lg p-4 text-white`}>
+                <p className="text-xs opacity-80">{card.label}</p>
+                <p className="text-xl font-bold">{formatCurrency(card.valor)}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* ─── TABLA ──────────────────────────────────────── */}
           <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
             <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
               <span className="text-sm font-bold text-slate-700"><i className="fas fa-list mr-2"></i>Deudas Registradas</span>
@@ -182,17 +274,33 @@ export const CarteraSocioPage = () => {
                   ) : cartera.data.map(d => (
                     <tr key={d.id_deuda} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="px-3 py-2 font-medium">{d.id_deuda}</td>
-                      <td className="px-3 py-2"><span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${d.prioridad === 1 ? 'bg-red-100 text-red-700' : d.prioridad === 2 ? 'bg-purple-100 text-purple-700' : d.prioridad === 3 ? 'bg-blue-100 text-blue-700' : d.prioridad === 4 ? 'bg-orange-100 text-orange-700' : 'bg-teal-100 text-teal-700'}`}>{d.tipo_nombre}</span></td>
+                      <td className="px-3 py-2">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          d.prioridad === 1 ? 'bg-red-100 text-red-700' :
+                          d.prioridad === 2 ? 'bg-purple-100 text-purple-700' :
+                          d.prioridad === 3 ? 'bg-blue-100 text-blue-700' :
+                          d.prioridad === 4 ? 'bg-orange-100 text-orange-700' :
+                          'bg-teal-100 text-teal-700'
+                        }`}>{d.tipo_nombre}</span>
+                      </td>
                       <td className="px-3 py-2">{d.concepto}</td>
                       <td className="px-3 py-2 text-right">{formatCurrency(d.valor_original)}</td>
                       <td className="px-3 py-2 text-right text-emerald-600">{formatCurrency(d.valor_pagado)}</td>
                       <td className="px-3 py-2 text-right text-amber-600 font-bold">{formatCurrency(d.saldo_pendiente)}</td>
                       <td className="px-3 py-2 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${d.estado === 'pagado' ? 'bg-emerald-100 text-emerald-700' : d.estado === 'parcial' ? 'bg-amber-100 text-amber-700' : d.estado === 'anulado' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}`}>
-                          {d.estado === 'pagado' ? 'Pagado' : d.estado === 'parcial' ? 'Parcial' : d.estado === 'anulado' ? 'Anulado' : 'Pendiente'}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          d.estado === 'pagado' ? 'bg-emerald-100 text-emerald-700' :
+                          d.estado === 'parcial' ? 'bg-amber-100 text-amber-700' :
+                          d.estado === 'anulado' ? 'bg-red-100 text-red-700' :
+                          'bg-slate-100 text-slate-700'
+                        }`}>
+                          {d.estado === 'pagado' ? 'Pagado' :
+                           d.estado === 'parcial' ? 'Parcial' :
+                           d.estado === 'anulado' ? 'Anulado' :
+                           capitalize(d.estado)}
                         </span>
                       </td>
-                      <td className="px-3 py-2 text-slate-500">{d.fecha_creacion?.split(' ')[0]}</td>
+                      <td className="px-3 py-2 text-slate-500">{formatFecha(d.fecha_creacion)}</td>
                       <td className="px-3 py-2 text-center">
                         {d.estado !== 'pagado' && d.estado !== 'anulado' && (
                           <button onClick={() => setPagarDeuda(d)} className="p-1.5 bg-emerald-100 text-emerald-700 rounded hover:bg-emerald-200" title="Pagar">

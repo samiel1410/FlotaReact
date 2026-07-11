@@ -6,6 +6,8 @@ import SocioBusSelector from '../../components/common/SocioBusSelector';
 import { cobrosService } from '../../services/cobros.service';
 
 const formatCurrency = (v) => `$${parseFloat(v || 0).toFixed(2)}`;
+const formatFecha = (f) => f ? (f.split('T')[0] || f.split(' ')[0]) : '-';
+const capitalize = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
 const TIPOS_MULTA = ['Uniforme', 'Corbata', 'Incumplimiento de frecuencia', 'Incumplimiento de ruta', 'Otra'];
 
 const NuevaMultaModal = ({ onClose, onSuccess }) => {
@@ -71,8 +73,10 @@ export const MultasPage = () => {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(25);
   const [loading, setLoading] = useState(false);
-  const [filtros, setFiltros] = useState({ id_socio: '', id_bus: '', estado: '' });
+  const [filtros, setFiltros] = useState({ id_socio: '', id_bus: '', estado: '', fecha_desde: '', fecha_hasta: '' });
   const [showModal, setShowModal] = useState(false);
+
+  const hoyStr = new Date().toISOString().split('T')[0];
 
   const loadData = async () => {
     setLoading(true);
@@ -99,34 +103,36 @@ export const MultasPage = () => {
         </button>
       </div>
 
+      {/* ─── FILTROS ──────────────────────────────────────── */}
       <div className="bg-white border border-slate-200 rounded-lg p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <div className="flex flex-wrap items-end gap-3">
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 mb-1">Socio</label>
-            <select className="w-full text-xs border border-slate-300 rounded px-2 py-1.5" value={filtros.id_socio} onChange={e => setFiltros(f => ({ ...f, id_socio: e.target.value }))}>
-              <option value="">Todos</option>
-            </select>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1">Fecha Desde</label>
+            <input type="date" className="border border-slate-300 rounded px-2 py-1.5 text-xs w-[140px]"
+              value={filtros.fecha_desde} max={hoyStr}
+              onChange={e => setFiltros(f => ({ ...f, fecha_desde: e.target.value }))} />
           </div>
           <div>
-            <label className="block text-[10px] font-bold text-slate-500 mb-1">Bus</label>
-            <select className="w-full text-xs border border-slate-300 rounded px-2 py-1.5" value={filtros.id_bus} onChange={e => setFiltros(f => ({ ...f, id_bus: e.target.value }))}>
-              <option value="">Todos</option>
-            </select>
+            <label className="block text-[10px] font-bold text-slate-500 mb-1">Fecha Hasta</label>
+            <input type="date" className="border border-slate-300 rounded px-2 py-1.5 text-xs w-[140px]"
+              value={filtros.fecha_hasta} max={hoyStr}
+              onChange={e => setFiltros(f => ({ ...f, fecha_hasta: e.target.value }))} />
           </div>
           <div>
             <label className="block text-[10px] font-bold text-slate-500 mb-1">Estado</label>
-            <select className="w-full text-xs border border-slate-300 rounded px-2 py-1.5" value={filtros.estado} onChange={e => setFiltros(f => ({ ...f, estado: e.target.value }))}>
+            <select className="border border-slate-300 rounded px-2 py-1.5 text-xs w-[120px]"
+              value={filtros.estado} onChange={e => setFiltros(f => ({ ...f, estado: e.target.value }))}>
               <option value="">Todos</option>
               <option value="pendiente">Pendiente</option>
-              <option value="pagado">Pagado</option>
               <option value="parcial">Parcial</option>
+              <option value="pagado">Pagado</option>
+              <option value="anulado">Anulado</option>
             </select>
           </div>
-          <div className="flex items-end">
-            <button onClick={() => { setFiltros({ id_socio: '', id_bus: '', estado: '' }); setPage(1); }} className="px-3 py-1.5 bg-slate-400 text-white text-xs font-bold rounded hover:bg-slate-500">
-              <i className="fas fa-eraser"></i> Limpiar
-            </button>
-          </div>
+          <button onClick={() => { setFiltros({ id_socio: '', id_bus: '', estado: '', fecha_desde: '', fecha_hasta: '' }); setPage(1); }}
+            className="px-3 py-1.5 bg-slate-400 text-white text-xs font-bold rounded hover:bg-slate-500">
+            <i className="fas fa-eraser"></i> Limpiar
+          </button>
         </div>
       </div>
 
@@ -161,11 +167,19 @@ export const MultasPage = () => {
                   <td className="px-3 py-2 text-right text-emerald-600">{formatCurrency(d.valor_pagado)}</td>
                   <td className="px-3 py-2 text-right text-amber-600 font-bold">{formatCurrency(d.saldo_pendiente)}</td>
                   <td className="px-3 py-2 text-center">
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${d.estado === 'pagado' ? 'bg-emerald-100 text-emerald-700' : d.estado === 'parcial' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>
-                      {d.estado === 'pagado' ? 'Pagado' : d.estado === 'parcial' ? 'Parcial' : 'Pendiente'}
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                      d.estado === 'pagado' ? 'bg-emerald-100 text-emerald-700' :
+                      d.estado === 'parcial' ? 'bg-amber-100 text-amber-700' :
+                      d.estado === 'anulado' ? 'bg-red-100 text-red-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {d.estado === 'pagado' ? 'Pagado' :
+                       d.estado === 'parcial' ? 'Parcial' :
+                       d.estado === 'anulado' ? 'Anulado' :
+                       capitalize(d.estado)}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-slate-500">{d.fecha_creacion?.split(' ')[0]}</td>
+                  <td className="px-3 py-2 text-slate-500">{formatFecha(d.fecha_creacion)}</td>
                 </tr>
               ))}
             </tbody>

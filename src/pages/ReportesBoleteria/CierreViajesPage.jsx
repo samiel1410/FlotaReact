@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../../config/axios';
 import { reportesService } from '../../services/reportes.service';
 import toast from 'react-hot-toast';
@@ -21,7 +21,6 @@ export const CierreViajesPage = () => {
   const [exporting, setExporting] = useState({ pdf: false, excel: false });
   const [progress, setProgress] = useState({ percent: 0, message: '' });
   const [showProgress, setShowProgress] = useState(false);
-  const printRef = useRef(null);
 
   useEffect(() => {
     api.get('/sucursal/sucursalListar').then(r => {
@@ -71,14 +70,8 @@ export const CierreViajesPage = () => {
       setShowProgress(false);
 
       if (result?.html) {
-        const printWindow = window.open('', '_blank', 'width=1200,height=800');
-        if (printWindow) {
-          printWindow.document.write(result.html);
-          printWindow.document.close();
-          toast.success('PDF generado correctamente');
-        } else {
-          toast.error('El navegador bloqueó la ventana emergente. Permita pop-ups para este sitio.');
-        }
+        await reportesService.generatePdfFromHtml(result.html, `cierre_viajes_${filtros.fecha_desde}_${filtros.fecha_hasta || filtros.fecha_desde}`);
+        toast.success('PDF descargado correctamente');
       } else {
         toast.error('No se pudo generar el PDF');
       }
@@ -94,7 +87,7 @@ export const CierreViajesPage = () => {
     if (data.length === 0) { toast.error('No hay datos para exportar'); return; }
     setExporting(p => ({ ...p, excel: true }));
     setShowProgress(true);
-    setProgress({ percent: 0, message: 'Encolando reporte Excel...' });
+    setProgress({ percent: 0, message: 'Generando Excel...' });
 
     try {
       const result = await reportesService.enqueueAndWait(
@@ -106,37 +99,138 @@ export const CierreViajesPage = () => {
       setShowProgress(false);
 
       if (result?.data && Array.isArray(result.data)) {
-        // Generar CSV desde los datos planos
-        const headers = ['Agencia', 'Oficinista', '# Viaje', 'Fecha', 'Hora', 'Disco', 'Placa', 'Chofer', 'Ruta', 'Subtotal', 'Retiene', 'Entrega'];
-        const csvContent = +[
-          headers.join(','),
-          ...result.data.map(row => [
-            `"${row.agencia || ''}"`,
-            `"${row.oficinista || ''}"`,
-            row.id_viaje,
-            row.fecha,
-            row.hora,
-            `"${row.disco || ''}"`,
-            `"${row.placa || ''}"`,
-            `"${row.chofer || ''}"`,
-            `"${row.ruta || ''}"`,
-            fmt(row.subtotal),
-            fmt(row.retiene),
-            fmt(row.entrega)
-          ].join(','))
-        ].join('\n');
+        const ExcelJS = await import('exceljs');
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const wb = new ExcelJS.Workbook();
+        wb.creator = 'SistemaFlota';
+        wb.created = new Date();
+
+        const ws = wb.addWorksheet('Cierre Viajes', {
+          views: [{ state: 'frozen', ySplit: 1 }]
+        });
+
+        // Columnas
+        const columns = [
+          { header: 'Agencia', key: 'agencia', width: 22 },
+          { header: 'Oficinista', key: 'oficinista', width: 25 },
+          { header: '# Viaje', key: 'id_viaje', width: 10 },
+          { header: 'Fecha', key: 'fecha', width: 14 },
+          { header: 'Hora', key: 'hora', width: 10 },
+          { header: 'Disco', key: 'disco', width: 10 },
+          { header: 'Placa', key: 'placa', width: 14 },
+          { header: 'Chofer', key: 'chofer', width: 28 },
+          { header: 'Ruta', key: 'ruta', width: 22 },
+          { header: 'Subtotal', key: 'subtotal', width: 14 },
+          { header: 'Retiene', key: 'retiene', width: 14 },
+          { header: 'Entrega', key: 'entrega', width: 14 },
+        ];
+
+        // Estilo del header
+        const headerStyle = {
+          font: { bold: true, color: { argb: 'FFFFFFFF' }, size: 10, name: 'Calibri' },
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } },
+          alignment: { horizontal: 'center', vertical: 'middle' },
+          border: {
+            top: { style: 'thin', color: { argb: 'FF333333' } },
+            bottom: { style: 'thin', color: { argb: 'FF333333' } },
+            left: { style: 'thin', color: { argb: 'FF333333' } },
+            right: { style: 'thin', color: { argb: 'FF333333' } },
+          }
+        };
+
+        // Estilo de celdas de datos
+        const cellStyle = {
+          font: { size: 10, name: 'Calibri', color: { argb: 'FF333333' } },
+          alignment: { vertical: 'middle' },
+          border: {
+            top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+            right: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+          }
+        };
+
+        // Estilo para montos
+        const montoStyle = {
+          ...cellStyle,
+          alignment: { ...cellStyle.alignment, horizontal: 'right' },
+          numFmt: '$#,##0.00',
+        };
+
+        // Agregar columnas al worksheet
+        ws.columns = columns;
+
+        // Agregar filas de datos
+        result.data.forEach(row => {
+          ws.addRow({
+            agencia: row.agencia || '',
+            oficinista: row.oficinista || '',
+            id_viaje: row.id_viaje,
+            fecha: row.fecha || '',
+            hora: row.hora || '',
+            disco: row.disco || '',
+            placa: row.placa || '',
+            chofer: row.chofer || '',
+            ruta: row.ruta || '',
+            subtotal: parseFloat(row.subtotal || 0),
+            retiene: parseFloat(row.retiene || 0),
+            entrega: parseFloat(row.entrega || 0),
+          });
+        });
+
+        // Aplicar estilos al header
+        const headerRow = ws.getRow(1);
+        headerRow.height = 22;
+        columns.forEach((col, i) => {
+          const cell = headerRow.getCell(i + 1);
+          cell.font = headerStyle.font;
+          cell.fill = headerStyle.fill;
+          cell.alignment = headerStyle.alignment;
+          cell.border = headerStyle.border;
+        });
+
+        // Aplicar estilos a celdas de datos
+        ws.eachRow((row, rowIndex) => {
+          if (rowIndex === 1) return; // skip header
+          row.eachCell((cell, colIndex) => {
+            if ([10, 11, 12].includes(colIndex)) {
+              // Columnas de montos: Subtotal, Retiene, Entrega
+              cell.font = montoStyle.font;
+              cell.alignment = montoStyle.alignment;
+              cell.numFmt = montoStyle.numFmt;
+              cell.border = montoStyle.border;
+            } else {
+              cell.font = cellStyle.font;
+              cell.alignment = cellStyle.alignment;
+              cell.border = cellStyle.border;
+            }
+          });
+          // Alternar color de fondo en filas
+          if (rowIndex % 2 === 0) {
+            row.eachCell(cell => {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F7FA' } };
+            });
+          }
+        });
+
+        // Auto-filtro
+        ws.autoFilter = { from: { row: 1, column: 1 }, to: { row: result.data.length + 1, column: columns.length } };
+
+        // Generar y descargar
+        const buffer = await wb.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
-        link.download = `cierre_viajes_${filtros.fecha_desde}_${filtros.fecha_hasta || filtros.fecha_desde}.csv`;
+        link.download = `cierre_viajes_${filtros.fecha_desde}_${filtros.fecha_hasta || filtros.fecha_desde}.xlsx`;
         link.click();
         URL.revokeObjectURL(link.href);
-        toast.success(`${result.data.length} registros exportados a CSV`);
+
+        toast.success(`${result.data.length} registros exportados a Excel`);
       } else {
         toast.error('No se pudieron obtener los datos para Excel');
       }
     } catch (error) {
+      console.error('Error exportando Excel:', error);
       toast.error(error.message || 'Error al exportar Excel');
       setShowProgress(false);
     } finally {
@@ -144,30 +238,7 @@ export const CierreViajesPage = () => {
     }
   };
 
-  const handlePrint = () => {
-    const content = printRef.current?.innerHTML;
-    if (!content) return;
-    const w = window.open('', '_blank');
-    w.document.write(`
-      <html><head><title>Cierre de Viajes</title>
-      <style>
-        body { font-family: Arial, sans-serif; font-size: 9pt; margin: 10mm; color: #000; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #999; padding: 2px 4px; font-size: 8pt; }
-        th { background: #1e3a5f; color: white; }
-        .ag-header { background: #1e3a5f; color: white; padding: 4px 8px; font-weight: bold; font-size: 9pt; }
-        .of-header { background: #f59e0b; color: #1c1917; padding: 2px 8px; font-weight: bold; font-size: 8pt; }
-        .subtotal-row td { background: #e0f2fe; font-weight: bold; }
-        .total-row td { background: #1e3a5f; color: white; font-weight: bold; }
-        .empresa-header { text-align: center; margin-bottom: 8px; }
-        .highlight { background: #bbf7d0 !important; }
-        @media print { @page { margin: 8mm; size: landscape; } }
-      </style></head><body>${content}</body></html>
-    `);
-    w.document.close();
-    w.focus();
-    setTimeout(() => { w.print(); w.close(); }, 500);
-  };
+
 
   const totalGeneral = data.reduce((acc, ag) => ({
     subtotal: acc.subtotal + ag.totales.subtotal,
@@ -207,9 +278,6 @@ export const CierreViajesPage = () => {
         </button>
         {data.length > 0 && (
           <>
-            <button onClick={handlePrint} style={btnSecondary}>
-              <i className="fas fa-print" /> Imprimir
-            </button>
             <button onClick={handleExportPDF} disabled={exporting.pdf} style={{ ...btnSecondary, background: '#dc2626' }}>
               <i className={`fas ${exporting.pdf ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`} /> {exporting.pdf ? 'Generando...' : 'PDF'}
             </button>
@@ -238,7 +306,7 @@ export const CierreViajesPage = () => {
 
       {/* REPORTE */}
       {data.length > 0 && (
-        <div ref={printRef}>
+        <div>
           {/* ENCABEZADO EMPRESA */}
           <div className="empresa-header" style={{ background: 'white', borderRadius: 8, padding: '10px 16px', marginBottom: 10, boxShadow: '0 1px 4px rgba(0,0,0,.08)', textAlign: 'center' }}>
             <div style={{ fontWeight: 900, fontSize: 14, color: '#1e3a5f', textTransform: 'uppercase' }}>{empresa.razon_social_empresa || 'COOPERATIVA DE TRANSPORTES FLOTA PELILEO'}</div>

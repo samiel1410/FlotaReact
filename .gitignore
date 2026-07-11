@@ -23,6 +23,12 @@ dist-ssr
 *.sln
 *.sw?
 nul
+# Build output
+dist/
+
+# PHP temp / generated
 php/tmp/
 php/vendor/
+php/xml_boletos/
+php/xml_facturas/
 tmp/

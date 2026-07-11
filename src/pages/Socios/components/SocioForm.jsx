@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
-import { api } from '../../../config/axios';
+import { api, clienteApi } from '../../../config/axios';
 import toast from 'react-hot-toast';
 
 const SocioForm = ({ initialData, onSubmit, onCancel }) => {
@@ -82,7 +82,9 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
     setEliminarFoto(true);
   };
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const [searchandoCliente, setSearchandoCliente] = useState(false);
+
+  const { register, handleSubmit, setValue, getValues, formState: { errors } } = useForm({
     defaultValues: isEditing ? {
       per_codigo_personal: initialData.per_codigo_personal || initialData.soc_codigo || '',
       per_cedula_personal: initialData.per_cedula_personal || initialData.soc_cedula || '',
@@ -121,6 +123,82 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
       estado_personal: true,
     }
   });
+
+  // ── Búsqueda de cliente por cédula/RUC ──────────────────
+
+  // Dividir nombre completo en nombres y apellidos (formato Ecuador: "APELLIDOS NOMBRES")
+  const splitNombreCompleto = useCallback((nombreCompleto) => {
+    if (!nombreCompleto) return { nombres: '', apellidos: '' };
+    const parts = nombreCompleto.trim().split(/\s+/);
+    if (parts.length <= 1) {
+      return { nombres: nombreCompleto, apellidos: '' };
+    }
+    if (parts.length === 2) {
+      return { nombres: parts[1], apellidos: parts[0] };
+    }
+    // 3+ palabras: asumir formato "APELLIDO1 APELLIDO2 NOMBRES..."
+    const apellidos = parts.slice(0, 2).join(' ');
+    const nombres = parts.slice(2).join(' ');
+    return { nombres, apellidos };
+  }, []);
+
+  // Mapear sexo de texto a número del formulario
+  const mapSexo = useCallback((sexo) => {
+    if (!sexo) return '';
+    const s = String(sexo).toUpperCase().trim();
+    if (s === 'MASCULINO' || s === 'M' || s === 'HOMBRE' || s === '1') return '1';
+    if (s === 'FEMENINO' || s === 'F' || s === 'MUJER' || s === '2') return '2';
+    return '3';
+  }, []);
+
+  // Mapear estado civil de texto a número del formulario
+  const mapEstadoCivil = useCallback((estado) => {
+    if (!estado) return '';
+    const e = String(estado).toUpperCase().trim();
+    if (e.includes('SOLTER') || e === '1') return '1';
+    if (e.includes('CASAD') || e === '2') return '2';
+    if (e.includes('DIVORCIAD') || e === '3') return '3';
+    if (e.includes('VIUD') || e === '4') return '4';
+    if (e.includes('UNION') || e.includes('LIBRE') || e === '5') return '5';
+    return '';
+  }, []);
+
+  // Buscar cliente por identificación en la API de clientes
+  const handleSearchCliente = useCallback(async (cedulaDesdeParam) => {
+    const cedula = cedulaDesdeParam || getValues('per_cedula_personal') || '';
+    if (!cedula || cedula.trim().length < 10) {
+      toast.error('Ingrese al menos 10 dígitos de cédula/RUC para buscar');
+      return;
+    }
+    setSearchandoCliente(true);
+    try {
+      const response = await clienteApi.get('/cliente/clientebusquedaIdentificacion', {
+        params: { identificacion_busqueda: cedula.trim() }
+      });
+      const result = response.data;
+      if (result.success && result.total > 0 && result.data?.length > 0) {
+        const c = result.data[0];
+        const { nombres, apellidos } = splitNombreCompleto(c.nombre_cliente);
+
+        setValue('per_nombres_persona', nombres);
+        setValue('per_apellidos_personal', apellidos);
+        setValue('celular_personal', c.telefono_cliente || '');
+        setValue('genero_personal', mapSexo(c.sexo));
+        setValue('estado_civil_personal', mapEstadoCivil(c.estado_civil));
+        setValue('fecha_nacimiento_personal', c.fecha_nacimiento || '');
+        setValue('direccion_emergencia', c.direccion_cliente || '');
+
+        toast.success(`Cliente encontrado: ${c.nombre_cliente}`, { duration: 3000 });
+      } else {
+        toast.error('No se encontró un cliente con esa identificación');
+      }
+    } catch (err) {
+      console.error('Error buscando cliente:', err);
+      toast.error('Error al consultar cliente: ' + (err.response?.data?.mensaje || err.message));
+    } finally {
+      setSearchandoCliente(false);
+    }
+  }, [getValues, setValue, splitNombreCompleto, mapSexo, mapEstadoCivil]);
 
   // Comprime y convierte un File a base64 data URI (max 300px, calidad 0.7)
   const fileToBase64 = (file) =>
@@ -260,17 +338,37 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
             </div>
 
             <div>
-              <label className={labelClass}>Cédula <span className="text-rose-500">*</span></label>
-              <input
-                type="text"
-                maxLength={15}
-                {...register('per_cedula_personal', {
-                  required: 'La cédula es requerida',
-                  pattern: { value: /^[0-9]+$/, message: 'Solo números' }
-                })}
-                className={inputClass}
-                placeholder="Ej: 1800123456"
-              />
+              <label className={labelClass}>Cédula / RUC <span className="text-rose-500">*</span></label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  maxLength={15}
+                  {...register('per_cedula_personal', {
+                    required: 'La cédula es requerida',
+                    pattern: { value: /^[0-9]+$/, message: 'Solo números' }
+                  })}
+                  className={inputClass + ' flex-1'}
+                  placeholder="Ej: 1800123456"
+                  onBlur={(e) => {
+                    if (!isEditing && e.target.value.trim().length >= 10) {
+                      handleSearchCliente(e.target.value.trim());
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleSearchCliente()}
+                  disabled={searchandoCliente}
+                  className="px-3 py-2 bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 text-white rounded-lg text-sm font-bold transition-all flex items-center gap-1.5 shrink-0"
+                  title="Buscar cliente en el sistema"
+                >
+                  {searchandoCliente ? (
+                    <i className="fas fa-spinner fa-spin"></i>
+                  ) : (
+                    <><i className="fas fa-search"></i><span className="hidden sm:inline">Buscar</span></>
+                  )}
+                </button>
+              </div>
               {errors.per_cedula_personal && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.per_cedula_personal.message}</p>}
             </div>
 

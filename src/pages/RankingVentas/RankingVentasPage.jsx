@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../config/axios';
 import toast from 'react-hot-toast';
+import { reportesService } from '../../services/reportes.service';
 
 const MESES = [
   { value: 1, label: 'Enero' }, { value: 2, label: 'Febrero' },
@@ -20,6 +21,7 @@ export const RankingVentasPage = () => {
   const [sucursales, setSucursales] = useState([]);
   const [idSucursal, setIdSucursal] = useState('');
   const [loading, setLoading] = useState(false);
+  const [pdfGenerando, setPdfGenerando] = useState(false);
   const [data, setData] = useState(null);
 
   // Cargar sucursales para el filtro
@@ -55,10 +57,30 @@ export const RankingVentasPage = () => {
     cargarRanking();
   }, [cargarRanking]);
 
-  const abrirPDF = () => {
-    const params = new URLSearchParams({ mes, anio });
-    if (idSucursal) params.set('id_sucursal', idSucursal);
-    window.open(`/reportes/rankingVentasPdf?${params.toString()}`, '_blank');
+  const descargarPDF = async () => {
+    if (pdfGenerando) return;
+    setPdfGenerando(true);
+    const toastId = toast.loading('Generando PDF del ranking...');
+    try {
+      const params = { mes, anio };
+      if (idSucursal) params.id_sucursal = idSucursal;
+
+      const res = await api.get('/reportes/rankingVentasPdf', { params, responseType: 'text' });
+      const html = typeof res.data === 'string' ? res.data : res.data?.data || '';
+
+      if (!html) {
+        toast.error('No se pudo obtener el reporte', { id: toastId });
+        setPdfGenerando(false);
+        return;
+      }
+
+      await reportesService.generatePdfFromHtml(html, `Ranking_Ventas_${mes}_${anio}`);
+      toast.success('PDF descargado correctamente', { id: toastId });
+    } catch (err) {
+      console.error('Error generando PDF:', err);
+      toast.error('Error al generar PDF', { id: toastId });
+    }
+    setPdfGenerando(false);
   };
 
   const formatMoney = (val) => {
@@ -66,12 +88,11 @@ export const RankingVentasPage = () => {
   };
 
   // Tabla de ranking
-  const TablaRanking = ({ titulo, icono, datos, total, colorHeader, colName = "Oficinista" }) => {
+  const TablaRanking = ({ titulo, datos, total, colorHeader, colName = "Oficinista" }) => {
     if (!datos || datos.length === 0) {
       return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
           <div className={`px-5 py-4 flex items-center gap-3 ${colorHeader}`}>
-            <span className="text-xl">{icono}</span>
             <h3 className="text-base font-black text-white uppercase tracking-tight">{titulo}</h3>
           </div>
           <div className="p-8 text-center text-slate-400">
@@ -86,7 +107,6 @@ export const RankingVentasPage = () => {
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className={`px-5 py-4 flex items-center justify-between ${colorHeader}`}>
           <div className="flex items-center gap-3">
-            <span className="text-xl">{icono}</span>
             <div>
               <h3 className="text-base font-black text-white uppercase tracking-tight">{titulo}</h3>
               <p className="text-[10px] text-white/70 font-medium">{datos.length} {colName.toLowerCase()}s</p>
@@ -113,7 +133,7 @@ export const RankingVentasPage = () => {
               {datos.map((row, i) => {
                 const porcentaje = total > 0 ? ((parseFloat(row.total_vendido) / total) * 100) : 0;
                 return (
-                  <tr key={row.id_usuario} className={`hover:bg-slate-50/50 transition-colors ${i === 0 ? 'bg-amber-50/50' : ''}`}>
+                  <tr key={row.id_usuario || row.nombre_destino || i} className={`hover:bg-slate-50/50 transition-colors ${i === 0 ? 'bg-amber-50/50' : ''}`}>
                     <td className="px-4 py-3 text-center">
                       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black ${
                         i === 0 ? 'bg-amber-100 text-amber-700' :
@@ -121,7 +141,7 @@ export const RankingVentasPage = () => {
                         i === 2 ? 'bg-orange-100 text-orange-700' :
                         'text-slate-400'
                       }`}>
-                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : i + 1}
+                        {i === 0 ? '1°' : i === 1 ? '2°' : i === 2 ? '3°' : i + 1}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -244,12 +264,15 @@ export const RankingVentasPage = () => {
 
             {/* Botón PDF */}
             <button
-              onClick={abrirPDF}
-              disabled={loading}
+              onClick={descargarPDF}
+              disabled={loading || pdfGenerando}
               className="px-4 py-2 bg-gradient-to-r from-rose-600 to-rose-500 text-white text-sm font-bold rounded-lg hover:from-rose-700 hover:to-rose-600 transition-all shadow-sm shadow-rose-200 flex items-center gap-2 disabled:opacity-50"
             >
-              <i className="fas fa-file-pdf"></i>
-              PDF
+              {pdfGenerando ? (
+                <><i className="fas fa-spinner fa-spin"></i> Generando PDF...</>
+              ) : (
+                <><i className="fas fa-file-pdf"></i> PDF</>
+              )}
             </button>
           </div>
         </div>
@@ -287,14 +310,12 @@ export const RankingVentasPage = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <TablaRanking
                   titulo="Boletería"
-                  icono="🎫"
                   datos={data?.boleteria}
                   total={data?.total_boleteria || 0}
                   colorHeader="bg-gradient-to-r from-blue-600 to-blue-500"
                 />
                 <TablaRanking
                   titulo="Encomiendas (Guías)"
-                  icono="📦"
                   datos={data?.guias}
                   total={data?.total_guias || 0}
                   colorHeader="bg-gradient-to-r from-emerald-600 to-emerald-500"
@@ -303,7 +324,6 @@ export const RankingVentasPage = () => {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <TablaRanking
                   titulo="Ranking Destinos Boletería"
-                  icono="🌍"
                   datos={data?.destinosBoleteria}
                   total={data?.total_boleteria || 0}
                   colorHeader="bg-gradient-to-r from-indigo-600 to-indigo-500"
@@ -311,7 +331,6 @@ export const RankingVentasPage = () => {
                 />
                 <TablaRanking
                   titulo="Ranking Destinos Guías"
-                  icono="📍"
                   datos={data?.destinosGuias}
                   total={data?.total_guias || 0}
                   colorHeader="bg-gradient-to-r from-cyan-600 to-cyan-500"
