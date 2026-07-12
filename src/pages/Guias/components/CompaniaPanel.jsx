@@ -56,27 +56,23 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
     onSeleccionarCompania?.(null);
   };
 
-  const [companiasList, setCompaniasList] = useState([]);
-  const [loadingCompanias, setLoadingCompanias] = useState(false);
+  const [filtroModal, setFiltroModal] = useState('');
 
-  const handleOpenModal = async () => {
+  const handleOpenModal = () => {
+    setFiltroModal('');
     setShowModalCompanias(true);
-    if (companiasList.length === 0) {
-      setLoadingCompanias(true);
-      try {
-        const res = await GuiaService.getCompaniasCombo();
-        if (res && res.data) {
-          setCompaniasList(res.data);
-        }
-      } catch (e) {
-        console.error('Error al cargar companias', e);
-      } finally {
-        setLoadingCompanias(false);
-      }
-    }
   };
 
   const sectionTitle = { fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '-0.01em' };
+
+  // Filtrar destinos para el modal (opcionalmente solo los que tienen compañía o todos, según lo requerido. El usuario pidió "todos los destinos y las compa;ias asociadas")
+  const destinosFiltrados = destinos.filter(d => {
+    if (!filtroModal) return true;
+    const busqueda = filtroModal.toLowerCase();
+    const nombreDest = (d.nombre || d.nombre_destino || '').toLowerCase();
+    const nombreComp = (d.nombre_compania_asociada || '').toLowerCase();
+    return nombreDest.includes(busqueda) || nombreComp.includes(busqueda);
+  });
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200/80" style={{ padding: '16px', outline: error ? '2px solid #ef4444' : undefined, outlineOffset: '-1px' }}>
@@ -102,7 +98,7 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
           <button onClick={handleOpenModal}
             type="button"
             className="h-8 px-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md text-xs font-bold shadow-sm"
-            title="Seleccionar Compañía">
+            title="Seleccionar Destino/Compañía">
             <i className="fas fa-list"></i>
           </button>
           <button onClick={handleBuscarCompania} disabled={buscando || !!compania}
@@ -137,40 +133,60 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
       {/* Campo oculto para ID */}
       <input type="hidden" name="id_compania" value={compania?.id || compania?.id_compania || ''} />
 
-      <Modal isOpen={showModalCompanias} onClose={() => setShowModalCompanias(false)} title="Seleccionar Compañía" width="max-w-md">
-        <div className="p-4 max-h-[60vh] overflow-y-auto">
-          {loadingCompanias ? (
-            <div className="text-center text-slate-500 py-4 text-sm"><i className="fas fa-spinner fa-spin mr-2"></i>Cargando compañías...</div>
-          ) : !companiasList || companiasList.length === 0 ? (
-            <div className="text-center text-slate-500 py-4 text-sm">No hay compañías disponibles</div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {companiasList.map(c => (
-                <div key={c.id_compania_asociada} 
-                  onClick={() => {
-                    if (onSeleccionarCompania) {
-                      onSeleccionarCompania({
-                        id: c.id_compania_asociada,
-                        id_compania: c.id_compania_asociada,
-                        nombre: c.nombre_compania_asociada,
-                        ruc: c.ruc_compania_asociada,
-                        telefono: c.telefono_compania_asociada || '',
-                        correo: c.correo_compania_asociada || ''
-                      });
-                    }
-                    setShowModalCompanias(false);
-                  }}
-                  className="p-3 border border-slate-200 rounded-lg hover:bg-indigo-50 cursor-pointer transition-colors flex justify-between items-center"
-                >
-                  <div>
-                    <div className="text-xs font-bold text-slate-700">{c.nombre_compania_asociada}</div>
-                    <div className="text-[10px] text-slate-500">RUC: {c.ruc_compania_asociada}</div>
-                  </div>
-                  <i className="fas fa-chevron-right text-slate-300"></i>
-                </div>
-              ))}
+      <Modal isOpen={showModalCompanias} onClose={() => setShowModalCompanias(false)} title="Seleccionar Destino y Compañía" width="max-w-md">
+        <div className="p-4 flex flex-col h-[60vh]">
+          <div className="mb-4 shrink-0">
+            <div className="relative">
+              <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+              <input
+                type="text"
+                className="w-full h-10 pl-9 pr-4 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                placeholder="Buscar por destino o compañía..."
+                value={filtroModal}
+                onChange={(e) => setFiltroModal(e.target.value)}
+                autoFocus
+              />
             </div>
-          )}
+          </div>
+          
+          <div className="flex-1 overflow-y-auto pr-2">
+            {!destinosFiltrados || destinosFiltrados.length === 0 ? (
+              <div className="text-center text-slate-500 py-8 text-sm">
+                <i className="fas fa-inbox text-2xl mb-2 text-slate-300 block"></i>
+                No se encontraron resultados
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {destinosFiltrados.map(d => (
+                  <div key={d.id || d.id_destino} 
+                    onClick={() => {
+                      if (onSeleccionarDestino) {
+                        onSeleccionarDestino(String(d.id || d.id_destino), d.nombre || d.nombre_destino || '');
+                      }
+                      setShowModalCompanias(false);
+                    }}
+                    className="p-3 border border-slate-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 cursor-pointer transition-all flex justify-between items-center group"
+                  >
+                    <div>
+                      <div className="text-sm font-bold text-slate-800 group-hover:text-indigo-700 transition-colors">
+                        <i className="fas fa-map-marker-alt text-slate-400 mr-2 group-hover:text-indigo-500"></i>
+                        {d.nombre || d.nombre_destino}
+                      </div>
+                      {d.nombre_compania_asociada ? (
+                        <div className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                          <i className="fas fa-building text-slate-400"></i>
+                          {d.nombre_compania_asociada}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-slate-400 mt-1 italic">Sin compañía asociada</div>
+                      )}
+                    </div>
+                    <i className="fas fa-chevron-right text-slate-300 group-hover:text-indigo-400 transition-colors"></i>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </Modal>
     </div>
