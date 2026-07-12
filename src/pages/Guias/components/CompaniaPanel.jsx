@@ -146,16 +146,16 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
           ) : (
             <div className="flex flex-col gap-2">
               {companiasList.map(c => (
-                <div key={c.id_compania} 
+                <div key={c.id_compania_asociada} 
                   onClick={() => {
                     if (onSeleccionarCompania) {
                       onSeleccionarCompania({
-                        id: c.id_compania,
-                        id_compania: c.id_compania,
-                        nombre: c.nombre_compania,
-                        ruc: c.ruc_compania,
-                        telefono: c.telefono_compania || '',
-                        correo: c.correo_compania || ''
+                        id: c.id_compania_asociada,
+                        id_compania: c.id_compania_asociada,
+                        nombre: c.nombre_compania_asociada,
+                        ruc: c.ruc_compania_asociada,
+                        telefono: c.telefono_compania_asociada || '',
+                        correo: c.correo_compania_asociada || ''
                       });
                     }
                     setShowModalCompanias(false);
@@ -163,8 +163,8 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
                   className="p-3 border border-slate-200 rounded-lg hover:bg-indigo-50 cursor-pointer transition-colors flex justify-between items-center"
                 >
                   <div>
-                    <div className="text-xs font-bold text-slate-700">{c.nombre_compania}</div>
-                    <div className="text-[10px] text-slate-500">RUC: {c.ruc_compania}</div>
+                    <div className="text-xs font-bold text-slate-700">{c.nombre_compania_asociada}</div>
+                    <div className="text-[10px] text-slate-500">RUC: {c.ruc_compania_asociada}</div>
                   </div>
                   <i className="fas fa-chevron-right text-slate-300"></i>
                 </div>
