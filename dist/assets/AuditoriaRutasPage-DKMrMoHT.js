@@ -1,0 +1,1 @@
+import"./rolldown-runtime-aKtaBQYM.js";import{h as e,t}from"./vendor-react-OwVteAcO.js";import{t as n}from"./index-BDGO1z4v.js";e();var r=t(),i=()=>(0,r.jsx)(n,{configKey:`auditoria-rutas`});export{i as AuditoriaRutasPage};

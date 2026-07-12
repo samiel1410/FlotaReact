@@ -60,6 +60,9 @@ export const GuiasNotaVentaPage = () => {
       if (!Array.isArray(dataArray) && typeof dataArray === 'object') {
         dataArray = Object.values(dataArray);
       }
+      if (!Array.isArray(dataArray)) {
+        dataArray = [];
+      }
       setGuias(dataArray);
       setTotal(response.total || 0);
     } catch (error) {

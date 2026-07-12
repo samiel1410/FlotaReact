@@ -56,7 +56,25 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
     onSeleccionarCompania?.(null);
   };
 
-  const destinosConCompania = destinos.filter(d => d.idfk_compania_asociada_destino && d.nombre_compania_asociada);
+  const [companiasList, setCompaniasList] = useState([]);
+  const [loadingCompanias, setLoadingCompanias] = useState(false);
+
+  const handleOpenModal = async () => {
+    setShowModalCompanias(true);
+    if (companiasList.length === 0) {
+      setLoadingCompanias(true);
+      try {
+        const res = await GuiaService.getCompaniasCombo();
+        if (res && res.data) {
+          setCompaniasList(res.data);
+        }
+      } catch (e) {
+        console.error('Error al cargar companias', e);
+      } finally {
+        setLoadingCompanias(false);
+      }
+    }
+  };
 
   const sectionTitle = { fontSize: '13px', fontWeight: 700, color: '#0f172a', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px', letterSpacing: '-0.01em' };
 
@@ -81,10 +99,10 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
             readOnly={!!compania} />
         </div>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'end' }}>
-          <button onClick={() => setShowModalCompanias(true)}
+          <button onClick={handleOpenModal}
             type="button"
             className="h-8 px-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-md text-xs font-bold shadow-sm"
-            title="Seleccionar Destino">
+            title="Seleccionar Compañía">
             <i className="fas fa-list"></i>
           </button>
           <button onClick={handleBuscarCompania} disabled={buscando || !!compania}
@@ -119,27 +137,34 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
       {/* Campo oculto para ID */}
       <input type="hidden" name="id_compania" value={compania?.id || compania?.id_compania || ''} />
 
-      <Modal open={showModalCompanias} onClose={() => setShowModalCompanias(false)} title="Seleccionar Destino" size="md">
+      <Modal open={showModalCompanias} onClose={() => setShowModalCompanias(false)} title="Seleccionar Compañía" size="md">
         <div className="p-4 max-h-[60vh] overflow-y-auto">
-          {!destinos || destinos.length === 0 ? (
-            <div className="text-center text-slate-500 py-4 text-sm">No hay destinos disponibles</div>
+          {loadingCompanias ? (
+            <div className="text-center text-slate-500 py-4 text-sm"><i className="fas fa-spinner fa-spin mr-2"></i>Cargando compañías...</div>
+          ) : !companiasList || companiasList.length === 0 ? (
+            <div className="text-center text-slate-500 py-4 text-sm">No hay compañías disponibles</div>
           ) : (
             <div className="flex flex-col gap-2">
-              {destinos.map(d => (
-                <div key={d.id || d.id_destino} 
+              {companiasList.map(c => (
+                <div key={c.id_compania} 
                   onClick={() => {
-                    if (onSeleccionarDestino) {
-                      onSeleccionarDestino(String(d.id || d.id_destino), d.nombre || d.nombre_destino || '');
+                    if (onSeleccionarCompania) {
+                      onSeleccionarCompania({
+                        id: c.id_compania,
+                        id_compania: c.id_compania,
+                        nombre: c.nombre_compania,
+                        ruc: c.ruc_compania,
+                        telefono: c.telefono_compania || '',
+                        correo: c.correo_compania || ''
+                      });
                     }
                     setShowModalCompanias(false);
                   }}
                   className="p-3 border border-slate-200 rounded-lg hover:bg-indigo-50 cursor-pointer transition-colors flex justify-between items-center"
                 >
                   <div>
-                    <div className="text-xs font-bold text-slate-700">{d.nombre || d.nombre_destino}</div>
-                    {d.nombre_compania_asociada && (
-                      <div className="text-[10px] text-slate-500">Compañía asociada: {d.nombre_compania_asociada}</div>
-                    )}
+                    <div className="text-xs font-bold text-slate-700">{c.nombre_compania}</div>
+                    <div className="text-[10px] text-slate-500">RUC: {c.ruc_compania}</div>
                   </div>
                   <i className="fas fa-chevron-right text-slate-300"></i>
                 </div>
