@@ -211,7 +211,7 @@ export const GuiaService = {
   },
 
   getCompaniasCombo: async () => {
-    const response = await api.get('/guias_companias/guias_companiasSeleccionarCombo');
+    const response = await api.get('/companiaasociada/companiaasociadaSeleccionPaginadoCombo');
     return response.data;
   },
 
