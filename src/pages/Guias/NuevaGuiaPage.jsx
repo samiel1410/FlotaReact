@@ -106,6 +106,8 @@ export const NuevaGuiaPage = () => {
 
   // ── NUEVO: Compañía (ExtJS: id_compania) ────────────
   const [compania, setCompania] = useState(null);
+  const [showMultiCompaniaModal, setShowMultiCompaniaModal] = useState(false);
+  const [multiCompaniaOptions, setMultiCompaniaOptions] = useState([]);
 
   // ── Detalle (ExtJS: store items) ────────────────────
   const [detalles, setDetalles] = useState([]);
@@ -203,28 +205,8 @@ export const NuevaGuiaPage = () => {
   }, [facturarA]);
 
   // ── Compañía desde destino seleccionado ─────────────────
-  // Al cambiar destino: si tiene compañía asociada la carga, si no la limpia
-  useEffect(() => {
-    if (!destino || !destinoTexto) {
-      setCompania(null);
-      return;
-    }
-    const d = destinos.find(d => String(d.id) === String(destino));
-    if (d && d.idfk_compania_asociada_destino) {
-      setCompania({
-        id: d.idfk_compania_asociada_destino,
-        id_compania_asociada: d.idfk_compania_asociada_destino,
-        nombre: d.nombre_compania_asociada || '',
-        ruc: d.ruc_compania_asociada || d.ruc_compania || d.ruc || '',
-        telefono: d.numero_contacto || '',
-        correo: ''
-      });
-    } else {
-      // Si el destino no tiene compañía asociada, limpiar
-      setCompania(null);
-    }
-  }, [destino, destinos, destinoTexto]);
-
+  // Removido useEffect: La selección ahora se maneja directamente en handleSetDestino
+  // para permitir la selección manual si hay múltiples compañías.
   const normalizeComboData = (arr, idField, nombreField) => {
     if (!Array.isArray(arr)) return [];
     return arr.map(item => ({ ...item, id: item[idField], nombre: item[nombreField] }));
@@ -515,7 +497,40 @@ export const NuevaGuiaPage = () => {
   const handleSetRemitente = (data) => { setRemitente(data); setFieldErrors(prev => ({ ...prev, remitente: undefined })); };
   const handleSetDestinatario = (data) => { setDestinatario(data); setFieldErrors(prev => ({ ...prev, destinatario: undefined })); };
   const handleSetCompania = (data) => { setCompania(data); setFieldErrors(prev => ({ ...prev, compania: undefined })); };
-  const handleSetDestino = (id, texto) => { setDestino(id); setDestinoTexto(texto); setFieldErrors(prev => ({ ...prev, destino: undefined })); };
+  const handleSetDestino = (id, texto, companyToSet = undefined) => { 
+    setDestino(id); 
+    setDestinoTexto(texto); 
+    setFieldErrors(prev => ({ ...prev, destino: undefined })); 
+
+    if (companyToSet !== undefined) {
+      setCompania(companyToSet);
+    } else {
+      if (!id) {
+        setCompania(null);
+        return;
+      }
+      const matches = destinos.filter(d => String(d.id) === String(id));
+      if (matches.length === 1) {
+        if (matches[0].idfk_compania_asociada_destino) {
+          setCompania({
+            id: matches[0].idfk_compania_asociada_destino,
+            id_compania_asociada: matches[0].idfk_compania_asociada_destino,
+            nombre: matches[0].nombre_compania_asociada || '',
+            ruc: matches[0].ruc_compania_asociada || matches[0].ruc_compania || matches[0].ruc || '',
+            telefono: matches[0].numero_contacto || '',
+            correo: ''
+          });
+        } else {
+          setCompania(null);
+        }
+      } else if (matches.length > 1) {
+        setMultiCompaniaOptions(matches);
+        setShowMultiCompaniaModal(true);
+      } else {
+        setCompania(null);
+      }
+    }
+  };
   const handleSetTipoEnvio = (val) => { setTipoEnvio(val); setFieldErrors(prev => ({ ...prev, tipoEnvio: undefined })); };
   const handleSetDetalles = (data) => { setDetalles(data); setFieldErrors(prev => ({ ...prev, detalles: undefined })); };
 
@@ -1527,6 +1542,45 @@ export const NuevaGuiaPage = () => {
           onSubmit={handleCrearCaja}
           onCancel={handleCerrarModalCaja}
         />
+      </Modal>
+      {/* Modal Selección Múltiple Compañías */}
+      <Modal isOpen={showMultiCompaniaModal} onClose={() => setShowMultiCompaniaModal(false)} title="Seleccionar Compañía" width="max-w-md">
+        <div className="p-4">
+          <p className="text-sm text-slate-600 mb-4">El destino seleccionado tiene múltiples compañías asociadas. Por favor seleccione una:</p>
+          <div className="flex flex-col gap-2 max-h-[50vh] overflow-y-auto">
+            {multiCompaniaOptions.map((opt, idx) => (
+              <div key={idx}
+                onClick={() => {
+                  if (opt.idfk_compania_asociada_destino) {
+                    setCompania({
+                      id: opt.idfk_compania_asociada_destino,
+                      id_compania_asociada: opt.idfk_compania_asociada_destino,
+                      nombre: opt.nombre_compania_asociada || '',
+                      ruc: opt.ruc_compania_asociada || opt.ruc_compania || opt.ruc || '',
+                      telefono: opt.numero_contacto || '',
+                      correo: ''
+                    });
+                  } else {
+                    setCompania(null);
+                  }
+                  setShowMultiCompaniaModal(false);
+                }}
+                className="p-3 border border-slate-200 rounded-lg hover:bg-indigo-50 hover:border-indigo-200 cursor-pointer transition-colors flex justify-between items-center group"
+              >
+                <div>
+                  <div className="text-sm font-bold text-slate-800 group-hover:text-indigo-700">
+                    <i className="fas fa-building text-slate-400 mr-2 group-hover:text-indigo-500"></i>
+                    {opt.nombre_compania_asociada || 'Sin compañía'}
+                  </div>
+                  {opt.ruc_compania_asociada && (
+                    <div className="text-[10px] text-slate-500 mt-1">RUC: {opt.ruc_compania_asociada}</div>
+                  )}
+                </div>
+                <i className="fas fa-chevron-right text-slate-300 group-hover:text-indigo-400"></i>
+              </div>
+            ))}
+          </div>
+        </div>
       </Modal>
     </div>
   );
