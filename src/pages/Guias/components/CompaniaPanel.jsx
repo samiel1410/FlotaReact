@@ -137,7 +137,7 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
       {/* Campo oculto para ID */}
       <input type="hidden" name="id_compania" value={compania?.id || compania?.id_compania || ''} />
 
-      <Modal open={showModalCompanias} onClose={() => setShowModalCompanias(false)} title="Seleccionar Compañía" size="md">
+      <Modal isOpen={showModalCompanias} onClose={() => setShowModalCompanias(false)} title="Seleccionar Compañía" width="max-w-md">
         <div className="p-4 max-h-[60vh] overflow-y-auto">
           {loadingCompanias ? (
             <div className="text-center text-slate-500 py-4 text-sm"><i className="fas fa-spinner fa-spin mr-2"></i>Cargando compañías...</div>
