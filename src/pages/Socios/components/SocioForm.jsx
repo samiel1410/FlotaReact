@@ -564,8 +564,8 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
           </div>
 
           <div>
-            <label className={labelClass}>Tipo de Licencia</label>
-            <select {...register('tipo_licencia')} className={inputClass}>
+            <label className={labelClass}>Tipo de Licencia <span className="text-rose-500">*</span></label>
+            <select {...register('tipo_licencia', { required: 'El tipo de licencia es requerido' })} className={inputClass}>
               <option value="">Seleccionar...</option>
               <option value="1">Tipo A</option>
               <option value="2">Tipo B</option>
@@ -573,6 +573,7 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
               <option value="4">Tipo D</option>
               <option value="5">Tipo E</option>
             </select>
+            {errors.tipo_licencia && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.tipo_licencia.message}</p>}
           </div>
 
           <div>
