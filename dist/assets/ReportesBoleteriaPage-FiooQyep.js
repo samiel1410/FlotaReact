@@ -1,0 +1,1 @@
+import"./rolldown-runtime-aKtaBQYM.js";import{h as e,t}from"./vendor-react-OwVteAcO.js";import{t as n}from"./index-BGEjWM3z.js";e();var r=t(),i=()=>(0,r.jsx)(n,{configKey:`reportes-boleteria`});export{i as ReportesBoleteriaPage};

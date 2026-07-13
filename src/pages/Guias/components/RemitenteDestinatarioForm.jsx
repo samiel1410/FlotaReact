@@ -20,6 +20,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
   // ── Estado para el Modal de Edición ─────────────────
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState({
+    id_cliente: null,
     identificacion_cliente: '',
     tipo_identificacion_cliente: '05',
     nombre_cliente: '',
@@ -28,6 +29,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     telefono_cliente: ''
   });
   const [editLoading, setEditLoading] = useState(false);
+  const [isForcedEdit, setIsForcedEdit] = useState(false);
 
   const iconColor = tipo === 'Remitente' ? '#3498db' : '#e67e22';
   const isRemitente = tipo === 'Remitente';
@@ -57,6 +59,26 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
           email: cli.email_cliente || cli.correo_cliente || cli.email || '',
           telefono2: cli.telefono2 || ''
         };
+        
+        if (!clienteData.email || !clienteData.telefono) {
+          toast.error(`El ${tipo.toLowerCase()} no tiene correo o teléfono. Debe actualizarlos para continuar.`);
+          setEditFormData({
+            id_cliente: clienteData.id_cliente,
+            identificacion_cliente: clienteData.cedula || '',
+            tipo_identificacion_cliente: cli.tipo_identificacion || '05',
+            nombre_cliente: clienteData.nombres || '',
+            direccion_cliente: clienteData.direccion || '',
+            telefono_cliente: clienteData.telefono || '',
+            correo_cliente: clienteData.email || '',
+            provincia: cli.provincia || '',
+            canton: cli.canton || '',
+            telefono2: clienteData.telefono2 || ''
+          });
+          setIsForcedEdit(true);
+          setShowEditModal(true);
+          return;
+        }
+
         onChange(clienteData);
         
         // Si es remitente, autocompletar destinatario (ExtJS: params { cedula })
@@ -129,10 +151,17 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     }
   };
 
-  // ── Handler Guardar Edición de Cliente ──────────────────
   const handleSaveEdit = async () => {
     if (!editFormData.nombre_cliente) {
       toast.error('El nombre es obligatorio');
+      return;
+    }
+    if (!editFormData.telefono_cliente) {
+      toast.error('El teléfono es obligatorio');
+      return;
+    }
+    if (!editFormData.correo_cliente) {
+      toast.error('El correo es obligatorio');
       return;
     }
     setEditLoading(true);
@@ -150,16 +179,29 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       
       // Actualizar el estado local del cliente
       const clienteActualizado = {
-        ...cliente,
+        ...(cliente || {}),
+        id_cliente: editFormData.id_cliente || cliente?.id_cliente,
         cedula: editFormData.identificacion_cliente,
         nombres: editFormData.nombre_cliente,
         direccion: editFormData.direccion_cliente,
         telefono: editFormData.telefono_cliente,
         email: editFormData.correo_cliente || editFormData.email_cliente || '',
-        telefono2: editFormData.telefono2
+        telefono2: editFormData.telefono2 || ''
       };
       onChange(clienteActualizado);
+      
+      if (isForcedEdit && isRemitente && onDestinatarioAutoFill && clienteActualizado.cedula) {
+        try {
+          const ultDest = await GuiaService.getUltimoDestinatarioPorRemitente(clienteActualizado.cedula);
+          if (ultDest?.success && ultDest.data) {
+            onDestinatarioAutoFill(ultDest.data);
+          }
+        } catch (e) {
+        }
+      }
+
       setShowEditModal(false);
+      setIsForcedEdit(false);
       toast.success(`${tipo} actualizado exitosamente`);
     } catch (error) {
       console.error('Error actualizando cliente:', error);
@@ -285,6 +327,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
             <div style={{ display: 'flex', gap: '6px' }}>
               <button className="btn-icon" onClick={() => {
                 setEditFormData({
+                  id_cliente: cliente.id_cliente || null,
                   identificacion_cliente: cliente.cedula || '',
                   tipo_identificacion_cliente: cliente.tipo_identificacion || '05',
                   nombre_cliente: cliente.nombres || '',
@@ -295,6 +338,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                   canton: cliente.canton || '',
                   telefono2: cliente.telefono2 || ''
                 });
+                setIsForcedEdit(false);
                 setShowEditModal(true);
               }} title="Editar Cliente" style={{ background: '#3b82f6', border: 'none', cursor: 'pointer', color: 'white', borderRadius: '6px', padding: '4px 10px', fontSize: '11px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <i className="fas fa-pen"></i> Editar
@@ -347,7 +391,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       )}
       
       {/* ── Modal Editar Cliente ──────────────────────────────── */}
-      <Modal isOpen={showEditModal} onClose={() => { if (!editLoading) setShowEditModal(false); }} title={`Editar ${tipo}`} width="max-w-lg">
+      <Modal isOpen={showEditModal} onClose={() => { if (!editLoading && !isForcedEdit) setShowEditModal(false); }} title={`Editar ${tipo}`} width="max-w-lg">
         <div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
@@ -387,11 +431,13 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>
-            <button onClick={() => { if (!editLoading) setShowEditModal(false); }}
-              disabled={editLoading}
-              className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-xs font-bold disabled:opacity-50">
-              Cancelar
-            </button>
+            {!isForcedEdit && (
+              <button onClick={() => { if (!editLoading) setShowEditModal(false); }}
+                disabled={editLoading}
+                className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-xs font-bold disabled:opacity-50">
+                Cancelar
+              </button>
+            )}
             <button onClick={handleSaveEdit} disabled={editLoading}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm disabled:opacity-70 flex items-center gap-2">
               {editLoading ? <><i className="fas fa-spinner fa-spin"></i> Guardando...</> : <><i className="fas fa-save"></i> Actualizar Cliente</>}

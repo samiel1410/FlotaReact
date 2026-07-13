@@ -410,6 +410,12 @@ export const NuevaGuiaPage = () => {
         setOtrosTelefono(data.telefono || '');
         setOtrosCorreo(data.email || data.correo || '');
         setOtrosDireccion(data.direccion || '');
+        
+        if (!data.telefono || !(data.email || data.correo)) {
+          toast.error('El cliente "Otros" no tiene correo o teléfono. Debe actualizarlos para continuar.');
+        } else {
+          toast.success('Cliente "Otros" encontrado');
+        }
       } else {
         toast('Cliente no encontrado. Puede crear uno nuevo.');
       }
@@ -547,6 +553,12 @@ export const NuevaGuiaPage = () => {
     if (!destino || !destinoTexto) errors.destino = true;
     if (!compania) errors.compania = true;
     if (!tipoEnvio) errors.tipoEnvio = true;
+    if (facturarA === '3') {
+      if (!otrosIdentidad || !otrosNombre || !otrosTelefono || !otrosCorreo) {
+        errors.otros = true;
+        toast.error('Debe completar el correo y teléfono en la sección "Otros"');
+      }
+    }
     if (detalles.length === 0) errors.detalles = true;
     const detalleInvalido = detalles.find(d => !d.contenido || (parseFloat(d.precioUnitario) <= 0 && parseFloat(d.subtotal) <= 0));
     if (detalleInvalido) errors.detalles = true;
