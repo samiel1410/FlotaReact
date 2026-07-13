@@ -48,6 +48,15 @@ export const GenericListPage = ({ config }) => {
   useEffect(() => {
     fetch(localFilters, 0);
 
+    // Mantener la ref actualizada con los últimos valores
+    refreshCallbackRef.current = () => {
+      fetch(localFilters, page);
+      toast.success('Actualizado', {
+        duration: 1500,
+        style: { borderRadius: '10px', background: '#333', color: '#fff', fontSize: '11px' }
+      });
+    };
+
     // Escuchar evento refresh-list disparado desde custom actions (ej: entregar, anular)
     // Usamos la ref para siempre tener los valores más recientes de fetch, localFilters y page
     const handleRefreshList = () => refreshCallbackRef.current();
@@ -66,7 +75,7 @@ export const GenericListPage = ({ config }) => {
       window.removeEventListener('refresh-list', handleRefreshList);
       window.removeEventListener('set-caja-filter', handleSetCajaFilter);
     };
-  }, []); // eslint-disable-line
+  }, [localFilters, page]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSearch = () => { fetch(localFilters, 0); };
   const handlePrev  = () => { const p = Math.max(0, page - 1); setPage(p); fetch(localFilters, p); };
@@ -90,13 +99,6 @@ export const GenericListPage = ({ config }) => {
 
   // Ref para evitar stale closure en el event listener refresh-list
   const refreshCallbackRef = useRef();
-  refreshCallbackRef.current = () => {
-    fetch(localFilters, page);
-    toast.success('Actualizado', {
-      duration: 1500,
-      style: { borderRadius: '10px', background: '#333', color: '#fff', fontSize: '11px' }
-    });
-  };
 
   const handleCreate = () => { setSelectedRecord(null); setIsModalOpen(true); };
   const handleEdit = (record) => { setSelectedRecord(record); setIsModalOpen(true); };
