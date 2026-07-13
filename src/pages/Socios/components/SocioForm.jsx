@@ -11,6 +11,7 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
   const [loadingPhoto, setLoadingPhoto] = useState(false);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [eliminarFoto, setEliminarFoto] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const blobUrlRef = useRef(null);
 
   const revokeBlobUrl = () => {
@@ -73,6 +74,7 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
       setSelectedFile(file);
       setPhotoPreviewWithCleanup(URL.createObjectURL(file));
       setEliminarFoto(false);
+      setPhotoError('');
     }
   };
 
@@ -224,6 +226,19 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
     });
 
   const onFormSubmit = async (data) => {
+    // Validar foto obligatoria para nuevos registros
+    if (!isEditing && !selectedFile && !photoPreview) {
+      setPhotoError('La foto de perfil es obligatoria');
+      setLoading(false);
+      return;
+    }
+    // Si está editando y eliminó la foto sin subir una nueva
+    if (isEditing && eliminarFoto && !selectedFile) {
+      setPhotoError('Debe subir una foto nueva o mantener la actual');
+      setLoading(false);
+      return;
+    }
+
     if (selectedProfiles.length === 0) {
       toast.error('Debe seleccionar al menos un perfil');
       return;
@@ -288,8 +303,8 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
         <div className="flex flex-col md:flex-row gap-6">
           {/* Foto de Perfil */}
           <div className="flex flex-col items-center justify-center border border-slate-200 rounded-xl p-4 bg-white min-w-[160px] self-start shadow-sm shrink-0">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">Foto de Perfil</label>
-            <div className="relative group w-24 h-24 border-2 border-dashed border-slate-200 rounded-full flex items-center justify-center overflow-hidden bg-slate-50 hover:border-indigo-400 transition-colors">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3">Foto de Perfil {!isEditing && <span className="text-rose-500">*</span>}</label>
+            <div className={`relative group w-24 h-24 border-2 border-dashed rounded-full flex items-center justify-center overflow-hidden bg-slate-50 transition-colors ${photoError ? 'border-rose-400 bg-rose-50' : 'border-slate-200 hover:border-indigo-400'}`}>
               {loadingPhoto ? (
                 <div className="flex flex-col items-center text-slate-400">
                   <i className="fas fa-spinner fa-spin text-xl mb-1"></i>
@@ -318,6 +333,11 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
               >
                 <i className="fas fa-trash-alt"></i> Quitar Foto
               </button>
+            )}
+            {photoError && (
+              <p className="mt-2 text-[10px] text-rose-500 font-bold flex items-center gap-1 text-center">
+                <i className="fas fa-exclamation-circle" />{photoError}
+              </p>
             )}
           </div>
 
