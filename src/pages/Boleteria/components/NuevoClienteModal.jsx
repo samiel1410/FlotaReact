@@ -8,7 +8,7 @@ const TIPOS_IDENTIFICACION = [
   { value: 'Pasaporte', label: 'Pasaporte' },
 ];
 
-export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteInicial }) => {
+export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteInicial, isForcedEdit = false }) => {
   const [tipoIdentificacion, setTipoIdentificacion] = useState('Cedula');
   const [identificacion, setIdentificacion] = useState('');
   const [nombres, setNombres] = useState('');
@@ -105,6 +105,8 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteIni
     console.log('[NuevoClienteModal] Guardar cliente:', { tipoIdentificacion, identificacion, nombres, direccion, celular, correo, fechaNacimiento });
     if (!identificacion) { console.log('[NuevoClienteModal] ⛔ Validación: falta identificación'); toast.error('Ingrese la identificación'); return; }
     if (!nombres) { console.log('[NuevoClienteModal] ⛔ Validación: falta nombre'); toast.error('Ingrese los nombres'); return; }
+    if (!celular) { console.log('[NuevoClienteModal] ⛔ Validación: falta celular'); toast.error('Ingrese el celular/teléfono'); return; }
+    if (!correo) { console.log('[NuevoClienteModal] ⛔ Validación: falta correo'); toast.error('Ingrese el correo electrónico'); return; }
     console.log('[NuevoClienteModal] ✅ Validación pasó, enviando petición...');
 
     setSaving(true);
@@ -190,10 +192,12 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteIni
           justifyContent: 'space-between', alignItems: 'center'
         }}>
           <span><i className="fas fa-user-plus" style={{ marginRight: 8 }}></i>{esEdicion ? 'Actualizar Cliente' : 'Nuevo Cliente'}</span>
-          <button onClick={() => { resetForm(); onClose(); }}
-            style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 18 }}>
-            <i className="fas fa-times"></i>
-          </button>
+          {!isForcedEdit && (
+            <button onClick={() => { resetForm(); onClose(); }}
+              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: 18 }}>
+              <i className="fas fa-times"></i>
+            </button>
+          )}
         </div>
         <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -265,10 +269,12 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteIni
           </div>
         </div>
         <div style={{ padding: '12px 16px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button onClick={() => { resetForm(); onClose(); }}
-            style={{ padding: '8px 16px', border: '1px solid #cbd5e1', borderRadius: 4, background: 'white', cursor: 'pointer', fontSize: 12 }}>
-            Cancelar
-          </button>
+          {!isForcedEdit && (
+            <button onClick={() => { resetForm(); onClose(); }}
+              style={{ padding: '8px 16px', border: '1px solid #cbd5e1', borderRadius: 4, background: 'white', cursor: 'pointer', fontSize: 12 }}>
+              Cancelar
+            </button>
+          )}
           <button onClick={handleGuardar} disabled={saving}
             style={{
               padding: '8px 16px', border: 'none', borderRadius: 4,

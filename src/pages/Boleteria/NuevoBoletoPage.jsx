@@ -82,6 +82,7 @@ export const NuevoBoletoPage = () => {
   const [pdfModalUrl, setPdfModalUrl] = useState('');
   const [showNuevoClienteModal, setShowNuevoClienteModal] = useState(false);
   const [clienteAEditar, setClienteAEditar] = useState(null);
+  const [isForcedEditCliente, setIsForcedEditCliente] = useState(false);
   const [showCambiarBusModal, setShowCambiarBusModal] = useState(false);
   const [showReagendarModal, setShowReagendarModal] = useState(false);
   const [boletoAReagendar, setBoletoAReagendar] = useState(null);
@@ -303,6 +304,15 @@ export const NuevoBoletoPage = () => {
         const fechaNac = c.fecha_nacimiento ? new Date(c.fecha_nacimiento).toISOString().split('T')[0] : '';
         const edad = calcularEdad(fechaNac);
         const tarifaVal = tarifaDesdeEdad(edad);
+        
+        if (!c.telefono_cliente || !c.email_cliente) {
+          toast.error('El cliente no tiene correo o teléfono. Debe actualizarlos para continuar.', { id: toastId });
+          setClienteAEditar(c);
+          setIsForcedEditCliente(true);
+          setShowNuevoClienteModal(true);
+          return; // No establecemos los datos hasta que no lo actualice
+        }
+
         setFormData(prev => ({
           ...prev,
           idCliente: c.id_cliente,
@@ -331,6 +341,15 @@ export const NuevoBoletoPage = () => {
           const fechaNac = c.fecha_nacimiento ? new Date(c.fecha_nacimiento).toISOString().split('T')[0] : '';
           const edad = calcularEdad(fechaNac);
           const tarifaVal = tarifaDesdeEdad(edad);
+          
+          if (!c.telefono_cliente || !c.email_cliente) {
+            toast.error('El cliente no tiene correo o teléfono. Debe actualizarlos para continuar.', { id: toastId });
+            setClienteAEditar(c);
+            setIsForcedEditCliente(true);
+            setShowNuevoClienteModal(true);
+            return;
+          }
+
           setFormData(prev => ({
             ...prev,
             idCliente: c.id_cliente,
@@ -738,6 +757,8 @@ export const NuevoBoletoPage = () => {
     if (!subrutaSeleccionada) errores.push('• Seleccionar un destino/tarifa');
     if (!formData.identificacion) errores.push('• Ingresar identificación del pasajero');
     if (!formData.nombres) errores.push('• Ingresar nombre del pasajero');
+    if (!formData.celular) errores.push('• Ingresar celular del pasajero');
+    if (!formData.correo) errores.push('• Ingresar correo electrónico del pasajero');
     if (formData.asientosSeleccionados.length === 0) errores.push('• Seleccionar al menos un asiento');
     if (formData.pasajeros.some(p => !p.cedula || !p.nombres)) errores.push('• Completar cédula y nombres de todos los pasajeros en la lista');
 
@@ -1824,9 +1845,10 @@ export const NuevoBoletoPage = () => {
       {/* MODALES */}
       <NuevoClienteModal
         isOpen={showNuevoClienteModal}
-        onClose={() => { setShowNuevoClienteModal(false); setClienteAEditar(null); }}
+        onClose={() => { setShowNuevoClienteModal(false); setClienteAEditar(null); setIsForcedEditCliente(false); }}
         onClienteCreado={handleClienteCreado}
         clienteInicial={clienteAEditar}
+        isForcedEdit={isForcedEditCliente}
       />
       <CambiarBusModal
         isOpen={showCambiarBusModal}
