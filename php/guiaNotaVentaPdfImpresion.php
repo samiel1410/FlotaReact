@@ -158,7 +158,7 @@ $id_usuario_guia";
   LEFT JOIN
   forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
   WHERE
-  cc.id_fkfactura_comprobante_cobro = $id_guia AND cc.estado_comprobante_cobro = 'COBRADA'
+  cc.id_fkfactura_comprobante_cobro = $id_guia AND cc.estado_comprobante_cobro != 'ANULADA'
   GROUP BY
   fp.id_forma_pago";
 
@@ -172,13 +172,13 @@ $id_usuario_guia";
     }
   }
 
-  if ($detalles_forma_pago == "") {
-    $detalles_forma_pago = "NINGUNA";
-  }
-
   $total_cobrado = $total_factura - $suma_cobrada;
   
   $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "POR COBRAR";
+
+  if ($detalles_forma_pago == "") {
+    $detalles_forma_pago = "NINGUNA";
+  }
 
   // COMPROBANTES
 

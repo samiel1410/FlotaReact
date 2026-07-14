@@ -188,7 +188,7 @@ s.punto_emision_sucursal";
     LEFT JOIN
     forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
     WHERE
-    cc.id_fkfactura_comprobante_cobro = $id_factura AND cc.estado_comprobante_cobro = 'COBRADA'
+    cc.id_fkfactura_comprobante_cobro = $id_factura AND cc.estado_comprobante_cobro != 'ANULADA'
     GROUP BY
     fp.id_forma_pago";
 
@@ -208,10 +208,6 @@ s.punto_emision_sucursal";
     $clave_acceso = "";
   }
 
-  if ($detalles_forma_pago == "") {
-    $detalles_forma_pago = "NINGUNA";
-  }
-
   // Usar suma_cobrada (excluye crédito) para calcular el saldo pendiente
   $total_cobrado = $total_factura - $suma_cobrada;
 
@@ -219,6 +215,10 @@ s.punto_emision_sucursal";
       $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "POR COBRAR";
   } else {
       $estado_factura = ($vals_guia['estado_cobro_guia'] == 'COBRADA') ? "COBRADA" : "POR COBRAR";
+  }
+
+  if ($detalles_forma_pago == "") {
+    $detalles_forma_pago = "NINGUNA";
   }
 
   // COMPROBANTES
