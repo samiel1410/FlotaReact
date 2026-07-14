@@ -47,7 +47,10 @@ export const GenericListPage = ({ config }) => {
 
   useEffect(() => {
     fetch(localFilters, 0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  useEffect(() => {
     // Mantener la ref actualizada con los últimos valores
     refreshCallbackRef.current = () => {
       fetch(localFilters, page);
@@ -56,17 +59,19 @@ export const GenericListPage = ({ config }) => {
         style: { borderRadius: '10px', background: '#333', color: '#fff', fontSize: '11px' }
       });
     };
+  }, [localFilters, page, fetch]);
 
-    // Escuchar evento refresh-list disparado desde custom actions (ej: entregar, anular)
-    // Usamos la ref para siempre tener los valores más recientes de fetch, localFilters y page
-    const handleRefreshList = () => refreshCallbackRef.current();
+  useEffect(() => {
+    const handleRefreshList = () => refreshCallbackRef.current && refreshCallbackRef.current();
     window.addEventListener('refresh-list', handleRefreshList);
 
     const handleSetCajaFilter = (e) => {
       if (e.detail && typeof e.detail === 'object') {
-        const newFilters = { ...localFilters, ...e.detail };
-        setLocalFilters(newFilters);
-        fetch(newFilters, 0);
+        setLocalFilters(prev => {
+          const newFilters = { ...prev, ...e.detail };
+          fetch(newFilters, 0);
+          return newFilters;
+        });
       }
     };
     window.addEventListener('set-caja-filter', handleSetCajaFilter);
@@ -75,7 +80,7 @@ export const GenericListPage = ({ config }) => {
       window.removeEventListener('refresh-list', handleRefreshList);
       window.removeEventListener('set-caja-filter', handleSetCajaFilter);
     };
-  }, [localFilters, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetch]);
 
   const handleSearch = () => { fetch(localFilters, 0); };
   const handlePrev  = () => { const p = Math.max(0, page - 1); setPage(p); fetch(localFilters, p); };
