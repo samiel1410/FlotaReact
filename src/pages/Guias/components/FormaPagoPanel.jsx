@@ -95,8 +95,10 @@ export const FormaPagoPanel = ({ detalles, convenio, onPagosChange, pagadoPor, o
   const totalPagado = pagos.reduce((sum, p) => sum + (parseFloat(p.monto) || 0), 0);
   const diferencia = totalPagado - totalGeneral;
 
+  const sanitizeNum = (val) => typeof val === 'string' ? val.replace(/,/g, '.') : String(val || '');
+
   const handleAddPago = () => {
-    if (!formaPagoId || !monto || parseFloat(monto) <= 0) return;
+    if (!formaPagoId || !monto || parseFloat(sanitizeNum(monto)) <= 0) return;
 
     // Si hay un pago automático, eliminarlo al agregar uno manual
     let newPagos = [...pagos];
@@ -109,7 +111,7 @@ export const FormaPagoPanel = ({ detalles, convenio, onPagosChange, pagadoPor, o
       id: Date.now(),
       id_forma_pago: formaPagoId,
       nombre: fp?.nombre || fp?.label || fp?.text || 'Pago',
-      monto: parseFloat(monto),
+      monto: parseFloat(sanitizeNum(monto)),
       pagado_por: pagadoPor,
       detalle: detalle
     };
@@ -185,8 +187,8 @@ export const FormaPagoPanel = ({ detalles, convenio, onPagosChange, pagadoPor, o
         </div>
         <div>
           <label className={labelClass}>Monto $</label>
-          <input type="number" className={inputClass} value={monto} onChange={(e) => setMonto(e.target.value)}
-            placeholder="0.00" min="0" step="0.01" />
+          <input type="text" inputMode="decimal" className={inputClass} value={monto} onChange={(e) => setMonto(e.target.value)}
+            placeholder="0.00" />
         </div>
         <div>
           <label className={labelClass}>Detalle</label>

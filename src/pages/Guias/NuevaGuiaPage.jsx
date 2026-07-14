@@ -52,6 +52,9 @@ export const NuevaGuiaPage = () => {
   const [localCajaId, setLocalCajaId] = useState(null);
   const [cajaChecking, setCajaChecking] = useState(true);
 
+  // ── Helper: sanitizar número (acepta tanto punto como coma) ─
+  const sanitizeNum = (val) => typeof val === 'string' ? val.replace(/,/g, '.') : String(val || '');
+
   // ── Loading ──────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -670,11 +673,11 @@ export const NuevaGuiaPage = () => {
       tipodescuento: descuentoTipo,
 
       // Valor Declarado (ExtJS: porcentaje + valor_declarado_valor)
-      porcentaje: valorDeclaradoActivo ? (parseFloat(valorDeclaradoPorcentaje) || 0) : 0,
+      porcentaje: valorDeclaradoActivo ? (parseFloat(sanitizeNum(valorDeclaradoPorcentaje)) || 0) : 0,
       valor_declarado: valorDeclaradoActivo
-        ? (parseFloat(valorDeclaradoValor) || (totalGeneral * (parseFloat(valorDeclaradoPorcentaje) || 0) / 100) || 0)
+        ? (parseFloat(sanitizeNum(valorDeclaradoValor)) || (totalGeneral * (parseFloat(sanitizeNum(valorDeclaradoPorcentaje)) || 0) / 100) || 0)
         : 0,
-      valor_declarado_valor: valorDeclaradoActivo ? (parseFloat(valorDeclaradoValor) || 0) : 0,
+      valor_declarado_valor: valorDeclaradoActivo ? (parseFloat(sanitizeNum(valorDeclaradoValor)) || 0) : 0,
 
       // Número Manual
       numero_manual: numeroManual ? 1 : 0,
@@ -1309,17 +1312,17 @@ export const NuevaGuiaPage = () => {
                 {valorDeclaradoActivo && (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="number" className={inputClass} style={{ width: '70px' }}
+                      <input type="text" inputMode="decimal" className={inputClass} style={{ width: '70px' }}
                         value={valorDeclaradoPorcentaje}
-                        onChange={(e) => setValorDeclaradoPorcentaje(e.target.value)}
-                        placeholder="%" min="0" max="100" step="0.01" />
+                        onChange={(e) => setValorDeclaradoPorcentaje(sanitizeNum(e.target.value))}
+                        placeholder="%" />
                       <span style={{ fontSize: '10px', fontWeight: 600, color: '#64748b' }}>%</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <input type="number" className={inputClass} style={{ width: '100px' }}
+                      <input type="text" inputMode="decimal" className={inputClass} style={{ width: '100px' }}
                         value={valorDeclaradoValor}
-                        onChange={(e) => setValorDeclaradoValor(e.target.value)}
-                        placeholder="$ 0.00" min="0" step="0.01" />
+                        onChange={(e) => setValorDeclaradoValor(sanitizeNum(e.target.value))}
+                        placeholder="$ 0.00" />
                       <span style={{ fontSize: '10px', fontWeight: 600, color: '#64748b' }}>$</span>
                     </div>
                   </>

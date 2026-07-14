@@ -31,11 +31,14 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
     }
   }, [costoEnvioPorDefecto]);
 
+  // Sanitizar número: reemplazar coma por punto para aceptar ambos formatos
+  const sanitizeNum = (val) => typeof val === 'string' ? val.replace(/,/g, '.') : String(val || '');
+
   const handleAdd = () => {
     if (!nuevo.contenido || !nuevo.precioUnitario) return;
     const cantidad = parseInt(nuevo.cantidad) || 1;
-    const precioIngresado = parseFloat(nuevo.precioUnitario) || 0;
-    const peso = parseFloat(nuevo.peso) || 0;
+    const precioIngresado = parseFloat(sanitizeNum(nuevo.precioUnitario)) || 0;
+    const peso = parseFloat(sanitizeNum(nuevo.peso)) || 0;
     const rate = cobrarIvaGuia ? getIvaRate(nuevo.tipoEnvioId, tiposEnvio) : 0;
     const porcDesc = convenio ? (convenio.porcentaje_descuento || convenio.descuento || 0) : 0;
 
@@ -70,7 +73,7 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
   const handleUpdateField = (id, field, value) => {
     const updated = detalles.map(d => {
       if (d.id !== id) return d;
-      const newD = { ...d, [field]: field === 'precioUnitario' ? (parseFloat(value) || 0) : value };
+      const newD = { ...d, [field]: field === 'precioUnitario' ? (parseFloat(sanitizeNum(value)) || 0) : value };
       const rate = cobrarIvaGuia ? getIvaRate(newD.tipoEnvioId, tiposEnvio) : 0;
       const porcDesc = convenio ? (convenio.porcentaje_descuento || convenio.descuento || 0) : 0;
       const { subtotal, descuento, iva, total } = desgloseItem(newD.precioUnitario, newD.cantidad || 1, rate, porcDesc);
@@ -97,15 +100,15 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
           </div>
           <div>
             <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>Peso (kg)</label>
-            <input type="number" step="0.01" className={inputClassRight} value={nuevo.peso} onChange={(e) => setNuevo({...nuevo, peso: e.target.value})} placeholder="0.00" />
+            <input type="text" inputMode="decimal" className={inputClassRight} value={nuevo.peso} onChange={(e) => setNuevo({...nuevo, peso: e.target.value})} placeholder="0.00" />
           </div>
           <div>
             <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>P. Unitario</label>
-            <input type="number" step="0.01" className={inputClassRight} value={nuevo.precioUnitario} onChange={(e) => setNuevo({...nuevo, precioUnitario: e.target.value})} placeholder="0.00" />
+            <input type="text" inputMode="decimal" className={inputClassRight} value={nuevo.precioUnitario} onChange={(e) => setNuevo({...nuevo, precioUnitario: e.target.value})} placeholder="0.00" />
           </div>
           <div>
             <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>Total</label>
-            <input type="text" className={`${inputClassRight} bg-slate-50 text-slate-500`} readOnly value={`$${((parseInt(nuevo.cantidad) || 1) * (parseFloat(nuevo.precioUnitario) || 0)).toFixed(2)}`} />
+            <input type="text" className={`${inputClassRight} bg-slate-50 text-slate-500`} readOnly value={`$${((parseInt(nuevo.cantidad) || 1) * (parseFloat(sanitizeNum(nuevo.precioUnitario)) || 0)).toFixed(2)}`} />
           </div>
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <button type="button" onClick={handleAdd} style={{ height: '28px', width: '28px', borderRadius: '50%', background: '#10b981', color: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="Agregar bulto">

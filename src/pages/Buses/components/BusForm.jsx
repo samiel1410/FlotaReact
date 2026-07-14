@@ -117,12 +117,22 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
 
         <div>
           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Marca</label>
-          <input {...register('marca_buses')} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50" />
+          <input {...register('marca_buses')} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50" placeholder="Ej: Mercedes Benz" />
         </div>
 
         <div>
           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Modelo</label>
-          <input {...register('modelo_buses')} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50" />
+          <input {...register('modelo_buses')} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50" placeholder="Ej: 2024" />
+        </div>
+
+        <div>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Motor</label>
+          <input {...register('motor_buses')} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50" placeholder="N° Motor" />
+        </div>
+
+        <div>
+          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Chasis</label>
+          <input {...register('chasis_buses')} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50" placeholder="N° Chasis" />
         </div>
 
         <div>

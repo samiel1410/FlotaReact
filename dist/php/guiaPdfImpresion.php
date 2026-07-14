@@ -164,6 +164,7 @@ s.punto_emision_sucursal";
 
   $detalles_forma_pago = "";
   $suma_total = 0;
+  $suma_cobrada = 0;
   $total_cobrado = 0;
 
   $id_factura = (isset($vals_datos_factura) && isset($vals_datos_factura["id_factura"])) ? (int) $vals_datos_factura["id_factura"] : 0;
@@ -180,7 +181,8 @@ s.punto_emision_sucursal";
     $sql_pagos = "SELECT
     COALESCE(SUM(cc.monto_comprobante_cobro), 0) AS total,
     fp.id_forma_pago,
-    fp.nombre_forma_pago
+    fp.nombre_forma_pago,
+    fp.tipo_forma_pago
     FROM
     comprobante_cobro cc
     LEFT JOIN
@@ -194,6 +196,10 @@ s.punto_emision_sucursal";
     while ($vals_datos_facturaR = mysqli_fetch_array($recuperar_datos_factura_formas)) {
       $detalles_forma_pago .= '' . $vals_datos_facturaR["nombre_forma_pago"] . ': $' . number_format((float) $vals_datos_facturaR["total"], 2) . ' ';
       $suma_total = $suma_total + $vals_datos_facturaR["total"];
+      // El crédito no es un pago real - no debe contar como cobrado
+      if ((int)$vals_datos_facturaR["tipo_forma_pago"] != 4) {
+        $suma_cobrada = $suma_cobrada + $vals_datos_facturaR["total"];
+      }
     }
   } else {
     $total_factura = $total_guia;
@@ -206,7 +212,8 @@ s.punto_emision_sucursal";
     $detalles_forma_pago = "NINGUNA";
   }
 
-  $total_cobrado = $total_factura - $suma_total;
+  // Usar suma_cobrada (excluye crédito) para calcular el saldo pendiente
+  $total_cobrado = $total_factura - $suma_cobrada;
 
   if ($id_factura > 0) {
       $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "POR COBRAR";
