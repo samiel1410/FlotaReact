@@ -275,10 +275,17 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
         formData.append('eliminar_foto', '1');
       }
 
-      await api.post('/personal/insertarActualizarPersonal', formData, {
+      const response = await api.post('/personal/insertarActualizarPersonal', formData, {
         timeout: 60000, // 60s para la subida de foto en base64
       });
-      toast.success(isEditing ? 'Socio actualizado correctamente' : 'Socio creado correctamente');
+
+      const resData = response.data;
+      if (resData && (resData.tipo === 2 || resData.success === false)) {
+        toast.error(resData.message || 'No se pudo guardar la información');
+        return;
+      }
+
+      toast.success(resData?.message || (isEditing ? 'Socio actualizado correctamente' : 'Socio creado correctamente'));
       onSubmit(data);
     } catch (err) {
       console.error('Error guardando socio:', err);
