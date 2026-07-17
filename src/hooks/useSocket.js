@@ -84,10 +84,27 @@ export const useSocket = () => {
       window.dispatchEvent(new CustomEvent('sucursal_ciudad_changed', { detail: data }));
     });
 
-    // ─── SELECCIÓN DE ASIENTOS EN TIEMPO REAL ────────────────────────────
-    newSocket.on('asiento_seleccionando', (data) => {
-      // Reenviar a NuevoBoletoPage via CustomEvent
-      window.dispatchEvent(new CustomEvent('asiento_seleccionando', { detail: data }));
+    // ─── BLOQUEO DE ASIENTOS EN TIEMPO REAL ───────────────────────────────
+    // Un asiento fue bloqueado por alguien
+    newSocket.on('asiento_bloqueado', (data) => {
+      // Incluye: { id_viaje, asiento, usuario, lockedAt (timestamp) }
+      window.dispatchEvent(new CustomEvent('asiento_bloqueado', { detail: data }));
+    });
+
+    // Un asiento fue liberado (por deselección, timeout, desconexión o admin)
+    newSocket.on('asiento_liberado', (data) => {
+      // Incluye: { id_viaje, asiento, usuario, motivo: 'deseleccion'|'timeout'|'desconexion'|'admin', liberadoPor? }
+      window.dispatchEvent(new CustomEvent('asiento_liberado', { detail: data }));
+    });
+
+    // Rechazo de bloqueo (intentaste bloquear algo que ya estaba bloqueado)
+    newSocket.on('asiento_bloqueo_rechazado', (data) => {
+      window.dispatchEvent(new CustomEvent('asiento_bloqueo_rechazado', { detail: data }));
+    });
+
+    // Estado actualizado de todos los locks (para monitoreo)
+    newSocket.on('locks_actualizados', (data) => {
+      window.dispatchEvent(new CustomEvent('locks_actualizados', { detail: data }));
     });
 
     // ─── NOTIFICACIÓN: Reserva próxima a vencer ──────────────────────────

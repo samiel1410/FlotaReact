@@ -50,10 +50,12 @@ export const FormaPagoPanel = ({ detalles, convenio, onPagosChange, pagadoPor, o
     return sum + (sub - desc) + iva + tar;
   }, 0);
 
-  // ── Seleccionar forma de pago por defecto ──
+  // ── Seleccionar forma de pago por defecto (SOLO UNA VEZ al iniciar) ──
+  const formaPagoInitRef = useRef(false);
   useEffect(() => {
-    if (defaultFormaPagoId && formasPago.length > 0) {
+    if (defaultFormaPagoId && formasPago.length > 0 && !formaPagoInitRef.current) {
       setFormaPagoId(defaultFormaPagoId);
+      formaPagoInitRef.current = true;
     }
   }, [defaultFormaPagoId, formasPago]);
 
@@ -74,12 +76,12 @@ export const FormaPagoPanel = ({ detalles, convenio, onPagosChange, pagadoPor, o
         onPagosChange?.(newPagos);
       }
     } else if (!autoPago && !autoDeletedRef.current && formasPago.length > 0) {
-      // Crear pago automático
-      const fp = formasPago.find(f => String(f.id || f.value || f.id_forma_pago) === String(defaultFormaPagoId));
+      // Crear pago automático (usa la forma de pago seleccionada por el usuario, no la default)
+      const fp = formasPago.find(f => String(f.id || f.value || f.id_forma_pago) === String(formaPagoId || defaultFormaPagoId));
       const newPago = {
         id: 'auto_' + Date.now(),
         _auto: true,
-        id_forma_pago: defaultFormaPagoId,
+        id_forma_pago: formaPagoId || defaultFormaPagoId,
         nombre: fp?.nombre || fp?.label || fp?.text || 'Pago',
         monto: totalGeneral,
         pagado_por: pagadoPor,

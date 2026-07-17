@@ -12,6 +12,7 @@ import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { CobrarFacturaModal } from './components/CobrarFacturaModal';
 import { CobrosRealizadosModal } from './components/CobrosRealizadosModal';
 import { SeguimientoGuiaModal } from './components/SeguimientoGuiaModal';
+import cajaService from '../../services/caja.service';
 
 export const GuiasPage = () => {
   const { user, userRole } = useAuth();
@@ -30,6 +31,8 @@ export const GuiasPage = () => {
   // Modal de Cobro
   const [cobrarModalOpen, setCobrarModalOpen] = useState(false);
   const [selectedGuiaCobrar, setSelectedGuiaCobrar] = useState(null);
+  const [facturaDataPreloaded, setFacturaDataPreloaded] = useState(null);
+  const [selectedCajaId, setSelectedCajaId] = useState(null);
 
   // Modal de Cobros Realizados
   const [cobrosModalOpen, setCobrosModalOpen] = useState(false);
@@ -347,8 +350,14 @@ export const GuiasPage = () => {
   };
 
   const handleCharge = async (item) => {
-    // ExtJS logic: check if there's an associated authorized invoice
     try {
+      // 0. Verificar que la guía no esté ya cobrada
+      if (item.estado_cobro_guia === 'COBRADA') {
+        toast.success('La guía ya se encuentra cobrada en su totalidad');
+        return;
+      }
+
+      // 1. Verificar que tenga factura autorizada (ExtJS logic)
       let factVerif = null;
       try {
         factVerif = await GuiaService.autorizadoFacturaPorGuia(item.id_guia);
@@ -356,11 +365,25 @@ export const GuiasPage = () => {
         factVerif = await GuiaService.verificarFacturaAutorizada(item.id_guia);
       }
 
-      if (!factVerif || factVerif.tipo === 0 || (factVerif.data && factVerif.data.length === 0)) {
-        toast.error('Esta guía no se encuentra con una factura asociada');
+      if (!factVerif || factVerif.tipo === 0 || !factVerif.data || factVerif.data.length === 0) {
+        toast.error('Esta guía no se encuentra con una factura asociada. Debe facturar la guía primero.');
         return;
       }
 
+      // 2. Verificar que la caja esté aperturada
+      const cajaVal = await cajaService.validarCaja();
+      if (!cajaVal || !cajaVal.success) {
+        toast.error(cajaVal?.message || 'Error al validar la caja');
+        return;
+      }
+      if (!cajaVal.id_caja) {
+        toast.error('No tiene una caja aperturada. Debe aperturar una caja primero.');
+        return;
+      }
+
+      // Almacenar datos de factura y caja para pasar al modal
+      setSelectedCajaId(cajaVal.id_caja);
+      setFacturaDataPreloaded(factVerif.data[0]);
       setSelectedGuiaCobrar(item);
       setCobrarModalOpen(true);
     } catch (err) {
@@ -555,7 +578,9 @@ export const GuiasPage = () => {
       {cobrarModalOpen && selectedGuiaCobrar && (
         <CobrarFacturaModal
           guia={selectedGuiaCobrar}
-          onClose={() => { setCobrarModalOpen(false); setSelectedGuiaCobrar(null); }}
+          facturaDataPreloaded={facturaDataPreloaded}
+          cajaId={selectedCajaId}
+          onClose={() => { setCobrarModalOpen(false); setSelectedGuiaCobrar(null); setFacturaDataPreloaded(null); setSelectedCajaId(null); }}
           onSuccess={handleCobroSuccess}
         />
       )}

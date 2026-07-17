@@ -182,16 +182,16 @@ $id_usuario_guia";
 
   // COMPROBANTES
 
-  $sql_configuracion = "SELECT configuracion.leyendamensaje_configuracion,configuracion.mensajeleyenda_configuracion FROM
+  $sql_configuracion = "SELECT configuracion.leyenda_nota_venta, configuracion.mostrar_leyenda_nota_venta FROM
 configuracion";
   $recuperar_configuracion = mysqli_query($conn, $sql_configuracion) or die(mysqli_error($conn));
   $vals_configuracion = mysqli_fetch_array($recuperar_configuracion);
 
-  $leyendamensaje_configuracion = $vals_configuracion["leyendamensaje_configuracion"];
-  $mensajeleyenda_configuracion = $vals_configuracion["mensajeleyenda_configuracion"];
+  $leyenda_nota_venta = $vals_configuracion["leyenda_nota_venta"];
+  $mostrar_leyenda_nota_venta = $vals_configuracion["mostrar_leyenda_nota_venta"];
 
-  $validar_leyenda = $mensajeleyenda_configuracion;
-  $mensaje = $leyendamensaje_configuracion;
+  $validar_leyenda = $mostrar_leyenda_nota_venta;
+  $mensaje = $leyenda_nota_venta;
   $leyenda = $mensaje;
   $rutaLogo = obtenerRutaLogoEmpresa($conn);
   // No longer using $pdf->Image('@' . $img) here as it's better handled in HTML or explicitly with a file path if needed.

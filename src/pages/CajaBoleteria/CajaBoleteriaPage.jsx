@@ -5,6 +5,8 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import Modal from '../../components/common/Modal';
+import { AperturaCajaForm } from './components/AperturaCajaForm';
+import { CierreCajaForm } from './components/CierreCajaForm';
 
 const DENOMINACIONES = [
   { key: '100', label: 'Billetes $100', field: '100' },
@@ -68,6 +70,8 @@ export const CajaBoleteriaPage = () => {
   const [openCaja, setOpenCaja] = useState(null);
 
   const [showApertura, setShowApertura] = useState(false);
+  const [showCierre, setShowCierre] = useState(false);
+  const [cajaParaCierre, setCajaParaCierre] = useState(null);
   const [showDetalle, setShowDetalle] = useState(false);
   const [showEditar, setShowEditar] = useState(false);
   const [detalleData, setDetalleData] = useState([]);
@@ -103,79 +107,21 @@ export const CajaBoleteriaPage = () => {
   }, []);
 
   // ─── MODAL APERTURA ────────────────────────────────────────────────────
-  const openModalAperturaNueva = async () => {
-    const { value: form, isDismissed } = await Swal.fire({
-      title: 'Nueva Apertura de Caja',
-      width: 600,
-      html: `
-        <div style="text-align:left">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">${denomToHtml('ap')}</div>
-          <hr style="margin:12px 0"/>
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="flex:1">
-              <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:2px;color:#374151">Total ($)</label>
-              <input id="ap-total" class="swal2-input" type="text" readonly value="0.00" style="width:100%;padding:8px;font-size:14px;font-weight:bold;text-align:right;background:#f3f4f6" />
-            </div>
-            <div style="flex:0 0 auto;padding-top:18px">
-              <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
-                <input type="checkbox" id="ap-cero" /> $0.00
-              </label>
-            </div>
-          </div>
-        </div>`,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar Apertura',
-      confirmButtonColor: '#4f9d40',
-      didOpen: () => {
-        denomDidOpen('ap');
-        document.getElementById('ap-cero')?.addEventListener('change', function () {
-          DENOMINACIONES.forEach(d => {
-            const el = document.getElementById(`ap-${d.key}`);
-            if (el) { el.value = '0'; el.readOnly = this.checked; el.style.background = this.checked ? '#f3f4f6' : ''; }
-          });
-          document.getElementById('ap-total').value = '0.00';
-          if (!this.checked) denomCalcular('ap');
-        });
-      },
-      preConfirm: () => ({
-        apertura_total_caja: parseFloat(document.getElementById('ap-total')?.value || '0') || 0,
-        ...denomPreConfirm('ap')
-      })
-    });
-    if (!form || isDismissed) return;
-    const res = await cajaBoleteriaService.insertarAperturaCaja(form);
-    if (res.success) { toast.success('Caja aperturada'); loadData(); }
+  const handleApertura = async (formData) => {
+    const res = await cajaBoleteriaService.insertarAperturaCaja(formData);
+    if (res.success) { toast.success('Caja aperturada'); loadData(); setShowApertura(false); }
     else toast.error(res.message || 'Error');
   };
 
   // ─── MODAL CIERRE ──────────────────────────────────────────────────────
-  const openModalCierre = async (caja) => {
+  const openCierreModal = (caja) => {
     if (!caja || caja.estado_caja === 'CERRADA') { toast.error('Ya está cerrada'); return; }
-    const { value: form, isDismissed } = await Swal.fire({
-      title: `Cierre #${caja.numero_caja}`,
-      width: 650,
-      html: `
-        <div style="text-align:left">
-          <h3 style="font-weight:bold;font-size:14px;margin-bottom:10px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:5px;">
-            Ingrese el monto del cierre (Monedas y Billetes)
-          </h3>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">${denomToHtml('ci')}</div>
-          <hr style="margin:12px 0"/>
-          <div style="flex:1">
-            <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:2px;color:#374151">Total Cierre ($)</label>
-            <input id="ci-total" class="swal2-input" type="text" readonly value="0.00" style="width:100%;padding:8px;font-size:14px;font-weight:bold;text-align:right;background:#f3f4f6" />
-          </div>
-        </div>`,
-      showCancelButton: true, confirmButtonText: 'Cerrar Caja', confirmButtonColor: '#dc2626',
-      didOpen: () => denomDidOpen('ci'),
-      preConfirm: () => ({
-        id_caja: caja.id_caja,
-        cierre_total_caja: parseFloat(document.getElementById('ci-total')?.value || '0') || 0,
-        ...denomPreConfirm('ci')
-      })
-    });
-    if (!form || isDismissed) return;
-    const res = await cajaBoleteriaService.cerrarCaja(form);
+    setCajaParaCierre(caja);
+    setShowCierre(true);
+  };
+
+  const handleCierre = async (formData) => {
+    const res = await cajaBoleteriaService.cerrarCaja({ ...formData, id_caja: cajaParaCierre.id_caja });
     if (res.success) {
       const estado = res.estado_cuadre;
       const diff = res.valor_diferencia;
@@ -185,6 +131,7 @@ export const CajaBoleteriaPage = () => {
       else if (estado === 'SOBRANTE') msg += `. Sobrante $${diff}`;
       toast.success(msg);
       loadData();
+      setShowCierre(false);
     } else toast.error(res.message || 'Error');
   };
 
@@ -222,7 +169,7 @@ export const CajaBoleteriaPage = () => {
         } catch { setDetalleData([]); }
         break;
       }
-      case 'cerrar': await openModalCierre(row); break;
+      case 'cerrar': openCierreModal(row); break;
       case 'solicitud':
         if (row.estado_solicitud == 0) { toast('Sin solicitud'); return; }
         if (row.estado_solicitud == 1) {
@@ -329,7 +276,7 @@ export const CajaBoleteriaPage = () => {
           <div className="flex items-center gap-2">
             {openCaja && (
               <>
-                <button onClick={() => openModalCierre(openCaja)}
+                <button onClick={() => openCierreModal(openCaja)}
                   className="h-8 px-3 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2">
                   <i className="fas fa-door-closed"></i><span>CERRAR</span>
                 </button>
@@ -339,7 +286,7 @@ export const CajaBoleteriaPage = () => {
                 </button>
               </>
             )}
-            <button onClick={openModalAperturaNueva}
+            <button onClick={() => setShowApertura(true)}
               className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 border border-emerald-700/50">
               <i className="fas fa-plus"></i><span>NUEVA APERTURA</span>
             </button>
@@ -463,6 +410,35 @@ export const CajaBoleteriaPage = () => {
             </div>
           </div>
       </div>
+
+      {/* ─── MODAL APERTURA ────────────────────────────────────────── */}
+      {showApertura && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex-1 overflow-y-auto p-6">
+              <AperturaCajaForm
+                onSubmit={handleApertura}
+                onCancel={() => setShowApertura(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL CIERRE ──────────────────────────────────────────── */}
+      {showCierre && cajaParaCierre && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex-1 overflow-y-auto p-6">
+              <CierreCajaForm
+                cajaActual={cajaParaCierre}
+                onSubmit={handleCierre}
+                onCancel={() => setShowCierre(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <Modal isOpen={showDetalle || showEditar}
         onClose={() => { setShowDetalle(false); setShowEditar(false); }}

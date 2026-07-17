@@ -119,7 +119,7 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
                           {onViewPdf && <button onClick={() => { setActiveMenu(null); onViewPdf(item); }}><i className="far fa-file-pdf" style={{color: 'red'}}></i> Visualizar Pdf</button>}
                           {onPrint && <button onClick={() => { setActiveMenu(null); onPrint(item); }}><i className="fas fa-print" style={{color: 'gray'}}></i> Imprimir</button>}
                           {onEdit && <button onClick={() => { setActiveMenu(null); onEdit(item); }}><i className="fas fa-edit" style={{color: 'orange'}}></i> Editar Guía</button>}
-                          {onCharge && <button onClick={() => { setActiveMenu(null); onCharge(item); }}><i className="fas fa-hand-holding-usd" style={{color: 'green'}}></i> Cobrar</button>}
+                          {onCharge && item.estado_cobro_guia !== 'COBRADA' && parseFloat(item.por_cobrar) > 0 && <button onClick={() => { setActiveMenu(null); onCharge(item); }}><i className="fas fa-hand-holding-usd" style={{color: 'green'}}></i> Cobrar</button>}
                           {onCharges && <button onClick={() => { setActiveMenu(null); onCharges(item); }}><i className="fas fa-money-bill-wave" style={{color: 'blue'}}></i> Cobros Realizados</button>}
                           {onTrack && <button onClick={() => { setActiveMenu(null); onTrack(item); }}><i className="fas fa-eye" style={{color: '#333'}}></i> Seguimiento</button>}
                           {onAnular && <button onClick={() => { setActiveMenu(null); onAnular(item); }}><i className="fas fa-ban" style={{color: 'red'}}></i> Anular</button>}

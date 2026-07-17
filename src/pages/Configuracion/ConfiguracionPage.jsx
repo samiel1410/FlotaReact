@@ -51,6 +51,8 @@ export const ConfiguracionPage = () => {
             maneja_leyenda: conf.mensajeleyenda_configuracion === 1 || conf.mensajeleyenda_configuracion === true,
             leyenda_boleteria: conf.leyenda_boleteria || '',
             maneja_leyenda_boleteria: conf.mostrar_leyenda_boleteria === 1 || conf.mostrar_leyenda_boleteria === true,
+            leyenda_nota_venta: conf.leyenda_nota_venta || '',
+            maneja_leyenda_nota_venta: conf.mostrar_leyenda_nota_venta === 1 || conf.mostrar_leyenda_nota_venta === true,
 
             id_empresa: conf.id_empresa || '',
             razon_social_empresa: conf.razon_social_empresa || '',
@@ -221,6 +223,7 @@ export const ConfiguracionPage = () => {
         ...data,
         maneja_leyenda: data.maneja_leyenda ? 1 : 0,
         maneja_leyenda_boleteria: data.maneja_leyenda_boleteria ? 1 : 0,
+        maneja_leyenda_nota_venta: data.maneja_leyenda_nota_venta ? 1 : 0,
         autorizar_factura_sri: data.autorizar_factura_sri ? 1 : 0,
         autorizar_boleto_sri: data.autorizar_boleto_sri ? 1 : 0,
         enviar_whatsapp: data.enviar_whatsapp ? 1 : 0,
@@ -463,12 +466,20 @@ export const ConfiguracionPage = () => {
                     <i className="fas fa-file-alt text-blue-500 mr-2"></i>Leyendas
                   </h2>
                   <div>
-                    <label className={labelClass}>Leyenda App</label>
-                    <textarea {...register('leyenda')} rows="2" className={inputClass} placeholder="Texto en la app..."></textarea>
+                    <label className={labelClass}>Leyenda Guías</label>
+                    <textarea {...register('leyenda')} rows="2" className={inputClass} placeholder="Texto en las guías de transporte..."></textarea>
                   </div>
                   <div className="flex items-center gap-2">
                     <input type="checkbox" {...register('maneja_leyenda')} id="maneja_leyenda" className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500" />
-                    <label htmlFor="maneja_leyenda" className="text-sm font-semibold text-slate-700 cursor-pointer">Mostrar en App</label>
+                    <label htmlFor="maneja_leyenda" className="text-sm font-semibold text-slate-700 cursor-pointer">Mostrar en Guías</label>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Leyenda Guías Nota de Venta</label>
+                    <textarea {...register('leyenda_nota_venta')} rows="2" className={inputClass} placeholder="Texto en las guías de nota de venta..."></textarea>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" {...register('maneja_leyenda_nota_venta')} id="maneja_leyenda_nota_venta" className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500" />
+                    <label htmlFor="maneja_leyenda_nota_venta" className="text-sm font-semibold text-slate-700 cursor-pointer">Mostrar en Guías Nota de Venta</label>
                   </div>
                   <div>
                     <label className={labelClass}>Leyenda Boletos</label>

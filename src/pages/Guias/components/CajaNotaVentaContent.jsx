@@ -6,21 +6,8 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import cajaService from '../../../services/cajaNotaVenta.service';
 import { useAuth } from '../../../hooks/useAuth';
-
-const DENOMINACIONES = [
-  { key: '100', label: 'Billetes $100', field: '100', valor: 100 },
-  { key: '50', label: 'Billetes $50', field: '50', valor: 50 },
-  { key: '20', label: 'Billetes $20', field: '20', valor: 20 },
-  { key: '10', label: 'Billetes $10', field: '10', valor: 10 },
-  { key: '5', label: 'Billetes $5', field: '5', valor: 5 },
-  { key: '1', label: 'Billetes $1', field: '1', valor: 1 },
-  { key: 'moneda_1d', label: 'Monedas $1', field: 'moneda_caja', valor: 1 },
-  { key: 'moneda_50', label: 'Monedas $0.50', field: 'moneda_50', valor: 0.50 },
-  { key: 'moneda_25', label: 'Monedas $0.25', field: 'moneda_25', valor: 0.25 },
-  { key: 'moneda_10', label: 'Monedas $0.10', field: 'moneda_10', valor: 0.10 },
-  { key: 'moneda_5', label: 'Monedas $0.05', field: 'moneda_5', valor: 0.05 },
-  { key: 'moneda_01', label: 'Monedas $0.01', field: 'moneda_1', valor: 0.01 },
-];
+import { AperturaCajaForm } from '../../CajaBoleteria/components/AperturaCajaForm';
+import { CierreCajaForm } from '../../CajaBoleteria/components/CierreCajaForm';
 
 /**
  * Módulo de Cajas para Notas de Venta.
@@ -35,6 +22,9 @@ export const CajaNotaVentaContent = () => {
   const [openCaja, setOpenCaja] = useState(null);
 
   // Modales
+  const [showApertura, setShowApertura] = useState(false);
+  const [showCierre, setShowCierre] = useState(false);
+  const [cajaParaCierre, setCajaParaCierre] = useState(null);
   const [showDetalle, setShowDetalle] = useState(false);
   const [detalleData, setDetalleData] = useState([]);
   const [detalleLoading, setDetalleLoading] = useState(false);
@@ -72,153 +62,22 @@ export const CajaNotaVentaContent = () => {
     }).catch(() => setOpenCaja(null));
   }, []);
 
-  // ─── APERTURA DE CAJA (SweetAlert con denominaciones) ──────────────────
-  const handleApertura = async () => {
-    const denomHtml = DENOMINACIONES.map(d => `
-      <div style="flex:0 0 calc(50% - 4px)">
-        <label style="display:block;font-weight:bold;font-size:11px;margin-bottom:2px;color:#374151">${d.label}</label>
-        <input id="apertura-${d.key}" type="number" min="0" step="1" value="0"
-          style="width:100%;padding:6px 10px;font-size:13px;text-align:right;border:1px solid #d1d5db;border-radius:6px" />
-      </div>`).join('');
-
-    const { value: form, isDismissed } = await Swal.fire({
-      title: 'Nueva Apertura de Caja',
-      width: 600,
-      html: `
-        <div style="text-align:left">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">${denomHtml}</div>
-          <hr style="margin:12px 0"/>
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="flex:1">
-              <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:2px;color:#374151">Total Apertura ($)</label>
-              <input id="apertura-total" type="text" readonly value="0.00"
-                style="width:100%;padding:8px;font-size:14px;font-weight:bold;text-align:right;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px" />
-            </div>
-            <div style="flex:0 0 auto;padding-top:18px">
-              <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
-                <input type="checkbox" id="aperturar-cero" /> Aperturar $0.00
-              </label>
-            </div>
-          </div>
-        </div>`,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar Apertura',
-      confirmButtonColor: '#4f9d40',
-      didOpen: () => {
-        const recalcular = () => {
-          let total = 0;
-          DENOMINACIONES.forEach(d => {
-            const el = document.getElementById(`apertura-${d.key}`);
-            if (el) total += (parseFloat(el.value) || 0) * d.valor;
-          });
-          const totalEl = document.getElementById('apertura-total');
-          if (totalEl) totalEl.value = total.toFixed(2);
-        };
-        DENOMINACIONES.forEach(d => {
-          const el = document.getElementById(`apertura-${d.key}`);
-          if (el) { el.addEventListener('input', recalcular); el.addEventListener('change', recalcular); }
-        });
-        recalcular();
-        document.getElementById('aperturar-cero')?.addEventListener('change', function () {
-          const checked = this.checked;
-          DENOMINACIONES.forEach(d => {
-            const el = document.getElementById(`apertura-${d.key}`);
-            if (el) { el.value = '0'; el.readOnly = checked; el.style.background = checked ? '#f3f4f6' : ''; }
-          });
-          document.getElementById('apertura-total').value = '0.00';
-          if (!checked) recalcular();
-        });
-      },
-      preConfirm: () => {
-        const total = parseFloat(document.getElementById('apertura-total')?.value || '0') || 0;
-        const formData = {};
-        DENOMINACIONES.forEach(d => {
-          const el = document.getElementById(`apertura-${d.key}`);
-          formData[`apertura_${d.field}`] = parseFloat(el?.value || '0') || 0;
-        });
-        return { apertura_total_caja: total, aperturar_cero: document.getElementById('aperturar-cero')?.checked ? 1 : 0, ...formData };
-      }
-    });
-    if (!form || isDismissed) return;
-    const res = await cajaService.insertarAperturaCaja(form);
-    if (res.success) { toast.success('Caja aperturada correctamente'); loadData(); }
+  // ─── APERTURA DE CAJA ────────────────────────────────────────────────
+  const handleApertura = async (formData) => {
+    const res = await cajaService.insertarAperturaCaja(formData);
+    if (res.success) { toast.success('Caja aperturada correctamente'); loadData(); setShowApertura(false); }
     else toast.error(res.message || 'Error al aperturar');
   };
 
   // ─── CIERRE DE CAJA ────────────────────────────────────────────────────
-  const handleCierre = async (caja) => {
+  const openCierreModal = (caja) => {
     if (!caja || caja.estado_caja === 'CERRADA') { toast.error('La caja ya está cerrada'); return; }
-    const denomHtml = DENOMINACIONES.map(d => `
-      <div style="flex:0 0 calc(50% - 4px)">
-        <label style="display:block;font-weight:bold;font-size:11px;margin-bottom:2px;color:#374151">${d.label}</label>
-        <input id="cierre-${d.key}" type="number" min="0" step="1" value="0"
-          style="width:100%;padding:6px 10px;font-size:13px;text-align:right;border:1px solid #d1d5db;border-radius:6px" />
-      </div>`).join('');
+    setCajaParaCierre(caja);
+    setShowCierre(true);
+  };
 
-    const { value: form, isDismissed } = await Swal.fire({
-      title: `Cierre de Caja #${caja.numero_caja}`,
-      width: 650,
-      html: `
-        <div style="text-align:left">
-          <h3 style="font-weight:bold;font-size:14px;margin-bottom:10px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:5px;">
-            Ingrese el monto del cierre (Monedas y Billetes)
-          </h3>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">${denomHtml}</div>
-          <hr style="margin:12px 0"/>
-          <div style="flex:1">
-            <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:2px;color:#374151">Total Cierre ($)</label>
-            <input id="cierre-total" type="text" readonly value="0.00"
-              style="width:100%;padding:8px;font-size:14px;font-weight:bold;text-align:right;background:#f3f4f6;border:1px solid #d1d5db;border-radius:6px" />
-          </div>
-          <hr style="margin:12px 0"/>
-          <div style="display:flex;gap:12px;flex-wrap:wrap">
-            <div style="flex:1;min-width:200px">
-              <label style="display:block;font-weight:bold;font-size:11px;margin-bottom:2px;color:#374151">N° Comprobante</label>
-              <input id="cierre-num" style="width:100%;padding:6px 10px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
-            </div>
-            <div style="flex:1;min-width:200px">
-              <label style="display:block;font-weight:bold;font-size:11px;margin-bottom:2px;color:#374151">Banco</label>
-              <input id="cierre-banco" style="width:100%;padding:6px 10px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
-            </div>
-          </div>
-        </div>`,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar Cierre',
-      confirmButtonColor: '#4f9d40',
-      didOpen: () => {
-        const recalcular = () => {
-          let total = 0;
-          DENOMINACIONES.forEach(d => {
-            const el = document.getElementById(`cierre-${d.key}`);
-            if (el) total += (parseFloat(el.value) || 0) * d.valor;
-          });
-          const totalEl = document.getElementById('cierre-total');
-          if (totalEl) totalEl.value = total.toFixed(2);
-        };
-        DENOMINACIONES.forEach(d => {
-          const el = document.getElementById(`cierre-${d.key}`);
-          if (el) { el.addEventListener('input', recalcular); el.addEventListener('change', recalcular); }
-        });
-        recalcular();
-      },
-      preConfirm: () => {
-        const total = parseFloat(document.getElementById('cierre-total')?.value || '0') || 0;
-        const formData = {};
-        DENOMINACIONES.forEach(d => {
-          const el = document.getElementById(`cierre-${d.key}`);
-          formData[`cierre_${d.field}`] = parseFloat(el?.value || '0') || 0;
-        });
-        return {
-          id_caja: caja.id_caja,
-          cierre_total_caja: total,
-          numero_comprobante_cierre: document.getElementById('cierre-num')?.value || '',
-          banco_cierre: document.getElementById('cierre-banco')?.value || '',
-          ...formData
-        };
-      }
-    });
-    if (!form || isDismissed) return;
-    const res = await cajaService.cerrarCaja(form);
+  const handleCierreSubmit = async (formData) => {
+    const res = await cajaService.cerrarCaja({ ...formData, id_caja: cajaParaCierre.id_caja });
     if (res.success) {
       let msg = 'Caja cerrada correctamente';
       if (res.estado_cuadre === 'CUADRADO') msg += '. Caja cuadrada.';
@@ -226,6 +85,7 @@ export const CajaNotaVentaContent = () => {
       else if (res.estado_cuadre === 'SOBRANTE') msg += `. Sobrante de $${res.valor_diferencia}`;
       toast.success(msg);
       loadData();
+      setShowCierre(false);
     } else toast.error(res.message || 'Error al cerrar');
   };
 
@@ -302,12 +162,21 @@ export const CajaNotaVentaContent = () => {
 
   // ─── ARQUEO PDF ────────────────────────────────────────────────────────
   const handleArqueo = async (row) => {
-    const res = await cajaService.arqueoCajaPdf(row.id_caja);
-    if (res.success && res.url) {
-      window.open(res.url, '_blank');
-    } else {
-      toast.error(res.message || 'No se pudo generar el arqueo');
+    try {
+      const res = await cajaService.arqueoCajaPdf(row.id_caja);
+      if (res.success && res.url) {
+        window.open(res.url, '_blank');
+      } else {
+        toast.error(res.message || 'No se pudo generar el arqueo');
+      }
+    } catch {
+      toast.error('Error al generar arqueo');
     }
+  };
+
+  // ─── COMPROBANTES ─────────────────────────────────────────────────────
+  const handleComprobantes = (row) => {
+    window.open(`/caja_nota_venta/reportecomprobantefacturasxcaja?idcaja=${row.id_caja}`, '_blank');
   };
 
   // ─── SOLICITUD EDICIÓN ─────────────────────────────────────────────────
@@ -396,7 +265,7 @@ export const CajaNotaVentaContent = () => {
             </span>
           </div>
         )}
-        <button onClick={handleApertura}
+        <button onClick={() => setShowApertura(true)}
             className="h-8 px-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[10px] font-black rounded-lg flex items-center gap-2 active:scale-95 uppercase">
             <i className="fas fa-cash-register"></i> Nueva Apertura
           </button>
@@ -447,40 +316,20 @@ export const CajaNotaVentaContent = () => {
                     <td className="py-2 px-3 text-slate-600 text-[10px]">{row.banco_cierre || '-'}</td>
                     <td className="py-2 px-4 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        {row.estado_caja === 'APERTURADA' && (
-                          <button onClick={() => handleCierre(row)} title="Cerrar Caja"
-                            className="w-6 h-6 rounded bg-amber-50 text-amber-600 hover:bg-amber-100 flex items-center justify-center text-[9px] transition-all">
-                            <i className="fas fa-lock"></i>
+                        {[
+                          {a:() => handleInfoComprobante(row), i:'fa-vote-yea', c:'text-indigo-500 hover:bg-indigo-50', t:'Info Comprobante'},
+                          {a:() => handleArqueo(row), i:'fa-file-pdf', c:'text-red-500 hover:bg-red-50', t:'Arqueo'},
+                          {a:() => handleComprobantes(row), i:'fa-file-invoice', c:'text-red-500 hover:bg-red-50', t:'Comprobantes'},
+                          {a:() => handleEditar(row), i:'fa-edit', c:'text-amber-500 hover:bg-amber-50', t:'Editar Caja'},
+                          row.estado_caja === 'APERTURADA' ? {a:() => openCierreModal(row), i:'fa-sign-out-alt', c:'text-blue-500 hover:bg-blue-50', t:'Cerrar Caja'} : null,
+                          row.estado_caja === 'CERRADA' ? {a:() => handleSolicitudEdicion(row), i:'fa-share-square', c:'text-purple-500 hover:bg-purple-50', t:'Solicitud'} : null,
+                          row.estado_solicitud === 'PENDIENTE' ? {a:() => handleAprobarSolicitud(row), i:'fa-print', c:'text-slate-500 hover:bg-slate-50', t:'Aprobar Solicitud'} : null,
+                        ].filter(Boolean).map((b, idx) => (
+                          <button key={idx} onClick={b.a} title={b.t}
+                            className={`w-7 h-7 rounded ${b.c} flex items-center justify-center transition-colors`}>
+                            <i className={`fas ${b.i} text-[10px]`}></i>
                           </button>
-                        )}
-                        <button onClick={() => handleVerDetalle(row)} title="Detalle"
-                          className="w-6 h-6 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 flex items-center justify-center text-[9px] transition-all">
-                          <i className="fas fa-list"></i>
-                        </button>
-                        <button onClick={() => handleInfoComprobante(row)} title="Comprobante"
-                          className="w-6 h-6 rounded bg-indigo-50 text-indigo-600 hover:bg-indigo-100 flex items-center justify-center text-[9px] transition-all">
-                          <i className="fas fa-file-invoice"></i>
-                        </button>
-                        <button onClick={() => handleEditar(row)} title="Editar"
-                          className="w-6 h-6 rounded bg-slate-50 text-slate-600 hover:bg-slate-100 flex items-center justify-center text-[9px] transition-all">
-                          <i className="fas fa-edit"></i>
-                        </button>
-                        <button onClick={() => handleArqueo(row)} title="Arqueo PDF"
-                          className="w-6 h-6 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center justify-center text-[9px] transition-all">
-                          <i className="fas fa-file-pdf"></i>
-                        </button>
-                        {row.estado_caja === 'CERRADA' && (
-                          <button onClick={() => handleSolicitudEdicion(row)} title="Solicitar Edición"
-                            className="w-6 h-6 rounded bg-orange-50 text-orange-600 hover:bg-orange-100 flex items-center justify-center text-[9px] transition-all">
-                            <i className="fas fa-paper-plane"></i>
-                          </button>
-                        )}
-                        {row.estado_solicitud === 'PENDIENTE' && (
-                          <button onClick={() => handleAprobarSolicitud(row)} title="Aprobar Solicitud"
-                            className="w-6 h-6 rounded bg-emerald-50 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center text-[9px] transition-all">
-                            <i className="fas fa-check-circle"></i>
-                          </button>
-                        )}
+                        ))}
                       </div>
                     </td>
                   </tr>
@@ -521,6 +370,35 @@ export const CajaNotaVentaContent = () => {
           </div>
         </div>
       </div>
+
+      {/* ── MODAL: Apertura de Caja ──────────────────────────────── */}
+      {showApertura && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex-1 overflow-y-auto p-6">
+              <AperturaCajaForm
+                onSubmit={handleApertura}
+                onCancel={() => setShowApertura(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL: Cierre de Caja ──────────────────────────────── */}
+      {showCierre && cajaParaCierre && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex-1 overflow-y-auto p-6">
+              <CierreCajaForm
+                cajaActual={cajaParaCierre}
+                onSubmit={handleCierreSubmit}
+                onCancel={() => setShowCierre(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODAL: Detalle de Caja ──────────────────────────────── */}
       {showDetalle && (

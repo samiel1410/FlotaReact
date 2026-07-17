@@ -87,6 +87,42 @@ class CajaNotaVentaService {
       return { success: false, message: error.response?.data?.message || 'Error' };
     }
   }
+
+  async arqueoCajaPdf(idCaja) {
+    try {
+      const response = await api.get('/caja_nota_venta/arqueoCajaPdf', { params: { id_caja: idCaja } });
+      return { success: true, url: response.data?.url || '', data: response.data };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Error' };
+    }
+  }
+
+  async enviarSolicitudEdicion(idCaja) {
+    try {
+      const response = await api.get('/caja_nota_venta/enviarSolicituEdicion', { params: { id_caja: idCaja } });
+      return { success: response.data?.success, message: response.data?.message || '' };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Error' };
+    }
+  }
+
+  async aprobarSolicitud(idCaja) {
+    try {
+      const response = await api.post('/caja_nota_venta/aprobarSolicitud', { id_caja: idCaja });
+      return { success: response.data?.success, message: response.data?.message || '' };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Error' };
+    }
+  }
+
+  async editarCaja(data) {
+    try {
+      const response = await api.post('/caja_nota_venta/editarCaja', data);
+      return { success: response.data?.success, message: response.data?.message || '' };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Error al editar caja' };
+    }
+  }
 }
 
 export default new CajaNotaVentaService();

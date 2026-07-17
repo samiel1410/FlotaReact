@@ -1,10 +1,19 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './BusVisualizer.css';
+
+const formatearTiempoBloqueo = (lockedAt) => {
+  if (!lockedAt) return '';
+  const segundos = Math.floor((Date.now() - lockedAt) / 1000);
+  if (segundos < 60) return `${segundos}s`;
+  const minutos = Math.floor(segundos / 60);
+  const segs = segundos % 60;
+  return `${minutos}m ${segs}s`;
+};
 
 export const BusVisualizer = ({
   asientosOcupados = [],
   asientosSeleccionados = [],
-  asientosPendientes = {},  // { [numeroAsiento]: 'nombreUsuario' }
+  asientosPendientes = {},  // { [numeroAsiento]: { usuario: 'nombre', lockedAt: timestamp } }
   onAsientoClick,
   onAsientoOcupadoClick,
   capacidad = 40,
@@ -12,8 +21,15 @@ export const BusVisualizer = ({
   mapaAsientos = null,
   discoBus = '',
   onCambiarBus,
-  totalVenta = 0
+  totalVenta = 0,
+  seatLockTimeoutMs = 15 * 60 * 1000  // 15 minutos por defecto
 }) => {
+  // Timer para actualizar los tiempos de bloqueo cada segundo
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => forceUpdate(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
   const [pisoActivo, setPisoActivo] = useState(0);
 
   // Parsear mapa de asientos personalizado
@@ -61,7 +77,13 @@ export const BusVisualizer = ({
 
     // Pendiente (siendo seleccionado por otro)
     if (asientosPendientes && asientosPendientes[num]) {
-      return `Asiento ${num} - Seleccionado por ${asientosPendientes[num]}`;
+      const info = asientosPendientes[num];
+      const usuario = typeof info === 'string' ? info : info.usuario;
+      const lockedAt = typeof info === 'object' ? info.lockedAt : null;
+      const tiempo = lockedAt ? formatearTiempoBloqueo(lockedAt) : '';
+      const restante = lockedAt ? Math.max(0, Math.floor((seatLockTimeoutMs - (Date.now() - lockedAt)) / 1000)) : null;
+      const restanteTexto = restante !== null ? ` - Restan ${Math.floor(restante / 60)}m ${restante % 60}s` : '';
+      return `Asiento ${num} - ${usuario} lo está seleccionando (${tiempo}${restanteTexto})`;
     }
 
     const ocupado = asientosOcupados.find(a =>

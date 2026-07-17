@@ -90,7 +90,8 @@ export const NuevoBoletoPage = () => {
   const [showListadoPasajeros, setShowListadoPasajeros] = useState(false);
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [refreshAsientosKey, setRefreshAsientosKey] = useState(0);
-  const [asientosPendientes, setAsientosPendientes] = useState({}); // { [asiento]: 'nombreUsuario' }
+  const [asientosPendientes, setAsientosPendientes] = useState({}); // { [asiento]: { usuario: 'nombre', lockedAt: timestamp } }
+  const lastRealActionRef = useRef(Date.now()); // Última acción real del usuario
   const [tiempoRestante, setTiempoRestante] = useState(null); // null = sin viaje, objeto = { horas, minutos, segundos, pasado, totalSeg }
   const [localCajaId, setLocalCajaId] = useState(null);
   const [cajaResolved, setCajaResolved] = useState(false);
@@ -488,9 +489,10 @@ export const NuevoBoletoPage = () => {
     cargarAsientos();
   }, [formData.idViaje, refreshAsientosKey]);
 
-  // ─── ESCUCHAR SELECCIÓN DE ASIENTOS EN TIEMPO REAL ────────────────────
+  // ─── ESCUCHAR BLOQUEO/LIBERACIÓN DE ASIENTOS EN TIEMPO REAL ───────────
   useEffect(() => {
-    const handler = (e) => {
+    // Un asiento fue bloqueado por otro usuario
+    const handleBloqueado = (e) => {
       const data = e.detail;
       if (!data || !data.id_viaje || !data.asiento) return;
 
@@ -498,28 +500,89 @@ export const NuevoBoletoPage = () => {
       if (String(data.id_viaje) !== String(formData.idViaje)) return;
 
       const asientoNum = Number(data.asiento);
-      const usuario = data.usuario || 'Otro usuario';
 
-      setAsientosPendientes(prev => {
-        if (data.seleccionado) {
-          // Seleccionado por otro → agregar a pendientes
-          return { ...prev, [asientoNum]: usuario };
-        } else {
-          // Deseleccionado → remover
-          const next = { ...prev };
-          delete next[asientoNum];
-          return next;
+      setAsientosPendientes(prev => ({
+        ...prev,
+        [asientoNum]: {
+          usuario: data.usuario || 'Otro usuario',
+          lockedAt: data.lockedAt || Date.now()
         }
-      });
+      }));
     };
 
-    window.addEventListener('asiento_seleccionando', handler);
-    return () => window.removeEventListener('asiento_seleccionando', handler);
+    // Un asiento fue liberado
+    const handleLiberado = (e) => {
+      const data = e.detail;
+      if (!data || !data.id_viaje || !data.asiento) return;
+
+      // Solo si es el mismo viaje
+      if (String(data.id_viaje) !== String(formData.idViaje)) return;
+
+      const asientoNum = Number(data.asiento);
+
+      setAsientosPendientes(prev => {
+        const next = { ...prev };
+        delete next[asientoNum];
+        return next;
+      });
+
+      // Mostrar toast si fue liberado por timeout o admin
+      if (data.motivo === 'timeout') {
+        toast(
+          `⏱️ Asiento ${asientoNum} liberado (${data.usuario} excedió el tiempo)`,
+          {
+            id: `liberado-${data.id_viaje}-${asientoNum}`,
+            duration: 4000,
+            style: {
+              background: '#f0fdf4',
+              border: '1px solid #86efac',
+              color: '#166534',
+              borderRadius: '8px',
+              fontSize: 12,
+            },
+          }
+        );
+      } else if (data.motivo === 'admin') {
+        toast(
+          `🔓 Asiento ${asientoNum} liberado por administrador`,
+          {
+            id: `liberado-admin-${asientoNum}`,
+            duration: 4000,
+          }
+        );
+      } else if (data.motivo === 'desconexion') {
+        toast(
+          `🔌 Asiento ${asientoNum} liberado (${data.usuario} se desconectó)`,
+          {
+            id: `liberado-dc-${asientoNum}`,
+            duration: 3000,
+          }
+        );
+      }
+    };
+
+    // Intento de bloqueo rechazado (el asiento ya estaba bloqueado por otro)
+    const handleRechazado = (e) => {
+      const data = e.detail;
+      if (!data || !data.motivo) return;
+      toast.error(data.motivo, { duration: 3000 });
+    };
+
+    window.addEventListener('asiento_bloqueado', handleBloqueado);
+    window.addEventListener('asiento_liberado', handleLiberado);
+    window.addEventListener('asiento_bloqueo_rechazado', handleRechazado);
+
+    return () => {
+      window.removeEventListener('asiento_bloqueado', handleBloqueado);
+      window.removeEventListener('asiento_liberado', handleLiberado);
+      window.removeEventListener('asiento_bloqueo_rechazado', handleRechazado);
+    };
   }, [formData.idViaje]);
 
   // Limpiar pendientes al cambiar de viaje
   useEffect(() => {
     setAsientosPendientes({});
+    marcarActividadReal();
   }, [formData.idViaje]);
 
   const formDataRef = useRef(formData);
@@ -527,21 +590,41 @@ export const NuevoBoletoPage = () => {
     formDataRef.current = formData;
   }, [formData]);
 
+  // ─── HEARTBEAT: Renovar lock solo si hubo actividad real ────────────
+  useEffect(() => {
+    if (formData.asientosSeleccionados.length === 0) return;
+
+    const interval = setInterval(() => {
+      const tiempoDesdeUltimaAccion = Date.now() - lastRealActionRef.current;
+      // Solo renovar si hubo actividad real en los últimos 60 segundos
+      if (tiempoDesdeUltimaAccion < 60000 && window.__socket) {
+        window.__socket.emit('asiento_renovar_lock', {
+          id_viaje: formData.idViaje,
+          asientos: formData.asientosSeleccionados
+        });
+        // Actualizar lastRealAction para no renovar innecesariamente
+        lastRealActionRef.current = Date.now();
+      }
+    }, 30000); // cada 30 segundos
+
+    return () => clearInterval(interval);
+  }, [formData.idViaje, formData.asientosSeleccionados]);
+
+  // Marcar actividad real (se llama desde inputs, clicks, selects, etc.)
+  const marcarActividadReal = useCallback(() => {
+    lastRealActionRef.current = Date.now();
+  }, []);
+
   const deseleccionarAsientosActuales = (viajeId, asientos) => {
     const fd = formDataRef.current;
     const vId = viajeId || fd.idViaje;
     const as = asientos || fd.asientosSeleccionados;
 
     if (window.__socket && vId && as.length > 0) {
-      const currentUser = getSessionUser();
-      const nombreUsuario = currentUser?.nombre_usuario || 'Usuario';
-
       as.forEach(asiento => {
-        window.__socket.emit('asiento_seleccionando', {
+        window.__socket.emit('asiento_desbloquear', {
           id_viaje: vId,
-          asiento: Number(asiento),
-          usuario: nombreUsuario,
-          seleccionado: false
+          asiento: Number(asiento)
         });
       });
     }
@@ -576,6 +659,16 @@ export const NuevoBoletoPage = () => {
         setAsientosPendientes(prev => {
           const next = { ...prev };
           vendidos.forEach(s => delete next[s]);
+          return next;
+        });
+      }
+
+      // Si se anuló una reserva, remover ese asiento de pendientes (ya no es del otro)
+      if (data.tipo === 'anulacion_reserva' && data.asientos) {
+        const liberados = new Set(data.asientos.map(a => Number(a.asiento_boleto_detalle)));
+        setAsientosPendientes(prev => {
+          const next = { ...prev };
+          liberados.forEach(s => delete next[s]);
           return next;
         });
       }
@@ -671,14 +764,12 @@ export const NuevoBoletoPage = () => {
     const nombreUsuario = currentUser?.nombre_usuario || 'Usuario';
 
     if (formData.asientosSeleccionados.includes(asientoId)) {
-      // DESELECCIONAR
-      // Emitir socket para notificar a otros que este asiento ya no está seleccionado
+      // DESELECCIONAR - Liberar el bloqueo del asiento
+      marcarActividadReal();
       if (window.__socket && formData.idViaje) {
-        window.__socket.emit('asiento_seleccionando', {
+        window.__socket.emit('asiento_desbloquear', {
           id_viaje: formData.idViaje,
-          asiento: asientoId,
-          usuario: nombreUsuario,
-          seleccionado: false
+          asiento: asientoId
         });
       }
 
@@ -690,20 +781,21 @@ export const NuevoBoletoPage = () => {
     } else {
       // Verificar si el asiento está siendo seleccionado por OTRO usuario
       if (asientosPendientes[asientoId]) {
+        const info = asientosPendientes[asientoId];
+        const usuario = typeof info === 'string' ? info : info.usuario;
         toast.error(
-          `El asiento ${asientoId} ya está siendo seleccionado por ${asientosPendientes[asientoId]}`,
+          `El asiento ${asientoId} ya está siendo seleccionado por ${usuario}`,
           { duration: 4000 }
         );
         return;
       }
 
-      // SELECCIONAR - Emitir socket para notificar a otros
+      // SELECCIONAR - Emitir socket para bloquear el asiento
+      marcarActividadReal();
       if (window.__socket && formData.idViaje) {
-        window.__socket.emit('asiento_seleccionando', {
+        window.__socket.emit('asiento_bloquear', {
           id_viaje: formData.idViaje,
-          asiento: asientoId,
-          usuario: nombreUsuario,
-          seleccionado: true
+          asiento: asientoId
         });
       }
 
@@ -1256,8 +1348,7 @@ export const NuevoBoletoPage = () => {
             </label>
             <input
               type="date"
-              value={formData.fechaViaje}
-              onChange={e => setFormData(prev => ({ ...prev, fechaViaje: e.target.value }))}
+              value={formData.fechaViaje}                  onChange={e => { marcarActividadReal(); setFormData(prev => ({ ...prev, fechaViaje: e.target.value })); }}
               style={{
                 flex: 1, padding: '4px 6px', border: '1px solid #cbd5e1',
                 borderRadius: 4, fontSize: 11
@@ -1376,6 +1467,7 @@ export const NuevoBoletoPage = () => {
                   <select
                     value={formData.idViaje}
                     onChange={e => {
+                      marcarActividadReal();
                       const viajeId = e.target.value;
                       if (formData.idViaje !== viajeId) {
                         deseleccionarAsientosActuales(); // Liberar anteriores
@@ -1418,6 +1510,7 @@ export const NuevoBoletoPage = () => {
                   <select
                     value={subrutaSeleccionada}
                     onChange={e => {
+                      marcarActividadReal();
                       const id = e.target.value;
                       setSubrutaSeleccionada(id);
                       const subruta = destinosViaje.find(d => String(d.id_sub_rutas) === id);
@@ -1462,7 +1555,7 @@ export const NuevoBoletoPage = () => {
                 {/* Alimento label (ExtJS: lbl_alimento_viaje) */}
                 {alimentoInfo?.incluye_alimentos && (
                   <div style={{ gridColumn: 'span 2', fontSize: 12, color: '#d35400', fontWeight: 'bold', fontStyle: 'italic' }}>
-                    <i className="fas fa-utensils" style={{ fontSize: 12 }}></i> Incluye: {alimentoInfo.nombre_alimentos} (${parseFloat(alimentoInfo.precio_alimentos || 0).toFixed(2)})
+                    <i className="fas fa-utensils" style={{ fontSize: 12 }}></i> Incluye: {alimentoInfo.nombre_alimentos} ($<span className="precio-alimento">{parseFloat(alimentoInfo.precio_alimentos || 0).toFixed(2)}</span>)
                   </div>
                 )}
               </div>
@@ -1489,26 +1582,26 @@ export const NuevoBoletoPage = () => {
                   <input
                     type="text"
                     value={formData.identificacion}
-                    onChange={e => setFormData(prev => ({ ...prev, identificacion: e.target.value.replace(/\D/g, '') }))}
-                    onKeyDown={e => e.key === 'Enter' && buscarPasajeroPorCI(formData.identificacion)}
+                    onChange={e => { marcarActividadReal(); setFormData(prev => ({ ...prev, identificacion: e.target.value.replace(/\D/g, '') })); }}
+                    onKeyDown={e => { if (e.key === 'Enter') { marcarActividadReal(); buscarPasajeroPorCI(formData.identificacion); } }}
                     maxLength={15}
                     placeholder="Cédula"
                     style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
                   <button title="Buscar cliente"
-                    onClick={() => buscarPasajeroPorCI(formData.identificacion)}
+                    onClick={() => { marcarActividadReal(); buscarPasajeroPorCI(formData.identificacion); }}
                     style={{ background: '#0a365d', color: 'white', border: 'none', borderRadius: 3, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <i className="fas fa-search" style={{ fontSize: 12 }}></i>
                   </button>
                   <button title="Limpiar"
                     style={{ background: '#FF9800', color: 'white', border: 'none', borderRadius: 3, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    onClick={() => setFormData(prev => ({ ...prev, idCliente: '', identificacion: '', nombres: '', celular: '', direccion: '', correo: '', fechaNacimiento: '', tarifa: 1 }))}
+                    onClick={() => { marcarActividadReal(); setFormData(prev => ({ ...prev, idCliente: '', identificacion: '', nombres: '', celular: '', direccion: '', correo: '', fechaNacimiento: '', tarifa: 1 })); }}
                   >
                     <i className="fas fa-redo" style={{ fontSize: 12 }}></i>
                   </button>
                   <button title="Crear cliente"
-                    onClick={() => { setClienteAEditar(null); setShowNuevoClienteModal(true); }}
+                    onClick={() => { marcarActividadReal(); setClienteAEditar(null); setShowNuevoClienteModal(true); }}
                     style={{ background: '#0a365d', color: 'white', border: 'none', borderRadius: 3, width: 28, height: 28, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
                     <i className="fas fa-user-plus" style={{ fontSize: 12 }}></i>
@@ -1516,6 +1609,7 @@ export const NuevoBoletoPage = () => {
                   {formData.idCliente && (
                     <button title="Actualizar cliente"
                       onClick={() => {
+                        marcarActividadReal();
                         setClienteAEditar({
                           id_cliente: formData.idCliente,
                           identificacion_cliente: formData.identificacion,
@@ -1540,7 +1634,7 @@ export const NuevoBoletoPage = () => {
                   <input
                     type="text"
                     value={formData.nombres}
-                    onChange={e => setFormData(prev => ({ ...prev, nombres: e.target.value }))}
+                    onChange={e => { marcarActividadReal(); setFormData(prev => ({ ...prev, nombres: e.target.value })); }}
                     placeholder="Nombre completo"
                     style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
@@ -1553,6 +1647,7 @@ export const NuevoBoletoPage = () => {
                     type="date"
                     value={formData.fechaNacimiento}
                     onChange={e => {
+                      marcarActividadReal();
                       const fecha = e.target.value;
                       const edad = calcularEdad(fecha);
                       const tarifa = tarifaDesdeEdad(edad);
@@ -1568,7 +1663,7 @@ export const NuevoBoletoPage = () => {
                   <input
                     type="text"
                     value={formData.direccion}
-                    onChange={e => setFormData(prev => ({ ...prev, direccion: e.target.value }))}
+                    onChange={e => { marcarActividadReal(); setFormData(prev => ({ ...prev, direccion: e.target.value })); }}
                     style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
                 </div>
@@ -1579,7 +1674,7 @@ export const NuevoBoletoPage = () => {
                   <input
                     type="text"
                     value={formData.celular}
-                    onChange={e => setFormData(prev => ({ ...prev, celular: e.target.value.replace(/\D/g, '') }))}
+                    onChange={e => { marcarActividadReal(); setFormData(prev => ({ ...prev, celular: e.target.value.replace(/\D/g, '') })); }}
                     style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
                 </div>
@@ -1590,7 +1685,7 @@ export const NuevoBoletoPage = () => {
                   <input
                     type="email"
                     value={formData.correo}
-                    onChange={e => setFormData(prev => ({ ...prev, correo: e.target.value }))}
+                    onChange={e => { marcarActividadReal(); setFormData(prev => ({ ...prev, correo: e.target.value })); }}
                     style={{ flex: 1, padding: '2px 5px', border: '1px solid #cbd5e1', borderRadius: 3, fontSize: 13, height: 30 }}
                   />
                 </div>
@@ -1626,7 +1721,7 @@ export const NuevoBoletoPage = () => {
                           type="radio"
                           name="tarifa"
                           checked={formData.tarifa === t.value}
-                          onChange={() => setFormData(prev => ({ ...prev, tarifa: t.value }))}
+                          onChange={() => { marcarActividadReal(); setFormData(prev => ({ ...prev, tarifa: t.value })); }}
                           style={{ margin: 0, width: 11, height: 11 }}
                         />
                         {t.label}
@@ -1638,7 +1733,7 @@ export const NuevoBoletoPage = () => {
                 {/* ES RESERVA toggle */}
                 <div style={{ flexShrink: 0 }}>
                   <button
-                    onClick={() => setEsReserva(!esReserva)}
+                    onClick={() => { marcarActividadReal(); setEsReserva(!esReserva); }}
                     style={{
                       padding: '4px 10px', border: '2px solid', borderRadius: 3,
                       fontWeight: 'bold', fontSize: 12, cursor: 'pointer',
@@ -1657,7 +1752,7 @@ export const NuevoBoletoPage = () => {
               <div style={{ marginTop: 4 }}>
                 <textarea
                   value={formData.observacion}
-                  onChange={e => setFormData(prev => ({ ...prev, observacion: e.target.value }))}
+                  onChange={e => { marcarActividadReal(); setFormData(prev => ({ ...prev, observacion: e.target.value })); }}
                   placeholder="Observación..."
                   rows={1}
                   style={{
@@ -1755,6 +1850,7 @@ export const NuevoBoletoPage = () => {
                     onAsientoOcupadoClick={handleAsientoOcupadoClick}
                     discoBus={discoBus}
                     totalVenta={totalVenta}
+                    seatLockTimeoutMs={15 * 60 * 1000}
                   />
                 </div>
               )}

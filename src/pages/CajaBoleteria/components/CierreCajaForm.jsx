@@ -23,6 +23,8 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel }) => {
   const [subtotalBilletes, setSubtotalBilletes] = useState(0);
   const [subtotalMonedas, setSubtotalMonedas] = useState(0);
   const [totalGeneral, setTotalGeneral] = useState(0);
+  const [numeroComprobante, setNumeroComprobante] = useState('');
+  const [bancoCierre, setBancoCierre] = useState('');
 
   useEffect(() => {
     const initial = {};
@@ -56,7 +58,7 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({ ...formData, cierre_total_caja: totalGeneral });
+    onSubmit({ ...formData, cierre_total_caja: totalGeneral, numero_comprobante_cierre: numeroComprobante, banco_cierre: bancoCierre });
   };
 
   const formatMonto = (monto) => {
@@ -195,6 +197,30 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel }) => {
         </div>
         <p className="text-sm font-bold text-slate-600 uppercase tracking-wider">Total Cierre</p>
         <p className="text-3xl font-black text-slate-800">{formatMonto(totalGeneral)}</p>
+      </div>
+
+      {/* Comprobante y Banco */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">N° Comprobante</label>
+          <input
+            type="text"
+            value={numeroComprobante}
+            onChange={(e) => setNumeroComprobante(e.target.value)}
+            className="w-full h-10 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800"
+            placeholder="N° de comprobante"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Banco</label>
+          <input
+            type="text"
+            value={bancoCierre}
+            onChange={(e) => setBancoCierre(e.target.value)}
+            className="w-full h-10 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800"
+            placeholder="Nombre del banco"
+          />
+        </div>
       </div>
 
       {/* Botones */}

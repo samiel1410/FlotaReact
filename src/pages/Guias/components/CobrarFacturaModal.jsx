@@ -8,7 +8,7 @@ import { GuiaService } from '../../../services/guia.service';
  * Modal para cobrar una factura asociada a una guía.
  * Recrea la funcionalidad de CobrarFactura de ExtJS.
  */
-export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = false }) => {
+export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = false, facturaDataPreloaded = null, cajaId = null }) => {
   const [loadingInit, setLoadingInit] = useState(true);
   const [saving, setSaving] = useState(false);
   const [facturaData, setFacturaData] = useState(null);
@@ -79,11 +79,20 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = fal
             onClose();
           }
         } else {
-          // 2. Obtener datos de la factura a cobrar sumando
-          const factDataRes = await api.get(`/factura/autorizadofacturaxguia?id_guia=${guia.id_guia}`);
+          // 2. Obtener datos de la factura a cobrar
+          // Si ya tenemos datos precargados desde handleCharge, no duplicamos la petición
+          let fData = null;
+          if (facturaDataPreloaded) {
+            fData = facturaDataPreloaded;
+          } else {
+            const factDataRes = await api.get(`/factura/autorizadofacturaxguia?id_guia=${guia.id_guia}`);
+            const facturas = factDataRes?.data?.data || [];
+            if (facturas.length > 0) {
+              fData = facturas[0];
+            }
+          }
           
-          if (factDataRes && factDataRes.data && factDataRes.data.length > 0) {
-            const fData = factDataRes.data[0];
+          if (fData) {
             
             // Obtener suma ya cobrada
             const sumRes = await api.get(`/factura/facturaidguicobradasuma?id_guia=${guia.id_guia}`);
@@ -107,7 +116,7 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = fal
               monto: restante.toFixed(2)
             }));
           } else {
-            toast.error('No se pudo obtener la información de cobro');
+            toast.error('Esta guía no tiene una factura autorizada para cobrar. Debe facturar la guía primero.');
             onClose();
           }
         }
@@ -168,7 +177,8 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = fal
         observacion: formData.observacion || ' ',
         id_guia: guia.id_guia,
         destino_guia: guia.destino_guia || guia.destino || '',
-        archivocomprobante: formData.archivocomprobante
+        archivocomprobante: formData.archivocomprobante,
+        id_caja_global: cajaId // ← se envía para que el backend sepa qué caja usar
       };
 
       let res;
@@ -180,6 +190,13 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = fal
       }
       
       const respuesta = isNotaVenta ? res : (res?.data || res);
+      
+      // Si el backend indica que no hay caja aperturada (tipo === 3)
+      if (respuesta && respuesta.tipo === 3) {
+        toast.error(respuesta?.message || 'No hay una caja aperturada. Debe aperturar una caja de notas de venta primero.');
+        return;
+      }
+      
       if (respuesta && respuesta.success) {
         toast.success('Cobro registrado correctamente');
         if (onSuccess) onSuccess();

@@ -12,6 +12,7 @@ import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { CobrarFacturaModal } from './components/CobrarFacturaModal';
 import { CobrosRealizadosModal } from './components/CobrosRealizadosModal';
 import { SeguimientoGuiaModal } from './components/SeguimientoGuiaModal';
+import cajaNotaVentaService from '../../services/cajaNotaVenta.service';
 
 export const GuiasNotaVentaPage = () => {
   const { user, userRole, hasPermission } = useAuth();
@@ -246,10 +247,31 @@ export const GuiasNotaVentaPage = () => {
   };
 
   const handleCharge = async (item) => {
-    // Para Notas de Venta NO se requiere verificar que tenga una factura autorizada,
-    // ya que la nota de venta es el comprobante en sí mismo.
-    setSelectedGuiaCobrar(item);
-    setCobrarModalOpen(true);
+    try {
+      // Verificar que la guía no esté ya cobrada completamente
+      if (item.estado_cobro_guia === 'COBRADA' || parseFloat(item.por_cobrar || 0) <= 0) {
+        toast.success('La nota de venta ya se encuentra cobrada en su totalidad');
+        return;
+      }
+
+      // Verificar que la caja de notas de venta esté aperturada
+      const cajaVal = await cajaNotaVentaService.validarCaja();
+      if (!cajaVal || !cajaVal.success) {
+        toast.error(cajaVal?.message || 'Error al validar la caja');
+        return;
+      }
+      if (!cajaVal.id_caja) {
+        toast.error('No tiene una caja de notas de venta aperturada. Debe aperturar una caja primero.');
+        return;
+      }
+      // Para Notas de Venta NO se requiere verificar que tenga una factura autorizada,
+      // ya que la nota de venta es el comprobante en sí mismo.
+      setSelectedGuiaCobrar(item);
+      setCobrarModalOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al validar la caja');
+    }
   };
 
   const handleCobroSuccess = () => {

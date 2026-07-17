@@ -7,6 +7,8 @@ import cajaService from '../../services/caja.service';
 import { CajaGrid } from './CajaGrid';
 import Modal from '../../components/common/Modal';
 import { CajaForm } from './components/CajaForm';
+import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
+import { CierreCajaForm } from '../CajaBoleteria/components/CierreCajaForm';
 
 const DENOMINACIONES = [
   { key: '100', label: 'Billetes $100', field: '100' },
@@ -73,6 +75,7 @@ export const CajaPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [showApertura, setShowApertura] = useState(false);
   const [showCierre, setShowCierre] = useState(false);
+  const [cajaParaCierre, setCajaParaCierre] = useState(null);
   const [showDetalle, setShowDetalle] = useState(false);
   const [showEditar, setShowEditar] = useState(false);
   const [detalleData, setDetalleData] = useState([]);
@@ -111,101 +114,21 @@ export const CajaPage = () => {
   }, []);
 
   // ─── MODAL APERTURA ────────────────────────────────────────────────────
-  const openModalAperturaNueva = async () => {
-    const { value: form, isDismissed } = await Swal.fire({
-      title: 'Nueva Apertura de Caja',
-      width: 600,
-      html: `
-        <div style="text-align:left">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">${denomToHtml('apertura')}</div>
-          <hr style="margin:12px 0"/>
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="flex:1">
-              <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:2px;color:#374151">Total Apertura ($)</label>
-              <input id="apertura-total" class="swal2-input" type="text" readonly value="0.00" style="width:100%;padding:8px;font-size:14px;font-weight:bold;text-align:right;background:#f3f4f6" />
-            </div>
-            <div style="flex:0 0 auto;padding-top:18px">
-              <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
-                <input type="checkbox" id="aperturar-cero" /> Aperturar $0.00
-              </label>
-            </div>
-          </div>
-        </div>`,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar Apertura',
-      confirmButtonColor: '#4f9d40',
-      didOpen: () => {
-        denomDidOpen('apertura');
-        document.getElementById('aperturar-cero')?.addEventListener('change', function () {
-          const checked = this.checked;
-          DENOMINACIONES.forEach(d => {
-            const el = document.getElementById(`apertura-${d.key}`);
-            if (el) {
-              el.value = '0'; el.readOnly = checked;
-              el.style.background = checked ? '#f3f4f6' : '';
-            }
-          });
-          document.getElementById('apertura-total').value = '0.00';
-          if (!checked) denomCalcular('apertura');
-        });
-      },
-      preConfirm: () => {
-        const total = parseFloat(document.getElementById('apertura-total')?.value || '0') || 0;
-        return { apertura_total_caja: total, aperturar_cero: document.getElementById('aperturar-cero')?.checked ? 1 : 0, ...denomPreConfirm('apertura') };
-      }
-    });
-    if (!form || isDismissed) return;
-    const res = await cajaService.insertarAperturaCaja(form);
-    if (res.success) { toast.success('Caja aperturada correctamente'); loadData(); }
+  const handleApertura = async (formData) => {
+    const res = await cajaService.insertarAperturaCaja(formData);
+    if (res.success) { toast.success('Caja aperturada correctamente'); loadData(); setShowApertura(false); }
     else toast.error(res.message || 'Error al aperturar');
   };
 
   // ─── MODAL CIERRE ──────────────────────────────────────────────────────
-  const openModalCierre = async (caja) => {
+  const openCierreModal = (caja) => {
     if (!caja || caja.estado_caja === 'CERRADA') { toast.error('La caja ya está cerrada'); return; }
-    const { value: form, isDismissed } = await Swal.fire({
-      title: `Cierre de Caja #${caja.numero_caja}`,
-      width: 650,
-      html: `
-        <div style="text-align:left">
-          <h3 style="font-weight:bold;font-size:14px;margin-bottom:10px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:5px;">
-            Ingrese el monto del cierre (Monedas y Billetes)
-          </h3>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">${denomToHtml('cierre')}</div>
-          <hr style="margin:12px 0"/>
-          <div style="flex:1">
-            <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:2px;color:#374151">Total Cierre ($)</label>
-            <input id="cierre-total" class="swal2-input" type="text" readonly value="0.00" style="width:100%;padding:8px;font-size:14px;font-weight:bold;text-align:right;background:#f3f4f6" />
-          </div>
-          <hr style="margin:12px 0"/>
-          <div style="display:flex;gap:12px;flex-wrap:wrap">
-            <div style="flex:1;min-width:200px">
-              <label style="display:block;font-weight:bold;font-size:11px;margin-bottom:2px;color:#374151">N° Comprobante</label>
-              <input id="cierre-num" class="swal2-input" style="width:100%;padding:6px 10px;font-size:13px" />
-            </div>
-            <div style="flex:1;min-width:200px">
-              <label style="display:block;font-weight:bold;font-size:11px;margin-bottom:2px;color:#374151">Banco</label>
-              <input id="cierre-banco" class="swal2-input" style="width:100%;padding:6px 10px;font-size:13px" />
-            </div>
-          </div>
-        </div>`,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar Cierre',
-      confirmButtonColor: '#4f9d40',
-      didOpen: () => denomDidOpen('cierre'),
-      preConfirm: () => {
-        const total = parseFloat(document.getElementById('cierre-total')?.value || '0') || 0;
-        return {
-          id_caja: caja.id_caja,
-          cierre_total_caja: total,
-          numero_comprobante_cierre: document.getElementById('cierre-num')?.value || '',
-          banco_cierre: document.getElementById('cierre-banco')?.value || '',
-          ...denomPreConfirm('cierre')
-        };
-      }
-    });
-    if (!form || isDismissed) return;
-    const res = await cajaService.cerrarCaja(form);
+    setCajaParaCierre(caja);
+    setShowCierre(true);
+  };
+
+  const handleCierre = async (formData) => {
+    const res = await cajaService.cerrarCaja({ ...formData, id_caja: cajaParaCierre.id_caja });
     if (res.success) {
       let msg = 'Caja cerrada correctamente';
       if (res.estado_cuadre === 'CUADRADO') msg += '. Caja cuadrada.';
@@ -213,6 +136,7 @@ export const CajaPage = () => {
       else if (res.estado_cuadre === 'SOBRANTE') msg += `. Sobrante de $${res.valor_diferencia}`;
       toast.success(msg);
       loadData();
+      setShowCierre(false);
     } else toast.error(res.message || 'Error al cerrar');
   };
 
@@ -277,7 +201,7 @@ export const CajaPage = () => {
         window.open(`/caja/reportecomprobantefacturasxcaja?idcaja=${row.id_caja}`, '_blank');
         break;
       case 'editar': await openModalDetalle(row); break;
-      case 'cerrar': await openModalCierre(row); break;
+      case 'cerrar': openCierreModal(row); break;
       case 'solicitud':
         if (row.estado_solicitud == 0) { toast('Sin solicitud de edición'); return; }
         if (row.estado_solicitud == 1) {
@@ -352,7 +276,7 @@ export const CajaPage = () => {
           <div className="flex items-center gap-2">
             {openCaja && (
               <>
-                <button onClick={() => openModalCierre(openCaja)}
+                <button onClick={() => openCierreModal(openCaja)}
                   className="h-8 px-3 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-2">
                   <i className="fas fa-door-closed"></i><span>CERRAR</span>
                 </button>
@@ -362,7 +286,7 @@ export const CajaPage = () => {
                 </button>
               </>
             )}
-            <button onClick={openModalAperturaNueva}
+            <button onClick={() => setShowApertura(true)}
               className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg transition-all shadow-sm flex items-center gap-2 border border-emerald-700/50">
               <i className="fas fa-plus"></i><span>NUEVA APERTURA</span>
             </button>
@@ -435,6 +359,35 @@ export const CajaPage = () => {
           onAction={handleAction}
         />
       </div>
+
+      {/* ─── MODAL APERTURA ────────────────────────────────────────── */}
+      {showApertura && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="flex-1 overflow-y-auto p-6">
+              <AperturaCajaForm
+                onSubmit={handleApertura}
+                onCancel={() => setShowApertura(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL CIERRE ──────────────────────────────────────────── */}
+      {showCierre && cajaParaCierre && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="flex-1 overflow-y-auto p-6">
+              <CierreCajaForm
+                cajaActual={cajaParaCierre}
+                onSubmit={handleCierre}
+                onCancel={() => setShowCierre(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── MODAL EDITAR/VER DETALLE (con apertura/cierre + grid) ─── */}
       <Modal isOpen={showDetalle || showEditar}

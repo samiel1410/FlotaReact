@@ -230,10 +230,12 @@ razon_social_empresa FROM empresa WHERE 1";
     </div>
   
     <div class="center bold" style="font-size:6.5pt">Vendido por: ' . $boleto['nombre_usuario'] . '</div>
+    <div class="sep-light" style="margin:3px 0"></div>
+    <div class="center" style="font-size:6pt;line-height:1.2">' . $leyenda_viaje . '</div>
 </body></html>';
 
     $pdf->SetFont('helvetica', '', 6.5);
-    $pdf->SetMargins(3, 1, 3, true);
+    $pdf->SetMargins(5, 3, 5, true);
     $pdf->SetAutoPageBreak(true, 2);
     $pdf->AddPage('P', array(80, 200));
     $pdf->writeHTML($html1, true, false, true, false, '');

@@ -37,9 +37,9 @@ class CajaService {
   async validarCaja() {
     try {
       const response = await api.post('/caja/validarcaja');
-      return { success: true, data: response.data?.data || null, message: response.data?.message || '' };
+      return { success: true, data: response.data?.data || null, id_caja: response.data?.id_caja || null, message: response.data?.message || '' };
     } catch (error) {
-      return { success: false, data: null, message: error.response?.data?.message || 'Error al validar caja' };
+      return { success: false, data: null, id_caja: null, message: error.response?.data?.message || 'Error al validar caja' };
     }
   }
 
