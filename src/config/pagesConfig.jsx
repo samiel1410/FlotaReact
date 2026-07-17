@@ -19,7 +19,7 @@ import ClienteForm from '../pages/Clientes/components/ClienteForm';
 import { GenericForm } from '../components/common/GenericForm';
 import { NuevaGuiaCompaniaForm } from '../pages/Guias/components/NuevaGuiaCompaniaForm';
 import { createAperturaAction, createBuscarCajaAction, createCerrarAction } from './cajaUtils';
-import { api } from '../config/axios';
+import { api, authApi } from '../config/axios';
 import Swal from 'sweetalert2';
 import comprobantesService from '../services/comprobantes.service';
 
@@ -73,7 +73,67 @@ export const PAGES_CONFIG = {
     endpoint: '/usuario/usuarioSeleccionarPaginado',
     idField: 'id_usuario',
     deleteEndpoint: '/usuario/eliminarUsuario',
-    actions: { create: true, edit: true, delete: true },
+    actions: {
+      create: true, edit: true, delete: true,
+      custom: [
+        {
+          id: 'login-as',
+          icon: 'fas fa-key',
+          tooltip: 'Ingresar como este usuario',
+          color: 'text-emerald-600 hover:bg-emerald-50',
+          showIf: (row) => {
+            // Solo mostrar si el usuario objetivo NO es Super Admin del sistema
+            // (no tiene sentido suplantar a otro super admin)
+            const targetRole = parseInt(row.rol_usuario);
+            return targetRole !== 5;
+          },
+          handler: async (row) => {
+            try {
+              Swal.fire({
+                title: 'Generando acceso...',
+                text: `Preparando sesión para ${row.username_usuario || row.nombre_usuario || ''}`,
+                allowOutsideClick: false,
+                didOpen: () => Swal.showLoading()
+              });
+
+              // authApi no tiene interceptor de token, lo pasamos manualmente
+              const token = sessionStorage.getItem('auth_token');
+              const res = await authApi.post('/auth/admin/impersonate', {
+                username: row.username_usuario
+              }, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+
+              Swal.close();
+
+              if (res.data.success) {
+                // Guardar en localStorage para que la nueva pestaña lo lea
+                const loginAsKey = 'login_as_' + Date.now();
+                localStorage.setItem(loginAsKey, JSON.stringify({
+                  token: res.data.token,
+                  refresh_token: res.data.refresh_token,
+                  user: res.data.user,
+                  backend_url: res.data.backend_url,
+                  db_name: res.data.db_name,
+                  db_host: res.data.db_host,
+                  db_user: res.data.db_user,
+                  db_pass: res.data.db_pass
+                }));
+
+                // Abrir nueva pestaña con la llave
+                const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
+                window.open(`${baseUrl}/#/login-as?key=${loginAsKey}`, '_blank');
+              } else {
+                Swal.fire('Error', res.data.mensaje || 'No se pudo generar el acceso', 'error');
+              }
+            } catch (e) {
+              Swal.close();
+              Swal.fire('Error', e.response?.data?.mensaje || e.message || 'Error al conectar con el servidor de autenticación', 'error');
+            }
+          }
+        }
+      ]
+    },
     formComponent: UsuarioForm,
     columns: [
       { key: 'username_usuario', label: 'Usuario' },

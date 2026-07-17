@@ -90,6 +90,9 @@ const ProtectedLayout = () => {
   return <AppMain />;
 };
 
+// Página de suplantación (Login As)
+const LoginAsPage = lazy(() => import('./pages/Login/LoginAsPage').then(m => ({ default: m.LoginAsPage })));
+
 // Loading fallback para Suspense
 const LoadingFallback = () => (
   <div className="fixed inset-0 flex items-center justify-center bg-slate-50 z-50">
@@ -107,6 +110,7 @@ function App() {
       <Suspense fallback={<LoadingFallback />}>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/login-as" element={<LoginAsPage />} />
         
         {/* Rutas protegidas */}
         <Route 
