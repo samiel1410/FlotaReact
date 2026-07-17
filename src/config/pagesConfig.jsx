@@ -52,6 +52,22 @@ export const PAGES_CONFIG = {
       { key: 'capacidad_buses', label: 'Cap.', render: v => v || '-' },
       { key: 'pisos_buses', label: 'Pisos', render: v => v == 2 ? '2 Pisos' : '1 Piso' },
       { key: 'busero', label: 'Busero', render: (_, r) => `${r.per_cedula_personal || ''} - ${r.per_nombre_persona || ''}` },
+      { 
+        key: 'socios_nombres', label: 'Socios', 
+        render: (_, r) => {
+          const socios = r.socios || r.socios_nombres || [];
+          if (Array.isArray(socios) && socios.length > 0) {
+            return socios.map(s => 
+              `${s.per_nombres_persona || s.per_cedula_personal || ''}`
+            ).join(', ');
+          }
+          // Fallback: mostrar el id_fksocio_buses
+          if (r.id_fksocio_buses) {
+            return `Socio #${r.id_fksocio_buses}`;
+          }
+          return <span className="text-slate-300">—</span>;
+        }
+      },
       { key: 'fecha_creacion_buses', label: 'F. Creación', render: v => v ? v.split(' ')[0] : '' },
       { key: 'estado_buses', label: 'Estado', renderType: 'status' },
     ],
@@ -328,7 +344,6 @@ export const PAGES_CONFIG = {
     endpoint: '/personal/SociosSeleccionar',
     idField: 'id_personal',
     deleteEndpoint: '/personal/eliminarPersonal',
-    actions: { create: true, edit: true, delete: true },
     formComponent: SocioForm,
     actions: {
       create: true, edit: true, delete: true, custom: [

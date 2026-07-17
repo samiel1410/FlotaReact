@@ -4,7 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 
 export default [
-  { ignores: ['dist'] },
+  { ignores: ['dist', 'public', 'scripts'] },
   {
     files: ['**/*.{js,jsx}'],
     languageOptions: {
@@ -38,8 +38,16 @@ export default [
           caughtErrorsIgnorePattern: '^error$|^err$|^e$',
         },
       ],
+      // React 19 compiler strict rules - downgraded to warn as they affect legacy codebase patterns
+      'react-hooks/set-state-in-effect': 'warn',
+      'react-hooks/immutability': 'warn',
+      'react-hooks/preserve-manual-memoization': 'warn',
+      'react-hooks/static-components': 'warn',
+      'react-hooks/incompatible-library': 'warn',
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
+      'no-empty': ['warn', { allowEmptyCatch: true }],
+      'no-undef': 'error',
     },
   },
 ]

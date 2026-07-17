@@ -7,6 +7,11 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
   const [loading, setLoading] = useState(false);
   const [combos, setCombos] = useState({ buseros: [], auxiliares: [], socios: [] });
+  // Estado para múltiples socios seleccionados
+  const [selectedSocios, setSelectedSocios] = useState([]);
+  // Input de búsqueda para el multi-select
+  const [socioSearch, setSocioSearch] = useState('');
+  const [socioDropdownOpen, setSocioDropdownOpen] = useState(false);
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm({
     defaultValues: isEditing ? {
@@ -29,6 +34,35 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
       id_fksocio_buses: ''
     }
   });
+
+  // Inicializar socios seleccionados al editar
+  useEffect(() => {
+    if (isEditing) {
+      const sociosIniciales = [];
+      // Si viene el array de socios desde el backend
+      if (initialData.socios && Array.isArray(initialData.socios)) {
+        sociosIniciales.push(...initialData.socios.map(s =>
+          typeof s === 'object' ? s.id_socio : s
+        ));
+      }
+      // Fallback: si solo tiene id_fksocio_buses
+      if (sociosIniciales.length === 0 && initialData.id_fksocio_buses && initialData.id_fksocio_buses !== '0') {
+        sociosIniciales.push(parseInt(initialData.id_fksocio_buses));
+      }
+      setSelectedSocios(sociosIniciales);
+    }
+  }, [isEditing, initialData]);
+
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (socioDropdownOpen && !e.target.closest('.socio-multiselect')) {
+        setSocioDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [socioDropdownOpen]);
 
   useEffect(() => {
     const loadCombos = async () => {
@@ -53,7 +87,6 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
         if (isEditing) {
           if (initialData.id_fkpersonal_buses) setValue('id_fkpersonal_buses', initialData.id_fkpersonal_buses);
           if (initialData.id_fkauxiliar_buses) setValue('id_fkauxiliar_buses', initialData.id_fkauxiliar_buses);
-          if (initialData.id_fksocio_buses) setValue('id_fksocio_buses', initialData.id_fksocio_buses);
         }
       } catch (err) {
         console.error('Error cargando combos de buses:', err);
@@ -62,10 +95,42 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
     loadCombos();
   }, [isEditing, initialData, setValue]);
 
+  const toggleSocio = (idSocio) => {
+    setSelectedSocios(prev => {
+      if (prev.includes(idSocio)) {
+        return prev.filter(id => id !== idSocio);
+      }
+      return [...prev, idSocio];
+    });
+  };
+
+  const removeSocio = (idSocio) => {
+    setSelectedSocios(prev => prev.filter(id => id !== idSocio));
+  };
+
+  const sociosFiltrados = combos.socios.filter(s =>
+    !selectedSocios.includes(s.id_personal) &&
+    (socioSearch === '' || 
+     s.per_nombres_persona?.toLowerCase().includes(socioSearch.toLowerCase()) ||
+     s.per_cedula_personal?.includes(socioSearch))
+  );
+
   const onFormSubmit = async (data) => {
+    // Validar que al menos un socio esté seleccionado
+    if (selectedSocios.length === 0) {
+      toast.error('Debe seleccionar al menos un socio');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const payload = { ...data, estado_buses: data.estado_buses ? '1' : '0' };
+      const payload = { 
+        ...data, 
+        estado_buses: data.estado_buses ? '1' : '0',
+        socios_ids: selectedSocios,
+        id_fksocio_buses: selectedSocios.length > 0 ? selectedSocios[0] : ''
+      };
       if (isEditing) payload.id_buses = initialData.id_buses;
 
       const res = await api.post('/buses/insertarActualizarBus', payload);
@@ -177,15 +242,76 @@ export const BusForm = ({ initialData, onSubmit, onCancel }) => {
 
         <div className="md:col-span-1">
           <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
-            Socio <span className="text-rose-500">*</span>
+            Socios <span className="text-rose-500">*</span>
           </label>
-          <select {...register('id_fksocio_buses', { required: 'Seleccione un socio' })} className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-slate-50">
-            <option value="">-- Seleccione socio --</option>
-            {combos.socios.map(s => (
-              <option key={s.id_personal} value={s.id_personal}>{s.per_cedula_personal} - {s.per_nombres_persona}</option>
-            ))}
-          </select>
-          {errors.id_fksocio_buses && <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.id_fksocio_buses.message}</span>}
+          
+          {/* Multi-select de socios */}
+          <div className="relative socio-multiselect">
+            <div 
+              className="w-full min-h-[40px] px-3 py-1.5 text-xs font-bold border border-slate-200 rounded-xl cursor-pointer flex flex-wrap items-center gap-1.5 bg-slate-50 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500 transition-all"
+              onClick={() => setSocioDropdownOpen(!socioDropdownOpen)}
+            >
+              {selectedSocios.length === 0 ? (
+                <span className="text-slate-400 font-normal">-- Seleccione socios --</span>
+              ) : (
+                selectedSocios.map(id => {
+                  const socio = combos.socios.find(s => s.id_personal === id);
+                  return socio ? (
+                    <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-bold">
+                      {socio.per_nombres_persona}
+                      <button 
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); removeSocio(id); }}
+                        className="text-indigo-400 hover:text-rose-500 transition-colors"
+                      >
+                        <i className="fas fa-times"></i>
+                      </button>
+                    </span>
+                  ) : null;
+                })
+              )}
+            </div>
+
+            {socioDropdownOpen && (
+              <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+                <div className="p-2 border-b border-slate-100">
+                  <input
+                    type="text"
+                    placeholder="Buscar socio..."
+                    value={socioSearch}
+                    onChange={(e) => setSocioSearch(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    className="w-full h-8 px-3 text-[10px] font-bold border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 bg-white"
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto">
+                  {sociosFiltrados.length === 0 ? (
+                    <div className="px-3 py-4 text-center text-[10px] text-slate-400 font-bold uppercase">
+                      {socioSearch ? 'Sin resultados' : 'Todos seleccionados'}
+                    </div>
+                  ) : (
+                    sociosFiltrados.map(s => (
+                      <button
+                        key={s.id_personal}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); toggleSocio(s.id_personal); }}
+                        className="w-full px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-indigo-50 flex items-center gap-2 transition-colors border-b border-slate-50 last:border-0"
+                      >
+                        <div className="w-5 h-5 rounded border-2 border-slate-300 flex items-center justify-center">
+                          {selectedSocios.includes(s.id_personal) && (
+                            <i className="fas fa-check text-[8px] text-indigo-600"></i>
+                          )}
+                        </div>
+                        <span>{s.per_cedula_personal} - {s.per_nombres_persona}</span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          
+          {selectedSocios.length === 0 && <span className="text-amber-500 text-[9px] font-bold uppercase">Seleccione al menos un socio</span>}
         </div>
 
         <div>
