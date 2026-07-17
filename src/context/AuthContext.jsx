@@ -149,6 +149,29 @@ export const AuthProvider = ({ children }) => {
   const userName = user?.nombre || user?.username || user?.usuario || '';
   const userRole = user?.rol || user?.role || user?.roles || '';
 
+  // Suplantación: Login como otro usuario desde el panel de administración
+  const loginFromImpersonation = useCallback(async (token, userData, bridgeData) => {
+    // 1. Guardar en sessionStorage exactamente como login normal
+    sessionStorage.setItem('auth_token', token);
+    sessionStorage.setItem('user_data', JSON.stringify(userData));
+    if (bridgeData.refresh_token) {
+      sessionStorage.setItem('refresh_token', bridgeData.refresh_token);
+    }
+    if (bridgeData.backend_url) {
+      sessionStorage.setItem('backend_url', bridgeData.backend_url);
+    }
+
+    // 2. Puente PHP (sesión legacy)
+    await AuthService.phpSessionBridge(bridgeData);
+
+    // 3. Actualizar estado React
+    setUser(userData);
+    setIsAuthenticated(true);
+
+    // 4. Cargar permisos del rol del usuario suplantado
+    cargarPermisosRol(userData);
+  }, [cargarPermisosRol]);
+
   const logout = useCallback(() => {
     sessionStorage.clear();
     setUser(null);
@@ -157,7 +180,7 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, hasRole, hasPermission, userName, userRole }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, loginFromImpersonation, hasRole, hasPermission, userName, userRole }}>
       {!loading && children}
     </AuthContext.Provider>
   );

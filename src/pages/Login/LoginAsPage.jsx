@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { AuthService } from '../../services/auth.service';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Página de suplantación (Login As).
@@ -13,66 +13,65 @@ import { AuthService } from '../../services/auth.service';
 export const LoginAsPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { loginFromImpersonation } = useAuth();
   const [status, setStatus] = useState('loading');
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    const key = searchParams.get('key');
+    const procesarSuplantacion = async () => {
+      const key = searchParams.get('key');
 
-    if (!key) {
-      setStatus('error');
-      setErrorMsg('No se recibió la llave de acceso');
-      setTimeout(() => navigate('/login'), 2000);
-      return;
-    }
+      if (!key) {
+        setStatus('error');
+        setErrorMsg('No se recibió la llave de acceso');
+        setTimeout(() => navigate('/login'), 2000);
+        return;
+      }
 
-    let dataStr;
-    try {
-      dataStr = localStorage.getItem(key);
-    } catch (e) {
-      // localStorage puede no estar disponible en algunos entornos
-    }
+      let dataStr;
+      try {
+        dataStr = localStorage.getItem(key);
+      } catch (e) {
+        // localStorage puede no estar disponible en algunos entornos
+      }
 
-    if (!dataStr) {
-      setStatus('error');
-      setErrorMsg('La llave de acceso ha expirado o es inválida. Intente nuevamente desde el panel de usuarios.');
-      setTimeout(() => navigate('/login'), 3000);
-      return;
-    }
+      if (!dataStr) {
+        setStatus('error');
+        setErrorMsg('La llave de acceso ha expirado o es inválida. Intente nuevamente desde el panel de usuarios.');
+        setTimeout(() => navigate('/login'), 3000);
+        return;
+      }
 
-    try {
-      const data = JSON.parse(dataStr);
-      // Limpiar inmediatamente la llave temporal de localStorage
-      localStorage.removeItem(key);
+      try {
+        const data = JSON.parse(dataStr);
+        // Limpiar inmediatamente la llave temporal de localStorage
+        localStorage.removeItem(key);
 
-      // ─── Establecer sesión exactamente como en login normal ──────────
-      sessionStorage.setItem('auth_token', data.token);
-      sessionStorage.setItem('refresh_token', data.refresh_token);
-      sessionStorage.setItem('backend_url', data.backend_url);
-      sessionStorage.setItem('user_data', JSON.stringify(data.user));
+        // ─── Login usando AuthContext (sessionStorage + estado React + puente PHP) ──
+        await loginFromImpersonation(data.token, data.user, {
+          token: data.token,
+          user: data.user,
+          db_name: data.db_name,
+          db_host: data.db_host,
+          db_user: data.db_user,
+          db_pass: data.db_pass
+        });
 
-      // ─── Bridge PHP (sesión legacy) ─────────────────────────────────
-      AuthService.phpSessionBridge({
-        token: data.token,
-        user: { id_usuario: data.user?.id_usuario },
-        db_name: data.db_name,
-        db_host: data.db_host,
-        db_user: data.db_user,
-        db_pass: data.db_pass
-      }).finally(() => {
-        // Redirigir al dashboard principal
+        // ─── Redirigir al dashboard (SPA, sin recarga completa) ──────────
         setStatus('success');
         setTimeout(() => {
-          window.location.href = '/#/';
+          navigate('/');
         }, 500);
-      });
 
-    } catch (e) {
-      console.error('Error al procesar suplantación:', e);
-      setStatus('error');
-      setErrorMsg('Error al procesar la autenticación del usuario.');
-      setTimeout(() => navigate('/login'), 3000);
-    }
+      } catch (e) {
+        console.error('Error al procesar suplantación:', e);
+        setStatus('error');
+        setErrorMsg('Error al procesar la autenticación del usuario.');
+        setTimeout(() => navigate('/login'), 3000);
+      }
+    };
+
+    procesarSuplantacion();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
