@@ -196,6 +196,12 @@ export const GuiaService = {
     return response.data;
   },
 
+  // ── Usuarios para el Filtro (Oficinistas / Buseros) ──────────
+  getUsuariosParaFiltro: async () => {
+    const response = await api.get('/usuario/usuarioSeleccionarOficinista');
+    return response.data;
+  },
+
   // ── Configuración general (forma de pago, tarifa) ─────────
   configuracionSeleccion: async () => {
     const response = await api.get('/configuracion/configuracionSeleccion');
