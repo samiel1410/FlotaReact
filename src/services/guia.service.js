@@ -198,7 +198,7 @@ export const GuiaService = {
 
   // ── Usuarios para el Filtro (Oficinistas / Buseros) ──────────
   getUsuariosParaFiltro: async () => {
-    const response = await api.get('/usuario/usuarioSeleccionarOficinista');
+    const response = await api.get('/usuario/usuarioSeleccionarPaginado', { params: { limit: 9999 } });
     return response.data;
   },
 

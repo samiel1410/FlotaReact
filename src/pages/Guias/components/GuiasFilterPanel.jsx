@@ -106,7 +106,9 @@ export const GuiasFilterPanel = ({ onSearch, visible = true, isNotaVenta = false
             <select name="usuario_busqueda" value={formData.usuario_busqueda} onChange={handleChange}>
               <option value="">Seleccionar...</option>
               {usuarios.map(u => (
-                <option key={u.id_usuario} value={u.id_usuario}>{u.nombre_usuario}</option>
+                <option key={u.id_usuario} value={u.id_usuario}>
+                  {u.nombre_usuario} {u.apellido_usuario || ''}
+                </option>
               ))}
             </select>
           </div>
