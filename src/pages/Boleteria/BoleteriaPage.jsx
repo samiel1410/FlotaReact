@@ -69,17 +69,29 @@ export const BoleteriaPage = () => {
     setPage(1);
   };
 
-  const handleSriLote = () => {
-    if (window.confirm('¿Está seguro de enviar los comprobantes pendientes al SRI?')) {
-      toast.promise(
-        new Promise(resolve => setTimeout(resolve, 2000)),
-        {
-          loading: 'Enviando comprobantes al SRI...',
-          success: 'Lote enviado correctamente',
-          error: 'Error al enviar lote'
-        }
-      );
-    }
+  const handleSriLote = async () => {
+    const result = await Swal.fire({
+      title: 'Enviar Lote al SRI',
+      text: '¿Está seguro de enviar todos los comprobantes pendientes al SRI?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: '<i class="fas fa-cloud-upload-alt"></i> Sí, enviar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#3498db',
+      cancelButtonColor: '#95a5a6',
+      reverseButtons: true
+    });
+
+    if (!result.isConfirmed) return;
+
+    toast.promise(
+      new Promise(resolve => setTimeout(resolve, 2000)),
+      {
+        loading: 'Enviando comprobantes al SRI...',
+        success: 'Lote enviado correctamente',
+        error: 'Error al enviar lote'
+      }
+    );
   };
 
   const openPdfViewer = async (id_boleto) => {

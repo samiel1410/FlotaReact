@@ -81,7 +81,12 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
           </thead>
           <tbody>
             {data.map((item) => (
-              <tr key={item.id_guia} className={item.estado_guia === 2 ? 'row-anulado' : item.estado_guia === 3 ? 'row-pendiente' : ''}>
+              <tr key={item.id_guia} className={
+                item.estado_guia === 2 ? 'row-anulado' : 
+                item.estado_guia === 3 ? 'row-pendiente' : 
+                (item.estado_autorizacion_factura === 'AUTORIZADA' || item.estado_autorizacion_factura === 'AUTORIZADO' || item.estado_autorizacion_factura === 'FIRMADO') 
+                  ? 'row-autorizado' : 'row-no-autorizado'
+              }>
                 <td className="text-center">{getSemaforoEstado(item.estado_guia)}</td>
                 <td className="text-center">{getSemaforoSeguimiento(item.estado_guia_seguimiento)}</td>
                 <td className="font-semibold text-blue-600 font-mono">

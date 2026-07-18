@@ -7,6 +7,7 @@
   overflow-x: auto;
   overflow-y: visible;
   position: relative;
+  min-height: 300px; /* Ensure space for the action dropdown */
 }
 
 .guias-table {
@@ -57,6 +58,12 @@
 }
 .row-pendiente {
   background-color: #fef9c3 !important; /* Amarillo claro */
+}
+.row-autorizado {
+  background-color: #d1fae5 !important; /* Verde esmeralda claro */
+}
+.row-no-autorizado {
+  background-color: #f3f4f6 !important; /* Gris claro */
 }
 
 /* Formateo de Celdas */

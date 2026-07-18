@@ -63,7 +63,10 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
             {data.map(item => {
               const est = formatEstado(item.estado_boleto);
               return (
-              <tr key={item.id_boleto} className={Number(item.estado_boleto) === 3 ? 'row-anulado' : ''}>
+              <tr key={item.id_boleto} className={
+                Number(item.estado_boleto) === 3 ? 'row-anulado' : 
+                item.estado_autorizacion === 'AUTORIZADO' ? 'row-autorizado' : 'row-no-autorizado'
+              }>
                 <td className="font-mono" style={{fontWeight: 600, color: '#2c3e50', fontSize: '12px'}}>
                   {formatNumero(item)}
                 </td>
