@@ -4,7 +4,9 @@ import Swal from 'sweetalert2';
 import Modal from '../../components/common/Modal';
 import MotivoModal from '../../components/common/MotivoModal';
 import SocioBusSelector from '../../components/common/SocioBusSelector';
+import AperturaCajaCobrosModal from '../../components/common/AperturaCajaCobrosModal';
 import { cobrosService } from '../../services/cobros.service';
+import { cajaCobrosService } from '../../services/cajaCobros.service';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import toast from 'react-hot-toast';
 
@@ -97,7 +99,7 @@ const crearBlobUrlTicket = (ticket) => {
 };
 
 // ─── Nuevo Bono Modal ──────────────────────────────────────────────
-const NuevoBonoModal = ({ onClose, onSuccess }) => {
+const NuevoBonoModal = ({ onClose, onSuccess, onNoCaja }) => {
   const [form, setForm] = useState({ id_socio: '', id_bus: '', valor: '50', motivo: '', observacion: '', fecha: new Date().toISOString().split('T')[0] });
   const [loading, setLoading] = useState(false);
 
@@ -114,7 +116,16 @@ const NuevoBonoModal = ({ onClose, onSuccess }) => {
           api.post('/whatsapp/enviar', { number: res.notificacion.telefono, message: res.notificacion.mensaje }).catch(() => {});
         }
         onSuccess(res.data?.ticket || res.ticket);
-      } else Swal.fire('Error', res.message, 'error');
+      } else {
+        // Si el error es por caja no aperturada, abrir modal de apertura
+        const msg = res.message || '';
+        if (msg.toLowerCase().includes('caja')) {
+          onClose();
+          onNoCaja();
+        } else {
+          Swal.fire({ icon: 'error', title: 'No se pudo registrar el bono', text: msg || 'Error desconocido', confirmButtonColor: '#dc2626' });
+        }
+      }
     } catch (err) { Swal.fire('Error', err.message, 'error'); }
     finally { setLoading(false); }
   };
@@ -162,6 +173,7 @@ export const BonosPage = () => {
   const [pageSize] = useState(25);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showApertura, setShowApertura] = useState(false);
   const [anularBono, setAnularBono] = useState(null);
   const hoyStr = new Date().toISOString().split('T')[0];
   const [filtros, setFiltros] = useState({ id_socio: '', id_bus: '', estado: '', numero_ticket: '', fecha_desde: '', fecha_hasta: '', socio_busqueda: '', bus_busqueda: '' });
@@ -170,6 +182,15 @@ export const BonosPage = () => {
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [pdfModalUrl, setPdfModalUrl] = useState('');
   const [pdfModalTitle, setPdfModalTitle] = useState('');
+
+  const handleNuevoBonoClick = async () => {
+    const res = await cajaCobrosService.validarCaja();
+    if (res.success && res.data) {
+      setShowModal(true);
+    } else {
+      setShowApertura(true);
+    }
+  };
 
   // Método de impresión desde localStorage
   const [metodoImpresion, setMetodoImpresion] = useState('manual');
@@ -300,14 +321,19 @@ export const BonosPage = () => {
         showPrintButton
       />
 
-      {showModal && <NuevoBonoModal onClose={() => setShowModal(false)} onSuccess={handleBonoCreado} />}
+      {showModal && <NuevoBonoModal onClose={() => setShowModal(false)} onSuccess={handleBonoCreado} onNoCaja={() => setShowApertura(true)} />}
       {anularBono && <MotivoModal isOpen={true} onClose={() => setAnularBono(null)} onConfirm={handleAnularConfirm} title="Anular Bono" confirmText="Anular" />}
+      <AperturaCajaCobrosModal
+        isOpen={showApertura}
+        onClose={() => setShowApertura(false)}
+        onSuccess={() => { setShowApertura(false); setShowModal(true); }}
+      />
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
           <i className="fas fa-gift text-emerald-600"></i> Bonos
         </h1>
-        <button onClick={() => setShowModal(true)} className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 flex items-center gap-2">
+        <button onClick={handleNuevoBonoClick} className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 flex items-center gap-2">
           <i className="fas fa-plus-circle"></i> Nuevo Bono
         </button>
       </div>

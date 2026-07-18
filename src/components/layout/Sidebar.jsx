@@ -84,6 +84,9 @@ const MENU = [
       { to: '/despacho', icon: 'fas fa-truck-loading', label: 'Despacho', permission: 'guias.despacho_guia' },
       { to: '/entregas', icon: 'fas fa-hand-holding-usd', label: 'Entrega de Guías', permission: 'guias.entrega_guia' },
       { to: '/seguimiento', icon: 'fas fa-box-open', label: 'Seguimientos', permission: 'guias.seguimiento_guia' },
+      { to: '/caja', icon: 'fas fa-cash-register', label: 'Listado Cajas', permission: 'cajas.listado_cajas' },
+      { to: '/cajas-comprobantes', icon: 'fas fa-cash-register', label: 'Cajas Comprobantes', permission: 'cajas.cajas_comprobantes' },
+      { to: '/comprobantes', icon: 'fas fa-receipt', label: 'Comprobantes', permission: 'cajas.comprobantes' },
     ]
   },
   {
@@ -129,16 +132,7 @@ const MENU = [
       { to: '/reservaciones', icon: 'fas fa-calendar-check', label: 'Reservaciones', permission: 'boletos.reservaciones' },
     ]
   },
-  {
-    id: 'cajas',
-    title: 'Cajas',
-    icon: 'fas fa-cash-register',
-    items: [
-      { to: '/caja', icon: 'fas fa-cash-register', label: 'Listado Cajas', permission: 'cajas.listado_cajas' },
-      { to: '/cajas-comprobantes', icon: 'fas fa-cash-register', label: 'Cajas Comprobantes', permission: 'cajas.cajas_comprobantes' },
-      { to: '/comprobantes', icon: 'fas fa-receipt', label: 'Comprobantes', permission: 'cajas.comprobantes' },
-    ]
-  },
+
   {
     id: 'anulaciones',
     title: 'Anulaciones',

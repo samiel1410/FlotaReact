@@ -35,7 +35,7 @@ export const TotalesPanel = ({ detalles, descuentoTipo, onDescuentoChange, tipos
     const qty = d.cantidad || 1;
     const price = d.precioUnitario || 0;
     const sub = qty * price;
-    let desc = 0;
+    let desc;
     if (descuentoTipo === '2') desc = sub;
     else if (descuentoTipo === '1') desc = sub * 0.50;
     else desc = (sub / (subtotal || 1)) * descuentoCalculado;

@@ -43,7 +43,7 @@ export const TiemposParadasModal = ({ open, onClose, route, subrutas, catalogoCa
 
       // 3. Restaurar los tiempos si ya existía configuración
       if (route && route.tiempos_paradas_rutas && route.tiempos_paradas_rutas !== '[]' && route.tiempos_paradas_rutas !== 'null') {
-        let guardados = [];
+        let guardados;
         try {
           guardados = typeof route.tiempos_paradas_rutas === 'string' ? JSON.parse(route.tiempos_paradas_rutas) : route.tiempos_paradas_rutas;
         } catch(e) { guardados = []; }

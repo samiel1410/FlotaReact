@@ -107,9 +107,10 @@ class CobrosService {
   async agregarBono(data) {
     try {
       const res = await api.post('/bono/agregar', data);
-      return { success: res.data?.success, data: res.data?.data, ticket: res.data?.data?.ticket, message: res.data?.message, notificacion: res.data?.notificacion };
+      return { success: res.data?.success, data: res.data?.data, ticket: res.data?.data?.ticket, message: res.data?.message || res.data?.error, notificacion: res.data?.notificacion };
     } catch (error) {
-      return { success: false, message: error.response?.data?.error || 'Error al crear bono' };
+      const msg = error.response?.data?.error || error.response?.data?.message || 'Error al crear bono';
+      return { success: false, message: msg };
     }
   }
 

@@ -51,14 +51,15 @@ export const PAGES_CONFIG = {
       { key: 'chasis_buses', label: 'Chasis', render: v => v || '-' },
       { key: 'capacidad_buses', label: 'Cap.', render: v => v || '-' },
       { key: 'pisos_buses', label: 'Pisos', render: v => v == 2 ? '2 Pisos' : '1 Piso' },
-      { key: 'busero', label: 'Busero', render: (_, r) => `${r.per_cedula_personal || ''} - ${r.per_nombre_persona || ''}` },
+      { key: 'busero', label: 'Conductor', render: (_, r) => `${r.per_cedula_personal || ''} - ${r.per_nombres_persona || ''} ${r.per_apellidos_personal || ''}`.trim().replace(/^-\s*|\s*-$/g, '') || '-' },
+      { key: 'auxiliar', label: 'Auxiliar', render: (_, r) => r.id_fkauxiliar_buses ? `${r.auxiliar_cedula || ''} - ${r.auxiliar_nombres || ''} ${r.auxiliar_apellidos || ''}`.trim().replace(/^-\s*|\s*-$/g, '') : '-' },
       { 
         key: 'socios_nombres', label: 'Socios', 
         render: (_, r) => {
           const socios = r.socios || r.socios_nombres || [];
           if (Array.isArray(socios) && socios.length > 0) {
             return socios.map(s => 
-              `${s.per_nombres_persona || s.per_cedula_personal || ''}`
+              `${s.per_cedula_personal || ''} - ${s.per_nombres_persona || ''} ${s.per_apellidos_personal || ''}`.trim().replace(/^-\s*|\s*-$/g, '')
             ).join(', ');
           }
           // Fallback: mostrar el id_fksocio_buses

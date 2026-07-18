@@ -1,5 +1,3 @@
-/* global qz */
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { BusVisualizer } from './components/BusVisualizer';
@@ -91,7 +89,8 @@ export const NuevoBoletoPage = () => {
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [refreshAsientosKey, setRefreshAsientosKey] = useState(0);
   const [asientosPendientes, setAsientosPendientes] = useState({}); // { [asiento]: { usuario: 'nombre', lockedAt: timestamp } }
-  const lastRealActionRef = useRef(Date.now()); // Última acción real del usuario
+  const lastRealActionRef = useRef(null);
+  useEffect(() => { lastRealActionRef.current = Date.now(); }, []);
   const [tiempoRestante, setTiempoRestante] = useState(null); // null = sin viaje, objeto = { horas, minutos, segundos, pasado, totalSeg }
   const [localCajaId, setLocalCajaId] = useState(null);
   const [cajaResolved, setCajaResolved] = useState(false);

@@ -1486,7 +1486,7 @@ export const NuevaGuiaNotaVentaPage = () => {
               <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 900, color: '#059669' }}>
                 ${(() => {
                   const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
-                  let desc = 0;
+                  let desc;
                   if (descuentoTipo === '2') desc = st12;
                   else if (descuentoTipo === '1') desc = st12 * 0.50;
                   else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
@@ -1506,7 +1506,7 @@ export const NuevaGuiaNotaVentaPage = () => {
             {/* Estado de cobro */}
             {(() => {
               const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
-              let desc = 0;
+              let desc;
               if (descuentoTipo === '2') desc = st12;
               else if (descuentoTipo === '1') desc = st12 * 0.50;
               else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);

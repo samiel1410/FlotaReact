@@ -108,23 +108,29 @@ $id_guia AND sucursal_guia=suc_codigo_sucursal AND id_fkusuario_guia=id_usuario"
   $recuperar_detalles = mysqli_query($conn, $query_datos_detalles) or die(mysqli_error($conn));
 
   $contenido_detalle = '<p class="izquierda">';
-
   $posicion_codigo = 190;
   $espacio_codigo = '';
+  $items_detalle = []; // guardar items para generar hojas extra
+  $total_copias_extra = 0;
 
   while ($vals_detalle = mysqli_fetch_array($recuperar_detalles)) {
-
+    $cant = max(1, (int)$vals_detalle["cantidad_detalle_guia"]);
     $contenido_detalle .= 'CONTENIDO: ' . $vals_detalle["cantidad_detalle_guia"] . ' ' . $vals_detalle["nombre_envio"] . '
   ' . $vals_detalle["contenido_guia"] . ' <br>';
-
-
-  
     $posicion_codigo = $posicion_codigo + 15;
     $espacio_codigo .= '
 <p> </p>';
-
-  }
-  ;
+    // guardar cada unidad como una copia extra
+    for ($ci = 1; $ci <= $cant; $ci++) {
+      $items_detalle[] = [
+        'nombre_envio' => $vals_detalle['nombre_envio'],
+        'contenido'    => $vals_detalle['contenido_guia'],
+        'cantidad'     => $cant,
+        'unidad'       => $ci,
+      ];
+      $total_copias_extra++;
+    }
+  };
 
   $contenido_detalle .= ' ';
 
@@ -467,6 +473,111 @@ configuracion";
     $pdf->write1DBarcode($clave_acceso, 'C128', '', '', '100', 18, 0.4, $style, 'N');
   }
   $pdf->Ln();
+
+  // ── HOJAS EXTRA: una por cada unidad de cada item
+  // El numero de pagina SOLO va en los slips, no en la hoja de factura principal
+  $pagina_actual = 1;
+  $total_paginas = $total_copias_extra; // numeracion interna de los slips
+  $fecha_slip = date('d/m/Y H:i');
+  $sep_doble = str_repeat('=', 38);
+
+  foreach ($items_detalle as $item) {
+
+    // Pagina slip: 110mm x 200mm para mejor uso del espacio
+    $pdf->AddPage('P', array(110, 200));
+    $pdf->SetMargins(5, 5, 5, true);
+    $pdf->SetAutoPageBreak(FALSE, 0);
+    $lw = 100;
+
+    // ── LOGO ──
+    if ($rutaLogo) {
+      $pdf->Image($rutaLogo, 42, 4, 18, 0, '', '', 'T', false, 300, 'C');
+      $pdf->SetY(23);
+    } else {
+      $pdf->SetY(5);
+    }
+
+    // ── EMPRESA ──
+    $pdf->SetFont('helvetica', 'B', 11);
+    $pdf->Cell($lw, 6, strtoupper($razon_social_empresa), 0, 1, 'C');
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell($lw, 4, $numero_guia, 0, 1, 'C');
+    if (!empty($numero_manual_guia)) {
+      $pdf->Cell($lw, 4, 'MANUAL: ' . $numero_manual_guia, 0, 1, 'C');
+    }
+
+    // ── LINEA DOBLE ──
+    $pdf->Ln(2);
+    $y0 = $pdf->GetY();
+    $pdf->SetDrawColor(0,0,0);
+    $pdf->SetLineWidth(0.6);
+    $pdf->Line(5, $y0, 105, $y0);
+    $pdf->SetLineWidth(0.2);
+    $pdf->Line(5, $y0 + 1.5, 105, $y0 + 1.5);
+    $pdf->SetY($y0 + 4);
+
+    // ── FECHA ──
+    $pdf->SetFont('helvetica', '', 9);
+    $pdf->Cell($lw, 5, $fecha_slip, 0, 1, 'C');
+    $pdf->Ln(1);
+
+    // ── REMITENTE ──
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell($lw, 4, 'Remitente', 0, 1, 'C');
+    $pdf->SetFont('helvetica', 'B', 11);
+    $pdf->MultiCell($lw, 6, $nombre_cliente_remitente, 0, 'C', false, 1);
+    $pdf->Ln(1);
+
+    // ── DESTINATARIO ──
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell($lw, 4, 'Destinatario', 0, 1, 'C');
+    $pdf->SetFont('helvetica', 'B', 11);
+    $pdf->MultiCell($lw, 6, $nombre_cliente_receptor, 0, 'C', false, 1);
+    $pdf->Ln(1);
+
+    // ── DESTINO ──
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell($lw, 4, 'Destino', 0, 1, 'C');
+    $pdf->SetFont('helvetica', 'B', 13);
+    $pdf->Cell($lw, 7, strtoupper($destino_guia), 0, 1, 'C');
+    $pdf->Ln(1);
+
+    // ── TELEFONO ──
+    $pdf->SetFont('helvetica', '', 9);
+    $pdf->Cell($lw, 5, 'Fono: ' . $telefono_cliente_receptor, 0, 1, 'C');
+    $pdf->Ln(1);
+
+    // ── CONTENIDO ──
+    $pdf->SetFont('helvetica', 'B', 10);
+    $desc = strtoupper($item['nombre_envio']) . ': ' . strtoupper($item['contenido']);
+    $pdf->MultiCell($lw, 6, $desc, 0, 'C', false, 1);
+    $pdf->Ln(2);
+
+    // ── LINEA DOBLE ──
+    $y1 = $pdf->GetY();
+    $pdf->SetLineWidth(0.6);
+    $pdf->Line(5, $y1, 105, $y1);
+    $pdf->SetLineWidth(0.2);
+    $pdf->Line(5, $y1 + 1.5, 105, $y1 + 1.5);
+    $pdf->SetY($y1 + 5);
+
+    // ── EMPRESA DESTINO ──
+    if (!empty($nombre_compania)) {
+      $pdf->SetFont('helvetica', 'B', 9);
+      $pdf->Cell($lw, 5, strtoupper($nombre_compania), 0, 1, 'C');
+    }
+    if (!empty($origen_guia)) {
+      $pdf->SetFont('helvetica', '', 8);
+      $pdf->Cell($lw, 4, strtoupper($origen_guia), 0, 1, 'C');
+    }
+    $pdf->Ln(3);
+
+    // ── NUMERO DE PAGINA ──
+    $pdf->SetFont('helvetica', 'B', 9);
+    $pdf->Cell($lw, 5, $pagina_actual . ' / ' . $total_paginas, 0, 1, 'C');
+
+    $pagina_actual++;
+  }
 
   $nombre_pdf = 'guiaNotaVentaImpresion_' . $id_guia . '.pdf';
   $pdf->Output(__DIR__ . '/tmp/' . $nombre_pdf, 'F');

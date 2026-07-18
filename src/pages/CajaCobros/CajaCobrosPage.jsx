@@ -5,6 +5,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { cajaCobrosService } from '../../services/cajaCobros.service';
 import Modal from '../../components/common/Modal';
+import AperturaCajaCobrosModal from '../../components/common/AperturaCajaCobrosModal';
 
 const DENOMINACIONES = [
   { key: '100', label: 'Billetes $100', field: '100' },
@@ -42,6 +43,7 @@ export const CajaCobrosPage = () => {
   const [showDetalle, setShowDetalle] = useState(false);
   const [detalleData, setDetalleData] = useState([]);
   const [detalleId, setDetalleId] = useState(null);
+  const [showApertura, setShowApertura] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -56,18 +58,11 @@ export const CajaCobrosPage = () => {
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { cajaCobrosService.validarCaja().then(r=>{if(r.success)setOpenCaja(r.data);else setOpenCaja(null);}).catch(()=>setOpenCaja(null)); }, []);
 
-  // ─── MODAL APERTURA ────────────────────────────────────────
-  const abrirApertura = async () => {
-    const { value: form, isDismissed } = await Swal.fire({
-      title: 'Nueva Apertura', width: 600,
-      html: `<div style="text-align:left"><div style="display:flex;gap:8px;flex-wrap:wrap">${denomHtml('ap')}</div><hr/><div style="display:flex;align-items:center;gap:12px"><div style="flex:1"><label style="display:block;font-weight:bold;font-size:12px">Total ($)</label><input id="ap-total" class="swal2-input" type="text" readonly value="0.00" style="width:100%;padding:8px;font-size:14px;font-weight:bold;text-align:right;background:#f3f4f6"/></div><div style="flex:0 0 auto;padding-top:18px"><label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer"><input type="checkbox" id="ap-cero"/> $0.00</label></div></div></div>`,
-      showCancelButton: true, confirmButtonText: 'Guardar Apertura', confirmButtonColor: '#4f9d40',
-      didOpen: () => { didOpenDenom('ap'); document.getElementById('ap-cero')?.addEventListener('change',function(){DENOMINACIONES.forEach(d=>{const e=document.getElementById(`ap-${d.key}`);if(e){e.value='0';e.readOnly=this.checked;e.style.background=this.checked?'#f3f4f6':'';}});document.getElementById('ap-total').value='0.00';if(!this.checked)calcTotal('ap');}); },
-      preConfirm: () => ({ apertura_total_caja: parseFloat(document.getElementById('ap-total')?.value||'0')||0, ...denomPre('ap') })
-    });
-    if (!form || isDismissed) return;
-    const res = await cajaCobrosService.insertarAperturaCaja(form);
-    if (res.success) { toast.success('Caja aperturada'); loadData(); } else toast.error(res.message || 'Error');
+  // ─── MODAL APERTURA (ahora como componente React) ──────────
+  const handleAperturaSuccess = () => {
+    setShowApertura(false);
+    cajaCobrosService.validarCaja().then(r => { if (r.success) setOpenCaja(r.data); else setOpenCaja(null); });
+    loadData();
   };
 
   // ─── MODAL CIERRE ──────────────────────────────────────────
@@ -187,7 +182,7 @@ export const CajaCobrosPage = () => {
                 <i className="fas fa-door-closed"></i><span>CERRAR</span>
               </button>
             )}
-            <button onClick={abrirApertura} className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 border border-emerald-700/50">
+            <button onClick={() => setShowApertura(true)} className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-lg flex items-center gap-2 border border-emerald-700/50">
               <i className="fas fa-plus"></i><span>NUEVA APERTURA</span>
             </button>
             <button onClick={loadData} className="h-8 w-8 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-lg flex items-center justify-center" disabled={loading} title="Actualizar">
@@ -276,6 +271,8 @@ export const CajaCobrosPage = () => {
             </div>
           </div>
       </div>
+
+      <AperturaCajaCobrosModal isOpen={showApertura} onClose={() => setShowApertura(false)} onSuccess={handleAperturaSuccess} />
 
       <Modal isOpen={showDetalle} onClose={() => setShowDetalle(false)} title="Detalle de Caja" size="lg">
         <div className="p-4 space-y-4">

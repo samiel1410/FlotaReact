@@ -45,8 +45,8 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, precioUnitar
 
   const recalcularValor = (pasajero, precio) => {
     const p = precio || 0;
-    let valorFinal = 0;
-    let descuento = 0;
+    let valorFinal;
+    let descuento;
 
     switch (pasajero.tarifa) {
       case 'Normal':

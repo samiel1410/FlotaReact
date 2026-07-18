@@ -4,7 +4,7 @@ const customStyles = {
   control: (base, state) => ({
     ...base,
     minHeight: '2.25rem',
-    height: '2.25rem',
+    height: 'auto',
     borderColor: state.isFocused ? '#818cf8' : '#e2e8f0',
     boxShadow: state.isFocused ? '0 0 0 2px rgba(129, 140, 248, 0.1)' : 'none',
     '&:hover': { borderColor: '#818cf8' },
@@ -84,6 +84,25 @@ const customStyles = {
     color: '#94a3b8',
     padding: '1rem',
   }),
+  multiValue: (base) => ({
+    ...base,
+    backgroundColor: '#e0e7ff',
+    borderRadius: '0.375rem',
+  }),
+  multiValueLabel: (base) => ({
+    ...base,
+    color: '#4338ca',
+    fontSize: '0.75rem',
+    fontWeight: 'bold',
+  }),
+  multiValueRemove: (base) => ({
+    ...base,
+    color: '#4338ca',
+    ':hover': {
+      backgroundColor: '#c7d2fe',
+      color: '#312e81',
+    },
+  }),
 };
 
 export const SearchableSelect = ({
@@ -93,6 +112,7 @@ export const SearchableSelect = ({
   placeholder = 'Buscar y seleccionar...',
   isClearable = true,
   isDisabled = false,
+  isMulti = false,
   name,
 }) => {
   const formattedOptions = options.map(opt => ({
@@ -100,17 +120,30 @@ export const SearchableSelect = ({
     label: opt.label ?? opt.nombre ?? '',
   }));
 
-  const selectedOption = formattedOptions.find(o => o.value === value) || null;
+  let selectedOption = null;
+  if (isMulti) {
+    selectedOption = formattedOptions.filter(o => Array.isArray(value) && value.includes(o.value));
+  } else {
+    selectedOption = formattedOptions.find(o => o.value === value) || null;
+  }
 
   return (
     <Select
       name={name}
       options={formattedOptions}
       value={selectedOption}
-      onChange={(option) => onChange(option ? option.value : '')}
+      onChange={(option) => {
+        if (isMulti) {
+          onChange(option ? option.map(o => o.value) : []);
+        } else {
+          onChange(option ? option.value : '');
+        }
+      }}
       placeholder={placeholder}
       isClearable={isClearable}
       isDisabled={isDisabled}
+      isMulti={isMulti}
+      isSearchable={true}
       styles={customStyles}
       menuPosition="fixed"
       noOptionsMessage={() => 'Sin resultados'}

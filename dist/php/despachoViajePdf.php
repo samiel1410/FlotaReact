@@ -18,7 +18,7 @@ try {
         throw new Exception("Error de conexión: " . $conn->connect_error);
     }
 
-    // Consulta SQL mejorada - obtener datos del viaje directamente
+    // Consulta SQL - obtener datos del viaje filtrando boletos por sucursal que despachó
     $query = "SELECT 
         v.id_viajes,
         v.fecha_cierre as fecha_viaje,
@@ -31,12 +31,15 @@ try {
         b.placa_buses,
         b.id_buses,
         u.nombre_usuario as nombre_oficinista,
+        u.id_fksucursal_usuario as id_sucursal_despacho,
+        s.nombre_sucursal,
+        s.porcentaje_retencion,
         dv.id_despacho_viaje,
         dv.tarifa_despacho_viaje,
         dv.fecha_salida_despacho_viaje,
         dv.hora_salida_despacho_viaje,
-        IFNULL(SUM(bd.total_boleto_detalle), 0) AS total_boletos,
-        COUNT(bd.id_boleto_detalle) AS cantidad_boletos
+        IFNULL(SUM(CASE WHEN bo.id_fksucursal_boleto = u.id_fksucursal_usuario AND bo.estado_boleto != 3 THEN bd.total_boleto_detalle ELSE 0 END), 0) AS total_boletos,
+        COUNT(CASE WHEN bo.id_fksucursal_boleto = u.id_fksucursal_usuario AND bo.estado_boleto != 3 THEN bd.id_boleto_detalle END) AS cantidad_boletos
       FROM 
         viajes v
         LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
@@ -44,12 +47,14 @@ try {
         LEFT JOIN buses b ON v.id_fkbus_viajes = b.id_buses
         LEFT JOIN despacho_viaje dv ON v.id_viajes = dv.id_fkviaje_despacho_viaje
         LEFT JOIN usuario u ON dv.id_fkusuario_aprueba = u.id_usuario
+        LEFT JOIN sucursal2 s ON u.id_fksucursal_usuario = s.id_sucursal
         LEFT JOIN boletos bo ON v.id_viajes = bo.id_fkviaje_boleto
         LEFT JOIN boleto_detalle bd ON bo.id_boleto = bd.id_fkboleto_boleto_detalle
       WHERE v.id_viajes = ?
       GROUP BY v.id_viajes, v.fecha_cierre, v.hora_origen_salida, r.nombre_rutas, r.id_rutas,
                chofer.per_nombres_persona, chofer.per_apellidos_personal, chofer.per_cedula_personal,
-               b.disco_buses, b.placa_buses, b.id_buses, u.nombre_usuario,
+               b.disco_buses, b.placa_buses, b.id_buses, u.nombre_usuario, u.id_fksucursal_usuario,
+               s.nombre_sucursal, s.porcentaje_retencion,
                dv.id_despacho_viaje, dv.tarifa_despacho_viaje, dv.fecha_salida_despacho_viaje, dv.hora_salida_despacho_viaje";
 
     $stmt = $conn->prepare($query);
@@ -63,30 +68,33 @@ try {
 
     $despacho = $result->fetch_assoc();
 
-    // Consulta para obtener los cobros pendientes del bus
+    // Consulta para obtener los cobros que fueron descontados en este despacho
     $totalRetenciones = 0;
     $cobros = [];
 
-    if ($despacho['id_buses']) {
+    if (!empty($despacho['id_despacho_viaje'])) {
         $query_cobros = "SELECT 
-            c.monto_cobros,
-            tc.nombre_tipo_cobros as tipo_cobro,
-            c.fecha_creacion_cobros
+            dvr.total_cobrado_despacho_viaje_retenciones as monto_cobros,
+            tc.nombre_tipo_cobros as tipo_cobro
           FROM 
-            cobros c
+            despacho_viaje_reteciones dvr
+            JOIN cobros c ON dvr.id_fkcobro_despacho_viaje_reteciones = c.id_cobros
             JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
           WHERE 
-            c.id_fkbus_cobros = ? AND c.estado_cobros = 0";
+            dvr.id_fkdespacho_viaje = ?";
 
         $stmt_cobros = $conn->prepare($query_cobros);
-        $stmt_cobros->bind_param("i", $despacho['id_buses']);
+        $stmt_cobros->bind_param("i", $despacho['id_despacho_viaje']);
         $stmt_cobros->execute();
         $cobros = $stmt_cobros->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt_cobros->close();
     }
 
-    // Calcular el total de cobros (retenciones)
+    // La tarifa_despacho_viaje ya contiene el monto de retención calculado por la sucursal
+    // (porcentaje_retencion de la sucursal aplicado sobre sus propios boletos)
     $retencionSucursal = floatval($despacho['tarifa_despacho_viaje'] ?? 0);
+    $porcentajeRetencion = floatval($despacho['porcentaje_retencion'] ?? 0);
+    $nombreSucursal = $despacho['nombre_sucursal'] ?? 'Sucursal';
     $totalRetenciones = $retencionSucursal;
     foreach ($cobros as $cobro) {
         $totalRetenciones += $cobro['monto_cobros'];
@@ -155,20 +163,21 @@ try {
         <b>OFICINISTA:</b> ' . strtoupper($despacho['nombre_oficinista']) . '
     </div>';
 
-    // SECCIÓN VENTAS POR ORIGEN
+    // SECCIÓN VENTAS POR ORIGEN - solo boletos de la sucursal que despachó
+    $id_sucursal_despacho = intval($despacho['id_sucursal_despacho'] ?? 0);
     $query_origen = "SELECT 
         IFNULL(b.nombre_origen, 'ORIGEN PRINCIPAL') as origen, 
         COUNT(bd.id_boleto_detalle) as cantidad, 
         SUM(bd.total_boleto_detalle) as total
       FROM viajes v
-      JOIN boletos b ON v.id_viajes = b.id_fkviaje_boleto
+      JOIN boletos b ON v.id_viajes = b.id_fkviaje_boleto AND b.estado_boleto != 3
       JOIN boleto_detalle bd ON b.id_boleto = bd.id_fkboleto_boleto_detalle
-      WHERE v.id_viajes = ?
+      WHERE v.id_viajes = ? AND b.id_fksucursal_boleto = ?
       GROUP BY b.nombre_origen
       ORDER BY b.nombre_origen";
 
     $stmt_origen = $conn->prepare($query_origen);
-    $stmt_origen->bind_param("i", $id_despacho_viaje);
+    $stmt_origen->bind_param("ii", $id_despacho_viaje, $id_sucursal_despacho);
     $stmt_origen->execute();
     $result_origen = $stmt_origen->get_result();
 
@@ -204,9 +213,13 @@ try {
         </tr>';
 
     if ($retencionSucursal > 0) {
+        $label = 'RETENCIÓN ' . strtoupper($nombreSucursal);
+        if ($porcentajeRetencion > 0) {
+            $label .= ' (' . $porcentajeRetencion . '%)';
+        }
         $content .= '
         <tr>
-            <td style="text-align:left;">RETENCIÓN SUCURSAL</td>
+            <td style="text-align:left;">' . $label . '</td>
             <td style="text-align:right;">$' . number_format($retencionSucursal, 2) . '</td>
         </tr>';
     }

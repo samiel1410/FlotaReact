@@ -28,7 +28,9 @@ export const ListaViajes = () => {
   const [searchTrigger, setSearchTrigger] = useState(0);
 
   const isAdmin = user?.id_fkrol_usuario == 1 || user?.id_fkrol_usuario == 2 || user?.id_rol == 1 || user?.id_rol == 2 || user?.rol == 1 || user?.rol == 2;
-  const today = new Date().toISOString().split('T')[0];
+  const localDate = new Date();
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+  const today = localDate.toISOString().split('T')[0];
 
   // Filtros
   const [filtros, setFiltros] = useState({
@@ -70,7 +72,7 @@ export const ListaViajes = () => {
     setLoading(true);
     try {
       const params = { ...filtros, page: pageNum, limit, id_sucursal: user?.id_sucursal || user?.sucursal };
-      Object.keys(params).forEach(k => { if (!params[k] || params[k] === '0') delete params[k]; });
+      Object.keys(params).forEach(k => { if (params[k] === '' || params[k] === null || params[k] === undefined) delete params[k]; });
       const response = await ViajesService.getTrips(params);
       if (response.success) {
         setTrips(response.data);
@@ -92,7 +94,9 @@ export const ListaViajes = () => {
     setSearchTrigger(t => t + 1);
   };
   const handleLimpiar = () => {
-    const today = new Date().toISOString().split('T')[0];
+    const localDate = new Date();
+    localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+    const today = localDate.toISOString().split('T')[0];
     setFiltros({ fecha_inicio: today, fecha_fin: today, id_bus: '', id_chofer: '', estado_viaje: '2', criterio_busqueda: '' });
     setPage(1);
     setSearchTrigger(t => t + 1);

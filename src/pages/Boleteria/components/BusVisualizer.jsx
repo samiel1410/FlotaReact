@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import './BusVisualizer.css';
 
-const formatearTiempoBloqueo = (lockedAt) => {
+const formatearTiempoBloqueo = (lockedAt, now) => {
   if (!lockedAt) return '';
-  const segundos = Math.floor((Date.now() - lockedAt) / 1000);
+  const segundos = Math.floor((now - lockedAt) / 1000);
   if (segundos < 60) return `${segundos}s`;
   const minutos = Math.floor(segundos / 60);
   const segs = segundos % 60;
@@ -25,9 +25,9 @@ export const BusVisualizer = ({
   seatLockTimeoutMs = 15 * 60 * 1000  // 15 minutos por defecto
 }) => {
   // Timer para actualizar los tiempos de bloqueo cada segundo
-  const [, forceUpdate] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    const interval = setInterval(() => forceUpdate(t => t + 1), 1000);
+    const interval = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(interval);
   }, []);
   const [pisoActivo, setPisoActivo] = useState(0);
@@ -80,8 +80,8 @@ export const BusVisualizer = ({
       const info = asientosPendientes[num];
       const usuario = typeof info === 'string' ? info : info.usuario;
       const lockedAt = typeof info === 'object' ? info.lockedAt : null;
-      const tiempo = lockedAt ? formatearTiempoBloqueo(lockedAt) : '';
-      const restante = lockedAt ? Math.max(0, Math.floor((seatLockTimeoutMs - (Date.now() - lockedAt)) / 1000)) : null;
+      const tiempo = lockedAt ? formatearTiempoBloqueo(lockedAt, now) : '';
+      const restante = lockedAt ? Math.max(0, Math.floor((seatLockTimeoutMs - (now - lockedAt)) / 1000)) : null;
       const restanteTexto = restante !== null ? ` - Restan ${Math.floor(restante / 60)}m ${restante % 60}s` : '';
       return `Asiento ${num} - ${usuario} lo está seleccionando (${tiempo}${restanteTexto})`;
     }
