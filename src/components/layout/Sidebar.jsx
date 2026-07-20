@@ -161,6 +161,14 @@ const MENU = [
     ]
   },
   {
+    id: 'notificaciones',
+    title: 'Notificaciones',
+    icon: 'fas fa-bell',
+    items: [
+      { to: '/notificaciones', icon: 'fas fa-paper-plane', label: 'Notificaciones Push', permission: 'notificaciones.notificaciones' },
+    ]
+  },
+  {
     id: 'reportes',
     title: 'Reportes',
     icon: 'fas fa-chart-bar',

@@ -76,6 +76,7 @@ export const ConfiguracionPage = () => {
             autorizar_boleto_sri: conf.autorizar_boleto_sri === 1 || conf.autorizar_boleto_sri === true,
             enviar_whatsapp: conf.enviar_whatsapp === 1 || conf.enviar_whatsapp === true,
             cobrar_iva_guia: conf.cobrar_iva_guia === 1 || conf.cobrar_iva_guia === true,
+            imprimir_boucher_guia: conf.imprimir_boucher_guia === 1 || conf.imprimir_boucher_guia === true,
           });
           setRucTieneDatos(!!conf.ruc_empresa);
         }
@@ -228,6 +229,7 @@ export const ConfiguracionPage = () => {
         autorizar_boleto_sri: data.autorizar_boleto_sri ? 1 : 0,
         enviar_whatsapp: data.enviar_whatsapp ? 1 : 0,
         cobrar_iva_guia: data.cobrar_iva_guia ? 1 : 0,
+        imprimir_boucher_guia: data.imprimir_boucher_guia ? 1 : 0,
         dir_matriz_empresa: data.dir_matriz_empresa || data.direccion_empresa,
       };
 
@@ -480,6 +482,10 @@ export const ConfiguracionPage = () => {
                   <div className="flex items-center gap-2">
                     <input type="checkbox" {...register('maneja_leyenda_nota_venta')} id="maneja_leyenda_nota_venta" className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500" />
                     <label htmlFor="maneja_leyenda_nota_venta" className="text-sm font-semibold text-slate-700 cursor-pointer">Mostrar en Guías Nota de Venta</label>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
+                    <input type="checkbox" {...register('imprimir_boucher_guia')} id="imprimir_boucher_guia" className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500" />
+                    <label htmlFor="imprimir_boucher_guia" className="text-sm font-bold text-slate-700 cursor-pointer">Imprimir Hojas Extras (Boucher Guía)</label>
                   </div>
                   <div>
                     <label className={labelClass}>Leyenda Boletos</label>

@@ -231,13 +231,14 @@ s.punto_emision_sucursal";
 
   // COMPROBANTES
 
-  $sql_configuracion = "SELECT configuracion.leyendamensaje_configuracion,configuracion.mensajeleyenda_configuracion FROM
+  $sql_configuracion = "SELECT configuracion.leyendamensaje_configuracion,configuracion.mensajeleyenda_configuracion,configuracion.imprimir_boucher_guia FROM
 configuracion";
   $recuperar_configuracion = mysqli_query($conn, $sql_configuracion) or die(mysqli_error($conn));
   $vals_configuracion = mysqli_fetch_array($recuperar_configuracion);
 
   $leyendamensaje_configuracion = $vals_configuracion["leyendamensaje_configuracion"];
   $mensajeleyenda_configuracion = $vals_configuracion["mensajeleyenda_configuracion"];
+  $imprimir_boucher_guia = isset($vals_configuracion["imprimir_boucher_guia"]) ? (int)$vals_configuracion["imprimir_boucher_guia"] : 1;
 
   $validar_leyenda = $mensajeleyenda_configuracion;
   $mensaje = $leyendamensaje_configuracion;
@@ -503,7 +504,8 @@ configuracion";
 
   // ── HOJAS EXTRA: una por cada unidad de cada item ────────────────────
   // El numero de pagina SOLO va en los slips, no en la hoja de factura principal
-  $pagina_actual = 1;
+  if ($imprimir_boucher_guia === 1) {
+    $pagina_actual = 1;
   $total_paginas = $total_copias_extra; // numeracion interna de los slips
   $fecha_slip = date('d/m/Y H:i');
   $sep_doble = str_repeat('=', 38);
@@ -605,6 +607,7 @@ configuracion";
     $pdf->Cell($lw, 5, $pagina_actual . ' / ' . $total_paginas, 0, 1, 'C');
 
     $pagina_actual++;
+  }
   }
 
   $nombre_pdf = 'guiaImpresion_' . $id_guia . '.pdf';

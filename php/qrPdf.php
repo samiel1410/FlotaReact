@@ -1,4 +1,7 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
 require_once('library/tcpdf.php');
 require_once("db.php");
 //include "barcode.php";
@@ -200,7 +203,7 @@ try {
   );
 
   $pdf->write2DBarcode($cadena, 'QRCODE,Q', 10, 50, 150, 150, $style, 'N');
-  $pdf->IncludeJS("print();");
+  // $pdf->IncludeJS("print();"); // Comentado para evitar que se abra la pantalla de impresión
 
   $tempDir = __DIR__ . '/tmp/';
   $fileName = 'qrPdf.pdf';

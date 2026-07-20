@@ -66,6 +66,7 @@ const RankingVentasPage = lazy(() => import('./pages/RankingVentas/RankingVentas
 const CierreCobrosPage = lazy(() => import('./pages/CierreCobros/CierreCobrosPage').then(m => ({ default: m.CierreCobrosPage })));
 const FacturasPage = lazy(() => import('./pages/Facturas/FacturasPage').then(m => ({ default: m.FacturasPage })));
 const CierreViajesPage = lazy(() => import('./pages/ReportesBoleteria/CierreViajesPage').then(m => ({ default: m.CierreViajesPage })));
+const NotificacionesPage = lazy(() => import('./pages/Notificaciones/NotificacionesPage').then(m => ({ default: m.NotificacionesPage })));
 
 // Componente Wrapper para rutas protegidas
 const ProtectedRoute = ({ children }) => {
@@ -173,6 +174,7 @@ function App() {
           <Route path="auditoria" element={<AuditoriaPage />} />
           <Route path="configuracion" element={<ConfiguracionPage />} />
           <Route path="aprobaciones" element={<DynamicPage key="aprobaciones" configKey="aprobaciones" />} />
+          <Route path="notificaciones" element={<NotificacionesPage />} />
 
           <Route path="cobros" element={<CobrosPage />} />
           <Route path="cartera-socio" element={<CarteraSocioPage />} />

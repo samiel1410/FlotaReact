@@ -188,13 +188,14 @@ $id_usuario_guia";
 
   // COMPROBANTES
 
-  $sql_configuracion = "SELECT configuracion.leyenda_nota_venta, configuracion.mostrar_leyenda_nota_venta FROM
+  $sql_configuracion = "SELECT configuracion.leyenda_nota_venta, configuracion.mostrar_leyenda_nota_venta, configuracion.imprimir_boucher_guia FROM
 configuracion";
   $recuperar_configuracion = mysqli_query($conn, $sql_configuracion) or die(mysqli_error($conn));
   $vals_configuracion = mysqli_fetch_array($recuperar_configuracion);
 
   $leyenda_nota_venta = $vals_configuracion["leyenda_nota_venta"];
   $mostrar_leyenda_nota_venta = $vals_configuracion["mostrar_leyenda_nota_venta"];
+  $imprimir_boucher_guia = isset($vals_configuracion["imprimir_boucher_guia"]) ? (int)$vals_configuracion["imprimir_boucher_guia"] : 1;
 
   $validar_leyenda = $mostrar_leyenda_nota_venta;
   $mensaje = $leyenda_nota_venta;
@@ -476,7 +477,8 @@ configuracion";
 
   // ── HOJAS EXTRA: una por cada unidad de cada item
   // El numero de pagina SOLO va en los slips, no en la hoja de factura principal
-  $pagina_actual = 1;
+  if ($imprimir_boucher_guia === 1) {
+    $pagina_actual = 1;
   $total_paginas = $total_copias_extra; // numeracion interna de los slips
   $fecha_slip = date('d/m/Y H:i');
   $sep_doble = str_repeat('=', 38);
@@ -577,6 +579,7 @@ configuracion";
     $pdf->Cell($lw, 5, $pagina_actual . ' / ' . $total_paginas, 0, 1, 'C');
 
     $pagina_actual++;
+  }
   }
 
   $nombre_pdf = 'guiaNotaVentaImpresion_' . $id_guia . '.pdf';
