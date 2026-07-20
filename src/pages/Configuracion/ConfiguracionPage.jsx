@@ -391,6 +391,12 @@ export const ConfiguracionPage = () => {
               }`}>
               <i className="fab fa-whatsapp text-lg"></i> WhatsApp
             </button>
+            <button onClick={() => setActiveTab('impresiones')}
+              className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-bold text-sm transition-colors ${
+                activeTab === 'impresiones' ? 'border-purple-500 text-purple-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}>
+              <i className="fas fa-print text-lg"></i> Impresiones
+            </button>
           </nav>
         </div>
 
@@ -482,10 +488,6 @@ export const ConfiguracionPage = () => {
                   <div className="flex items-center gap-2">
                     <input type="checkbox" {...register('maneja_leyenda_nota_venta')} id="maneja_leyenda_nota_venta" className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500" />
                     <label htmlFor="maneja_leyenda_nota_venta" className="text-sm font-semibold text-slate-700 cursor-pointer">Mostrar en Guías Nota de Venta</label>
-                  </div>
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-100">
-                    <input type="checkbox" {...register('imprimir_boucher_guia')} id="imprimir_boucher_guia" className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500" />
-                    <label htmlFor="imprimir_boucher_guia" className="text-sm font-bold text-slate-700 cursor-pointer">Imprimir Hojas Extras (Boucher Guía)</label>
                   </div>
                   <div>
                     <label className={labelClass}>Leyenda Boletos</label>
@@ -726,6 +728,39 @@ export const ConfiguracionPage = () => {
                         <p className="text-sm font-semibold text-slate-700">Cobrar IVA en Guías</p>
                         <p className="text-xs text-slate-400">Cuando está desactivado, el IVA se fuerza a 0 en todas las guías</p>
                       </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ════ TAB IMPRESIONES ════ */}
+            {activeTab === 'impresiones' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-6">
+                  <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
+                    <i className="fas fa-print text-purple-500 mr-2"></i>Configuración de Impresiones
+                  </h2>
+
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-start gap-4">
+                        <div className={`p-3 rounded-full ${configData?.imprimir_boucher_guia === false ? 'bg-slate-100 text-slate-500' : 'bg-purple-50 text-purple-500'}`}>
+                          <i className="fas fa-copy text-2xl"></i>
+                        </div>
+                        <div>
+                          <h3 className="text-base font-bold text-slate-800 mb-1">
+                            Imprimir Hojas Extras (Boucher Guía)
+                          </h3>
+                          <p className="text-sm text-slate-500 max-w-sm leading-relaxed">
+                            Activa o desactiva la impresión de hojas extra por cada bulto al imprimir guías y notas de venta.
+                          </p>
+                        </div>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer ml-4">
+                        <input type="checkbox" {...register('imprimir_boucher_guia')} className="sr-only peer" />
+                        <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-500"></div>
+                      </label>
                     </div>
                   </div>
                 </div>
