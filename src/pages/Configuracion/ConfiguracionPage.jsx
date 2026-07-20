@@ -415,7 +415,7 @@ export const ConfiguracionPage = () => {
                     <select {...register('formapago')} className={inputClass}>
                       <option value="">Seleccionar...</option>
                       {formasPago.map(fp => (
-                        <option key={fp.id_forma_pago} value={fp.id_forma_pago}>{fp.nombre_formapago}</option>
+                        <option key={fp.id_forma_pago} value={fp.id_forma_pago}>{fp.nombre_forma_pago}</option>
                       ))}
                     </select>
                   </div>
