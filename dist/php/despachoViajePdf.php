@@ -31,15 +31,15 @@ try {
         b.placa_buses,
         b.id_buses,
         u.nombre_usuario as nombre_oficinista,
-        u.id_fksucursal_usuario as id_sucursal_despacho,
+        dv.id_fksucursal_despacho_viaje as id_sucursal_despacho,
         s.nombre_sucursal,
         s.porcentaje_retencion,
         dv.id_despacho_viaje,
         dv.tarifa_despacho_viaje,
         dv.fecha_salida_despacho_viaje,
         dv.hora_salida_despacho_viaje,
-        IFNULL(SUM(CASE WHEN bo.id_fksucursal_boleto = u.id_fksucursal_usuario AND bo.estado_boleto != 3 THEN bd.total_boleto_detalle ELSE 0 END), 0) AS total_boletos,
-        COUNT(CASE WHEN bo.id_fksucursal_boleto = u.id_fksucursal_usuario AND bo.estado_boleto != 3 THEN bd.id_boleto_detalle END) AS cantidad_boletos
+        IFNULL(SUM(CASE WHEN bo.id_fksucursal_boleto = dv.id_fksucursal_despacho_viaje AND bo.estado_boleto != 3 THEN bd.total_boleto_detalle ELSE 0 END), 0) AS total_boletos,
+        COUNT(CASE WHEN bo.id_fksucursal_boleto = dv.id_fksucursal_despacho_viaje AND bo.estado_boleto != 3 THEN bd.id_boleto_detalle END) AS cantidad_boletos
       FROM 
         viajes v
         LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
@@ -47,13 +47,13 @@ try {
         LEFT JOIN buses b ON v.id_fkbus_viajes = b.id_buses
         LEFT JOIN despacho_viaje dv ON v.id_viajes = dv.id_fkviaje_despacho_viaje
         LEFT JOIN usuario u ON dv.id_fkusuario_aprueba = u.id_usuario
-        LEFT JOIN sucursal2 s ON u.id_fksucursal_usuario = s.id_sucursal
+        LEFT JOIN sucursal2 s ON dv.id_fksucursal_despacho_viaje = s.id_sucursal
         LEFT JOIN boletos bo ON v.id_viajes = bo.id_fkviaje_boleto
         LEFT JOIN boleto_detalle bd ON bo.id_boleto = bd.id_fkboleto_boleto_detalle
       WHERE v.id_viajes = ?
       GROUP BY v.id_viajes, v.fecha_cierre, v.hora_origen_salida, r.nombre_rutas, r.id_rutas,
                chofer.per_nombres_persona, chofer.per_apellidos_personal, chofer.per_cedula_personal,
-               b.disco_buses, b.placa_buses, b.id_buses, u.nombre_usuario, u.id_fksucursal_usuario,
+               b.disco_buses, b.placa_buses, b.id_buses, u.nombre_usuario, dv.id_fksucursal_despacho_viaje,
                s.nombre_sucursal, s.porcentaje_retencion,
                dv.id_despacho_viaje, dv.tarifa_despacho_viaje, dv.fecha_salida_despacho_viaje, dv.hora_salida_despacho_viaje";
 
