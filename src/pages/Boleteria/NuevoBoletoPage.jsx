@@ -848,8 +848,18 @@ export const NuevoBoletoPage = () => {
     if (!subrutaSeleccionada) errores.push('• Seleccionar un destino/tarifa');
     if (!formData.identificacion) errores.push('• Ingresar identificación del pasajero');
     if (!formData.nombres) errores.push('• Ingresar nombre del pasajero');
-    if (!formData.celular) errores.push('• Ingresar celular del pasajero');
-    if (!formData.correo) errores.push('• Ingresar correo electrónico del pasajero');
+    if (!formData.celular) {
+      errores.push('• Ingresar celular del pasajero');
+    } else if (!/^[0-9]{9,15}$/.test(formData.celular)) {
+      errores.push('• El celular debe contener entre 9 y 15 dígitos numéricos');
+    }
+
+    if (!formData.correo) {
+      errores.push('• Ingresar correo electrónico del pasajero');
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.correo)) {
+      errores.push('• Ingresar un correo electrónico válido (ej: usuario@correo.com)');
+    }
+
     if (formData.asientosSeleccionados.length === 0) errores.push('• Seleccionar al menos un asiento');
     if (formData.pasajeros.some(p => !p.cedula || !p.nombres)) errores.push('• Completar cédula y nombres de todos los pasajeros en la lista');
 
