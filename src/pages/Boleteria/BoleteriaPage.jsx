@@ -179,15 +179,28 @@ export const BoleteriaPage = () => {
       const xmlData = await xmlRes.json();
       console.log('[SRI Reenviar] Respuesta XML PHP:', xmlData);
 
-      if (!xmlData.success) {
+      if (!xmlData.success || !xmlData.xml) {
         console.warn('[SRI Reenviar] Falló generación de XML:', xmlData);
         toast.error(xmlData.message || 'Error al generar el XML del comprobante');
         return;
       }
 
+      // Obtener RUC de la empresa si el script PHP no lo incluyó en la respuesta
+      let rucEmpresa = xmlData.ruc || '';
+      if (!rucEmpresa) {
+        try {
+          const confRes = await api.get('/configuracion/configuracionSeleccion');
+          if (confRes.data?.data?.[0]?.ruc_empresa) {
+            rucEmpresa = confRes.data.data[0].ruc_empresa;
+          }
+        } catch (e) {
+          console.warn('[SRI Reenviar] No se pudo obtener el RUC de la empresa:', e);
+        }
+      }
+
       // 3. Firmar y transmitir al SRI directamente al servicio de firma (CONFIG.API_FIRMA)
       const firmaUrl = CONFIG.API_FIRMA;
-      console.log('[SRI Reenviar] Paso 3: Enviando sa servicio de firma:', `${firmaUrl}/firmar-enviar`);
+      console.log('[SRI Reenviar] Paso 3: Enviando a servicio de firma:', `${firmaUrl}/firmar-enviar`, { ruc: rucEmpresa, tieneXml: !!xmlData.xml, tieneClave: !!xmlData.p12_password });
       toast('Firmando y enviando al SRI...', { icon: '✍️' });
 
       if (!firmaUrl) {
@@ -199,7 +212,7 @@ export const BoleteriaPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           xml: xmlData.xml,
-          ruc: xmlData.ruc || '',
+          ruc: rucEmpresa,
           clave: xmlData.p12_password || ''
         })
       });
