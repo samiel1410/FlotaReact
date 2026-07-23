@@ -62,10 +62,11 @@ export const PlanificacionViajesPage = () => {
     if (editCache[`${row.id_ruta}_${row.hora}_${diaKey}`] !== undefined) {
       return editCache[`${row.id_ruta}_${row.hora}_${diaKey}`];
     }
-    // Buscar en los datos si existe viaje para este día
+    // Usar el campo específico de bus por día (bus_lunes, bus_martes, etc.)
     const tieneKey = `tiene_${diaKey}`;
+    const busKey = `bus_${diaKey}`;
     if (row[tieneKey] == 1) {
-      return row.numero_bus || '✓';
+      return row[busKey] || '✓';
     }
     return '';
   };
@@ -192,10 +193,10 @@ export const PlanificacionViajesPage = () => {
                         const celKey = `${row.id_ruta}_${row.hora}_${dia}`;
                         return (
                           <td key={dia} className="px-2 py-1.5 text-center">
-                            <input type="text" value={editCache[celKey] !== undefined ? editCache[celKey] : (row[`tiene_${dia}`] == 1 ? (row.numero_bus || '✓') : '')}
+                             <input type="text" value={editCache[celKey] !== undefined ? editCache[celKey] : (row[`tiene_${dia}`] == 1 ? (row[`bus_${dia}`] || '✓') : '')}
                               onChange={e => handleChange(row, dia, e.target.value)}
                               placeholder={row[`tiene_${dia}`] == 1 ? '' : '—'}
-                              className={`${inputCls} ${isEdited ? 'bg-emerald-50 border-emerald-300 font-black text-emerald-700' : ''}`} />
+                              className={`${inputCls} ${isEdited ? 'bg-emerald-50 border-emerald-300 font-black text-emerald-700' : '' } ${row[`tiene_${dia}`] == 1 && !isEdited ? 'bg-emerald-50 text-emerald-700' : ''}`} />
                           </td>
                         );
                       })}
