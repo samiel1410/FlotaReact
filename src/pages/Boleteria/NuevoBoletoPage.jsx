@@ -188,7 +188,8 @@ export const NuevoBoletoPage = () => {
     validar();
   }, []);
 
-  // Cargar destinos al montar + viajes de hoy (como ExtJS ViajesBoleto store)
+
+
   useEffect(() => {
     if (!cajaResolved) return;
     const fetchInit = async () => {
@@ -1996,6 +1997,8 @@ export const NuevoBoletoPage = () => {
         title="Boleto - Vista previa"
         showPrintButton
       />
+
+
 
     </div>
   );
