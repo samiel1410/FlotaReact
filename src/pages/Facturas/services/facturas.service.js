@@ -95,7 +95,7 @@ export const FacturasService = {
       body: JSON.stringify({
         xml: dataPhp.xml,
         ruc: dataPhp.ruc,
-        clave: dataPhp.clave_acceso || dataPhp.p12_password || ''
+        clave: dataPhp.p12_password || ''
       })
     });
 
