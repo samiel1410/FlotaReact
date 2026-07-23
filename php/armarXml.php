@@ -134,7 +134,9 @@ class meotodoXml
             $infoTributaria->addChild('ambiente',        $ambiente);  // 1=Pruebas 2=Producción
             $infoTributaria->addChild('tipoEmision',     '1');
             $infoTributaria->addChild('razonSocial',     $razonEmpresa);
-            $infoTributaria->addChild('nombreComercial', $nombre_comercial_empresa);
+            if (!empty($nombre_comercial_empresa) && trim($nombre_comercial_empresa) !== '') {
+                $infoTributaria->addChild('nombreComercial', $nombre_comercial_empresa);
+            }
             $infoTributaria->addChild('ruc',             $rucEmpresa);
             $infoTributaria->addChild('claveAcceso',     $claveAcceso);
             $infoTributaria->addChild('codDoc',          '01');       // 01 = Factura
