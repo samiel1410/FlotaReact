@@ -230,7 +230,10 @@ export const BoleteriaPage = () => {
       let estadoSri = (firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO')).toUpperCase();
       let mensajeSri = firmaData.message || firmaData.mensaje || '';
 
-      if (/ERROR SECUENCIAL REGISTRADO|identificador.*45/i.test(msgsText)) {
+      if (/Invalid password|PKCS#12 MAC could not be verified|serial\/tipo del certificado/i.test(msgsText)) {
+        estadoSri = 'RECHAZADO';
+        mensajeSri = 'La contraseña de la firma (.p12) no es correcta. Por favor configure bien la clave de la firma en la empresa.';
+      } else if (/ERROR SECUENCIAL REGISTRADO|identificador.*45/i.test(msgsText)) {
         estadoSri = 'AUTORIZADO';
         mensajeSri = 'Comprobante autorizado por el SRI (Secuencial ya registrado previamente)';
       } else if (estadoSri === 'DEVUELTA') {

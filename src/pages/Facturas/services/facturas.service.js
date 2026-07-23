@@ -136,7 +136,10 @@ export const FacturasService = {
       }
     } else {
       const msgsText = JSON.stringify(resultFirma);
-      if (/ERROR SECUENCIAL REGISTRADO/i.test(msgsText)) {
+      if (/Invalid password|PKCS#12 MAC could not be verified|serial\/tipo del certificado/i.test(msgsText)) {
+        estadoSRI = 'RECHAZADO';
+        mensajeRes = 'La contraseña de la firma (.p12) no es correcta. Por favor configure bien la clave de la firma en la empresa.';
+      } else if (/ERROR SECUENCIAL REGISTRADO/i.test(msgsText)) {
         estadoSRI = 'AUTORIZADO';
         mensajeRes = 'Comprobante autorizado por el SRI (Secuencial ya registrado previamente)';
       } else if (resultFirma.autorizacion) {
