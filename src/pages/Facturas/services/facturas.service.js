@@ -76,9 +76,21 @@ export const FacturasService = {
     return response.data;
   },
 
+  prepararFacturaSRI: async (id_factura) => {
+    try {
+      const response = await api.post('/factura/prepararFactura', { id_factura });
+      return response.data;
+    } catch {
+      return { success: false };
+    }
+  },
+
   reenviarSri: async (id_factura) => {
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
     const { CONFIG } = await import('../../../config/env');
+
+    // 0. Preparar la factura (actualizar fecha y generar clave de acceso de 49 dígitos si aplica)
+    await FacturasService.prepararFacturaSRI(id_factura);
 
     // 1. Obtener XML de la factura
     const resPhp = await fetch(`${baseUrl}/php/negocioXmlFacturaData.php?id_factura=${id_factura}`);
