@@ -14,19 +14,29 @@ if (session_status() === PHP_SESSION_NONE) {
 // Clave para desencriptar datos que vienen del AuthService
 define('DB_ENCRYPTION_KEY', 'flota_secret_key_32_characters_!');
 
-/**
- * Desencripta datos sensibles que vienen del AuthService (Node.js)
- */
 function decrypt_db_data($data) {
-    if (!$data || strpos($data, ':') === false) return $data;
+    if (!$data) return $data;
     
     try {
-        list($iv_hex, $encrypted_hex) = explode(':', $data);
-        $iv = hex2bin($iv_hex);
-        $encrypted = hex2bin($encrypted_hex);
-        
-        $decrypted = openssl_decrypt($encrypted, 'aes-256-cbc', DB_ENCRYPTION_KEY, OPENSSL_RAW_DATA, $iv);
-        return $decrypted !== false ? $decrypted : $data;
+        // Formato 1: iv_hex:encrypted_hex
+        if (strpos($data, ':') !== false) {
+            list($iv_hex, $encrypted_hex) = explode(':', $data);
+            $iv = hex2bin($iv_hex);
+            $encrypted = hex2bin($encrypted_hex);
+            $decrypted = openssl_decrypt($encrypted, 'aes-256-cbc', DB_ENCRYPTION_KEY, OPENSSL_RAW_DATA, $iv);
+            return $decrypted !== false ? $decrypted : $data;
+        }
+
+        // Formato 2: Base64 directo de (16 bytes IV + ciphertext)
+        $decoded = base64_decode($data, true);
+        if ($decoded !== false && strlen($decoded) > 16) {
+            $iv = substr($decoded, 0, 16);
+            $encrypted = substr($decoded, 16);
+            $decrypted = openssl_decrypt($encrypted, 'aes-256-cbc', DB_ENCRYPTION_KEY, OPENSSL_RAW_DATA, $iv);
+            return ($decrypted !== false && $decrypted !== '') ? trim($decrypted) : $data;
+        }
+
+        return $data;
     } catch (Exception $e) {
         return $data;
     }
