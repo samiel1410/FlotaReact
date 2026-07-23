@@ -1,5 +1,5 @@
 <?php
-require_once("../php/armarXmlBoleto.php");
+require_once __DIR__ . "/armarXmlBoleto.php";
 $ver = new metodoXmlBoleto();
 $id_boleto = $_GET['id_boleto'];
 $var = $ver->armarXmlBoleto($id_boleto);

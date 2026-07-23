@@ -1,5 +1,5 @@
 <?php
-require_once("../php/armarXml.php");
+require_once __DIR__ . "/armarXml.php";
 $ver = new meotodoXml();
 $id_factura = $_GET['id_factura'];
 $var = $ver->armarXml($id_factura);
