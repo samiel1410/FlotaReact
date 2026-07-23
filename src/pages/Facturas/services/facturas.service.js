@@ -149,7 +149,13 @@ export const FacturasService = {
     }
 
     const esAutorizado = estadoSRI === 'AUTORIZADO';
-    await FacturasService.autorizarFactura(id_factura, estadoSRI, mensajeRes);
+    console.log(`[FacturasService reenviarSri] ➡️ Registrando estado final id_factura=${id_factura}:`, { estadoSRI, mensajeRes });
+    try {
+      const resReg = await FacturasService.autorizarFactura(id_factura, estadoSRI, mensajeRes);
+      console.log(`[FacturasService reenviarSri] ✅ Respuesta registrarAutorizacion:`, resReg);
+    } catch (eReg) {
+      console.warn(`[FacturasService reenviarSri] ⚠️ registrarAutorizacion no disponible o falló:`, eReg.message);
+    }
     return { success: esAutorizado || Boolean(resultFirma.success), estado: estadoSRI, mensaje: mensajeRes, resultFirma };
   }
 };
