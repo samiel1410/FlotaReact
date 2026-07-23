@@ -67,8 +67,62 @@ export const FacturasService = {
     return response.data;
   },
 
+  autorizarFactura: async (id_factura, estado, mensaje) => {
+    const response = await api.post('/factura/registrarAutorizacion', {
+      id_factura,
+      estado,
+      mensaje
+    });
+    return response.data;
+  },
+
   reenviarSri: async (id_factura) => {
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    window.open(`${baseUrl}/php/negocioXmlFacturaData.php?id_factura=${id_factura}`, '_blank');
+    const { CONFIG } = await import('../../../config/env');
+
+    // 1. Obtener XML de la factura
+    const resPhp = await fetch(`${baseUrl}/php/negocioXmlFacturaData.php?id_factura=${id_factura}`);
+    const dataPhp = await resPhp.json();
+
+    if (!dataPhp.success || !dataPhp.xml) {
+      throw new Error('No se pudo generar el XML de la factura');
+    }
+
+    // 2. Enviar a la API de firma y SRI
+    const responseFirma = await fetch(`${CONFIG.API_FIRMA}/firmar-enviar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        xml: dataPhp.xml,
+        ruc: dataPhp.ruc,
+        clave: dataPhp.clave_acceso || dataPhp.p12_password || ''
+      })
+    });
+
+    const resultFirma = await responseFirma.json();
+
+    // 3. Determinar estado y registrar en la BD
+    let estadoSRI = 'RECHAZADO';
+    let mensajeRes = resultFirma.message || 'Error en proceso SRI';
+
+    if (resultFirma.success) {
+      if (resultFirma.estado === 'RECIBIDA') {
+        estadoSRI = 'RECIBIDA';
+        mensajeRes = resultFirma.message || 'Comprobante recibido, pendiente de autorización';
+      } else if (resultFirma.estado === 'DEVUELTA') {
+        estadoSRI = 'DEVUELTA';
+        const msgs = resultFirma.infoRecepcion?.mensajes || resultFirma.detalles?.mensajes;
+        mensajeRes = Array.isArray(msgs) ? msgs.join(' | ') : (resultFirma.message || 'DEVUELTA por el SRI');
+      } else {
+        estadoSRI = 'AUTORIZADO';
+        mensajeRes = 'Comprobante autorizado por el SRI';
+      }
+    } else if (resultFirma.autorizacion) {
+      estadoSRI = resultFirma.autorizacion.estado || 'RECHAZADO';
+      mensajeRes = resultFirma.autorizacion.mensaje || resultFirma.autorizacion.infoAdicional || resultFirma.message;
+    }
+
+    await FacturasService.autorizarFactura(id_factura, estadoSRI, mensajeRes);
+    return { success: resultFirma.success, estado: estadoSRI, mensaje: mensajeRes, resultFirma };
   }
 };

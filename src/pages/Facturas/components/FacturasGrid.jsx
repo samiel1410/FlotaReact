@@ -18,6 +18,7 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
   const [anularModal, setAnularModal] = useState({ open: false, type: null, row: null, count: 0 });
   const [motivo, setMotivo] = useState('');
   const [anulando, setAnulando] = useState(false);
+  const [reenviandoId, setReenviandoId] = useState(null);
 
   const totalPages = Math.ceil(total / limit) || 1;
 
@@ -85,7 +86,25 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
         setAnularModal({ open: true, type: 'single', row, count: 0 });
         break;
       case 'reenviar_sri':
-        FacturasService.reenviarSri(row.id_factura);
+        (async () => {
+          setReenviandoId(row.id_factura);
+          const tId = toast.loading('Procesando firma y envío al SRI...');
+          try {
+            const res = await FacturasService.reenviarSri(row.id_factura);
+            if (res.success && res.estado === 'AUTORIZADO') {
+              toast.success('Factura autorizada exitosamente por el SRI', { id: tId });
+            } else if (res.estado === 'RECIBIDA') {
+              toast('Factura recibida por el SRI (Pendiente de Autorización)', { id: tId, icon: 'ℹ️' });
+            } else {
+              toast.error(`Respuesta SRI (${res.estado}): ${res.mensaje}`, { id: tId, duration: 6000 });
+            }
+            onReload?.();
+          } catch (err) {
+            toast.error(`Error reenviando al SRI: ${err.message}`, { id: tId });
+          } finally {
+            setReenviandoId(null);
+          }
+        })();
         break;
     }
   };
@@ -272,7 +291,11 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
                       </div>
                     </td>
                     <td className={tdClass} title={row.mensaje_sri || ''}>
-                      {estadoAutorizacion === 'AUTORIZADO' ? (
+                      {reenviandoId === row.id_factura ? (
+                        <div className="text-blue-600 font-bold text-[11px] flex items-center justify-center gap-1">
+                          <i className="fas fa-spinner fa-spin text-blue-500"></i> PROCESANDO...
+                        </div>
+                      ) : estadoAutorizacion === 'AUTORIZADO' ? (
                         <span className="text-emerald-600 font-bold text-[11px]"><i className="fas fa-check-circle mr-1"></i> AUTORIZADO</span>
                       ) : estadoAutorizacion === 'RECIBIDA' ? (
                         <span className="text-amber-500 font-bold text-[11px]"><i className="fas fa-clock mr-1"></i> RECIBIDA</span>
