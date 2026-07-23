@@ -156,22 +156,31 @@ export const BoleteriaPage = () => {
 
   const handleReenviarSri = async (item) => {
     if (!item?.id_boleto) return;
+    console.log('[SRI Reenviar] === INICIO REENVÍO SRI ===', item);
     try {
       toast('Iniciando proceso de autorización SRI...', { icon: 'ℹ️' });
 
       // 1. Preparar boleto (clave de acceso)
+      console.log('[SRI Reenviar] Paso 1: Llamando a prepararBoletoSRI con id_boleto:', item.id_boleto);
       const prepRes = await BoleteriaService.prepararBoletoSRI(item.id_boleto);
+      console.log('[SRI Reenviar] Respuesta prepararBoletoSRI:', prepRes);
+
       if (!prepRes?.success && !prepRes?.clave_acceso) {
+        console.warn('[SRI Reenviar] Falló prepararBoletoSRI');
         toast.error(prepRes?.message || 'Error al preparar la clave de acceso SRI');
         return;
       }
 
       // 2. Generar XML (vía PHP negocioXmlBoleto.php)
       const phpUrl = CONFIG.PHP_URL;
-      const xmlRes = await fetch(`${phpUrl}/negocioXmlBoleto.php?id_boleto=${item.id_boleto}`);
+      const xmlUrl = `${phpUrl}/negocioXmlBoleto.php?id_boleto=${item.id_boleto}`;
+      console.log('[SRI Reenviar] Paso 2: Solicitando XML a:', xmlUrl);
+      const xmlRes = await fetch(xmlUrl);
       const xmlData = await xmlRes.json();
+      console.log('[SRI Reenviar] Respuesta XML PHP:', xmlData);
 
       if (!xmlData.success) {
+        console.warn('[SRI Reenviar] Falló generación de XML:', xmlData);
         toast.error(xmlData.message || 'Error al generar el XML del comprobante');
         return;
       }
@@ -183,18 +192,20 @@ export const BoleteriaPage = () => {
       let successFirma = false;
 
       try {
-        // Intentar firmar vía endpoint proxy de Backend o directo
+        console.log('[SRI Reenviar] Paso 3: Intentando firmar vía api.post /firma/firmar-enviar');
         const firmaRes = await api.post('/firma/firmar-enviar', {
           xml: xmlData.xml,
           ruc: xmlData.ruc || '',
           clave: xmlData.p12_password || ''
         });
+        console.log('[SRI Reenviar] Respuesta backend firmaRes:', firmaRes.data);
         estadoSri = (firmaRes.data?.estado || 'AUTORIZADO').toUpperCase();
         mensajeSri = firmaRes.data?.message || firmaRes.data?.mensaje || 'Procesado correctamente';
         successFirma = firmaRes.data?.success !== false;
       } catch (errFirma) {
-        // Si falla el proxy backend, probar directo con CONFIG.API_FIRMA
+        console.warn('[SRI Reenviar] Error en api.post /firma/firmar-enviar:', errFirma);
         const firmaUrl = CONFIG.API_FIRMA;
+        console.log('[SRI Reenviar] Intentando directo con CONFIG.API_FIRMA:', firmaUrl);
         if (firmaUrl) {
           const directRes = await fetch(`${firmaUrl}/firmar-enviar`, {
             method: 'POST',
@@ -206,6 +217,7 @@ export const BoleteriaPage = () => {
             })
           });
           const firmaData = await directRes.json();
+          console.log('[SRI Reenviar] Respuesta directa firmaData:', firmaData);
           estadoSri = (firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO')).toUpperCase();
           mensajeSri = firmaData.message || firmaData.mensaje || '';
           successFirma = firmaData.success;
@@ -215,7 +227,9 @@ export const BoleteriaPage = () => {
       }
 
       // 4. Registrar estado de autorización
-      await BoleteriaService.autorizarBoleto(item.id_boleto, estadoSri, mensajeSri);
+      console.log('[SRI Reenviar] Paso 4: Registrando autorización en backend:', { id_boleto: item.id_boleto, estadoSri, mensajeSri });
+      const regRes = await BoleteriaService.autorizarBoleto(item.id_boleto, estadoSri, mensajeSri);
+      console.log('[SRI Reenviar] Respuesta autorizarBoleto:', regRes);
 
       if (successFirma || estadoSri === 'AUTORIZADO' || estadoSri === 'AUTORIZADA' || estadoSri === 'RECIBIDA') {
         toast.success(`Boleto ${estadoSri.toLowerCase()} exitosamente por el SRI`);
@@ -225,7 +239,7 @@ export const BoleteriaPage = () => {
         loadBoletos(filtros, page);
       }
     } catch (error) {
-      console.error('Error al reenviar SRI:', error);
+      console.error('[SRI Reenviar] ERROR CATCH GENERAL:', error);
       toast.error('Error al conectar con el servidor o servicio de firma SRI');
     }
   };
