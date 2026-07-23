@@ -88,16 +88,15 @@ export const FacturasService = {
       throw new Error('No se pudo generar el XML de la factura');
     }
 
+    // Obtener información y RUC de la empresa desde configuración (igual que en Boletería)
     let rucEmpresa = dataPhp.ruc || '';
-    if (!rucEmpresa) {
-      try {
-        const confRes = await api.get('/configuracion/configuracionSeleccion');
-        if (confRes.data?.data?.[0]?.ruc_empresa) {
-          rucEmpresa = confRes.data.data[0].ruc_empresa;
-        }
-      } catch (e) {
-        console.warn('[Factura Reenviar] No se pudo obtener el RUC:', e);
+    try {
+      const confRes = await api.get('/configuracion/configuracionSeleccion');
+      if (confRes.data?.data?.[0]?.ruc_empresa) {
+        rucEmpresa = confRes.data.data[0].ruc_empresa;
       }
+    } catch (e) {
+      console.warn('[Factura Reenviar] No se pudo obtener la configuración:', e);
     }
 
     // 2. Enviar a la API de firma y SRI
@@ -146,7 +145,8 @@ export const FacturasService = {
       }
     }
 
+    const esAutorizado = estadoSRI === 'AUTORIZADO';
     await FacturasService.autorizarFactura(id_factura, estadoSRI, mensajeRes);
-    return { success: resultFirma.success, estado: estadoSRI, mensaje: mensajeRes, resultFirma };
+    return { success: esAutorizado || Boolean(resultFirma.success), estado: estadoSRI, mensaje: mensajeRes, resultFirma };
   }
 };
