@@ -1,1 +1,0 @@
-import"./rolldown-runtime-aKtaBQYM.js";import{g as e,t}from"./vendor-react-u0C46EVf.js";import{t as n}from"./index-DFwm4IkU.js";e();var r=t(),i=()=>(0,r.jsx)(n,{configKey:`despacho-viaje`});export{i as DespachoViajePage};

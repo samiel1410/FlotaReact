@@ -195,64 +195,35 @@ export const GuiasNotaVentaPage = () => {
         return;
       }
 
-      const idUsuario = user?.id_usuario || 0;
-      const rol = Number(userRole);
+      const idUsuario = user?.id_usuario || user?.id || user?.id_user || 0;
+      const rol = Number(userRole || user?.id_rol || user?.rol || 1);
 
-      if (codeState === 1) {
-        // Guía activa (estado 1) - Proceder con anulación (sin verificar factura en Nota de Venta)
-        if (rol === 1 || rol === 4 || rol === 5) {
-          const { value: motivo } = await Swal.fire({ 
-            title: 'Motivo de anulación', 
-            input: 'text', 
-            inputLabel: 'Motivo de anulación para la guía ' + (item.numero_guia_final || item.id_guia) + ':', 
-            showCancelButton: true, 
-            confirmButtonText: 'Anular', 
-            cancelButtonText: 'Cancelar', 
-            inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } 
-          });
-          if (!motivo) return;
+      if (codeState === 1 || codeState === 3) {
+        const { value: motivo } = await Swal.fire({ 
+          title: 'Motivo de anulación', 
+          input: 'text', 
+          inputLabel: `Motivo de anulación para la guía ${codeState === 3 ? 'pendiente ' : ''}` + (item.numero_guia_final || item.id_guia) + ':', 
+          showCancelButton: true, 
+          confirmButtonText: 'Anular', 
+          cancelButtonText: 'Cancelar', 
+          inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } 
+        });
+        if (!motivo) return;
 
-          let r;
-          if (rol === 1) {
-            r = await GuiaService.anularAdministrador(item.id_guia, idUsuario, motivo);
-          } else {
-            r = await GuiaService.anularGuia(item.id_guia, idUsuario, motivo);
-          }
-
-          if (r && r.success) {
-            toast.success('Guía anulada correctamente');
-            loadGuias(filtros, page);
-          } else {
-            toast.error(r?.message || 'No se pudo anular la guía');
-          }
+        let r;
+        if (codeState === 3 || rol === 1 || rol === 5) {
+          r = await GuiaService.anularAdministrador(item.id_guia, idUsuario, motivo);
         } else {
-          toast.error('No tiene permisos (rol) para anular esta guía');
+          r = await GuiaService.anularGuia(item.id_guia, idUsuario, motivo);
         }
 
-      } else if (codeState === 3) {
-        // Guía pendiente a anular (estado 3)
-        if (rol === 1 || rol === 5) {
-          const { value: motivo } = await Swal.fire({ 
-            title: 'Motivo de anulación', 
-            input: 'text', 
-            inputLabel: 'Motivo de anulación para la guía pendiente ' + (item.numero_guia_final || item.id_guia) + ':', 
-            showCancelButton: true, 
-            confirmButtonText: 'Anular', 
-            cancelButtonText: 'Cancelar', 
-            inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } 
-          });
-          if (!motivo) return;
-
-          const r = await GuiaService.anularAdministrador(item.id_guia, idUsuario, motivo);
-          if (r && r.success) {
-            toast.success('Guía pendiente anulada correctamente');
-            loadGuias(filtros, page);
-          } else {
-            toast.error(r?.message || 'No se pudo anular la guía pendiente');
-          }
+        if (r && r.success) {
+          toast.success(codeState === 3 ? 'Guía pendiente anulada correctamente' : 'Guía anulada correctamente');
+          loadGuias(filtros, page);
         } else {
-          toast.error('La guía está pendiente a anular. Requiere permisos de administrador.');
+          toast.error(r?.message || 'No se pudo anular la guía');
         }
+
       } else {
         toast.error(verif?.message || 'No se puede anular la guía');
       }
