@@ -14,7 +14,7 @@ export const BoleteriaPage = () => {
   const [boletos, setBoletos] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  
+
   // Estado de filtros y paginación
   const [filtros, setFiltros] = useState({});
   const [page, setPage] = useState(1);
@@ -49,9 +49,9 @@ export const BoleteriaPage = () => {
         limit,
         page: currentPage
       };
-      
+
       const response = await BoleteriaService.getBoletos(params);
-      
+
       setBoletos(response.data || []);
       setTotal(response.total || 0);
     } catch (error) {
@@ -103,7 +103,7 @@ export const BoleteriaPage = () => {
       const urlGenerador = window.location.origin + `/php/boletoFactura.php?id_boleto=${id_boleto}`;
       const response = await fetch(urlGenerador);
       const data = await response.json();
-      
+
       if (data.success && data.ruta) {
         toast.dismiss(loadingToast);
         setPdfUrl(`/php/tmp/${data.ruta}?t=${Date.now()}`); // Prevenir caché
@@ -111,7 +111,7 @@ export const BoleteriaPage = () => {
       } else {
         toast.error(data.error || "Error al generar el PDF del boleto", { id: loadingToast });
       }
-    } catch(e) {
+    } catch (e) {
       console.error("Error abriendo visor PDF:", e);
       toast.error("Ocurrió un error al cargar el PDF", { id: loadingToast });
     }
@@ -156,7 +156,7 @@ export const BoleteriaPage = () => {
 
   const handleReenviarSri = async (item) => {
     if (!item?.id_boleto) return;
-    console.log('[SRI Reenviar] === INICIO REENVÍO SRI ===', item);
+    console.log('[SRI Reenviar] === INICIO REENVÍO SRIss ===', item);
     try {
       toast('Iniciando proceso de autorización SRI...', { icon: 'ℹ️' });
 
@@ -248,7 +248,7 @@ export const BoleteriaPage = () => {
     <div className="flex flex-col h-full gap-2 p-0 bg-slate-100/50">
       {/* ── CABECERA INTEGRADA ────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-slate-200 shadow-sm shrink-0">
-        
+
         {/* Fila Superior: Título + Botones Principales */}
         <div className="flex items-center justify-between px-4 py-2 bg-slate-50/50">
           <div className="flex items-center gap-3">
@@ -260,9 +260,9 @@ export const BoleteriaPage = () => {
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Gestión de Boletos</p>
             </div>
           </div>
-          
+
           <div className="flex items-center gap-2">
-            <button 
+            <button
               className="h-8 w-8 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-lg transition-all shadow-sm flex items-center justify-center"
               onClick={() => loadBoletos(filtros, page)}
               disabled={loading}
@@ -276,15 +276,15 @@ export const BoleteriaPage = () => {
 
       <div className="boleteria-content">
         <BoleteriaFilterPanel onSearch={handleSearch} onSriLote={handleSriLote} />
-        
+
         <div className="boleteria-grid-wrapper">
-          <BoleteriaGrid 
-            data={boletos} 
-            loading={loading} 
-            page={page} 
-            limit={limit} 
-            total={total} 
-            onPageChange={setPage} 
+          <BoleteriaGrid
+            data={boletos}
+            loading={loading}
+            page={page}
+            limit={limit}
+            total={total}
+            onPageChange={setPage}
             onReload={() => loadBoletos(filtros, page)}
             onVisualizarPdf={handleVisualizarPdf}
             onImprimir={handleImprimir}
