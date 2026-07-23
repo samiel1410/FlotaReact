@@ -5,7 +5,7 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 
-export const CajaGrid = ({ data, loading, pagination, setPagination, totalRecords, onAction }) => {
+export const CajaGrid = ({ data, loading, pagination, setPagination, totalRecords, onAction, idKey = 'id_caja', showIngresoEgreso = false }) => {
   const columns = useMemo(() => [
     { header: '#', accessorKey: 'numero_caja', cell: info => <span className="font-semibold text-slate-800">{info.getValue() ?? '-'}</span> },
     { header: 'FECHA', accessorKey: 'fecha_caja', cell: info => {
@@ -23,6 +23,15 @@ export const CajaGrid = ({ data, loading, pagination, setPagination, totalRecord
     { header: 'SUCURSAL', accessorKey: 'nombre_sucursal', cell: info => <span className="text-slate-700 text-sm">{info.getValue() ?? '-'}</span> },
     { header: '($)APERTURA', accessorKey: 'apertura_total_caja', cell: info => <span className="text-emerald-600 font-bold font-mono">${parseFloat(info.getValue() || 0).toFixed(2)}</span> },
     { header: '($)CIERRE', accessorKey: 'cierre_total_caja', cell: info => <span className="text-blue-600 font-bold font-mono">${parseFloat(info.getValue() || 0).toFixed(2)}</span> },
+    {
+      header: '($)MONTO A TENER',
+      id: 'monto_a_tener',
+      cell: ({ row }) => {
+        const r = row.original;
+        const val = r.monto_a_tener ?? (r.cierre_total_caja && parseFloat(r.cierre_total_caja) > 0 ? r.cierre_total_caja : r.apertura_total_caja);
+        return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
+      }
+    },
     { header: 'CUADRE', accessorKey: 'cuadre_caja', cell: info => {
       const v = info.getValue()?.toString() || '';
       let cls = 'text-slate-600';
@@ -58,9 +67,10 @@ export const CajaGrid = ({ data, loading, pagination, setPagination, totalRecord
         const r = row.original;
         const buttons = [
           { action: 'info-comprobante', icon: 'fa-vote-yea', cls: 'text-indigo-500 hover:bg-indigo-50', title: 'Info Comprobante' },
-          { action: 'arqueo', icon: 'fa-file-pdf', cls: 'text-red-500 hover:bg-red-50', title: 'Arqueo' },
+          { action: 'arqueo', icon: 'fa-file-pdf', cls: 'text-red-500 hover:bg-red-50', title: 'Arqueo PDF' },
           { action: 'comprobantes', icon: 'fa-file-invoice', cls: 'text-red-500 hover:bg-red-50', title: 'Comprobantes' },
-          { action: 'editar', icon: 'fa-edit', cls: 'text-amber-500 hover:bg-amber-50', title: 'Editar Caja' },
+          { action: 'editar', icon: 'fa-edit', cls: 'text-amber-500 hover:bg-amber-50', title: 'Editar / Detalle' },
+          ...(showIngresoEgreso ? [{ action: 'ingreso-egreso', icon: 'fa-exchange-alt', cls: 'text-emerald-500 hover:bg-emerald-50', title: 'Ingreso/Egreso' }] : []),
           { action: 'cerrar', icon: 'fa-sign-out-alt', cls: 'text-blue-500 hover:bg-blue-50', title: 'Cerrar Caja' },
           { action: 'solicitud', icon: 'fa-share-square', cls: 'text-purple-500 hover:bg-purple-50', title: 'Solicitud' },
           { action: 'impresion-rapida', icon: 'fa-print', cls: 'text-slate-500 hover:bg-slate-50', title: 'Impresión Rápida' },
@@ -77,7 +87,7 @@ export const CajaGrid = ({ data, loading, pagination, setPagination, totalRecord
         );
       }
     },
-  ], [onAction]);
+  ], [onAction, showIngresoEgreso]);
 
   const table = useReactTable({
     data,

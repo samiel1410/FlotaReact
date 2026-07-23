@@ -1,36 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import Swal from 'sweetalert2';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { cajaCobrosService } from '../../services/cajaCobros.service';
 import Modal from '../../components/common/Modal';
 import AperturaCajaCobrosModal from '../../components/common/AperturaCajaCobrosModal';
-
-const DENOMINACIONES = [
-  { key: '100', label: 'Billetes $100', field: '100' },
-  { key: '50', label: 'Billetes $50', field: '50' },
-  { key: '20', label: 'Billetes $20', field: '20' },
-  { key: '10', label: 'Billetes $10', field: '10' },
-  { key: '5', label: 'Billetes $5', field: '5' },
-  { key: '1', label: 'Billetes $1', field: '1' },
-  { key: 'moneda_1d', label: 'Monedas $1', field: 'moneda_caja' },
-  { key: 'moneda_50', label: 'Monedas $0.50', field: 'moneda_50' },
-  { key: 'moneda_25', label: 'Monedas $0.25', field: 'moneda_25' },
-  { key: 'moneda_10', label: 'Monedas $0.10', field: 'moneda_10' },
-  { key: 'moneda_5', label: 'Monedas $0.05', field: 'moneda_5' },
-  { key: 'moneda_01', label: 'Monedas $0.01', field: 'moneda_1' },
-];
-
-const MULTS = { '100':100,'50':50,'20':20,'10':10,'5':5,'1':1,'moneda_1d':1,'moneda_50':0.5,'moneda_25':0.25,'moneda_10':0.1,'moneda_5':0.05,'moneda_01':0.01 };
-
-const denomHtml = (pfx) => DENOMINACIONES.map(d => `<div style="flex:0 0 calc(50% - 4px)"><label style="display:block;font-weight:bold;font-size:11px;color:#374151">${d.label}</label><input id="${pfx}-${d.key}" class="swal2-input" type="number" min="0" step="0.01" value="0" style="width:100%;padding:6px 10px;font-size:13px;text-align:right" /></div>`).join('');
-
-const denomPre = (pfx) => { const o={}; DENOMINACIONES.forEach(d => { o[`${pfx}_${d.field}`] = parseFloat(document.getElementById(`${pfx}-${d.key}`)?.value||'0')||0; }); return o; };
-
-const calcTotal = (pfx) => { let t=0; DENOMINACIONES.forEach(d => { const e=document.getElementById(`${pfx}-${d.key}`); if(e) t+=(parseFloat(e.value)||0)*(MULTS[d.key]||1); }); const te=document.getElementById(`${pfx}-total`); if(te) te.value=t.toFixed(2); };
-
-const didOpenDenom = (pfx) => { const r=()=>calcTotal(pfx); DENOMINACIONES.forEach(d => { const e=document.getElementById(`${pfx}-${d.key}`); if(e){e.addEventListener('input',r);e.addEventListener('change',r);}}); r(); };
+import { CajaGrid } from '../Caja/CajaGrid';
+import InfoComprobanteModal from '../../components/common/InfoComprobanteModal';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
+import IngresoEgresoModal from '../../components/common/IngresoEgresoModal';
+import { CierreCajaForm } from '../CajaBoleteria/components/CierreCajaForm';
 
 export const CajaCobrosPage = () => {
   const [data, setData] = useState([]);
@@ -40,10 +19,23 @@ export const CajaCobrosPage = () => {
   const [filterFecha, setFilterFecha] = useState(new Date());
   const [filters, setFilters] = useState({});
   const [openCaja, setOpenCaja] = useState(null);
+
+  // Modales React
   const [showDetalle, setShowDetalle] = useState(false);
   const [detalleData, setDetalleData] = useState([]);
   const [detalleId, setDetalleId] = useState(null);
   const [showApertura, setShowApertura] = useState(false);
+  const [showCierre, setShowCierre] = useState(false);
+  const [cajaParaCierre, setCajaParaCierre] = useState(null);
+
+  const [infoCompModalOpen, setInfoCompModalOpen] = useState(false);
+  const [selectedRowForInfo, setSelectedRowForInfo] = useState(null);
+
+  const [confirmAprobarOpen, setConfirmAprobarOpen] = useState(false);
+  const [selectedRowForAprobar, setSelectedRowForAprobar] = useState(null);
+
+  const [ingresoEgresoModalOpen, setIngresoEgresoModalOpen] = useState(false);
+  const [cajaIdForMovimiento, setCajaIdForMovimiento] = useState(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -58,108 +50,99 @@ export const CajaCobrosPage = () => {
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { cajaCobrosService.validarCaja().then(r=>{if(r.success)setOpenCaja(r.data);else setOpenCaja(null);}).catch(()=>setOpenCaja(null)); }, []);
 
-  // ─── MODAL APERTURA (ahora como componente React) ──────────
   const handleAperturaSuccess = () => {
     setShowApertura(false);
     cajaCobrosService.validarCaja().then(r => { if (r.success) setOpenCaja(r.data); else setOpenCaja(null); });
     loadData();
   };
 
-  // ─── MODAL CIERRE ──────────────────────────────────────────
-  const abrirCierre = async (caja) => {
+  const abrirCierre = (caja) => {
     if (!caja || caja.estado_caja === 'CERRADA') { toast.error('Ya está cerrada'); return; }
-    const { value: form, isDismissed } = await Swal.fire({
-      title: `Cierre #${caja.numero_caja}`, width: 650,
-      html: `<div style="text-align:left"><h3 style="font-weight:bold;font-size:14px;margin-bottom:10px;color:#1e293b;border-bottom:1px solid #e2e8f0;padding-bottom:5px;">Ingrese el monto del cierre (Monedas y Billetes)</h3><div style="display:flex;gap:8px;flex-wrap:wrap">${denomHtml('ci')}</div><hr/><div style="flex:1"><label style="display:block;font-weight:bold;font-size:12px">Total Cierre ($)</label><input id="ci-total" class="swal2-input" type="text" readonly value="0.00" style="width:100%;padding:8px;font-size:14px;font-weight:bold;text-align:right;background:#f3f4f6"/></div><hr/><div style="display:flex;gap:12px;flex-wrap:wrap"><div style="flex:1;min-width:200px"><label style="display:block;font-weight:bold;font-size:11px">N° Comprobante</label><input id="ci-num" class="swal2-input" style="width:100%;padding:6px 10px;font-size:13px"/></div><div style="flex:1;min-width:200px"><label style="display:block;font-weight:bold;font-size:11px">Banco</label><input id="ci-banco" class="swal2-input" style="width:100%;padding:6px 10px;font-size:13px"/></div></div></div>`,
-      showCancelButton: true, confirmButtonText: 'Cerrar', confirmButtonColor: '#dc2626',
-      didOpen: () => didOpenDenom('ci'),
-      preConfirm: () => ({ id_caja: caja.id_caja_retenciones, cierre_total_caja: parseFloat(document.getElementById('ci-total')?.value||'0')||0, numero_comprobante_cierre: document.getElementById('ci-num')?.value||'', banco_cierre: document.getElementById('ci-banco')?.value||'', ...denomPre('ci') })
-    });
-    if (!form || isDismissed) return;
-    const res = await cajaCobrosService.cerrarCaja(form);
+    setCajaParaCierre(caja);
+    setShowCierre(true);
+  };
+
+  const handleCierreSubmit = async (formData) => {
+    if (!cajaParaCierre) return;
+    const res = await cajaCobrosService.cerrarCaja({ ...formData, id_caja: cajaParaCierre.id_caja_retenciones || cajaParaCierre.id_caja });
     if (res.success) {
       let msg = 'Caja cerrada';
       if (res.estado_cuadre === 'CUADRADO') msg += ' ✅';
       else if (res.estado_cuadre === 'FALTANTE') msg += `. Faltante $${res.valor_diferencia}`;
       else if (res.estado_cuadre === 'SOBRANTE') msg += `. Sobrante $${res.valor_diferencia}`;
-      toast.success(msg); loadData();
+      toast.success(msg);
+      loadData();
+      setShowCierre(false);
     } else toast.error(res.message || 'Error');
   };
 
-  // ─── ACCIONES ──────────────────────────────────────────────
   const handleAction = useCallback(async (action, row) => {
     switch (action) {
-      case 'info-comprobante': {
-        const { value } = await Swal.fire({
-          title: 'Info Comprobante', showCancelButton: true, confirmButtonText: 'Guardar',
-          html: `<div style="text-align:left"><label style="display:block;font-weight:bold;font-size:12px;margin-bottom:4px">N° Comprobante</label><input id="sn" class="swal2-input" style="width:100%"/><label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Banco</label><input id="sb" class="swal2-input" style="width:100%"/></div>`,
-          preConfirm: () => ({ id_caja: row.id_caja_retenciones, numero_comprobante: document.getElementById('sn')?.value||'', banco: document.getElementById('sb')?.value||'' })
-        });
-        if (!value) return;
-        const r = await cajaCobrosService.guardarInfoComprobante(value);
-        if (r.success) { toast.success('Guardado'); loadData(); } else toast.error(r.message||'Error'); break;
-      }
+      case 'info-comprobante':
+        setSelectedRowForInfo(row);
+        setInfoCompModalOpen(true);
+        break;
       case 'arqueo': window.open(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`, '_blank'); break;
       case 'comprobantes': window.open(`/cajaretenciones/reportecomprobantefacturasxcaja?idcaja=${row.id_caja_retenciones}`, '_blank'); break;
-      case 'editar': setShowDetalle(true); setDetalleId(row.id_caja_retenciones); try{const d=await cajaCobrosService.listadoDetalleCaja(row.id_caja_retenciones);setDetalleData(d.data||[]);}catch{setDetalleData([]);} break;
-      case 'ingreso-egreso': {
-        const { value: f, isDismissed: d } = await Swal.fire({
-          title: 'Agregar Ingreso/Egreso', showCancelButton: true, confirmButtonText: 'Guardar',
-          html: `<div style="text-align:left"><label style="display:block;font-weight:bold;font-size:12px">Tipo</label><select id="it" class="swal2-input" style="width:100%"><option value="INGRESO">INGRESO</option><option value="EGRESO">EGRESO</option></select><label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Monto ($)</label><input id="im" class="swal2-input" type="number" step="0.01" min="0" value="0" style="width:100%"/><label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Socio</label><input id="is" class="swal2-input" style="width:100%"/><label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Obs.</label><textarea id="io" class="swal2-textarea" style="width:100%;min-height:60px"></textarea></div>`,
-          preConfirm: () => ({ id_fkcaja: row.id_caja_retenciones, tipo_caja_detalle: document.getElementById('it')?.value, monto_caja_detalle: document.getElementById('im')?.value, nombre_socio: document.getElementById('is')?.value, observacion_caja_detalle: document.getElementById('io')?.value, numero_documento: '' })
-        });
-        if (!f || d) return;
-        const r2 = await cajaCobrosService.detalleCaja(f);
-        if (r2.success) { toast.success('Registrado'); loadData(); } else toast.error(r2.message||'Error'); break;
-      }
-      case 'cerrar': await abrirCierre(row); break;
+      case 'editar':
+        setShowDetalle(true);
+        setDetalleId(row.id_caja_retenciones);
+        try { const d = await cajaCobrosService.listadoDetalleCaja(row.id_caja_retenciones); setDetalleData(d.data || []); }
+        catch { setDetalleData([]); }
+        break;
+      case 'ingreso-egreso':
+        setCajaIdForMovimiento(row.id_caja_retenciones);
+        setIngresoEgresoModalOpen(true);
+        break;
+      case 'cerrar': abrirCierre(row); break;
       case 'solicitud':
         if (row.estado_solicitud == 0) { toast('Sin solicitud'); return; }
         if (row.estado_solicitud == 1) {
-          const { isConfirmed } = await Swal.fire({title:'Aprobar?',text:'¿Aprobar solicitud?',icon:'question',showCancelButton:true});
-          if (!isConfirmed) return;
-          const r3 = await cajaCobrosService.aprobarSolicitud(row.id_caja_retenciones);
-          if (r3.success) { toast.success('Aprobada'); loadData(); } else toast.error('Error');
+          setSelectedRowForAprobar(row);
+          setConfirmAprobarOpen(true);
         } else toast('Ya aprobada');
         break;
       case 'impresion-rapida': window.open(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`, '_blank'); break;
     }
   }, []);
 
-  const fmt = (v) => `$${parseFloat(v||0).toFixed(2)}`;
-  const fmtDate = (d) => d ? d.split(' ')[0] : '-';
+  const handleConfirmInfo = async (formValues) => {
+    if (!selectedRowForInfo) return;
+    const r = await cajaCobrosService.guardarInfoComprobante({
+      id_caja: selectedRowForInfo.id_caja_retenciones,
+      ...formValues
+    });
+    if (r.success) { toast.success('Guardado'); loadData(); } else toast.error(r.message || 'Error');
+    setInfoCompModalOpen(false);
+    setSelectedRowForInfo(null);
+  };
 
-  const columns = [
-    { h: '#', k: 'numero_caja', c: (v) => <span className="font-semibold text-slate-800">{v??'-'}</span> },
-    { h: 'FECHA', k: 'fecha_caja', c: (v) => <span className="text-slate-600 font-mono text-sm">{fmtDate(v)}</span> },
-    { h: 'F. CIERRE', k: 'fecha_hora_cierre', c: (v) => <span className="text-slate-600 font-mono text-sm">{fmtDate(v)||'-'}</span> },
-    { h: 'SUCURSAL', k: 'nombre_sucursal', c: (v) => <span className="text-slate-700">{v||'-'}</span> },
-    { h: 'APERTURA', k: 'apertura_total_caja', c: (v) => <span className="text-emerald-600 font-bold font-mono">{fmt(v)}</span> },
-    { h: 'CIERRE', k: 'cierre_total_caja', c: (v) => <span className="text-blue-600 font-bold font-mono">{fmt(v)}</span> },
-    { h: 'CUADRE', k: 'cuadre_caja', c: (v) => <span className={`text-sm font-mono ${v==='CUADRADO'?'text-emerald-600 font-bold':v?.includes('FALTANTE')?'text-red-600 font-bold':v?.includes('SOBRANTE')?'text-amber-600 font-bold':'text-slate-600'}`}>{v||'-'}</span> },
-    { h: 'USUARIO', k: 'usuario', c: (v) => <span className="text-slate-600">{v||'-'}</span> },
-    { h: '', k: 'estado_caja', w: 30, c: (v) => { const o=v==='APERTURADA'; return <i className={`fas fa-circle ${o?'text-emerald-500':'text-red-500'}`} style={{fontSize:10}} title={o?'APERTURADA':'CERRADA'}></i>; } },
-    { h: '', k: 'estado_solicitud', w: 30, c: (v) => { let cl='text-slate-400',tl='NINGUNA'; if(v==1){cl='text-orange-400';tl='ENVIADA';} else if(v==2){cl='text-emerald-500';tl='APROBADA';} return <i className={`fas fa-info-circle ${cl}`} style={{fontSize:12}} title={tl}></i>; } },
-    { h: 'ACCIONES', c: (_,row) => (
-      <div className="flex gap-1">
-        {[
-          {a:'info-comprobante',i:'fa-vote-yea',c:'text-indigo-500 hover:bg-indigo-50',t:'Info Comprobante'},
-          {a:'arqueo',i:'fa-file-pdf',c:'text-red-500 hover:bg-red-50',t:'Arqueo'},
-          {a:'comprobantes',i:'fa-file-invoice',c:'text-red-500 hover:bg-red-50',t:'Comprobantes'},
-          {a:'editar',i:'fa-edit',c:'text-amber-500 hover:bg-amber-50',t:'Detalle'},
-          {a:'ingreso-egreso',i:'fa-exchange-alt',c:'text-emerald-500 hover:bg-emerald-50',t:'Ing/Egr'},
-          {a:'cerrar',i:'fa-sign-out-alt',c:'text-blue-500 hover:bg-blue-50',t:'Cerrar'},
-          {a:'solicitud',i:'fa-share-square',c:'text-purple-500 hover:bg-purple-50',t:'Solicitud'},
-          {a:'impresion-rapida',i:'fa-print',c:'text-slate-500 hover:bg-slate-50',t:'Imprimir'},
-        ].map(b => (
-          <button key={b.a} onClick={() => handleAction(b.a, row)} title={b.t}
-            className={`w-7 h-7 rounded ${b.c} flex items-center justify-center transition-colors`}>
-            <i className={`fas ${b.i} text-[10px]`}></i>
-          </button>
-        ))}
-      </div>
-    )},
-  ];
+  const handleConfirmAprobar = async () => {
+    if (!selectedRowForAprobar) return;
+    const r = await cajaCobrosService.aprobarSolicitud(selectedRowForAprobar.id_caja_retenciones);
+    if (r.success) { toast.success('Aprobada'); loadData(); } else toast.error('Error');
+    setConfirmAprobarOpen(false);
+    setSelectedRowForAprobar(null);
+  };
+
+  const handleConfirmMovimiento = async (formData) => {
+    if (!cajaIdForMovimiento) return;
+    const r = await cajaCobrosService.detalleCaja({
+      id_fkcaja: cajaIdForMovimiento,
+      ...formData
+    });
+    if (r.success) {
+      toast.success('Registrado');
+      if (showDetalle && detalleId) {
+        const d = await cajaCobrosService.listadoDetalleCaja(detalleId);
+        setDetalleData(d.data || []);
+      }
+    } else toast.error(r.message || 'Error');
+    setIngresoEgresoModalOpen(false);
+    setCajaIdForMovimiento(null);
+  };
+
+  const fmt = (v) => `$${parseFloat(v||0).toFixed(2)}`;
 
   return (
     <div className="flex flex-col h-full gap-2 p-0 bg-slate-100/50">
@@ -241,52 +224,47 @@ export const CajaCobrosPage = () => {
         </div>
       </div>
 
-      {/* ─── GRILLA ──────────────────────────────────────────────────────── */}
+      {/* ─── GRILLA HOMOLOGADA ─────────────────────────────────────────────── */}
       <div className="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col min-h-0">
-          <div className="flex flex-col h-full overflow-hidden relative">
-            {loading && (<div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center"><div className="bg-white p-4 rounded-xl shadow-lg border border-slate-100 flex items-center gap-3"><i className="fas fa-circle-notch fa-spin text-blue-600 text-2xl"></i><span className="font-semibold text-slate-700">Cargando...</span></div></div>)}
-            <div className="flex-1 overflow-auto">
-              <table className="w-full text-left border-collapse min-w-[1000px]">
-                <thead className="bg-slate-50 sticky top-0 z-0 border-b border-slate-200">
-                  <tr>{columns.map(col => (<th key={col.k||col.h} className="p-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">{col.h}</th>))}</tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {data.length > 0 ? data.map(row => (
-                    <tr key={row.id_caja_retenciones} className="hover:bg-blue-50/50 transition-colors group">
-                      {columns.map(col => (<td key={col.k||col.h} className="p-2.5 text-xs">{col.c ? col.c(row[col.k], row) : (row[col.k]||'-')}</td>))}
-                    </tr>
-                  )) : (
-                    <tr><td colSpan={columns.length} className="p-8 text-center text-slate-500"><div className="flex flex-col items-center gap-2"><i className="fas fa-cash-register text-4xl text-slate-300"></i><p>No se encontraron cajas</p></div></td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="bg-slate-50 border-t border-slate-200 p-3 flex items-center justify-between shrink-0">
-              <span className="text-sm text-slate-600 font-medium">Mostrando {data.length>0?pagination.pageIndex*pagination.pageSize+1:0} a {Math.min((pagination.pageIndex+1)*pagination.pageSize,totalRecords)} de {totalRecords}</span>
-              <div className="flex items-center gap-2">
-                <button onClick={()=>setPagination(p=>({...p,pageIndex:Math.max(0,p.pageIndex-1)}))} disabled={pagination.pageIndex===0} className="w-8 h-8 rounded flex items-center justify-center border border-slate-300 text-slate-600 hover:bg-white hover:text-blue-600 disabled:opacity-50 transition-colors"><i className="fas fa-chevron-left"></i></button>
-                <span className="text-sm font-semibold text-slate-700 px-2">Pág. {pagination.pageIndex+1}</span>
-                <button onClick={()=>setPagination(p=>({...p,pageIndex:p.pageIndex+1}))} disabled={data.length<pagination.pageSize} className="w-8 h-8 rounded flex items-center justify-center border border-slate-300 text-slate-600 hover:bg-white hover:text-blue-600 disabled:opacity-50 transition-colors"><i className="fas fa-chevron-right"></i></button>
-              </div>
-            </div>
-          </div>
+        <CajaGrid
+          data={data}
+          loading={loading}
+          pagination={pagination}
+          setPagination={setPagination}
+          totalRecords={totalRecords}
+          onAction={handleAction}
+          idKey="id_caja_retenciones"
+          showIngresoEgreso={true}
+        />
       </div>
 
       <AperturaCajaCobrosModal isOpen={showApertura} onClose={() => setShowApertura(false)} onSuccess={handleAperturaSuccess} />
 
+      <Modal isOpen={showCierre} onClose={() => { setShowCierre(false); setCajaParaCierre(null); }} title={`Cierre de Caja #${cajaParaCierre?.numero_caja || ''}`} size="lg">
+        {cajaParaCierre && (
+          <CierreCajaForm
+            caja={cajaParaCierre}
+            onSubmit={handleCierreSubmit}
+            onCancel={() => { setShowCierre(false); setCajaParaCierre(null); }}
+          />
+        )}
+      </Modal>
+
       <Modal isOpen={showDetalle} onClose={() => setShowDetalle(false)} title="Detalle de Caja" size="lg">
         <div className="p-4 space-y-4">
-          <button onClick={async () => { const {value: f, isDismissed: d} = await Swal.fire({title:'Agregar Ingreso/Egreso',showCancelButton:true,confirmButtonText:'Guardar',
-            html:`<div style="text-align:left"><label style="display:block;font-weight:bold;font-size:12px">Tipo</label><select id="dit" class="swal2-input" style="width:100%"><option value="INGRESO">INGRESO</option><option value="EGRESO">EGRESO</option></select><label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Monto</label><input id="dim" class="swal2-input" type="number" step="0.01" min="0" value="0" style="width:100%"/><label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Socio</label><input id="dis" class="swal2-input" style="width:100%"/><label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Obs.</label><textarea id="dio" class="swal2-textarea" style="width:100%;min-height:60px"></textarea></div>`,
-            preConfirm:()=>({id_fkcaja:detalleId,tipo_caja_detalle:document.getElementById('dit')?.value,monto_caja_detalle:document.getElementById('dim')?.value,nombre_socio:document.getElementById('dis')?.value,observacion_caja_detalle:document.getElementById('dio')?.value,numero_documento:''})});
-            if(!f||d)return;const r=await cajaCobrosService.detalleCaja(f);if(r.success){toast.success('Registrado');const d2=await cajaCobrosService.listadoDetalleCaja(detalleId);setDetalleData(d2.data||[]);}else toast.error(r.message||'Error');
-          }} className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center gap-2">
+          <button
+            onClick={() => {
+              setCajaIdForMovimiento(detalleId);
+              setIngresoEgresoModalOpen(true);
+            }}
+            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg flex items-center gap-2"
+          >
             <i className="fas fa-plus-circle"></i> Agregar Ingreso/Egreso
           </button>
           <div className="overflow-auto max-h-96 border rounded-lg">
             <table className="w-full text-left border-collapse text-xs">
               <thead className="bg-slate-50 sticky top-0">
-                <tr><th className="p-2 font-bold text-slate-500 uppercase">N°</th><th className="p-2 font-bold text-slate-500 uppercase">Fecha</th><th className="p-2 font-bold text-slate-500 uppercase">Tipo</th><th className="p-2 font-bold text-slate-500 uppercase">Monto</th><th className="p-2 font-bold text-slate-500 uppercase">Socio</th><th className="p-2 font-bold text-slate-500 uppercase">Estado</th><th className="p-2 font-bold text-slate-500 uppercase">Acciones</th></tr>
+                <tr><th className="p-2 font-bold text-slate-500 uppercase">N°</th><th className="p-2 font-bold text-slate-500 uppercase">Fecha</th><th className="p-2 font-bold text-slate-500 uppercase">Tipo</th><th className="p-2 font-bold text-slate-500 uppercase">Monto</th><th className="p-2 font-bold text-slate-500 uppercase">Socio</th><th className="p-2 font-bold text-slate-500 uppercase">Estado</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {detalleData.length > 0 ? detalleData.map((d,i) => (
@@ -297,23 +275,37 @@ export const CajaCobrosPage = () => {
                     <td className="p-2 font-mono font-bold">{fmt(d.monto_caja_detalle)}</td>
                     <td className="p-2">{d.nombre_socio_caja_detalle||'-'}</td>
                     <td className="p-2"><span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${d.estado_caja_detalle==='EMITIDO'?'bg-emerald-100 text-emerald-700':d.estado_caja_detalle==='PENDIENTE'?'bg-amber-100 text-amber-700':'bg-slate-100 text-slate-600'}`}>{d.estado_caja_detalle||'-'}</span></td>
-                    <td className="p-2">
-                      <div className="flex gap-1">
-                        {d.estado_caja_detalle!=='ANULADO'&&d.estado_caja_detalle!=='CANCELADO'&&(<>
-                          <button onClick={async()=>{const{isConfirmed}=await Swal.fire({title:'Eliminar?',text:'¿Eliminar?',icon:'question',showCancelButton:true});if(isConfirmed){const r=await cajaCobrosService.eliminarDetalleCaja(d.id_caja_detalle);if(r.success){toast.success('Eliminado');const d2=await cajaCobrosService.listadoDetalleCaja(detalleId);setDetalleData(d2.data||[]);}}}}
-                            className="w-6 h-6 rounded text-red-500 hover:bg-red-50 flex items-center justify-center" title="Eliminar"><i className="fas fa-times-circle text-[10px]"></i></button>
-                          <button onClick={async()=>{const{value}=await Swal.fire({title:'Anular?',text:'Motivo',input:'textarea',showCancelButton:true});if(value){const r=await cajaCobrosService.solicitudAnulacion({id_egreso:d.id_caja_detalle,motivoAnulacion:value});if(r.success)toast.success('Solicitud enviada');}}}
-                            className="w-6 h-6 rounded text-amber-500 hover:bg-amber-50 flex items-center justify-center" title="Anular"><i className="fas fa-ban text-[10px]"></i></button>
-                        </>)}
-                      </div>
-                    </td>
                   </tr>
-                )) : (<tr><td colSpan={7} className="p-4 text-center text-slate-400">Sin movimientos</td></tr>)}
+                )) : (<tr><td colSpan={6} className="p-4 text-center text-slate-400">Sin movimientos</td></tr>)}
               </tbody>
             </table>
           </div>
         </div>
       </Modal>
+
+      <InfoComprobanteModal
+        isOpen={infoCompModalOpen}
+        onClose={() => { setInfoCompModalOpen(false); setSelectedRowForInfo(null); }}
+        onConfirm={handleConfirmInfo}
+        initialNumero={selectedRowForInfo?.numero_comprobante || ''}
+        initialBanco={selectedRowForInfo?.banco || ''}
+      />
+
+      <ConfirmationModal
+        isOpen={confirmAprobarOpen}
+        onClose={() => { setConfirmAprobarOpen(false); setSelectedRowForAprobar(null); }}
+        onConfirm={handleConfirmAprobar}
+        title="¿Aprobar solicitud?"
+        message="¿Desea aprobar la solicitud de edición para esta caja?"
+        confirmText="Aprobar"
+        type="info"
+      />
+
+      <IngresoEgresoModal
+        isOpen={ingresoEgresoModalOpen}
+        onClose={() => { setIngresoEgresoModalOpen(false); setCajaIdForMovimiento(null); }}
+        onConfirm={handleConfirmMovimiento}
+      />
     </div>
   );
 };

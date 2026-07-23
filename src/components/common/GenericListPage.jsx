@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useListado } from '../../hooks/useListado';
 import { api } from '../../config/axios';
 import Modal from './Modal';
@@ -21,6 +22,7 @@ const getSingular = (text) => {
 };
 
 export const GenericListPage = ({ config }) => {
+  const navigate = useNavigate();
   const {
     title = 'Módulo',
     subtitle = '',
@@ -357,7 +359,7 @@ export const GenericListPage = ({ config }) => {
                                     setIframeModal({ open: true, url, title: action.modalTitle || 'Documento' });
                                   }
                                 }
-                                if (action.handler) action.handler(row, { openCustomModal, closeCustomModal, refreshList: handleRefresh });
+                                if (action.handler) action.handler(row, { openCustomModal, closeCustomModal, refreshList: handleRefresh, navigate });
                               }}
                               className={`w-7 h-7 rounded-lg bg-white border border-slate-200 ${action.color || 'text-slate-600'} hover:border-slate-300 hover:shadow-sm flex items-center justify-center transition-all hover:scale-110`}
                               title={action.tooltip}

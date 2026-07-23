@@ -6,13 +6,14 @@ import { GuiaService } from '../../services/guia.service';
 import { CONFIG } from '../../config/env';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import Swal from 'sweetalert2';
 import './GuiasPage.css';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { CobrarFacturaModal } from './components/CobrarFacturaModal';
 import { CobrosRealizadosModal } from './components/CobrosRealizadosModal';
 import { SeguimientoGuiaModal } from './components/SeguimientoGuiaModal';
 import cajaService from '../../services/caja.service';
+import MotivoModal from '../../components/common/MotivoModal';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
 
 export const GuiasPage = () => {
   const { user, userRole } = useAuth();
@@ -27,7 +28,15 @@ export const GuiasPage = () => {
   // Mini-modal selector de impresión (igual que Impresion.js en ExtJS)
   const [printSelectorOpen, setPrintSelectorOpen] = useState(false);
   const [selectedPrintItem, setSelectedPrintItem] = useState(null);
-  
+
+  // Modal de Anulación (Componente MotivoModal)
+  const [anularModalOpen, setAnularModalOpen] = useState(false);
+  const [anularModalData, setAnularModalData] = useState(null);
+
+  // Modal de Confirmación de Facturación
+  const [confirmFacturarOpen, setConfirmFacturarOpen] = useState(false);
+  const [selectedGuiaFacturar, setSelectedGuiaFacturar] = useState(null);
+
   // Modal de Cobro
   const [cobrarModalOpen, setCobrarModalOpen] = useState(false);
   const [selectedGuiaCobrar, setSelectedGuiaCobrar] = useState(null);
@@ -236,15 +245,22 @@ export const GuiasPage = () => {
           return;
         }
       } catch (e) {
-        // Si el endpoint no existe, continuar
         console.warn('No se pudo verificar factura autorizada', e);
       }
       
-      // 3. Confirmar con el usuario
-      const confirmFacturar = await Swal.fire({ title: '¿Facturar guía?', text: `¿Seguro desea facturar la guía ${item.numero_guia_final}?`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, facturar', cancelButtonText: 'Cancelar' });
-      if (!confirmFacturar.isConfirmed) return;
-      
-      const r = await GuiaService.facturarGuia(item.id_guia);
+      // Abre Modal de confirmación de facturación
+      setSelectedGuiaFacturar(item);
+      setConfirmFacturarOpen(true);
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al facturar la guía');
+    }
+  };
+
+  const ejecutarFacturarGuia = async () => {
+    if (!selectedGuiaFacturar) return;
+    try {
+      const r = await GuiaService.facturarGuia(selectedGuiaFacturar.id_guia);
       if (r && r.success) {
         toast.success('Guía facturada correctamente');
         loadGuias(filtros, page);
@@ -254,6 +270,9 @@ export const GuiasPage = () => {
     } catch (err) {
       console.error(err);
       toast.error('Error al facturar la guía');
+    } finally {
+      setConfirmFacturarOpen(false);
+      setSelectedGuiaFacturar(null);
     }
   };
 
@@ -261,14 +280,14 @@ export const GuiasPage = () => {
     try {
       // Verificar estado de la guía (ExtJS: verificacionanulacion)
       const verif = await GuiaService.verificarAnulacion(item.id_guia);
-      const msg = verif.message ?? verif.data?.message;
+      const codeState = Number(verif?.data ?? verif?.code ?? 0);
 
-      if (msg === 2) {
-        toast.error('La guía ya se encuentra anulada');
+      if (codeState === 2) {
+        toast.error(verif?.message || 'La guía ya se encuentra anulada');
         return;
       }
 
-      // Verificación de facturas (replicando autorización de ExtJS)
+      // Verificación de facturas
       let factVerif = null;
       try {
         factVerif = await GuiaService.autorizadoFacturaPorGuia(item.id_guia);
@@ -277,75 +296,54 @@ export const GuiasPage = () => {
       }
       const tieneFactura = factVerif && (factVerif.tipo === 0 || (factVerif.data && factVerif.data.length > 0));
 
-      const idUsuario = user?.id_usuario || 0;
-      const rol = Number(userRole);
+      if (codeState === 1 || codeState === 3) {
+        const warningMsg = tieneFactura 
+          ? `Nota: La guía ${item.numero_guia_final || item.id_guia} tiene una factura asociada que también será anulada.`
+          : `Ingrese el motivo de anulación para la guía ${item.numero_guia_final || item.id_guia}:`;
 
-      if (msg === 1) {
-        // Guía activa (estado 1)
-        if (tieneFactura) {
-          if (rol === 1 || rol === 5) {
-            toast.error('Esta guía tiene una factura asociada. Anule la factura primero en Cobros Realizados.');
-            // En ExtJS se abría la ventana de ComprobantesGuia. En React podemos redirigir:
-            // navigate(`/guias/cobros/${item.id_guia}`);
-            return;
-          } else if (rol === 4) {
-            toast.error('No tiene permisos para anular una guía con factura asociada.');
-            return;
-          } else {
-            toast.error('Esta guía ya se encuentra con una factura asociada');
-            return;
-          }
-        }
-
-        // Proceder con anulación si no tiene factura o si ExtJS lo permitía
-        if (rol === 1 || rol === 4 || rol === 5) {
-          const { value: motivo } = await Swal.fire({ title: 'Motivo de anulación', input: 'text', inputLabel: 'Motivo de anulación para la guía ' + item.numero_guia_final + ':', showCancelButton: true, confirmButtonText: 'Anular', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
-          if (!motivo) return;
-
-          let r;
-          if (rol === 1) {
-            r = await GuiaService.anularAdministrador(item.id_guia, idUsuario, motivo);
-          } else {
-            r = await GuiaService.anularGuia(item.id_guia, idUsuario, motivo);
-          }
-
-          if (r && r.success) {
-            toast.success('Guía anulada correctamente');
-            loadGuias(filtros, page);
-          } else {
-            toast.error(r?.message || 'No se pudo anular la guía');
-          }
-        } else {
-          toast.error('No tiene permisos (rol) para anular esta guía');
-        }
-
-      } else if (msg === 3) {
-        // Guía pendiente a anular (estado 3)
-        if (rol === 1 || rol === 5) {
-          if (tieneFactura) {
-             toast.error('Esta guía tiene una factura asociada. Anule la factura primero en Cobros Realizados.');
-             return;
-          }
-          
-          const { value: motivo } = await Swal.fire({ title: 'Motivo de anulación', input: 'text', inputLabel: 'Motivo de anulación para la guía pendiente ' + item.numero_guia_final + ':', showCancelButton: true, confirmButtonText: 'Anular', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
-          if (!motivo) return;
-
-          const r = await GuiaService.anularAdministrador(item.id_guia, idUsuario, motivo);
-          if (r && r.success) {
-            toast.success('Guía pendiente anulada correctamente');
-            loadGuias(filtros, page);
-          } else {
-            toast.error(r?.message || 'No se pudo anular la guía pendiente');
-          }
-        } else {
-          toast.error('La guía está pendiente a anular. Requiere permisos de administrador.');
-        }
+        setAnularModalData({
+          item,
+          codeState,
+          tieneFactura,
+          title: codeState === 3 ? 'Anular Guía Pendiente' : 'Motivo de Anulación',
+          subtitle: warningMsg
+        });
+        setAnularModalOpen(true);
       } else {
-        toast.error('No se puede anular la guía');
+        toast.error(verif?.message || 'No se puede anular la guía');
       }
     } catch (err) {
       console.error(err);
       toast.error('Error al anular la guía');
+    }
+  };
+
+  const ejecutarAnulacionGuia = async (motivo) => {
+    if (!anularModalData) return;
+    const { item, codeState } = anularModalData;
+    const idUsuario = user?.id_usuario || user?.id || 0;
+    const rol = Number(userRole || user?.id_rol || 1);
+
+    try {
+      let r;
+      if (codeState === 3 || rol === 1 || rol === 5) {
+        r = await GuiaService.anularAdministrador(item.id_guia, idUsuario, motivo);
+      } else {
+        r = await GuiaService.anularGuia(item.id_guia, idUsuario, motivo);
+      }
+
+      if (r && r.success) {
+        toast.success(codeState === 3 ? 'Guía pendiente anulada correctamente' : 'Guía anulada correctamente');
+        loadGuias(filtros, page);
+      } else {
+        toast.error(r?.message || 'No se pudo anular la guía');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al procesar anulación');
+    } finally {
+      setAnularModalOpen(false);
+      setAnularModalData(null);
     }
   };
 
@@ -599,6 +597,25 @@ export const GuiasPage = () => {
           onClose={() => { setSeguimientoModalOpen(false); setSelectedGuiaSeguimiento(null); }}
         />
       )}
+
+      <MotivoModal
+        isOpen={anularModalOpen}
+        onClose={() => { setAnularModalOpen(false); setAnularModalData(null); }}
+        onConfirm={ejecutarAnulacionGuia}
+        title={anularModalData?.title || 'Motivo de Anulación'}
+        subtitle={anularModalData?.subtitle}
+        confirmText="Sí, Anular"
+      />
+
+      <ConfirmationModal
+        isOpen={confirmFacturarOpen}
+        onClose={() => { setConfirmFacturarOpen(false); setSelectedGuiaFacturar(null); }}
+        onConfirm={ejecutarFacturarGuia}
+        title="¿Facturar guía?"
+        message={`¿Seguro desea facturar la guía ${selectedGuiaFacturar?.numero_guia_final || selectedGuiaFacturar?.id_guia}?`}
+        confirmText="Sí, facturar"
+        type="info"
+      />
     </div>
   );
 };

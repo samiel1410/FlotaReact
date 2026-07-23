@@ -16,11 +16,12 @@ import NewProvinciaForm from '../pages/Provincia/components/NewProvinciaForm';
 import NewAlimentoForm from '../pages/Alimentos/components/NewAlimentoForm';
 import NewDestinoForm from '../pages/Destino/components/NewDestinoForm';
 import ClienteForm from '../pages/Clientes/components/ClienteForm';
+import { TipoCobroForm } from '../pages/TipoCobros/components/TipoCobroForm';
 import { GenericForm } from '../components/common/GenericForm';
 import { NuevaGuiaCompaniaForm } from '../pages/Guias/components/NuevaGuiaCompaniaForm';
 import { createAperturaAction, createBuscarCajaAction, createCerrarAction } from './cajaUtils';
 import { api, authApi } from '../config/axios';
-import Swal from 'sweetalert2';
+import toast from 'react-hot-toast';
 import comprobantesService from '../services/comprobantes.service';
 
 // Configuración centralizada para todas las páginas genéricas de listado
@@ -363,6 +364,39 @@ export const PAGES_CONFIG = {
       { key: 'per_nombres_persona', label: 'Nombres', render: (v, r) => v || r.soc_nombres || '' },
       { key: 'per_apellidos_personal', label: 'Apellidos', render: (v, r) => v || r.soc_apellidos || '' },
       { key: 'celular_personal', label: 'Celular', render: (v, r) => v || r.soc_telefono || '' },
+      {
+        key: 'perfil_personal', label: 'Perfiles', render: (v) => {
+          if (!v) return '-';
+          const perfiles = String(v).split(',').map(p => p.trim());
+          return (
+            <div className="flex gap-1 flex-wrap">
+              {perfiles.includes('2') && <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px] font-bold">Socio</span>}
+              {perfiles.includes('0') && <span className="bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded text-[9px] font-bold">Conductor</span>}
+              {perfiles.includes('1') && <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded text-[9px] font-bold">Auxiliar</span>}
+            </div>
+          );
+        }
+      },
+      {
+        key: 'licencia_info', label: 'Licencia', render: (_, r) => {
+          if (!r.tipo_licencia) return '-';
+          const tipos = { '1': 'Tipo A', '2': 'Tipo B', '3': 'Tipo C', '4': 'Tipo D', '5': 'Tipo E' };
+          return (
+            <div className="text-[10px]">
+              <div><b>{tipos[r.tipo_licencia] || 'Tipo ' + r.tipo_licencia}</b></div>
+              {r.puntos_licencia && <div className="text-slate-500">{r.puntos_licencia} Pts</div>}
+            </div>
+          );
+        }
+      },
+      {
+        key: 'porcentaje_individual', label: 'Comisión', render: (_, r) => {
+          if (r.tiene_porcentaje_individual == 1) {
+            return <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[9px] font-bold">{parseFloat(r.porcentaje_individual || 0)}% (Ind)</span>;
+          }
+          return <span className="text-slate-400 text-[10px]">-</span>;
+        }
+      },
       { key: 'estado_personal', label: 'Estado', renderType: 'status' },
     ],
     filters: [
@@ -667,6 +701,13 @@ export const PAGES_CONFIG = {
       { key: 'usuario', label: 'Usuario' },
       { key: 'apertura_total_caja', label: '($)Apertura', render: v => `$${parseFloat(v || 0).toFixed(2)}` },
       { key: 'cierre_total_caja', label: '($)Cierre', render: v => v ? `$${parseFloat(v).toFixed(2)}` : '-' },
+      {
+        key: 'monto_a_tener', label: '($)Monto a Tener',
+        render: (v, row) => {
+          const val = row.monto_a_tener ?? (row.cierre_total_caja && parseFloat(row.cierre_total_caja) > 0 ? row.cierre_total_caja : row.apertura_total_caja);
+          return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
+        }
+      },
       { key: 'cuadre_caja', label: 'Cuadre', render: v => v || '-' },
       {
         key: 'estado_caja', label: 'Estado',
@@ -723,36 +764,79 @@ export const PAGES_CONFIG = {
         {
           id: 'info-comprobante', icon: 'fas fa-vote-yea', tooltip: 'Información Comprobante',
           color: 'text-indigo-600 hover:bg-indigo-50',
-          handler: async (row) => {
-            const { value: form, isDismissed } = await Swal.fire({
-              title: 'Info Comprobante',
-              html: `
-                <div style="text-align:left">
-                  <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:4px">N° Comprobante</label>
-                  <input id="swal-num" class="swal2-input" style="width:100%" />
-                  <label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Banco</label>
-                  <input id="swal-banco" class="swal2-input" style="width:100%" />
-                </div>`,
-              showCancelButton: true, confirmButtonText: 'Guardar',
-              preConfirm: () => ({
-                id_caja: row.id_caja,
-                numero_comprobante: document.getElementById('swal-num')?.value || '',
-                banco: document.getElementById('swal-banco')?.value || ''
-              })
-            });
-            if (!form || isDismissed) return;
-            try {
-              const res = await api.post('/caja/guardarInfoComprobante', form);
-              if (res.data?.success) { Swal.fire('Éxito', 'Comprobante guardado', 'success'); window.dispatchEvent(new CustomEvent('refresh-list')); }
-              else Swal.fire('Error', res.data?.message || 'Error', 'error');
-            } catch (e) { Swal.fire('Error', 'Error al guardar', 'error'); }
+          handler: async (row, ctx) => {
+            if (ctx && ctx.openCustomModal) {
+              const { InfoComprobanteForm } = await import('../components/common/InfoComprobanteModal');
+              ctx.openCustomModal(
+                InfoComprobanteForm,
+                {
+                  initialNumero: row.numero_comprobante || '',
+                  initialBanco: row.banco || '',
+                  onConfirm: async (formValues) => {
+                    try {
+                      const res = await api.post('/caja/guardarInfoComprobante', { id_caja: row.id_caja, ...formValues });
+                      if (res.data?.success) {
+                        toast.success('Comprobante guardado');
+                        ctx.closeCustomModal();
+                        if (ctx.refreshList) ctx.refreshList();
+                      } else {
+                        toast.error(res.data?.message || 'Error al guardar');
+                      }
+                    } catch (e) {
+                      toast.error('Error al guardar comprobante');
+                    }
+                  }
+                },
+                'Información Comprobante'
+              );
+            }
           }
         },
         {
-          id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Ingresos/Egresos',
+          id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Caja',
           color: 'text-amber-500 hover:bg-amber-50',
-          handler: async (row) => {
-            Swal.fire('En construcción', 'Para editar Ingresos/Egresos diríjase a la página de Caja detallada', 'info');
+          handler: async (row, ctx) => {
+            const solicitudAprobada = row.estado_solicitud == 2 || row.estado_solicitud === 'APROBADA';
+            if (row.estado_caja === 'CERRADA' && !solicitudAprobada) {
+              toast.error('No se puede editar una caja cerrada sin solicitud aprobada');
+              return;
+            }
+            if (ctx && ctx.openCustomModal) {
+              const { default: EditarCajaVista } = await import('../components/common/EditarCajaVista');
+              ctx.openCustomModal(
+                EditarCajaVista,
+                {
+                  caja: row,
+                  endpointEditar: '/caja/editarCaja',
+                  endpointDetalle: '/caja/detalleCaja',
+                  onSuccess: () => {
+                    if (ctx.refreshList) ctx.refreshList();
+                  }
+                },
+                null,
+                'w-full max-w-full h-full max-h-full m-0 p-0 rounded-none'
+              );
+            }
+          }
+        },
+        {
+          id: 'ver-movimientos', icon: 'fas fa-eye', tooltip: 'Ver Ingresos y Egresos',
+          color: 'text-indigo-600 hover:bg-indigo-50',
+          handler: async (row, ctx) => {
+            if (ctx && ctx.openCustomModal) {
+              const { default: EditarCajaVista } = await import('../components/common/EditarCajaVista');
+              ctx.openCustomModal(
+                EditarCajaVista,
+                {
+                  caja: row,
+                  endpointEditar: '/caja/editarCaja',
+                  endpointDetalle: '/caja/detalleCaja',
+                  readOnly: true
+                },
+                null,
+                'w-full max-w-full h-full max-h-full m-0 p-0 rounded-none'
+              );
+            }
           }
         },
         {
@@ -775,14 +859,36 @@ export const PAGES_CONFIG = {
           id: 'solicitud', icon: 'fas fa-share-square', tooltip: 'Solicitar Edición',
           color: 'text-sky-600 hover:bg-sky-50',
           showIf: (row) => row.estado_caja === 'CERRADA' && row.estado_solicitud != 1,
-          handler: async (row) => {
-            const result = await Swal.fire({ title: 'Solicitar Edición', text: `¿Enviar solicitud para editar la caja #${row.numero_caja}?`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, solicitar', cancelButtonText: 'Cancelar' });
-            if (!result.isConfirmed) return;
+          handler: async (row, ctx) => {
             try {
               const res = await api.get('/caja/enviarSolicituEdicion', { params: { id_caja: row.id_caja } });
-              if (res.data?.success) { Swal.fire('Enviada', 'Solicitud enviada correctamente', 'success'); window.dispatchEvent(new CustomEvent('refresh-list')); }
-              else Swal.fire('Error', res.data?.message || 'No se pudo enviar', 'error');
-            } catch { Swal.fire('Error', 'Error al enviar solicitud', 'error'); }
+              if (res.data?.success) {
+                toast.success('Solicitud enviada correctamente');
+                if (ctx && ctx.refreshList) ctx.refreshList();
+              } else {
+                toast.error(res.data?.message || 'No se pudo enviar la solicitud');
+              }
+            } catch {
+              toast.error('Error al enviar solicitud');
+            }
+          }
+        },
+        {
+          id: 'aprobar_solicitud', icon: 'fas fa-check-circle', tooltip: 'Aprobar Solicitud',
+          color: 'text-emerald-600 hover:bg-emerald-50',
+          showIf: (row) => row.estado_solicitud == 1 || row.estado_solicitud === 'PENDIENTE',
+          handler: async (row, ctx) => {
+            try {
+              const res = await api.post('/caja/aprobarSolicitud', { id_caja: row.id_caja });
+              if (res.data?.success) {
+                toast.success('Solicitud aprobada correctamente');
+                if (ctx && ctx.refreshList) ctx.refreshList();
+              } else {
+                toast.error(res.data?.message || 'Error al aprobar solicitud');
+              }
+            } catch {
+              toast.error('Error al aprobar solicitud');
+            }
           }
         },
       ]
@@ -802,6 +908,13 @@ export const PAGES_CONFIG = {
       { key: 'usuario', label: 'Usuario' },
       { key: 'apertura_total_caja', label: '($)Apertura', render: v => `$${parseFloat(v || 0).toFixed(2)}` },
       { key: 'cierre_total_caja', label: '($)Cierre', render: v => v ? `$${parseFloat(v).toFixed(2)}` : '-' },
+      {
+        key: 'monto_a_tener', label: '($)Monto a Tener',
+        render: (v, row) => {
+          const val = row.monto_a_tener ?? (row.cierre_total_caja && parseFloat(row.cierre_total_caja) > 0 ? row.cierre_total_caja : row.apertura_total_caja);
+          return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
+        }
+      },
       { key: 'cuadre_caja', label: 'Cuadre', render: v => v || '-' },
       {
         key: 'estado_caja', label: 'Estado',
@@ -858,36 +971,59 @@ export const PAGES_CONFIG = {
         {
           id: 'info-comprobante', icon: 'fas fa-vote-yea', tooltip: 'Información Comprobante',
           color: 'text-indigo-600 hover:bg-indigo-50',
-          handler: async (row) => {
-            const { value: form, isDismissed } = await Swal.fire({
-              title: 'Info Comprobante',
-              html: `
-                <div style="text-align:left">
-                  <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:4px">N° Comprobante</label>
-                  <input id="swal-num" class="swal2-input" style="width:100%" />
-                  <label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Banco</label>
-                  <input id="swal-banco" class="swal2-input" style="width:100%" />
-                </div>`,
-              showCancelButton: true, confirmButtonText: 'Guardar',
-              preConfirm: () => ({
-                id_caja: row.id_caja_boleteria,
-                numero_comprobante: document.getElementById('swal-num')?.value || '',
-                banco: document.getElementById('swal-banco')?.value || ''
-              })
-            });
-            if (!form || isDismissed) return;
-            try {
-              const res = await api.post('/caja_boleteria/guardarInfoComprobante', form);
-              if (res.data?.success) { Swal.fire('Éxito', 'Comprobante guardado', 'success'); window.dispatchEvent(new CustomEvent('refresh-list')); }
-              else Swal.fire('Error', res.data?.message || 'Error', 'error');
-            } catch (e) { Swal.fire('Error', 'Error al guardar', 'error'); }
+          handler: async (row, ctx) => {
+            if (ctx && ctx.openCustomModal) {
+              const { InfoComprobanteForm } = await import('../components/common/InfoComprobanteModal');
+              ctx.openCustomModal(
+                InfoComprobanteForm,
+                {
+                  initialNumero: row.numero_comprobante || '',
+                  initialBanco: row.banco || '',
+                  onConfirm: async (formValues) => {
+                    try {
+                      const res = await api.post('/caja_boleteria/guardarInfoComprobante', { id_caja: row.id_caja_boleteria, ...formValues });
+                      if (res.data?.success) {
+                        toast.success('Comprobante guardado');
+                        ctx.closeCustomModal();
+                        if (ctx.refreshList) ctx.refreshList();
+                      } else {
+                        toast.error(res.data?.message || 'Error al guardar');
+                      }
+                    } catch (e) {
+                      toast.error('Error al guardar comprobante');
+                    }
+                  }
+                },
+                'Información Comprobante'
+              );
+            }
           }
         },
         {
-          id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Ingresos/Egresos',
+          id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Caja',
           color: 'text-amber-500 hover:bg-amber-50',
-          handler: async (row) => {
-            Swal.fire('En construcción', 'Para editar Ingresos/Egresos diríjase a la página de Caja detallada', 'info');
+          handler: async (row, ctx) => {
+            const solicitudAprobada = row.estado_solicitud == 2 || row.estado_solicitud === 'APROBADA';
+            if (row.estado_caja === 'CERRADA' && !solicitudAprobada) {
+              toast.error('No se puede editar una caja cerrada sin solicitud aprobada');
+              return;
+            }
+            if (ctx && ctx.openCustomModal) {
+              const { default: EditarCajaVista } = await import('../components/common/EditarCajaVista');
+              ctx.openCustomModal(
+                EditarCajaVista,
+                {
+                  caja: row,
+                  endpointEditar: '/caja_boleteria/editarCaja',
+                  endpointDetalle: '/caja_boleteria/detalleCaja',
+                  onSuccess: () => {
+                    if (ctx.refreshList) ctx.refreshList();
+                  }
+                },
+                null,
+                'w-full max-w-full h-full max-h-full m-0 p-0 rounded-none'
+              );
+            }
           }
         },
         {
@@ -902,7 +1038,7 @@ export const PAGES_CONFIG = {
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
             try {
-              Swal.fire({ title: 'Generando reporte...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+              toast.loading('Generando reporte...', { id: 'rep-toast' });
               const res = await api.get('/caja_boleteria/reportecomprobantefacturasxcaja', { params: { idcaja: row.id_caja_boleteria } });
               if (res.data?.success && res.data?.nombre) {
                 const params = new URLSearchParams();
@@ -912,19 +1048,21 @@ export const PAGES_CONFIG = {
                 params.append('tipoAux', 'no');
                 const pdfRes = await fetch('/php/GenerarArchvio.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() });
                 const pdfData = await pdfRes.json();
-                Swal.close();
+                toast.dismiss('rep-toast');
                 if (pdfData.success) {
                   const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
                   window.open(`${baseUrl}/php/tmp/${pdfData.ruta}`, '_blank');
                 } else {
-                  Swal.fire('Error', 'Error al generar el PDF', 'error');
+                  toast.error('Error al generar el PDF');
                 }
               } else {
-                Swal.fire('Error', res.data?.message || 'No se encontraron datos', 'error');
+                toast.dismiss('rep-toast');
+                toast.error(res.data?.message || 'No se encontraron datos');
               }
             } catch (e) {
               console.error('Error reporte comprobantes:', e);
-              Swal.fire('Error', 'Error al generar el reporte de comprobantes', 'error');
+              toast.dismiss('rep-toast');
+              toast.error('Error al generar el reporte de comprobantes');
             }
           }
         },
@@ -933,14 +1071,18 @@ export const PAGES_CONFIG = {
           id: 'solicitud', icon: 'fas fa-share-square', tooltip: 'Solicitar Edición',
           color: 'text-sky-600 hover:bg-sky-50',
           showIf: (row) => row.estado_caja === 'CERRADA' && row.estado_solicitud != 1,
-          handler: async (row) => {
-            const result = await Swal.fire({ title: 'Solicitar Edición', text: `¿Enviar solicitud para editar la caja #${row.numero_caja}?`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, solicitar', cancelButtonText: 'Cancelar' });
-            if (!result.isConfirmed) return;
+          handler: async (row, ctx) => {
             try {
               const res = await api.get('/caja_boleteria/enviarSolicituEdicion', { params: { id_caja: row.id_caja_boleteria } });
-              if (res.data?.success) { Swal.fire('Enviada', 'Solicitud enviada correctamente', 'success'); window.dispatchEvent(new CustomEvent('refresh-list')); }
-              else Swal.fire('Error', res.data?.message || 'No se pudo enviar', 'error');
-            } catch { Swal.fire('Error', 'Error al enviar solicitud', 'error'); }
+              if (res.data?.success) {
+                toast.success('Solicitud enviada correctamente');
+                if (ctx && ctx.refreshList) ctx.refreshList();
+              } else {
+                toast.error(res.data?.message || 'No se pudo enviar la solicitud');
+              }
+            } catch {
+              toast.error('Error al enviar solicitud');
+            }
           }
         },
       ]
@@ -960,6 +1102,13 @@ export const PAGES_CONFIG = {
       { key: 'usuario', label: 'Usuario' },
       { key: 'apertura_total_caja', label: '($)Apertura', render: v => `$${parseFloat(v || 0).toFixed(2)}` },
       { key: 'cierre_total_caja', label: '($)Cierre', render: v => v ? `$${parseFloat(v).toFixed(2)}` : '-' },
+      {
+        key: 'monto_a_tener', label: '($)Monto a Tener',
+        render: (v, row) => {
+          const val = row.monto_a_tener ?? (row.cierre_total_caja && parseFloat(row.cierre_total_caja) > 0 ? row.cierre_total_caja : row.apertura_total_caja);
+          return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
+        }
+      },
       { key: 'cuadre_caja', label: 'Cuadre', render: v => v || '-' },
       {
         key: 'estado_caja', label: 'Estado',
@@ -1016,36 +1165,59 @@ export const PAGES_CONFIG = {
         {
           id: 'info-comprobante', icon: 'fas fa-vote-yea', tooltip: 'Información Comprobante',
           color: 'text-indigo-600 hover:bg-indigo-50',
-          handler: async (row) => {
-            const { value: form, isDismissed } = await Swal.fire({
-              title: 'Info Comprobante',
-              html: `
-                <div style="text-align:left">
-                  <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:4px">N° Comprobante</label>
-                  <input id="swal-num" class="swal2-input" style="width:100%" />
-                  <label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Banco</label>
-                  <input id="swal-banco" class="swal2-input" style="width:100%" />
-                </div>`,
-              showCancelButton: true, confirmButtonText: 'Guardar',
-              preConfirm: () => ({
-                id_caja: row.id_caja_retenciones,
-                numero_comprobante: document.getElementById('swal-num')?.value || '',
-                banco: document.getElementById('swal-banco')?.value || ''
-              })
-            });
-            if (!form || isDismissed) return;
-            try {
-              const res = await api.post('/caja_retenciones/guardarInfoComprobante', form);
-              if (res.data?.success) { Swal.fire('Éxito', 'Comprobante guardado', 'success'); window.dispatchEvent(new CustomEvent('refresh-list')); }
-              else Swal.fire('Error', res.data?.message || 'Error', 'error');
-            } catch (e) { Swal.fire('Error', 'Error al guardar', 'error'); }
+          handler: async (row, ctx) => {
+            if (ctx && ctx.openCustomModal) {
+              const { InfoComprobanteForm } = await import('../components/common/InfoComprobanteModal');
+              ctx.openCustomModal(
+                InfoComprobanteForm,
+                {
+                  initialNumero: row.numero_comprobante || '',
+                  initialBanco: row.banco || '',
+                  onConfirm: async (formValues) => {
+                    try {
+                      const res = await api.post('/cajaretenciones/guardarInfoComprobante', { id_caja: row.id_caja_retenciones, ...formValues });
+                      if (res.data?.success) {
+                        toast.success('Comprobante guardado');
+                        ctx.closeCustomModal();
+                        if (ctx.refreshList) ctx.refreshList();
+                      } else {
+                        toast.error(res.data?.message || 'Error al guardar');
+                      }
+                    } catch (e) {
+                      toast.error('Error al guardar comprobante');
+                    }
+                  }
+                },
+                'Información Comprobante'
+              );
+            }
           }
         },
         {
-          id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Ingresos/Egresos',
+          id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Caja',
           color: 'text-amber-500 hover:bg-amber-50',
-          handler: async (row) => {
-            Swal.fire('En construcción', 'Para editar Ingresos/Egresos diríjase a la página de Caja detallada', 'info');
+          handler: async (row, ctx) => {
+            const solicitudAprobada = row.estado_solicitud == 2 || row.estado_solicitud === 'APROBADA';
+            if (row.estado_caja === 'CERRADA' && !solicitudAprobada) {
+              toast.error('No se puede editar una caja cerrada sin solicitud aprobada');
+              return;
+            }
+            if (ctx && ctx.openCustomModal) {
+              const { default: EditarCajaVista } = await import('../components/common/EditarCajaVista');
+              ctx.openCustomModal(
+                EditarCajaVista,
+                {
+                  caja: row,
+                  endpointEditar: '/cajaretenciones/editarCaja',
+                  endpointDetalle: '/cajaretenciones/detalleCaja',
+                  onSuccess: () => {
+                    if (ctx.refreshList) ctx.refreshList();
+                  }
+                },
+                null,
+                'w-full max-w-full h-full max-h-full m-0 p-0 rounded-none'
+              );
+            }
           }
         },
         {
@@ -1060,7 +1232,7 @@ export const PAGES_CONFIG = {
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
             try {
-              Swal.fire({ title: 'Generando reporte...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+              toast.loading('Generando reporte...', { id: 'rep-toast-cobros' });
               const res = await api.get('/cajaretenciones/reportecomprobantefacturasxcaja', { params: { idcaja: row.id_caja_retenciones } });
               if (res.data?.success && res.data?.nombre) {
                 const params = new URLSearchParams();
@@ -1070,19 +1242,21 @@ export const PAGES_CONFIG = {
                 params.append('tipoAux', 'no');
                 const pdfRes = await fetch('/php/GenerarArchvio.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() });
                 const pdfData = await pdfRes.json();
-                Swal.close();
+                toast.dismiss('rep-toast-cobros');
                 if (pdfData.success) {
                   const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
                   window.open(`${baseUrl}/php/tmp/${pdfData.ruta}`, '_blank');
                 } else {
-                  Swal.fire('Error', 'Error al generar el PDF', 'error');
+                  toast.error('Error al generar el PDF');
                 }
               } else {
-                Swal.fire('Error', res.data?.message || 'No se encontraron datos', 'error');
+                toast.dismiss('rep-toast-cobros');
+                toast.error(res.data?.message || 'No se encontraron datos');
               }
             } catch (e) {
               console.error('Error reporte comprobantes:', e);
-              Swal.fire('Error', 'Error al generar el reporte de comprobantes', 'error');
+              toast.dismiss('rep-toast-cobros');
+              toast.error('Error al generar el reporte de comprobantes');
             }
           }
         },
@@ -1091,14 +1265,18 @@ export const PAGES_CONFIG = {
           id: 'solicitud', icon: 'fas fa-share-square', tooltip: 'Solicitar Edición',
           color: 'text-sky-600 hover:bg-sky-50',
           showIf: (row) => row.estado_caja === 'CERRADA' && row.estado_solicitud != 1,
-          handler: async (row) => {
-            const result = await Swal.fire({ title: 'Solicitar Edición', text: `¿Enviar solicitud para editar la caja #${row.numero_caja}?`, icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, solicitar', cancelButtonText: 'Cancelar' });
-            if (!result.isConfirmed) return;
+          handler: async (row, ctx) => {
             try {
               const res = await api.get('/cajaretenciones/enviarSolicituEdicion', { params: { id_caja: row.id_caja_retenciones } });
-              if (res.data?.success) { Swal.fire('Enviada', 'Solicitud enviada correctamente', 'success'); window.dispatchEvent(new CustomEvent('refresh-list')); }
-              else Swal.fire('Error', res.data?.message || 'No se pudo enviar', 'error');
-            } catch { Swal.fire('Error', 'Error al enviar solicitud', 'error'); }
+              if (res.data?.success) {
+                toast.success('Solicitud enviada correctamente');
+                if (ctx && ctx.refreshList) ctx.refreshList();
+              } else {
+                toast.error(res.data?.message || 'No se pudo enviar la solicitud');
+              }
+            } catch {
+              toast.error('Error al enviar solicitud');
+            }
           }
         },
       ]
@@ -1508,18 +1686,11 @@ export const PAGES_CONFIG = {
           handler: (row) => {
             const ruta = row.ruta_imagen_comprobante_cierre;
             if (!ruta) {
-              Swal.fire('Info', 'No hay imagen disponible', 'info');
+              toast.error('No hay imagen disponible');
               return;
             }
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            Swal.fire({
-              title: 'Comprobante: ' + (row.numero_comprobante_cierre || 'S/N'),
-              imageUrl: baseUrl + '/' + ruta,
-              imageWidth: 500,
-              imageHeight: 550,
-              imageAlt: 'Comprobante',
-              confirmButtonText: 'Cerrar',
-            });
+            window.open(baseUrl + '/' + ruta, '_blank');
           }
         },
       ],
@@ -1626,43 +1797,42 @@ export const PAGES_CONFIG = {
           id: 'anular', icon: 'fas fa-ban',
           tooltip: 'Anular Comprobante',
           color: 'text-rose-600 hover:bg-rose-50',
-          handler: async (row) => {
-            // Verificar estado del comprobante
+          handler: async (row, ctx) => {
             if (row.estado_comprobante_cobro === 'ANULADA') {
-              Swal.fire('Mensaje', 'Comprobante ya anulado', 'info');
+              toast('Comprobante ya anulado', { icon: 'ℹ️' });
               return;
             }
             if (row.estado_comprobante_cobro === 'PENDIENTE') {
               const user = comprobantesService.getCurrentUser();
               const userRole = parseInt(user?.rol_usuario || '0');
               if (userRole === 4) {
-                Swal.fire('Mensaje', 'Este comprobante esta pendiente anular', 'info');
+                toast('Este comprobante está pendiente de anular', { icon: 'ℹ️' });
                 return;
               }
             }
-            // Mostrar motivo de anulación
-            const { value: motivo } = await Swal.fire({
-              title: 'Motivo de Anulación',
-              input: 'textarea',
-              inputPlaceholder: 'Ingrese el motivo de la anulación...',
-              inputAttributes: { required: 'required' },
-              showCancelButton: true,
-              confirmButtonText: 'ANULAR',
-              confirmButtonColor: '#e11d48',
-              cancelButtonText: 'Cancelar',
-              inputValidator: (v) => !v && 'Debe ingresar un motivo',
-            });
-            if (!motivo) return;
-            try {
-              const res = await comprobantesService.anularIndividual(row, motivo);
-              if (res.success || res === true) {
-                Swal.fire('Éxito', 'Comprobante anulado correctamente', 'success');
-                window.dispatchEvent(new CustomEvent('refresh-list'));
-              } else {
-                Swal.fire('Error', res.message || res.msg || 'No se pudo anular el comprobante', 'error');
-              }
-            } catch (err) {
-              Swal.fire('Error', 'Error al anular el comprobante', 'error');
+            if (ctx && ctx.openCustomModal) {
+              const { MotivoModal } = await import('../components/common/MotivoModal');
+              ctx.openCustomModal(
+                MotivoModal,
+                {
+                  title: 'Motivo de Anulación de Comprobante',
+                  onConfirm: async (motivo) => {
+                    try {
+                      const res = await comprobantesService.anularIndividual(row, motivo);
+                      if (res.success || res === true) {
+                        toast.success('Comprobante anulado correctamente');
+                        ctx.closeCustomModal();
+                        if (ctx.refreshList) ctx.refreshList();
+                      } else {
+                        toast.error(res.message || res.msg || 'No se pudo anular el comprobante');
+                      }
+                    } catch (err) {
+                      toast.error('Error al anular el comprobante');
+                    }
+                  }
+                },
+                'Anular Comprobante'
+              );
             }
           }
         },
@@ -1673,18 +1843,12 @@ export const PAGES_CONFIG = {
           handler: (row) => {
             const imagen = row.archivo_comprobante_cobro;
             if (!imagen) {
-              Swal.fire('Info', 'No hay imagen disponible para este comprobante', 'info');
+              toast.error('No hay imagen disponible para este comprobante');
               return;
             }
             const src = 'data:image/png;base64,' + imagen;
-            Swal.fire({
-              title: 'Comprobante N° ' + (row.numero_comprobante_cobro || ''),
-              imageUrl: src,
-              imageWidth: 400,
-              imageHeight: 500,
-              imageAlt: 'Comprobante',
-              confirmButtonText: 'Cerrar',
-            });
+            const w = window.open('');
+            w.document.write(`<img src="${src}" style="max-width:100%;" />`);
           }
         },
         {
@@ -1693,18 +1857,13 @@ export const PAGES_CONFIG = {
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
             try {
-              Swal.fire({ title: 'Generando PDF...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+              toast.loading('Generando PDF...', { id: 'pdf-toast' });
               const pdfUrl = await comprobantesService.generarPdf(row.id_comprobante_cobro);
-              Swal.fire({
-                title: 'Comprobante N° ' + (row.numero_comprobante_cobro || ''),
-                html: `<iframe src="${pdfUrl}" style="width:100%;height:80vh;border:0;border-radius:8px;" title="Comprobante PDF"></iframe>`,
-                width: '900px',
-                showConfirmButton: false,
-                showCloseButton: true,
-                customClass: { popup: 'rounded-2xl' }
-              });
+              toast.dismiss('pdf-toast');
+              window.open(pdfUrl, '_blank');
             } catch (err) {
-              Swal.fire('Error', err.message || 'Error al generar el PDF', 'error');
+              toast.dismiss('pdf-toast');
+              toast.error(err.message || 'Error al generar el PDF');
             }
           },
         },
@@ -1715,29 +1874,30 @@ export const PAGES_CONFIG = {
           icon: 'fas fa-redo',
           label: 'Anular Pendientes',
           color: 'bg-rose-100 text-rose-700 hover:bg-rose-200',
-          handler: async () => {
-            const { value: motivo } = await Swal.fire({
-              title: 'Anular Todos los Pendientes',
-              text: '¿Seguro que desea anular todos los comprobantes pendientes?',
-              input: 'textarea',
-              inputPlaceholder: 'Ingrese el motivo...',
-              showCancelButton: true,
-              confirmButtonText: 'SÍ, ANULAR TODOS',
-              confirmButtonColor: '#e11d48',
-              cancelButtonText: 'Cancelar',
-              inputValidator: (v) => !v && 'Debe ingresar un motivo',
-            });
-            if (!motivo) return;
-            try {
-              const res = await comprobantesService.anularPendientes(motivo);
-              if (res.success || res === true) {
-                Swal.fire('Éxito', 'Comprobantes pendientes anulados correctamente', 'success');
-                window.dispatchEvent(new CustomEvent('refresh-list'));
-              } else {
-                Swal.fire('Error', res.message || res.msg || 'No se pudieron anular los comprobantes', 'error');
-              }
-            } catch (err) {
-              Swal.fire('Error', 'Error al anular los comprobantes', 'error');
+          handler: async (row, ctx) => {
+            if (ctx && ctx.openCustomModal) {
+              const { MotivoModal } = await import('../components/common/MotivoModal');
+              ctx.openCustomModal(
+                MotivoModal,
+                {
+                  title: 'Anular Todos los Pendientes',
+                  onConfirm: async (motivo) => {
+                    try {
+                      const res = await comprobantesService.anularPendientes(motivo);
+                      if (res.success || res === true) {
+                        toast.success('Comprobantes pendientes anulados correctamente');
+                        ctx.closeCustomModal();
+                        if (ctx.refreshList) ctx.refreshList();
+                      } else {
+                        toast.error(res.message || res.msg || 'No se pudieron anular los comprobantes');
+                      }
+                    } catch (err) {
+                      toast.error('Error al anular los comprobantes');
+                    }
+                  }
+                },
+                'Anular Pendientes'
+              );
             }
           }
         },
@@ -1775,7 +1935,6 @@ export const PAGES_CONFIG = {
           icon: 'fas fa-file-pdf',
           tooltip: 'Imprimir PDF',
           color: 'text-red-500 hover:border-red-200 hover:bg-red-50',
-          // Abre el PDF en un modal con iframe (en lugar de ventana emergente)
           modal: (row) => {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
             const esLlegaSucursal = row.es_guia_llega_sucursal;
@@ -1784,7 +1943,7 @@ export const PAGES_CONFIG = {
 
             if (esLlegaSucursal === 1 || esLlegaSucursal === '1') {
               if (estado !== '1') {
-                Swal.fire('No disponible', 'Solo puedes ver el PDF de entrega cuando la guía está DESPACHADA.', 'warning');
+                toast('Solo puedes ver el PDF de entrega cuando la guía está DESPACHADA.', { icon: '⚠️' });
                 return '';
               }
               return `${baseUrl}/php/pdfGuiaEntregasCompania.php?id_guia=${row.id}`;
@@ -1792,7 +1951,7 @@ export const PAGES_CONFIG = {
             if (esGuiaUsuario === 1 || esGuiaUsuario === '1') {
               return `${baseUrl}/php/pdfGuiaRecibesCompania.php?id_guia=${row.id}`;
             }
-            Swal.fire('No disponible', 'No se puede determinar el tipo de PDF para esta guía.', 'error');
+            toast.error('No se puede determinar el tipo de PDF para esta guía.');
             return '';
           }
         },
@@ -1802,33 +1961,21 @@ export const PAGES_CONFIG = {
           tooltip: 'Entregar Guía',
           color: 'text-blue-500 hover:border-blue-200 hover:bg-blue-50',
           showIf: (row) => String(row.es_guia_llega_sucursal) === '1',
-          handler: async (row) => {
+          handler: async (row, ctx) => {
             if (String(row.estado_guia_companias) === '1') {
-              Swal.fire('No permitido', 'Esta guía ya fue entregada.', 'warning');
+              toast('Esta guía ya fue entregada.', { icon: '⚠️' });
               return;
             }
-            const result = await Swal.fire({
-              title: 'Confirmar entrega',
-              text: '¿Está seguro que desea marcar esta guía como ENTREGADA?',
-              icon: 'question',
-              showCancelButton: true,
-              confirmButtonText: 'Sí, entregar',
-              cancelButtonText: 'Cancelar'
-            });
-            if (result.isConfirmed) {
-              try {
-                // We don't have access to context here easily, so we rely on backend extracting user from token
-                const res = await api.post('/guias_companias/entregar', { id_guia: row.id });
-                if (res.data?.success) {
-                  Swal.fire('Éxito', 'Guía entregada correctamente', 'success');
-                  // Disparar evento para que GenericListPage refresque el grid
-                  window.dispatchEvent(new CustomEvent('refresh-list'));
-                } else {
-                  Swal.fire('Error', res.data?.msg || 'Error al entregar la guía', 'error');
-                }
-              } catch (error) {
-                Swal.fire('Error', 'No se pudo entregar la guía', 'error');
+            try {
+              const res = await api.post('/guias_companias/entregar', { id_guia: row.id });
+              if (res.data?.success) {
+                toast.success('Guía entregada correctamente');
+                if (ctx && ctx.refreshList) ctx.refreshList();
+              } else {
+                toast.error(res.data?.msg || 'Error al entregar la guía');
               }
+            } catch (error) {
+              toast.error('No se pudo entregar la guía');
             }
           }
         },
@@ -1838,29 +1985,17 @@ export const PAGES_CONFIG = {
           tooltip: 'Anular Guía',
           color: 'text-orange-500 hover:border-orange-200 hover:bg-orange-50',
           showIf: (row) => String(row.es_guia_usuario) === '1' && String(row.es_guia_llega_sucursal) !== '1' && String(row.estado_guia_companias) !== '2',
-          handler: async (row) => {
-            const result = await Swal.fire({
-              title: 'Confirmar anulación',
-              text: '¿Está seguro que desea ANULAR esta guía?',
-              icon: 'warning',
-              showCancelButton: true,
-              confirmButtonColor: '#ff9800',
-              confirmButtonText: 'Sí, anular',
-              cancelButtonText: 'Cancelar'
-            });
-            if (result.isConfirmed) {
-              try {
-                const res = await api.post('/guias_companias/anular', { id_guia: row.id });
-                if (res.data?.success) {
-                  Swal.fire('Éxito', 'Guía anulada correctamente', 'success');
-                  // Disparar evento para que GenericListPage refresque el grid
-                  window.dispatchEvent(new CustomEvent('refresh-list'));
-                } else {
-                  Swal.fire('Error', res.data?.msg || 'No se pudo anular la guía', 'error');
-                }
-              } catch (error) {
-                Swal.fire('Error', 'No se pudo anular la guía', 'error');
+          handler: async (row, ctx) => {
+            try {
+              const res = await api.post('/guias_companias/anular', { id_guia: row.id });
+              if (res.data?.success) {
+                toast.success('Guía anulada correctamente');
+                if (ctx && ctx.refreshList) ctx.refreshList();
+              } else {
+                toast.error(res.data?.msg || 'No se pudo anular la guía');
               }
+            } catch (error) {
+              toast.error('No se pudo anular la guía');
             }
           }
         }
@@ -1948,36 +2083,7 @@ export const PAGES_CONFIG = {
     idField: 'id_tipo_cobros',
     deleteEndpoint: '/tipo_cobros/tipoCobrosEliminar',
     actions: { create: true, edit: true, delete: true },
-    formComponent: (props) => (
-      <GenericForm
-        {...props}
-        idField="id_tipo_cobros"
-        endpoint="/tipo_cobros/tipoCobrosInsertar"
-        fields={[
-          { name: 'nombre_tipo_cobros', label: 'Nombre', type: 'text', required: true },
-          { name: 'valor_tipo_cobros', label: 'Valor ($)', type: 'number', required: true, defaultValue: '0' },
-          {
-            name: 'prioridad_cobros_tipo', label: 'Prioridad', type: 'select', required: true, options: [
-              { value: '1', label: 'Alta' },
-              { value: '2', label: 'Media' },
-              { value: '3', label: 'Baja' },
-            ], defaultValue: '3'
-          },
-          {
-            name: 'tipo_cobros_automaticos', label: 'Automático', type: 'select', options: [
-              { value: '1', label: 'Sí' },
-              { value: '0', label: 'No' },
-            ], defaultValue: '0'
-          },
-          {
-            name: 'estado_tipo_cobros', label: 'Estado', type: 'select', required: true, options: [
-              { value: '1', label: 'Activo' },
-              { value: '0', label: 'Inactivo' },
-            ], defaultValue: '1'
-          },
-        ]}
-      />
-    ),
+    formComponent: TipoCobroForm,
     columns: [
       { key: 'nombre_tipo_cobros', label: 'Nombre' },
       { key: 'valor_tipo_cobros', label: 'Valor', render: v => `$ ${parseFloat(v || 0).toFixed(2)}` },
@@ -1992,6 +2098,11 @@ export const PAGES_CONFIG = {
       {
         key: 'tipo_cobros_automaticos', label: 'Automático', render: v => v == 1
           ? <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[9px] font-bold">Sí</span>
+          : <span className="text-slate-400">No</span>
+      },
+      {
+        key: 'cobrar_una_vez_dia', label: '1 vez/Día', render: v => v == 1
+          ? <span className="bg-violet-100 text-violet-700 px-2 py-0.5 rounded text-[9px] font-bold">Sí</span>
           : <span className="text-slate-400">No</span>
       },
       { key: 'estado_tipo_cobros', label: 'Estado', renderType: 'status' },

@@ -3,11 +3,12 @@ import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import Modal from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
-import Swal from 'sweetalert2';
 import cajaService from '../../../services/cajaNotaVenta.service';
 import { useAuth } from '../../../hooks/useAuth';
 import { AperturaCajaForm } from '../../CajaBoleteria/components/AperturaCajaForm';
 import { CierreCajaForm } from '../../CajaBoleteria/components/CierreCajaForm';
+import InfoComprobanteModal from '../../../components/common/InfoComprobanteModal';
+import ConfirmationModal from '../../../components/common/ConfirmationModal';
 
 /**
  * Módulo de Cajas para Notas de Venta.
@@ -31,6 +32,14 @@ export const CajaNotaVentaContent = () => {
   const [detalleCajaId, setDetalleCajaId] = useState(null);
   const [detalleCajaNum, setDetalleCajaNum] = useState('');
 
+  // Modales React propios
+  const [infoCompOpen, setInfoCompOpen] = useState(false);
+  const [infoCompRow, setInfoCompRow] = useState(null);
+  const [confirmSolicitudOpen, setConfirmSolicitudOpen] = useState(false);
+  const [solicitudRow, setSolicitudRow] = useState(null);
+  const [confirmAprobarOpen, setConfirmAprobarOpen] = useState(false);
+  const [aprobarRow, setAprobarRow] = useState(null);
+
   // Filtros y paginación
   const [filters, setFilters] = useState({ desde: '', hasta: '', estado: '' });
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 25 });
@@ -42,10 +51,13 @@ export const CajaNotaVentaContent = () => {
       const params = { ...filters, page: pagination.pageIndex + 1, limit: pagination.pageSize };
       const res = await cajaService.listadoCaja(params);
       if (res.success) {
-        setData(res.data || []);
+        setData(Array.isArray(res.data) ? res.data : []);
         setTotalRecords(res.total || 0);
+      } else {
+        setData([]);
       }
     } catch (err) {
+      setData([]);
       toast.error('Error al cargar cajas');
     } finally {
       setLoading(false);
@@ -90,28 +102,18 @@ export const CajaNotaVentaContent = () => {
   };
 
   // ─── INFO COMPROBANTE ──────────────────────────────────────────────────
-  const handleInfoComprobante = async (row) => {
-    const { value: form, isDismissed } = await Swal.fire({
-      title: 'Información de Comprobante',
-      html: `
-        <div style="text-align:left">
-          <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:4px">N° Comprobante</label>
-          <input id="swal-num" style="width:100%;padding:6px 10px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
-          <label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Banco</label>
-          <input id="swal-banco" style="width:100%;padding:6px 10px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
-        </div>`,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      preConfirm: () => ({
-        id_caja: row.id_caja,
-        numero_comprobante: document.getElementById('swal-num')?.value || '',
-        banco: document.getElementById('swal-banco')?.value || ''
-      })
-    });
-    if (!form || isDismissed) return;
-    const res = await cajaService.guardarInfoComprobante(form);
+  const handleInfoComprobante = (row) => {
+    setInfoCompRow(row);
+    setInfoCompOpen(true);
+  };
+
+  const handleConfirmInfoComp = async (formValues) => {
+    if (!infoCompRow) return;
+    const res = await cajaService.guardarInfoComprobante({ id_caja: infoCompRow.id_caja, ...formValues });
     if (res.success) { toast.success('Comprobante guardado'); loadData(); }
     else toast.error(res.message || 'Error');
+    setInfoCompOpen(false);
+    setInfoCompRow(null);
   };
 
   // ─── DETALLE DE CAJA ───────────────────────────────────────────────────
@@ -131,33 +133,13 @@ export const CajaNotaVentaContent = () => {
     }
   };
 
-  // ─── EDITAR CAJA ───────────────────────────────────────────────────────
-  const handleEditar = async (row) => {
+  // ─── EDITAR CAJA (simplificado, redirige al detalle) ───────────────────
+  const handleEditar = (row) => {
     if (row.estado_caja === 'CERRADA') {
       toast.error('No se puede editar una caja cerrada');
       return;
     }
-    const { value: form, isDismissed } = await Swal.fire({
-      title: `Editar Caja #${row.numero_caja}`,
-      html: `
-        <div style="text-align:left">
-          <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:4px">Sucursal</label>
-          <input id="edit-sucursal" value="${row.nombre_sucursal || ''}" style="width:100%;padding:6px 10px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
-          <label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Usuario</label>
-          <input id="edit-usuario" value="${row.usuario || ''}" style="width:100%;padding:6px 10px;font-size:13px;border:1px solid #d1d5db;border-radius:6px" />
-        </div>`,
-      showCancelButton: true,
-      confirmButtonText: 'Guardar',
-      preConfirm: () => ({
-        id_caja: row.id_caja,
-        nombre_sucursal: document.getElementById('edit-sucursal')?.value || '',
-        usuario: document.getElementById('edit-usuario')?.value || ''
-      })
-    });
-    if (!form || isDismissed) return;
-    const res = await cajaService.editarCaja(form);
-    if (res.success) { toast.success('Caja editada correctamente'); loadData(); }
-    else toast.error(res.message || 'Error al editar');
+    handleVerDetalle(row);
   };
 
   // ─── ARQUEO PDF ────────────────────────────────────────────────────────
@@ -180,35 +162,46 @@ export const CajaNotaVentaContent = () => {
   };
 
   // ─── SOLICITUD EDICIÓN ─────────────────────────────────────────────────
-  const handleSolicitudEdicion = async (row) => {
-    const confirm = await Swal.fire({
-      title: '¿Enviar solicitud de edición?',
-      text: `Se enviará una solicitud para editar la caja #${row.numero_caja}`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, enviar',
-      cancelButtonText: 'Cancelar'
-    });
-    if (!confirm.isConfirmed) return;
-    const res = await cajaService.enviarSolicitudEdicion(row.id_caja);
+  const handleSolicitudEdicion = (row) => {
+    setSolicitudRow(row);
+    setConfirmSolicitudOpen(true);
+  };
+
+  const handleConfirmSolicitud = async () => {
+    if (!solicitudRow) return;
+    const res = await cajaService.enviarSolicitudEdicion(solicitudRow.id_caja);
     if (res.success) toast.success('Solicitud enviada correctamente');
     else toast.error(res.message || 'Error al enviar solicitud');
+    setConfirmSolicitudOpen(false);
+    setSolicitudRow(null);
   };
 
   // ─── APROBAR SOLICITUD ─────────────────────────────────────────────────
-  const handleAprobarSolicitud = async (row) => {
-    const confirm = await Swal.fire({
-      title: '¿Aprobar solicitud?',
-      text: `Se aprobará la solicitud de edición de la caja #${row.numero_caja}`,
-      icon: 'question',
-      showCancelButton: true,
-      confirmButtonText: 'Sí, aprobar',
-      cancelButtonText: 'Cancelar'
-    });
-    if (!confirm.isConfirmed) return;
-    const res = await cajaService.aprobarSolicitud(row.id_caja);
+  const handleAprobarSolicitud = (row) => {
+    setAprobarRow(row);
+    setConfirmAprobarOpen(true);
+  };
+
+  const handleConfirmAprobar = async () => {
+    if (!aprobarRow) return;
+    const res = await cajaService.aprobarSolicitud(aprobarRow.id_caja);
     if (res.success) { toast.success('Solicitud aprobada'); loadData(); }
     else toast.error(res.message || 'Error al aprobar');
+    setConfirmAprobarOpen(false);
+    setAprobarRow(null);
+  };
+
+  // ─── IMPRESIÓN RÁPIDA ────────────────────────────────────────────────
+  const handleImpresionRapida = (row) => {
+    const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
+    window.open(`${baseUrl}/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`, '_blank');
+  };
+
+  // ─── BUSCAR MI CAJA ABIERTA ──────────────────────────────────────────
+  const handleBuscarMiCaja = () => {
+    setFilters(p => ({ ...p, apertura: '1', estado: '', desde: '', hasta: '' }));
+    setPagination(p => ({ ...p, pageIndex: 0 }));
+    toast.success('Buscando tu caja abierta...', { duration: 1500 });
   };
 
   // ─── PAGINACIÓN ────────────────────────────────────────────────────────
@@ -227,6 +220,22 @@ export const CajaNotaVentaContent = () => {
         {val || 'CERRADA'}
       </span>
     );
+  };
+
+  const renderSolicitud = (val) => {
+    if (val == 0 || val == null) return <span title="Sin solicitud"><i className="fas fa-info-circle text-slate-300 text-xs"></i></span>;
+    if (val == 1 || val === 'PENDIENTE') return <span title="Solicitud Enviada"><i className="fas fa-info-circle text-amber-500 text-xs"></i></span>;
+    if (val == 2 || val === 'APROBADA') return <span title="Solicitud Aprobada"><i className="fas fa-info-circle text-emerald-500 text-xs"></i></span>;
+    return '-';
+  };
+
+  const renderCuadre = (val) => {
+    if (!val) return <span className="text-slate-400">-</span>;
+    let cls = 'text-slate-600';
+    if (val === 'CUADRADO') cls = 'text-emerald-600 font-bold';
+    else if (val?.includes('FALTANTE')) cls = 'text-red-600 font-bold';
+    else if (val?.includes('SOBRANTE')) cls = 'text-amber-600 font-bold';
+    return <span className={`${cls} text-[10px] font-mono`}>{val}</span>;
   };
 
   return (
@@ -254,6 +263,10 @@ export const CajaNotaVentaContent = () => {
           className="h-8 px-4 bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-black rounded-lg flex items-center gap-2 active:scale-95 disabled:opacity-70 uppercase tracking-widest">
           <i className="fas fa-search"></i> BUSCAR
         </button>
+        <button onClick={handleBuscarMiCaja} disabled={loading}
+          className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg flex items-center gap-2 active:scale-95 uppercase tracking-wider">
+          <i className="fas fa-door-open"></i> BUSCAR MI CAJA ABIERTA
+        </button>
         <button onClick={() => { setFilters({ desde: '', hasta: '', estado: '' }); setPagination(p => ({ ...p, pageIndex: 0 })); }}
           className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg" title="Limpiar">
           <i className="fas fa-eraser text-xs"></i>
@@ -266,7 +279,7 @@ export const CajaNotaVentaContent = () => {
           </div>
         )}
         <button onClick={() => setShowApertura(true)}
-            className="h-8 px-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[10px] font-black rounded-lg flex items-center gap-2 active:scale-95 uppercase">
+            className="h-8 px-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 text-[10px] font-black rounded-lg flex items-center gap-2 active:scale-95 uppercase ml-auto">
             <i className="fas fa-cash-register"></i> Nueva Apertura
           </button>
       </div>
@@ -280,11 +293,15 @@ export const CajaNotaVentaContent = () => {
                 <th className="py-2 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest w-10 text-center">#</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">N° CAJA</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">FECHA</th>
+                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">FECHA CIERRE</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">SUCURSAL</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">USUARIO</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">ESTADO</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">($)APERTURA</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">($)CIERRE</th>
+                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">($)MONTO A TENER</th>
+                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">CUADRE</th>
+                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">SOLICITUD</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">COMPROBANTE</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">BANCO</th>
                 <th className="py-2 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">ACCIONES</th>
@@ -294,15 +311,16 @@ export const CajaNotaVentaContent = () => {
               {loading ? (
                 Array(8).fill(0).map((_, i) => (
                   <tr key={i}>
-                    {Array(11).fill(0).map((_, j) => <td key={j} className="py-2 px-3"><Skeleton height={12} /></td>)}
+                    {Array(15).fill(0).map((_, j) => <td key={j} className="py-2 px-3"><Skeleton height={12} /></td>)}
                   </tr>
                 ))
-              ) : data.length > 0 ? (
+              ) : (Array.isArray(data) && data.length > 0) ? (
                 data.map((row, i) => (
                   <tr key={row.id_caja || i} className="group hover:bg-indigo-50/30 transition-all">
                     <td className="py-2 px-4 text-slate-400 font-mono text-[9px] text-center">{pagination.pageIndex * pagination.pageSize + i + 1}</td>
                     <td className="py-2 px-3 text-blue-600 font-bold text-[11px] font-mono">{row.numero_caja || '-'}</td>
                     <td className="py-2 px-3 text-slate-600 text-[10px]">{row.fecha_caja ? row.fecha_caja.split(' ')[0] : '-'}</td>
+                    <td className="py-2 px-3 text-slate-600 text-[10px]">{row.fecha_hora_cierre ? row.fecha_hora_cierre.split(' ')[0] : '-'}</td>
                     <td className="py-2 px-3 text-slate-600 text-[10px]">{row.nombre_sucursal || '-'}</td>
                     <td className="py-2 px-3 text-slate-600 text-[10px]">{row.usuario || '-'}</td>
                     <td className="py-2 px-3 text-center">{renderEstado(row.estado_caja)}</td>
@@ -312,18 +330,25 @@ export const CajaNotaVentaContent = () => {
                     <td className="py-2 px-3 text-right font-mono font-semibold text-[11px] text-slate-800">
                       {row.cierre_total_caja ? `$${parseFloat(row.cierre_total_caja).toFixed(2)}` : '-'}
                     </td>
+                    <td className="py-2 px-3 text-right font-mono font-bold text-[11px] text-emerald-600">
+                      ${parseFloat(row.monto_a_tener ?? row.apertura_total_caja ?? 0).toFixed(2)}
+                    </td>
+                    <td className="py-2 px-3">{renderCuadre(row.cuadre_caja)}</td>
+                    <td className="py-2 px-3 text-center">{renderSolicitud(row.estado_solicitud)}</td>
                     <td className="py-2 px-3 text-slate-600 text-[10px]">{row.numero_comprobante_cierre || '-'}</td>
                     <td className="py-2 px-3 text-slate-600 text-[10px]">{row.banco_cierre || '-'}</td>
                     <td className="py-2 px-4 text-center">
                       <div className="flex items-center justify-center gap-1">
                         {[
                           {a:() => handleInfoComprobante(row), i:'fa-vote-yea', c:'text-indigo-500 hover:bg-indigo-50', t:'Info Comprobante'},
-                          {a:() => handleArqueo(row), i:'fa-file-pdf', c:'text-red-500 hover:bg-red-50', t:'Arqueo'},
-                          {a:() => handleComprobantes(row), i:'fa-file-invoice', c:'text-red-500 hover:bg-red-50', t:'Comprobantes'},
+                          {a:() => handleVerDetalle(row), i:'fa-list', c:'text-blue-500 hover:bg-blue-50', t:'Ver Detalle Movimientos'},
+                          {a:() => handleImpresionRapida(row), i:'fa-print', c:'text-slate-600 hover:bg-slate-100', t:'Impresión Rápida'},
+                          {a:() => handleArqueo(row), i:'fa-file-pdf', c:'text-red-500 hover:bg-red-50', t:'Arqueo PDF'},
+                          {a:() => handleComprobantes(row), i:'fa-file-invoice', c:'text-red-500 hover:bg-red-50', t:'Reporte Comprobantes'},
                           {a:() => handleEditar(row), i:'fa-edit', c:'text-amber-500 hover:bg-amber-50', t:'Editar Caja'},
-                          row.estado_caja === 'APERTURADA' ? {a:() => openCierreModal(row), i:'fa-sign-out-alt', c:'text-blue-500 hover:bg-blue-50', t:'Cerrar Caja'} : null,
-                          row.estado_caja === 'CERRADA' ? {a:() => handleSolicitudEdicion(row), i:'fa-share-square', c:'text-purple-500 hover:bg-purple-50', t:'Solicitud'} : null,
-                          row.estado_solicitud === 'PENDIENTE' ? {a:() => handleAprobarSolicitud(row), i:'fa-print', c:'text-slate-500 hover:bg-slate-50', t:'Aprobar Solicitud'} : null,
+                          row.estado_caja === 'APERTURADA' ? {a:() => openCierreModal(row), i:'fa-sign-out-alt', c:'text-rose-500 hover:bg-rose-50', t:'Cerrar Caja'} : null,
+                          row.estado_caja === 'CERRADA' && row.estado_solicitud != 1 ? {a:() => handleSolicitudEdicion(row), i:'fa-share-square', c:'text-purple-500 hover:bg-purple-50', t:'Solicitud Edición'} : null,
+                          row.estado_solicitud == 1 || row.estado_solicitud === 'PENDIENTE' ? {a:() => handleAprobarSolicitud(row), i:'fa-check-circle', c:'text-emerald-600 hover:bg-emerald-50', t:'Aprobar Solicitud'} : null,
                         ].filter(Boolean).map((b, idx) => (
                           <button key={idx} onClick={b.a} title={b.t}
                             className={`w-7 h-7 rounded ${b.c} flex items-center justify-center transition-colors`}>
@@ -336,13 +361,14 @@ export const CajaNotaVentaContent = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={11} className="py-12 text-center">
+                  <td colSpan={14} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <i className="fas fa-folder-open text-xl text-slate-200"></i>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sin registros de cajas</p>
                     </div>
                   </td>
                 </tr>
+
               )}
             </tbody>
           </table>
@@ -472,6 +498,35 @@ export const CajaNotaVentaContent = () => {
           </div>
         </div>
       )}
+
+      {/* ── MODALES REACT ──────────────────────────────────────────── */}
+      <InfoComprobanteModal
+        isOpen={infoCompOpen}
+        onClose={() => { setInfoCompOpen(false); setInfoCompRow(null); }}
+        onConfirm={handleConfirmInfoComp}
+        initialNumero={infoCompRow?.numero_comprobante_cierre || ''}
+        initialBanco={infoCompRow?.banco_cierre || ''}
+      />
+
+      <ConfirmationModal
+        isOpen={confirmSolicitudOpen}
+        onClose={() => { setConfirmSolicitudOpen(false); setSolicitudRow(null); }}
+        onConfirm={handleConfirmSolicitud}
+        title="¿Enviar solicitud de edición?"
+        message={`Se enviará una solicitud para editar la caja #${solicitudRow?.numero_caja || ''}`}
+        confirmText="Sí, enviar"
+        type="info"
+      />
+
+      <ConfirmationModal
+        isOpen={confirmAprobarOpen}
+        onClose={() => { setConfirmAprobarOpen(false); setAprobarRow(null); }}
+        onConfirm={handleConfirmAprobar}
+        title="¿Aprobar solicitud?"
+        message={`Se aprobará la solicitud de edición de la caja #${aprobarRow?.numero_caja || ''}`}
+        confirmText="Sí, aprobar"
+        type="info"
+      />
     </div>
   );
 };

@@ -9,6 +9,7 @@ import { FormaPagoPanel } from './components/FormaPagoPanel';
 import Modal from '../../components/common/Modal';
 import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
 import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
+import cajaService from '../../services/caja.service';
 import { GuiaService } from '../../services/guia.service';
 import { api } from '../../config/axios';
 import axios from 'axios';
@@ -152,22 +153,19 @@ export const NuevaGuiaPage = () => {
     cajaCheckRef.current = true;
     const checkCaja = async () => {
       try {
-        const res = await cajaBoleteriaService.validarCaja();
-        const cajaId = res.id_caja || res.data?.id_caja;
+        const res = await cajaService.validarCaja();
+        const cajaId = res.id_caja || (res.data && res.data.id_caja);
         if (res.success && cajaId) {
           setLocalCajaId(cajaId);
           setCajaResolved(true);
         } else {
+          toast.error('No tiene una caja aperturada. Debe aperturar caja antes de crear guías.');
           setShowCajaModal(true);
         }
-      } catch {
-        const fallback = user?.id_caja_global || user?.id_caja;
-        if (fallback) {
-          setLocalCajaId(fallback);
-          setCajaResolved(true);
-        } else {
-          setShowCajaModal(true);
-        }
+      } catch (err) {
+        console.error('Error validando caja:', err);
+        toast.error('Error al verificar el estado de la caja');
+        setShowCajaModal(true);
       } finally {
         setCajaChecking(false);
       }

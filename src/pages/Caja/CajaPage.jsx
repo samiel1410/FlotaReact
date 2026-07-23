@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import Swal from 'sweetalert2';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import cajaService from '../../services/caja.service';
@@ -9,61 +8,9 @@ import Modal from '../../components/common/Modal';
 import { CajaForm } from './components/CajaForm';
 import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
 import { CierreCajaForm } from '../CajaBoleteria/components/CierreCajaForm';
-
-const DENOMINACIONES = [
-  { key: '100', label: 'Billetes $100', field: '100' },
-  { key: '50', label: 'Billetes $50', field: '50' },
-  { key: '20', label: 'Billetes $20', field: '20' },
-  { key: '10', label: 'Billetes $10', field: '10' },
-  { key: '5', label: 'Billetes $5', field: '5' },
-  { key: '1', label: 'Billetes $1', field: '1' },
-  { key: 'moneda_1d', label: 'Monedas $1', field: 'moneda_caja' },
-  { key: 'moneda_50', label: 'Monedas $0.50', field: 'moneda_50' },
-  { key: 'moneda_25', label: 'Monedas $0.25', field: 'moneda_25' },
-  { key: 'moneda_10', label: 'Monedas $0.10', field: 'moneda_10' },
-  { key: 'moneda_5', label: 'Monedas $0.05', field: 'moneda_5' },
-  { key: 'moneda_01', label: 'Monedas $0.01', field: 'moneda_1' },
-];
-
-const multipliers = {
-  '100': 100, '50': 50, '20': 20, '10': 10, '5': 5, '1': 1,
-  'moneda_1d': 1, 'moneda_50': 0.50, 'moneda_25': 0.25,
-  'moneda_10': 0.10, 'moneda_5': 0.05, 'moneda_01': 0.01
-};
-
-const denomToHtml = (prefix) => DENOMINACIONES.map(d => `
-  <div style="flex:0 0 calc(50% - 4px)">
-    <label style="display:block;font-weight:bold;font-size:11px;margin-bottom:2px;color:#374151">${d.label}</label>
-    <input id="${prefix}-${d.key}" class="swal2-input" type="number" min="0" step="0.01" value="0"
-      style="width:100%;padding:6px 10px;font-size:13px;text-align:right" />
-  </div>`).join('');
-
-const denomPreConfirm = (prefix) => {
-  const formData = {};
-  DENOMINACIONES.forEach(d => {
-    formData[`${prefix}_${d.field}`] = parseFloat(document.getElementById(`${prefix}-${d.key}`)?.value || '0') || 0;
-  });
-  return formData;
-};
-
-const denomCalcular = (prefix) => {
-  let total = 0;
-  DENOMINACIONES.forEach(d => {
-    const el = document.getElementById(`${prefix}-${d.key}`);
-    if (el) total += (parseFloat(el.value) || 0) * (multipliers[d.key] || 1);
-  });
-  const totalEl = document.getElementById(`${prefix}-total`);
-  if (totalEl) totalEl.value = total.toFixed(2);
-};
-
-const denomDidOpen = (prefix) => {
-  const recalcular = () => denomCalcular(prefix);
-  DENOMINACIONES.forEach(d => {
-    const el = document.getElementById(`${prefix}-${d.key}`);
-    if (el) { el.addEventListener('input', recalcular); el.addEventListener('change', recalcular); }
-  });
-  recalcular();
-};
+import InfoComprobanteModal from '../../components/common/InfoComprobanteModal';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
+import IngresoEgresoModal from '../../components/common/IngresoEgresoModal';
 
 export const CajaPage = () => {
   const [data, setData] = useState([]);
@@ -71,7 +18,7 @@ export const CajaPage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [openCaja, setOpenCaja] = useState(null);
 
-  // Modales
+  // Modales React
   const [showModal, setShowModal] = useState(false);
   const [showApertura, setShowApertura] = useState(false);
   const [showCierre, setShowCierre] = useState(false);
@@ -82,6 +29,16 @@ export const CajaPage = () => {
   const [detalleLoading, setDetalleLoading] = useState(false);
   const [detalleCajaId, setDetalleCajaId] = useState(null);
   const [detalleCajaNum, setDetalleCajaNum] = useState('');
+
+  // Modales de Acción (Info Comprobante, Aprobar Solicitud, Ingreso/Egreso)
+  const [infoCompModalOpen, setInfoCompModalOpen] = useState(false);
+  const [selectedRowForInfo, setSelectedRowForInfo] = useState(null);
+
+  const [confirmAprobarOpen, setConfirmAprobarOpen] = useState(false);
+  const [selectedRowForAprobar, setSelectedRowForAprobar] = useState(null);
+
+  const [ingresoEgresoModalOpen, setIngresoEgresoModalOpen] = useState(false);
+  const [cajaIdForMovimiento, setCajaIdForMovimiento] = useState(null);
 
   const [filterFecha, setFilterFecha] = useState(new Date());
 
@@ -141,27 +98,20 @@ export const CajaPage = () => {
   };
 
   // ─── MODAL INFO COMPROBANTE ────────────────────────────────────────────
-  const openModalInfoComprobante = async (row) => {
-    const { value: form, isDismissed } = await Swal.fire({
-      title: 'Información de Comprobante',
-      html: `
-        <div style="text-align:left">
-          <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:4px">N° Comprobante</label>
-          <input id="swal-num" class="swal2-input" style="width:100%" />
-          <label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Banco</label>
-          <input id="swal-banco" class="swal2-input" style="width:100%" />
-        </div>`,
-      showCancelButton: true, confirmButtonText: 'Guardar',
-      preConfirm: () => ({
-        id_caja: row.id_caja,
-        numero_comprobante: document.getElementById('swal-num')?.value || '',
-        banco: document.getElementById('swal-banco')?.value || ''
-      })
+  const handleConfirmInfoComprobante = async (formValues) => {
+    if (!selectedRowForInfo) return;
+    const res = await cajaService.guardarInfoComprobante({
+      id_caja: selectedRowForInfo.id_caja,
+      ...formValues
     });
-    if (!form || isDismissed) return;
-    const res = await cajaService.guardarInfoComprobante(form);
-    if (res.success) { toast.success('Comprobante guardado'); loadData(); }
-    else toast.error(res.message || 'Error');
+    if (res.success) {
+      toast.success('Comprobante guardado');
+      loadData();
+    } else {
+      toast.error(res.message || 'Error');
+    }
+    setInfoCompModalOpen(false);
+    setSelectedRowForInfo(null);
   };
 
   // ─── MODAL DETALLE / EDITAR ────────────────────────────────────────────
@@ -189,7 +139,10 @@ export const CajaPage = () => {
   // ─── ACCIONES DE FILA ─────────────────────────────────────────────────
   const handleAction = useCallback(async (action, row) => {
     switch (action) {
-      case 'info-comprobante': await openModalInfoComprobante(row); break;
+      case 'info-comprobante':
+        setSelectedRowForInfo(row);
+        setInfoCompModalOpen(true);
+        break;
       case 'arqueo':
         try {
           const res = await cajaService.arqueoCajaPdf(row.id_caja);
@@ -205,11 +158,8 @@ export const CajaPage = () => {
       case 'solicitud':
         if (row.estado_solicitud == 0) { toast('Sin solicitud de edición'); return; }
         if (row.estado_solicitud == 1) {
-          const { isConfirmed } = await Swal.fire({ title: '¿Aprobar solicitud?', text: '¿Desea aprobar la solicitud de edición?', icon: 'question', showCancelButton: true, confirmButtonText: 'Aprobar' });
-          if (!isConfirmed) return;
-          const res = await cajaService.aprobarSolicitud(row.id_caja);
-          if (res.success) { toast.success('Solicitud aprobada'); loadData(); }
-          else toast.error(res.message || 'Error');
+          setSelectedRowForAprobar(row);
+          setConfirmAprobarOpen(true);
         } else toast('Ya aprobada para editar');
         break;
       case 'impresion-rapida':
@@ -218,40 +168,35 @@ export const CajaPage = () => {
     }
   }, []);
 
+  const handleEjecutarAprobar = async () => {
+    if (!selectedRowForAprobar) return;
+    const res = await cajaService.aprobarSolicitud(selectedRowForAprobar.id_caja);
+    if (res.success) {
+      toast.success('Solicitud aprobada');
+      loadData();
+    } else toast.error(res.message || 'Error');
+    setConfirmAprobarOpen(false);
+    setSelectedRowForAprobar(null);
+  };
+
   // ─── MODAL INGRESO/EGRESO ─────────────────────────────────────────────
-  const openModalIngresoEgreso = async (idCaja) => {
-    const { value: form, isDismissed } = await Swal.fire({
-      title: 'Agregar Ingreso/Egreso',
-      html: `
-        <div style="text-align:left">
-          <label style="display:block;font-weight:bold;font-size:12px;margin-bottom:4px">Tipo</label>
-          <select id="ie-tipo" class="swal2-input" style="width:100%">
-            <option value="INGRESO">INGRESO</option>
-            <option value="EGRESO">EGRESO</option>
-          </select>
-          <label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Monto ($)</label>
-          <input id="ie-monto" class="swal2-input" type="number" step="0.01" min="0" value="0" style="width:100%" />
-          <label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Socio</label>
-          <input id="ie-socio" class="swal2-input" style="width:100%" />
-          <label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">N° Documento</label>
-          <input id="ie-doc" class="swal2-input" style="width:100%" />
-          <label style="display:block;font-weight:bold;font-size:12px;margin:8px 0 4px">Observación</label>
-          <textarea id="ie-obs" class="swal2-textarea" style="width:100%;min-height:60px"></textarea>
-        </div>`,
-      showCancelButton: true, confirmButtonText: 'Guardar',
-      preConfirm: () => ({
-        id_fkcaja: idCaja,
-        tipo_caja_detalle: document.getElementById('ie-tipo')?.value || 'INGRESO',
-        monto_caja_detalle: document.getElementById('ie-monto')?.value || 0,
-        nombre_socio: document.getElementById('ie-socio')?.value || '',
-        numero_documento: document.getElementById('ie-doc')?.value || '',
-        observacion_caja_detalle: document.getElementById('ie-obs')?.value || ''
-      })
+  const openModalIngresoEgreso = (idCaja) => {
+    setCajaIdForMovimiento(idCaja);
+    setIngresoEgresoModalOpen(true);
+  };
+
+  const handleConfirmIngresoEgreso = async (formData) => {
+    if (!cajaIdForMovimiento) return;
+    const res = await cajaService.detalleCaja({
+      id_fkcaja: cajaIdForMovimiento,
+      ...formData
     });
-    if (!form || isDismissed) return;
-    const res = await cajaService.detalleCaja(form);
-    if (res.success) { toast.success('Registrado'); if (showDetalle) await loadDetalle(detalleCajaId); }
-    else toast.error(res.message || 'Error');
+    if (res.success) {
+      toast.success('Movimiento registrado');
+      if (showDetalle) await loadDetalle(cajaIdForMovimiento);
+    } else toast.error(res.message || 'Error');
+    setIngresoEgresoModalOpen(false);
+    setCajaIdForMovimiento(null);
   };
 
   return (
@@ -451,18 +396,6 @@ export const CajaPage = () => {
                     <td className="p-2 max-w-[150px] truncate">{d.observacion_caja_detalle || '-'}</td>
                     <td className="p-2">
                       <div className="flex gap-1">
-                        {d.estado_caja_detalle !== 'ANULADO' && d.estado_caja_detalle !== 'CANCELADO' && (
-                          <>
-                            <button onClick={() => Swal.fire({title:'Eliminar?',text:'¿Eliminar este detalle?',icon:'question',showCancelButton:true}).then(async r=>{if(r.isConfirmed){const res=await cajaService.eliminarDetalleCaja(d.id_caja_detalle);if(res.success){toast.success('Eliminado');loadDetalle(detalleCajaId);}else toast.error(res.message||'Error');}})}
-                              className="w-6 h-6 rounded text-red-500 hover:bg-red-50 flex items-center justify-center" title="Eliminar">
-                              <i className="fas fa-times-circle text-[10px]"></i>
-                            </button>
-                            <button onClick={() => Swal.fire({title:'Anular?',text:'Ingrese motivo de anulación',input:'textarea',showCancelButton:true,confirmButtonText:'Anular'}).then(async r=>{if(r.isConfirmed){const res=await cajaService.solicitudAnulacion({id_egreso:d.id_caja_detalle,motivoAnulacion:r.value});if(res.success)toast.success('Solicitud enviada');else toast.error(res.message||'Error');}})}
-                              className="w-6 h-6 rounded text-amber-500 hover:bg-amber-50 flex items-center justify-center" title="Anular">
-                              <i className="fas fa-ban text-[10px]"></i>
-                            </button>
-                          </>
-                        )}
                         <button onClick={() => window.open(`/caja/mostarCajaDetallePdf?id_caja_detalle=${d.id_caja_detalle}`, '_blank')}
                           className="w-6 h-6 rounded text-red-500 hover:bg-red-50 flex items-center justify-center" title="PDF">
                           <i className="fas fa-file-pdf text-[10px]"></i>
@@ -478,6 +411,31 @@ export const CajaPage = () => {
           </div>
         </div>
       </Modal>
+
+      {/* MODALES REACT EN LUGAR DE SWAL */}
+      <InfoComprobanteModal
+        isOpen={infoCompModalOpen}
+        onClose={() => { setInfoCompModalOpen(false); setSelectedRowForInfo(null); }}
+        onConfirm={handleConfirmInfoComprobante}
+        initialNumero={selectedRowForInfo?.numero_comprobante || ''}
+        initialBanco={selectedRowForInfo?.banco || ''}
+      />
+
+      <ConfirmationModal
+        isOpen={confirmAprobarOpen}
+        onClose={() => { setConfirmAprobarOpen(false); setSelectedRowForAprobar(null); }}
+        onConfirm={handleEjecutarAprobar}
+        title="¿Aprobar solicitud?"
+        message="¿Desea aprobar la solicitud de edición para esta caja?"
+        confirmText="Aprobar"
+        type="info"
+      />
+
+      <IngresoEgresoModal
+        isOpen={ingresoEgresoModalOpen}
+        onClose={() => { setIngresoEgresoModalOpen(false); setCajaIdForMovimiento(null); }}
+        onConfirm={handleConfirmIngresoEgreso}
+      />
     </div>
   );
 };

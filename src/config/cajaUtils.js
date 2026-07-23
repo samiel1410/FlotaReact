@@ -1,5 +1,4 @@
 import toast from 'react-hot-toast';
-import Swal from 'sweetalert2';
 import { api } from './axios';
 import { CajaDenominacionesForm } from '../pages/CajaBoleteria/components/CajaDenominacionesForm';
 
@@ -75,14 +74,14 @@ export const createCerrarAction = (idField, endpointUrl) => {
                   else if (estado === 'FALTANTE') msg += `. Faltante $${diff}`;
                   else if (estado === 'SOBRANTE') msg += `. Sobrante $${diff}`;
 
-                  Swal.fire('Éxito', msg, 'success');
+                  toast.success(msg);
                   ctx.closeCustomModal();
                   if (ctx.refreshList) ctx.refreshList();
                 } else {
-                  Swal.fire('Error', res.data?.message || 'No se pudo cerrar', 'error');
+                  toast.error(res.data?.message || 'No se pudo cerrar');
                 }
               } catch (error) {
-                Swal.fire('Error', error.response?.data?.message || 'Error al cerrar la caja', 'error');
+                toast.error(error.response?.data?.message || 'Error al cerrar la caja');
               }
             }
           },

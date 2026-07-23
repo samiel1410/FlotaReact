@@ -86,7 +86,7 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
 
   const [searchandoCliente, setSearchandoCliente] = useState(false);
 
-  const { register, handleSubmit, setValue, getValues, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, getValues, watch, formState: { errors } } = useForm({
     defaultValues: isEditing ? {
       per_codigo_personal: initialData.per_codigo_personal || initialData.soc_codigo || '',
       per_cedula_personal: initialData.per_cedula_personal || initialData.soc_cedula || '',
@@ -105,6 +105,8 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
       celular_fijo_emergencia: initialData.celular_fijo_emergencia || '',
       direccion_emergencia: initialData.direccion_emergencia || '',
       estado_personal: (initialData.estado_personal ?? initialData.soc_estado ?? 1) == 1 || (initialData.estado_personal ?? initialData.soc_estado ?? 1) === '1',
+      tiene_porcentaje_individual: (initialData.tiene_porcentaje_individual == 1) || false,
+      porcentaje_individual: initialData.porcentaje_individual || '0.00',
     } : {
       per_codigo_personal: '',
       per_cedula_personal: '',
@@ -123,6 +125,8 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
       celular_fijo_emergencia: '',
       direccion_emergencia: '',
       estado_personal: true,
+      tiene_porcentaje_individual: false,
+      porcentaje_individual: '0.00',
     }
   });
 
@@ -235,8 +239,8 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
       const formData = new FormData();
 
       Object.keys(data).forEach(key => {
-        if (key === 'estado_personal') {
-          formData.append(key, data.estado_personal ? '1' : '0');
+        if (key === 'estado_personal' || key === 'tiene_porcentaje_individual') {
+          formData.append(key, data[key] ? '1' : '0');
         } else if (key === 'fecha_nacimiento_personal') {
           if (data.fecha_nacimiento_personal) {
             formData.append(key, data.fecha_nacimiento_personal.split('T')[0]);
@@ -610,6 +614,37 @@ const SocioForm = ({ initialData, onSubmit, onCancel }) => {
               <span className="ml-3 text-sm font-semibold text-slate-700">Activo</span>
             </label>
           </div>
+
+          {selectedProfiles.includes('2') && (
+            <>
+              <div>
+                <label className={labelClass}>¿Porcentaje Individual?</label>
+                <label className="relative inline-flex items-center cursor-pointer mt-1">
+                  <input type="checkbox" className="sr-only peer" {...register('tiene_porcentaje_individual')} />
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-500"></div>
+                  <span className="ml-3 text-sm font-semibold text-slate-700">Sí</span>
+                </label>
+              </div>
+
+              {watch('tiene_porcentaje_individual') && (
+                <div>
+                  <label className={labelClass}>Porcentaje (%) <span className="text-rose-500">*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    {...register('porcentaje_individual', { 
+                      required: watch('tiene_porcentaje_individual') ? 'El porcentaje es requerido' : false 
+                    })}
+                    className={inputClass}
+                    placeholder="Ej: 10.50"
+                  />
+                  {errors.porcentaje_individual && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.porcentaje_individual.message}</p>}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 

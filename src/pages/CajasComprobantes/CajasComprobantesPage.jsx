@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { useListado } from '../../hooks/useListado';
-import Swal from 'sweetalert2';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import Modal from '../../components/common/Modal';
@@ -205,7 +204,7 @@ const TabContent = ({ tab }) => {
   const handleVerImagen = (row) => {
     const ruta = row.ruta_imagen_comprobante_cierre;
     if (!ruta) {
-      Swal.fire('Info', 'No hay imagen disponible', 'info');
+      toast.error('No hay imagen disponible');
       return;
     }
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
