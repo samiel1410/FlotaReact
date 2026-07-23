@@ -116,13 +116,17 @@ function asegurarClaveAccesoHoy($claveOriginal, $tabla, $columnaClave, $columnaI
     $hoyFormato = date('dmY'); // 8 dígitos: ddmmyyyy
     $fechaAccesoOriginal = strlen($claveOriginal) === 49 ? substr($claveOriginal, 0, 8) : '';
 
-    if (strlen($claveOriginal) === 49 && $fechaAccesoOriginal === $hoyFormato) {
-        return $claveOriginal; // Ya tiene la fecha de hoy
+    $tipoEmisionActual = strlen($claveOriginal) === 49 ? $claveOriginal[46] : '';
+
+    if (strlen($claveOriginal) === 49 && $fechaAccesoOriginal === $hoyFormato && $tipoEmisionActual === '1') {
+        return $claveOriginal; // Ya tiene la fecha de hoy y tipoEmision 1
     }
 
     if (strlen($claveOriginal) >= 48) {
         $restoClave = substr($claveOriginal, 8, 40); // 40 caracteres (pos 8 a 47 inclusive)
-        $nuevaSinDigito = str_pad($hoyFormato . $restoClave, 48, '0', STR_PAD_RIGHT);
+        $nuevaBase = str_pad($hoyFormato . $restoClave, 48, '0', STR_PAD_RIGHT);
+        // Forzar tipoEmision = 1 en la posición 47 (índice 46)
+        $nuevaSinDigito = substr_replace($nuevaBase, '1', 46, 1);
         $digitoVerificador = calcularModulo11($nuevaSinDigito);
         $nuevaClave = $nuevaSinDigito . $digitoVerificador;
 
