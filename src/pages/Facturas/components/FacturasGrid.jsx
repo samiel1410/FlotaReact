@@ -205,19 +205,20 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
               <th className={`${thClass} text-right`}>COBRADO</th>
               <th className={`${thClass} text-right`}>POR COBRAR</th>
               <th className={thClass}>ESTADO</th>
+              <th className={thClass}>ESTADO SRI</th>
               <th className={`${thClass} w-10`}></th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="10" className="text-center py-12 text-slate-400">
+                <td colSpan="11" className="text-center py-12 text-slate-400">
                   <i className="fas fa-spinner fa-spin mr-2"></i> Cargando facturas...
                 </td>
               </tr>
             ) : !data || data.length === 0 ? (
               <tr>
-                <td colSpan="10" className="text-center py-12 text-slate-400">
+                <td colSpan="11" className="text-center py-12 text-slate-400">
                   <i className="fas fa-inbox mr-2 opacity-50"></i> No se encontraron facturas
                 </td>
               </tr>
@@ -227,6 +228,8 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
                 const rowClass = row.estado_factura == 2 ? 'bg-rose-50/40' :
                   row.estado_factura == 3 ? 'bg-amber-50/30' :
                   row.estado_factura == 4 ? 'bg-emerald-50/20' : '';
+
+                const estadoAutorizacion = row.estado_autorizacion || row.estado_sri || (row.clave_acceso_factura ? 'AUTORIZADO' : 'PENDIENTE');
 
                 return (
                   <tr key={row.id_factura || idx} className={`${rowClass} hover:bg-blue-50/40 transition-colors`}>
@@ -267,6 +270,24 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
                           : <span className="text-rose-600 font-bold">✗ NO COBRADA</span>
                         }
                       </div>
+                    </td>
+                    <td className={tdClass} title={row.mensaje_sri || ''}>
+                      {estadoAutorizacion === 'AUTORIZADO' ? (
+                        <span className="text-emerald-600 font-bold text-[11px]"><i className="fas fa-check-circle mr-1"></i> AUTORIZADO</span>
+                      ) : estadoAutorizacion === 'RECIBIDA' ? (
+                        <span className="text-amber-500 font-bold text-[11px]"><i className="fas fa-clock mr-1"></i> RECIBIDA</span>
+                      ) : estadoAutorizacion === 'RECHAZADO' || estadoAutorizacion === 'DEVUELTA' ? (
+                        <div>
+                          <span className="text-rose-600 font-bold text-[11px]"><i className="fas fa-exclamation-circle mr-1"></i> {estadoAutorizacion}</span>
+                          {row.mensaje_sri && (
+                            <div className="text-[9px] text-rose-500 truncate max-w-[130px]" title={row.mensaje_sri}>
+                              {row.mensaje_sri}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 italic text-[11px]"><i className="fas fa-clock mr-1"></i> PENDIENTE</span>
+                      )}
                     </td>
                     <td className={`${tdClass} text-center`}>
                       <button

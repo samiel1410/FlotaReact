@@ -100,7 +100,7 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                   <span style={{color: est.color, fontWeight: 'bold', fontSize: '11px'}}>{est.label}</span>
                 </td>
 
-                <td className="text-center" style={{fontSize: '11px'}}>
+                <td className="text-center" style={{fontSize: '11px'}} title={item.mensaje_sri || ''}>
                   {reenviandoId === item.id_boleto ? (
                     <div style={{color: '#3498db', fontWeight: 'bold'}} className="flex items-center justify-center gap-1">
                       <i className="fas fa-spinner fa-spin text-blue-500"></i> PROCESANDO...
@@ -109,8 +109,15 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                     <div style={{color: 'green', fontWeight: 'bold'}}><i className="fas fa-check-circle"></i> AUTORIZADO</div>
                   ) : item.estado_autorizacion === 'RECIBIDA' ? (
                     <div style={{color: '#f39c12', fontWeight: 'bold'}}><i className="fas fa-clock"></i> RECIBIDA</div>
-                  ) : item.estado_autorizacion === 'RECHAZADO' ? (
-                    <div style={{color: '#c0392b', fontWeight: 'bold'}}><i className="fas fa-exclamation-circle"></i> RECHAZADO</div>
+                  ) : item.estado_autorizacion === 'RECHAZADO' || item.estado_autorizacion === 'DEVUELTA' ? (
+                    <div>
+                      <div style={{color: '#c0392b', fontWeight: 'bold'}}><i className="fas fa-exclamation-circle"></i> {item.estado_autorizacion}</div>
+                      {item.mensaje_sri && (
+                        <div style={{fontSize: '9px', color: '#e74c3c', marginTop: '2px', maxWidth: '140px', margin: '2px auto 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}} title={item.mensaje_sri}>
+                          {item.mensaje_sri}
+                        </div>
+                      )}
+                    </div>
                   ) : item.clave_acceso_boletos && item.clave_acceso_boletos !== '0' ? (
                     <div style={{color: '#3498db', fontWeight: 'bold'}}><i className="fas fa-cloud-upload-alt"></i> ENVIADO</div>
                   ) : (
