@@ -88,13 +88,25 @@ export const FacturasService = {
       throw new Error('No se pudo generar el XML de la factura');
     }
 
+    let rucEmpresa = dataPhp.ruc || '';
+    if (!rucEmpresa) {
+      try {
+        const confRes = await api.get('/configuracion/configuracionSeleccion');
+        if (confRes.data?.data?.[0]?.ruc_empresa) {
+          rucEmpresa = confRes.data.data[0].ruc_empresa;
+        }
+      } catch (e) {
+        console.warn('[Factura Reenviar] No se pudo obtener el RUC:', e);
+      }
+    }
+
     // 2. Enviar a la API de firma y SRI
     const responseFirma = await fetch(`${CONFIG.API_FIRMA}/firmar-enviar`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         xml: dataPhp.xml,
-        ruc: dataPhp.ruc,
+        ruc: rucEmpresa,
         clave: dataPhp.p12_password || ''
       })
     });
