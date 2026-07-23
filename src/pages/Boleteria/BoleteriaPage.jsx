@@ -6,6 +6,7 @@ import { BoleteriaService } from '../../services/boleteria.service';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
+import { CONFIG } from '../../config/env';
 import './BoleteriaPage.css';
 
 export const BoleteriaPage = () => {
@@ -165,8 +166,8 @@ export const BoleteriaPage = () => {
       }
 
       // 2. Generar XML (vía PHP negocioXmlBoleto.php)
-      const baseUrl = window.location.origin;
-      const xmlRes = await fetch(`${baseUrl}/php/negocioXmlBoleto.php?id_boleto=${item.id_boleto}`);
+      const phpUrl = CONFIG.PHP_URL;
+      const xmlRes = await fetch(`${phpUrl}/negocioXmlBoleto.php?id_boleto=${item.id_boleto}`);
       const xmlData = await xmlRes.json();
 
       if (!xmlData.success) {
@@ -174,8 +175,8 @@ export const BoleteriaPage = () => {
         return;
       }
 
-      // 3. Firmar y transmitir al SRI si existe servicio de firma
-      const firmaUrl = import.meta.env.VITE_API_FIRMA || '';
+      // 3. Firmar y transmitir al SRI vía CONFIG.API_FIRMA
+      const firmaUrl = CONFIG.API_FIRMA;
       if (firmaUrl) {
         toast('Firmando y enviando al SRI...', { icon: '✍️' });
         const firmaRes = await fetch(`${firmaUrl}/firmar-enviar`, {
@@ -189,7 +190,7 @@ export const BoleteriaPage = () => {
         });
         const firmaData = await firmaRes.json();
 
-        const estadoSri = firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO');
+        const estadoSri = (firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO')).toUpperCase();
         const mensajeSri = firmaData.message || firmaData.mensaje || '';
 
         // 4. Registrar estado de autorización
