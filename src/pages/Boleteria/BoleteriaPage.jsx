@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { api } from '../../config/axios';
 import { BoleteriaFilterPanel } from './components/BoleteriaFilterPanel';
 import { BoleteriaGrid } from './components/BoleteriaGrid';
 import { CambiarFechaViajeModal } from './components/CambiarFechaViajeModal';
@@ -175,41 +176,57 @@ export const BoleteriaPage = () => {
         return;
       }
 
-      // 3. Firmar y transmitir al SRI vía CONFIG.API_FIRMA
-      const firmaUrl = CONFIG.API_FIRMA;
-      if (firmaUrl) {
-        toast('Firmando y enviando al SRI...', { icon: '✍️' });
-        const firmaRes = await fetch(`${firmaUrl}/firmar-enviar`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            xml: xmlData.xml,
-            ruc: xmlData.ruc || '',
-            clave: xmlData.p12_password || ''
-          })
+      // 3. Firmar y transmitir al SRI
+      toast('Firmando y enviando al SRI...', { icon: '✍️' });
+      let estadoSri = 'RECIBIDA';
+      let mensajeSri = '';
+      let successFirma = false;
+
+      try {
+        // Intentar firmar vía endpoint proxy de Backend o directo
+        const firmaRes = await api.post('/firma/firmar-enviar', {
+          xml: xmlData.xml,
+          ruc: xmlData.ruc || '',
+          clave: xmlData.p12_password || ''
         });
-        const firmaData = await firmaRes.json();
-
-        const estadoSri = (firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO')).toUpperCase();
-        const mensajeSri = firmaData.message || firmaData.mensaje || '';
-
-        // 4. Registrar estado de autorización
-        await BoleteriaService.autorizarBoleto(item.id_boleto, estadoSri, mensajeSri);
-
-        if (firmaData.success || estadoSri === 'AUTORIZADO' || estadoSri === 'AUTORIZADA') {
-          toast.success('Boleto autorizado exitosamente por el SRI');
-          loadBoletos(filtros, page);
+        estadoSri = (firmaRes.data?.estado || 'AUTORIZADO').toUpperCase();
+        mensajeSri = firmaRes.data?.message || firmaRes.data?.mensaje || 'Procesado correctamente';
+        successFirma = firmaRes.data?.success !== false;
+      } catch (errFirma) {
+        // Si falla el proxy backend, probar directo con CONFIG.API_FIRMA
+        const firmaUrl = CONFIG.API_FIRMA;
+        if (firmaUrl) {
+          const directRes = await fetch(`${firmaUrl}/firmar-enviar`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              xml: xmlData.xml,
+              ruc: xmlData.ruc || '',
+              clave: xmlData.p12_password || ''
+            })
+          });
+          const firmaData = await directRes.json();
+          estadoSri = (firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO')).toUpperCase();
+          mensajeSri = firmaData.message || firmaData.mensaje || '';
+          successFirma = firmaData.success;
         } else {
-          toast.error(`SRI ${estadoSri}: ${mensajeSri || 'Fallo en autorización'}`);
-          loadBoletos(filtros, page);
+          throw errFirma;
         }
+      }
+
+      // 4. Registrar estado de autorización
+      await BoleteriaService.autorizarBoleto(item.id_boleto, estadoSri, mensajeSri);
+
+      if (successFirma || estadoSri === 'AUTORIZADO' || estadoSri === 'AUTORIZADA' || estadoSri === 'RECIBIDA') {
+        toast.success(`Boleto ${estadoSri.toLowerCase()} exitosamente por el SRI`);
+        loadBoletos(filtros, page);
       } else {
-        toast('Servicio de firma no configurado. Boleto preparado.', { icon: '⚠️' });
+        toast.error(`SRI ${estadoSri}: ${mensajeSri || 'Fallo en autorización'}`);
         loadBoletos(filtros, page);
       }
     } catch (error) {
       console.error('Error al reenviar SRI:', error);
-      toast.error('Error al conectar con el servidor o servicio de firma');
+      toast.error('Error al conectar con el servidor o servicio de firma SRI');
     }
   };
 
