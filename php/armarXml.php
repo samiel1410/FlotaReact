@@ -501,7 +501,7 @@ class meotodoXml
                 'nombre_comercial_empresa'     => $row['nombre_comercial_empresa'],
                 'direccion_empresa'            => $row['direccion_empresa'],
                 'dir_establecimiento'          => $row['dir_establecimiento'],
-                'password_p12'                 => $row['password_p12'],
+                'password_p12'                 => decrypt_db_data($row['password_p12']),
                 'ambiente_sri'                 => $row['ambiente_sri'],
                 'obligado_contabilidad'        => $row['obligado_contabilidad'],
                 'contribuyente_especial'       => $row['contribuyente_especial'],

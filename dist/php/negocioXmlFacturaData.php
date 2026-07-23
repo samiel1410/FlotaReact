@@ -6,7 +6,7 @@ $var = $ver->armarXml($id_factura);
 $datosEmpresa = $ver->obtenerEmpresaInfo();
 
 $rucEmpresa = !empty($datosEmpresa[0]['ruc_empresa']) ? $datosEmpresa[0]['ruc_empresa'] : '';
-$passwordP12 = !empty($datosEmpresa[0]['password_p12']) ? $datosEmpresa[0]['password_p12'] : '';
+$passwordP12 = !empty($datosEmpresa[0]['password_p12']) ? decrypt_db_data($datosEmpresa[0]['password_p12']) : '';
 
 // Guardar el XML en un archivo físico para logs/respaldo si se desea
 $xmlFolder = __DIR__ . '/xml_facturas/';
