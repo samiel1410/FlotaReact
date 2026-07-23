@@ -8,7 +8,6 @@ import { CompaniaPanel } from './components/CompaniaPanel';
 import { FormaPagoPanel } from './components/FormaPagoPanel';
 import Modal from '../../components/common/Modal';
 import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
-import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import cajaService from '../../services/caja.service';
 import { GuiaService } from '../../services/guia.service';
 import { api } from '../../config/axios';
@@ -377,13 +376,14 @@ export const NuevaGuiaPage = () => {
   // ── Handler crear/aperturar caja ────────────────────
   const handleCrearCaja = async (data) => {
     try {
-      const response = await cajaBoleteriaService.insertarAperturaCaja(data);
+      const response = await cajaService.insertarAperturaCaja(data);
       if (response.success) {
         toast.success('Caja aperturada exitosamente');
         setShowCajaModal(false);
-        const verify = await cajaBoleteriaService.validarCaja();
-        if (verify.success && verify.data?.id_caja) {
-          setLocalCajaId(verify.data.id_caja);
+        const verify = await cajaService.validarCaja();
+        const verifyId = verify.id_caja || verify.data?.id_caja;
+        if (verify.success && verifyId) {
+          setLocalCajaId(verifyId);
         }
         setCajaResolved(true);
       } else {

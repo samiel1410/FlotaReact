@@ -13,7 +13,8 @@ class CajaNotaVentaService {
   async insertarAperturaCaja(data) {
     try {
       const response = await api.post('/caja_nota_venta/insertarAperturaCaja', data);
-      return { success: true, data: response.data, message: response.data?.message || '' };
+      const backendSuccess = response.data?.success !== false;
+      return { success: backendSuccess, data: response.data, id_caja: response.data?.id_caja || null, message: response.data?.message || response.data?.mensaje || '' };
     } catch (error) {
       return { success: false, message: error.response?.data?.message || 'Error al aperturar caja' };
     }
