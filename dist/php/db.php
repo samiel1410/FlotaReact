@@ -110,9 +110,9 @@ function asegurarClaveAccesoHoy($claveOriginal, $tabla, $columnaClave, $columnaI
         return $claveOriginal; // Ya tiene la fecha de hoy
     }
 
-    if (strlen($claveOriginal) === 49) {
-        $restoClave = substr($claveOriginal, 8, 39); // Desde el tipoComprobante (pos 8) hasta codigoNumerico (pos 46)
-        $nuevaSinDigito = $hoyFormato . $restoClave;
+    if (strlen($claveOriginal) >= 48) {
+        $restoClave = substr($claveOriginal, 8, 40); // 40 caracteres (pos 8 a 47 inclusive)
+        $nuevaSinDigito = str_pad($hoyFormato . $restoClave, 48, '0', STR_PAD_RIGHT);
         $digitoVerificador = calcularModulo11($nuevaSinDigito);
         $nuevaClave = $nuevaSinDigito . $digitoVerificador;
 
