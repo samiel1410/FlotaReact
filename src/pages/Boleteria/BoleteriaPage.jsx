@@ -233,9 +233,9 @@ export const BoleteriaPage = () => {
       if (/Invalid password|PKCS#12 MAC could not be verified|serial\/tipo del certificado/i.test(msgsText)) {
         estadoSri = 'RECHAZADO';
         mensajeSri = 'La contraseña de la firma (.p12) no es correcta. Por favor configure bien la clave de la firma en la empresa.';
-      } else if (/ERROR SECUENCIAL REGISTRADO|identificador.*45/i.test(msgsText)) {
+      } else if (/ERROR SECUENCIAL REGISTRADO|CLAVE ACCESO REGISTRADA|identificador.*(43|45)/i.test(msgsText)) {
         estadoSri = 'AUTORIZADO';
-        mensajeSri = 'Comprobante autorizado por el SRI (Secuencial ya registrado previamente)';
+        mensajeSri = 'Comprobante autorizado por el SRI (Clave de acceso/secuencial ya registrado previamente)';
       } else if (estadoSri === 'DEVUELTA') {
         mensajeSri = msgsText || 'DEVUELTA por el SRI';
       }

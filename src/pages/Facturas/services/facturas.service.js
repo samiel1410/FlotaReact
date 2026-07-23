@@ -123,9 +123,9 @@ export const FacturasService = {
       } else if (resultFirma.estado === 'DEVUELTA') {
         const msgs = resultFirma.infoRecepcion?.mensajes || resultFirma.detalles?.mensajes;
         const msgsText = Array.isArray(msgs) ? msgs.join(' | ') : (resultFirma.message || '');
-        if (/ERROR SECUENCIAL REGISTRADO|identificador.*45/i.test(msgsText)) {
+        if (/ERROR SECUENCIAL REGISTRADO|CLAVE ACCESO REGISTRADA|identificador.*(43|45)/i.test(msgsText)) {
           estadoSRI = 'AUTORIZADO';
-          mensajeRes = 'Comprobante autorizado por el SRI (Secuencial ya registrado previamente)';
+          mensajeRes = 'Comprobante autorizado por el SRI (Clave de acceso/secuencial ya registrado previamente)';
         } else {
           estadoSRI = 'DEVUELTA';
           mensajeRes = msgsText || 'DEVUELTA por el SRI';
@@ -139,9 +139,9 @@ export const FacturasService = {
       if (/Invalid password|PKCS#12 MAC could not be verified|serial\/tipo del certificado/i.test(msgsText)) {
         estadoSRI = 'RECHAZADO';
         mensajeRes = 'La contraseña de la firma (.p12) no es correcta. Por favor configure bien la clave de la firma en la empresa.';
-      } else if (/ERROR SECUENCIAL REGISTRADO/i.test(msgsText)) {
+      } else if (/ERROR SECUENCIAL REGISTRADO|CLAVE ACCESO REGISTRADA|identificador.*(43|45)/i.test(msgsText)) {
         estadoSRI = 'AUTORIZADO';
-        mensajeRes = 'Comprobante autorizado por el SRI (Secuencial ya registrado previamente)';
+        mensajeRes = 'Comprobante autorizado por el SRI (Clave de acceso/secuencial ya registrado previamente)';
       } else if (resultFirma.autorizacion) {
         estadoSRI = resultFirma.autorizacion.estado || 'RECHAZADO';
         mensajeRes = resultFirma.autorizacion.mensaje || resultFirma.autorizacion.infoAdicional || resultFirma.message;
