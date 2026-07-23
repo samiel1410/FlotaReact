@@ -137,8 +137,13 @@ export const BoleteriaService = {
     return response.data;
   },
 
-  autorizarBoleto: async (idBoleto) => {
-    const response = await api.post('/boleto/registrarAutorizacion', { id_boleto: idBoleto, estado: 'AUTORIZADO' });
+  prepararBoletoSRI: async (idBoleto) => {
+    const response = await api.post('/boleto/prepararBoleto', { id_boleto: idBoleto });
+    return response.data;
+  },
+
+  autorizarBoleto: async (idBoleto, estado = 'AUTORIZADO', mensaje = '') => {
+    const response = await api.post('/boleto/registrarAutorizacion', { id_boleto: idBoleto, estado, mensaje });
     return response.data;
   }
 };

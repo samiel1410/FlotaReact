@@ -155,15 +155,60 @@ export const BoleteriaPage = () => {
   const handleReenviarSri = async (item) => {
     if (!item?.id_boleto) return;
     try {
-      const res = await BoleteriaService.autorizarBoleto(item.id_boleto);
-      if (res.success) {
-        toast.success('Boleto reenviado al SRI');
-        loadBoletos(filtros, page);
-      } else {
-        toast.error(res.message || 'Error al reenviar');
+      toast.info('Iniciando proceso de autorización SRI...');
+
+      // 1. Preparar boleto (clave de acceso)
+      const prepRes = await BoleteriaService.prepararBoletoSRI(item.id_boleto);
+      if (!prepRes?.success && !prepRes?.clave_acceso) {
+        toast.error(prepRes?.message || 'Error al preparar la clave de acceso SRI');
+        return;
       }
-    } catch {
-      toast.error('Error al conectar con el servidor');
+
+      // 2. Generar XML (vía PHP negocioXmlBoleto.php)
+      const baseUrl = window.location.origin;
+      const xmlRes = await fetch(`${baseUrl}/php/negocioXmlBoleto.php?id_boleto=${item.id_boleto}`);
+      const xmlData = await xmlRes.json();
+
+      if (!xmlData.success) {
+        toast.error(xmlData.message || 'Error al generar el XML del comprobante');
+        return;
+      }
+
+      // 3. Firmar y transmitir al SRI si existe servicio de firma
+      const firmaUrl = import.meta.env.VITE_API_FIRMA || '';
+      if (firmaUrl) {
+        toast.info('Firmando y enviando al SRI...');
+        const firmaRes = await fetch(`${firmaUrl}/firmar-enviar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            xml: xmlData.xml,
+            ruc: xmlData.ruc || '',
+            clave: xmlData.p12_password || ''
+          })
+        });
+        const firmaData = await firmaRes.json();
+
+        const estadoSri = firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO');
+        const mensajeSri = firmaData.message || firmaData.mensaje || '';
+
+        // 4. Registrar estado de autorización
+        await BoleteriaService.autorizarBoleto(item.id_boleto, estadoSri, mensajeSri);
+
+        if (firmaData.success || estadoSri === 'AUTORIZADO' || estadoSri === 'AUTORIZADA') {
+          toast.success('Boleto autorizado exitosamente por el SRI');
+          loadBoletos(filtros, page);
+        } else {
+          toast.error(`SRI ${estadoSri}: ${mensajeSri || 'Fallo en autorización'}`);
+          loadBoletos(filtros, page);
+        }
+      } else {
+        toast.warning('Servicio de firma no configurado. Boleto preparado.');
+        loadBoletos(filtros, page);
+      }
+    } catch (error) {
+      console.error('Error al reenviar SRI:', error);
+      toast.error('Error al conectar con el servidor o servicio de firma');
     }
   };
 
