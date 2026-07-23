@@ -28,6 +28,9 @@ export const BoleteriaPage = () => {
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
 
+  // Estado para indicar el boleto que se está enviando al SRI
+  const [reenviandoId, setReenviandoId] = useState(null);
+
   // Obtener usuario actual para permisos
   const currentUser = (() => {
     try {
@@ -156,9 +159,11 @@ export const BoleteriaPage = () => {
 
   const handleReenviarSri = async (item) => {
     if (!item?.id_boleto) return;
-    console.log('[SRI Reenviar] === INICIO REENVÍO SRIss ===', item);
+    setReenviandoId(item.id_boleto);
+    console.log('[SRI Reenviar] === INICIO REENVÍO SRI ===', item);
+
     try {
-      toast('Iniciando proceso de autorización SRI...', { icon: 'ℹ️' });
+      toast('Iniciando proceso de transmisión SRI...', { icon: 'ℹ️' });
 
       // 1. Preparar boleto (clave de acceso)
       console.log('[SRI Reenviar] Paso 1: Llamando a prepararBoletoSRI con id_boleto:', item.id_boleto);
@@ -201,7 +206,7 @@ export const BoleteriaPage = () => {
       // 3. Firmar y transmitir al SRI directamente al servicio de firma (CONFIG.API_FIRMA)
       const firmaUrl = CONFIG.API_FIRMA;
       console.log('[SRI Reenviar] Paso 3: Enviando a servicio de firma:', `${firmaUrl}/firmar-enviar`, { ruc: rucEmpresa, tieneXml: !!xmlData.xml, tieneClave: !!xmlData.p12_password });
-      toast('Firmando y enviando al SRI...', { icon: '✍️' });
+      toast('Firmando y enviando comprobante al SRI...', { icon: '✍️' });
 
       if (!firmaUrl) {
         throw new Error('Servicio de firma no configurado en CONFIG.API_FIRMA');
@@ -223,21 +228,24 @@ export const BoleteriaPage = () => {
       const mensajeSri = firmaData.message || firmaData.mensaje || '';
       const successFirma = firmaData.success;
 
-      // 4. Registrar estado de autorización
-      console.log('[SRI Reenviar] Paso 4: Registrando autorización en backend:', { id_boleto: item.id_boleto, estadoSri, mensajeSri });
-      const regRes = await BoleteriaService.autorizarBoleto(item.id_boleto, estadoSri, mensajeSri);
-      console.log('[SRI Reenviar] Respuesta autorizarBoleto:', regRes);
+      // 4. Registrar estado de autorización en Backend
+      console.log('[SRI Reenviar] Paso 4: Registrando estado en BD:', { id_boleto: item.id_boleto, estadoSri, mensajeSri });
+      await BoleteriaService.autorizarBoleto(item.id_boleto, estadoSri, mensajeSri);
 
-      if (successFirma || estadoSri === 'AUTORIZADO' || estadoSri === 'AUTORIZADA' || estadoSri === 'RECIBIDA') {
-        toast.success(`Boleto ${estadoSri.toLowerCase()} exitosamente por el SRI`);
-        loadBoletos(filtros, page);
+      if (estadoSri === 'AUTORIZADO' || estadoSri === 'AUTORIZADA') {
+        toast.success('¡Boleto AUTORIZADO exitosamente por el SRI!');
+      } else if (estadoSri === 'RECIBIDA') {
+        toast('Comprobante RECIBIDO por el SRI (En proceso de autorización).', { icon: '⏳' });
       } else {
-        toast.error(`SRI ${estadoSri}: ${mensajeSri || 'Fallo en autorización'}`);
-        loadBoletos(filtros, page);
+        toast.error(`SRI ${estadoSri}: ${mensajeSri || 'No se completó la autorización'}`);
       }
+
+      loadBoletos(filtros, page);
     } catch (error) {
       console.error('[SRI Reenviar] ERROR CATCH GENERAL:', error);
       toast.error('Error al conectar con el servidor o servicio de firma SRI');
+    } finally {
+      setReenviandoId(null);
     }
   };
 
@@ -289,6 +297,7 @@ export const BoleteriaPage = () => {
             onReenviarSri={handleReenviarSri}
             onCambiarFecha={handleCambiarFecha}
             currentUserId={currentUser.id_usuario}
+            reenviandoId={reenviandoId}
           />
         </div>
       </div>

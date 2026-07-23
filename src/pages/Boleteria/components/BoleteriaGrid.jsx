@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import '../../Guias/components/GuiasGrid.css';
 
-export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange, onReload, onVisualizarPdf, onImprimir, onAnular, onReenviarSri, onCambiarFecha, currentUserId }) => {
+export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange, onReload, onVisualizarPdf, onImprimir, onAnular, onReenviarSri, onCambiarFecha, currentUserId, reenviandoId }) => {
   const [activeMenu, setActiveMenu] = useState(null);
 
   const toggleMenu = (id) => {
@@ -101,8 +101,14 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                 </td>
 
                 <td className="text-center" style={{fontSize: '11px'}}>
-                  {item.estado_autorizacion === 'AUTORIZADO' ? (
+                  {reenviandoId === item.id_boleto ? (
+                    <div style={{color: '#3498db', fontWeight: 'bold'}} className="flex items-center justify-center gap-1">
+                      <i className="fas fa-spinner fa-spin text-blue-500"></i> PROCESANDO...
+                    </div>
+                  ) : item.estado_autorizacion === 'AUTORIZADO' ? (
                     <div style={{color: 'green', fontWeight: 'bold'}}><i className="fas fa-check-circle"></i> AUTORIZADO</div>
+                  ) : item.estado_autorizacion === 'RECIBIDA' ? (
+                    <div style={{color: '#f39c12', fontWeight: 'bold'}}><i className="fas fa-clock"></i> RECIBIDA</div>
                   ) : item.estado_autorizacion === 'RECHAZADO' ? (
                     <div style={{color: '#c0392b', fontWeight: 'bold'}}><i className="fas fa-exclamation-circle"></i> RECHAZADO</div>
                   ) : item.clave_acceso_boletos && item.clave_acceso_boletos !== '0' ? (
