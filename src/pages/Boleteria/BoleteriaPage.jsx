@@ -185,46 +185,30 @@ export const BoleteriaPage = () => {
         return;
       }
 
-      // 3. Firmar y transmitir al SRI
+      // 3. Firmar y transmitir al SRI directamente al servicio de firma (CONFIG.API_FIRMA)
+      const firmaUrl = CONFIG.API_FIRMA;
+      console.log('[SRI Reenviar] Paso 3: Enviando a servicio de firma:', `${firmaUrl}/firmar-enviar`);
       toast('Firmando y enviando al SRI...', { icon: '✍️' });
-      let estadoSri = 'RECIBIDA';
-      let mensajeSri = '';
-      let successFirma = false;
 
-      try {
-        console.log('[SRI Reenviar] Paso 3: Intentando firmar vía api.post /firma/firmar-enviar');
-        const firmaRes = await api.post('/firma/firmar-enviar', {
+      if (!firmaUrl) {
+        throw new Error('Servicio de firma no configurado en CONFIG.API_FIRMA');
+      }
+
+      const directRes = await fetch(`${firmaUrl}/firmar-enviar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           xml: xmlData.xml,
           ruc: xmlData.ruc || '',
           clave: xmlData.p12_password || ''
-        });
-        console.log('[SRI Reenviar] Respuesta backend firmaRes:', firmaRes.data);
-        estadoSri = (firmaRes.data?.estado || 'AUTORIZADO').toUpperCase();
-        mensajeSri = firmaRes.data?.message || firmaRes.data?.mensaje || 'Procesado correctamente';
-        successFirma = firmaRes.data?.success !== false;
-      } catch (errFirma) {
-        console.warn('[SRI Reenviar] Error en api.post /firma/firmar-enviar:', errFirma);
-        const firmaUrl = CONFIG.API_FIRMA;
-        console.log('[SRI Reenviar] Intentando directo con CONFIG.API_FIRMA:', firmaUrl);
-        if (firmaUrl) {
-          const directRes = await fetch(`${firmaUrl}/firmar-enviar`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              xml: xmlData.xml,
-              ruc: xmlData.ruc || '',
-              clave: xmlData.p12_password || ''
-            })
-          });
-          const firmaData = await directRes.json();
-          console.log('[SRI Reenviar] Respuesta directa firmaData:', firmaData);
-          estadoSri = (firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO')).toUpperCase();
-          mensajeSri = firmaData.message || firmaData.mensaje || '';
-          successFirma = firmaData.success;
-        } else {
-          throw errFirma;
-        }
-      }
+        })
+      });
+      const firmaData = await directRes.json();
+      console.log('[SRI Reenviar] Respuesta servicio de firma:', firmaData);
+
+      const estadoSri = (firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO')).toUpperCase();
+      const mensajeSri = firmaData.message || firmaData.mensaje || '';
+      const successFirma = firmaData.success;
 
       // 4. Registrar estado de autorización
       console.log('[SRI Reenviar] Paso 4: Registrando autorización en backend:', { id_boleto: item.id_boleto, estadoSri, mensajeSri });
