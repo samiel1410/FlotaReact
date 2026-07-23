@@ -155,7 +155,7 @@ export const BoleteriaPage = () => {
   const handleReenviarSri = async (item) => {
     if (!item?.id_boleto) return;
     try {
-      toast.info('Iniciando proceso de autorización SRI...');
+      toast('Iniciando proceso de autorización SRI...', { icon: 'ℹ️' });
 
       // 1. Preparar boleto (clave de acceso)
       const prepRes = await BoleteriaService.prepararBoletoSRI(item.id_boleto);
@@ -177,7 +177,7 @@ export const BoleteriaPage = () => {
       // 3. Firmar y transmitir al SRI si existe servicio de firma
       const firmaUrl = import.meta.env.VITE_API_FIRMA || '';
       if (firmaUrl) {
-        toast.info('Firmando y enviando al SRI...');
+        toast('Firmando y enviando al SRI...', { icon: '✍️' });
         const firmaRes = await fetch(`${firmaUrl}/firmar-enviar`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -203,7 +203,7 @@ export const BoleteriaPage = () => {
           loadBoletos(filtros, page);
         }
       } else {
-        toast.warning('Servicio de firma no configurado. Boleto preparado.');
+        toast('Servicio de firma no configurado. Boleto preparado.', { icon: '⚠️' });
         loadBoletos(filtros, page);
       }
     } catch (error) {
