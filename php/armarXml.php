@@ -266,6 +266,7 @@ class meotodoXml
 
             $respuesta['comprobante']           = $comprobante;
             $respuesta['clave_acceso_factura']  = $claveAcceso;
+            $respuesta['p12_password']          = $datosEmpresa[0]['password_p12'];
 
             return $respuesta;
 
