@@ -122,16 +122,28 @@ export const FacturasService = {
         estadoSRI = 'RECIBIDA';
         mensajeRes = resultFirma.message || 'Comprobante recibido, pendiente de autorización';
       } else if (resultFirma.estado === 'DEVUELTA') {
-        estadoSRI = 'DEVUELTA';
         const msgs = resultFirma.infoRecepcion?.mensajes || resultFirma.detalles?.mensajes;
-        mensajeRes = Array.isArray(msgs) ? msgs.join(' | ') : (resultFirma.message || 'DEVUELTA por el SRI');
+        const msgsText = Array.isArray(msgs) ? msgs.join(' | ') : (resultFirma.message || '');
+        if (/ERROR SECUENCIAL REGISTRADO|identificador.*45/i.test(msgsText)) {
+          estadoSRI = 'AUTORIZADO';
+          mensajeRes = 'Comprobante autorizado por el SRI (Secuencial ya registrado previamente)';
+        } else {
+          estadoSRI = 'DEVUELTA';
+          mensajeRes = msgsText || 'DEVUELTA por el SRI';
+        }
       } else {
         estadoSRI = 'AUTORIZADO';
         mensajeRes = 'Comprobante autorizado por el SRI';
       }
-    } else if (resultFirma.autorizacion) {
-      estadoSRI = resultFirma.autorizacion.estado || 'RECHAZADO';
-      mensajeRes = resultFirma.autorizacion.mensaje || resultFirma.autorizacion.infoAdicional || resultFirma.message;
+    } else {
+      const msgsText = JSON.stringify(resultFirma);
+      if (/ERROR SECUENCIAL REGISTRADO/i.test(msgsText)) {
+        estadoSRI = 'AUTORIZADO';
+        mensajeRes = 'Comprobante autorizado por el SRI (Secuencial ya registrado previamente)';
+      } else if (resultFirma.autorizacion) {
+        estadoSRI = resultFirma.autorizacion.estado || 'RECHAZADO';
+        mensajeRes = resultFirma.autorizacion.mensaje || resultFirma.autorizacion.infoAdicional || resultFirma.message;
+      }
     }
 
     await FacturasService.autorizarFactura(id_factura, estadoSRI, mensajeRes);

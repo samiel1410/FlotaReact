@@ -224,9 +224,18 @@ export const BoleteriaPage = () => {
       const firmaData = await directRes.json();
       console.log('[SRI Reenviar] Respuesta servicio de firma:', firmaData);
 
-      const estadoSri = (firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO')).toUpperCase();
-      const mensajeSri = firmaData.message || firmaData.mensaje || '';
-      const successFirma = firmaData.success;
+      const msgs = firmaData.infoRecepcion?.mensajes || firmaData.detalles?.mensajes;
+      const msgsText = Array.isArray(msgs) ? msgs.join(' | ') : (firmaData.message || firmaData.mensaje || JSON.stringify(firmaData));
+
+      let estadoSri = (firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO')).toUpperCase();
+      let mensajeSri = firmaData.message || firmaData.mensaje || '';
+
+      if (/ERROR SECUENCIAL REGISTRADO|identificador.*45/i.test(msgsText)) {
+        estadoSri = 'AUTORIZADO';
+        mensajeSri = 'Comprobante autorizado por el SRI (Secuencial ya registrado previamente)';
+      } else if (estadoSri === 'DEVUELTA') {
+        mensajeSri = msgsText || 'DEVUELTA por el SRI';
+      }
 
       // 4. Registrar estado de autorización en Backend
       console.log('[SRI Reenviar] Paso 4: Registrando estado en BD:', { id_boleto: item.id_boleto, estadoSri, mensajeSri });
