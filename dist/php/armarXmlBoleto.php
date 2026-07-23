@@ -28,11 +28,23 @@ class metodoXmlBoleto
             $sucursal = $datosBoleto[0]['sucursal_emision_boleto'];
             $puntoEmision = $datosBoleto[0]['punto_emision_boleto'];
 
-            // Datos del cliente principal
-            $tipoIdentificacion = $datosBoleto[0]['tipo_identificacion_boleto'];
-            $rucCliente = $datosBoleto[0]['identificacion_boleto'];
-            $nombreCliente = str_replace("&", "&amp;", $datosBoleto[0]['nombres_boleto']);
-            $direccionCliente = $datosBoleto[0]['origen_boleto'] . ' - ' . $datosBoleto[0]['destino_boleto'];
+            // Datos del cliente principal y mapeo del Tipo de Identificación SRI (formato 2 dígitos [0][4-8])
+            $rucCliente = trim($datosBoleto[0]['identificacion_boleto'] ?? '');
+            $nombreCliente = str_replace("&", "&amp;", $datosBoleto[0]['nombres_boleto'] ?? '');
+            $direccionCliente = !empty(trim($datosBoleto[0]['origen_boleto'] ?? '')) ? ($datosBoleto[0]['origen_boleto'] . ' - ' . $datosBoleto[0]['destino_boleto']) : 'S/N';
+
+            $rawTipoId = str_pad(trim($datosBoleto[0]['tipo_identificacion_boleto'] ?? ''), 2, '0', STR_PAD_LEFT);
+            if (in_array($rawTipoId, ['04', '05', '06', '07', '08'])) {
+                $tipoIdentificacion = $rawTipoId;
+            } elseif ($rucCliente === '9999999999999' || $rucCliente === '9999999999') {
+                $tipoIdentificacion = '07'; // Consumidor Final
+            } elseif (strlen($rucCliente) === 13) {
+                $tipoIdentificacion = '04'; // RUC
+            } elseif (strlen($rucCliente) === 10) {
+                $tipoIdentificacion = '05'; // Cédula
+            } else {
+                $tipoIdentificacion = '06'; // Pasaporte / Identificación Exterior
+            }
 
             // Valores monetarios
             $totalFactura = number_format($datosBoleto[0]['total_boleto'], 2, '.', '');
