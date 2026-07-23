@@ -131,6 +131,9 @@ class meotodoXml
 
             // infoTributaria
             $infoTributaria = $xml->addChild('infoTributaria');
+            $dirMatrizDef = !empty(trim($direccionEmpresa)) ? $direccionEmpresa : 'S/N';
+            $dirEstablecimientoDef = !empty(trim($direccionEmisor)) ? $direccionEmisor : $dirMatrizDef;
+
             $infoTributaria->addChild('ambiente',        $ambiente);  // 1=Pruebas 2=Producción
             $infoTributaria->addChild('tipoEmision',     '1');
             $infoTributaria->addChild('razonSocial',     $razonEmpresa);
@@ -143,7 +146,7 @@ class meotodoXml
             $infoTributaria->addChild('estab',           $sucursal);
             $infoTributaria->addChild('ptoEmi',          $puntoEmision);
             $infoTributaria->addChild('secuencial',      $numFactura);
-            $infoTributaria->addChild('dirMatriz',       $direccionEmpresa);
+            $infoTributaria->addChild('dirMatriz',       $dirMatrizDef);
 
             // Régimen especial (RIMPE o Microempresas) — mutuamente excluyentes
             if ($regimen_fiscal == '4' || strtoupper($regimen_fiscal) === 'RIMPE') {
@@ -160,7 +163,7 @@ class meotodoXml
             // infoFactura
             $infoFactura = $xml->addChild('infoFactura');
             $infoFactura->addChild('fechaEmision',     $fechaFactura);
-            $infoFactura->addChild('dirEstablecimiento', $direccionEmisor);
+            $infoFactura->addChild('dirEstablecimiento', $dirEstablecimientoDef);
 
             // Contribuyente especial: solo si existe y es numérico
             if (
