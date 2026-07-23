@@ -21,9 +21,12 @@ class metodoXmlBoleto
             $direccionEmisor = !empty(trim($datosEmpresa[0]['dir_establecimiento'] ?? '')) ? trim($datosEmpresa[0]['dir_establecimiento']) : $direccionEmpresa;
             $regimen_fiscal = $datosEmpresa[0]['regimen_fiscal'] ?? '1';
 
-            // Datos del boleto (factura)
-            $fechaEmision = date('d/m/Y', strtotime($datosBoleto[0]['fecha_boleto']));
-            $claveAcceso = $datosBoleto[0]['clave_acceso_boletos'];
+            // Datos del boleto (factura) con fecha de emisión HOY y clave actualizada
+            $fechaEmision = date('d/m/Y');
+            $claveAccesoOriginal = $datosBoleto[0]['clave_acceso_boletos'] ?? '';
+            $conn = conexion();
+            $claveAcceso = asegurarClaveAccesoHoy($claveAccesoOriginal, 'boletos', 'clave_acceso_boletos', 'id_boleto', $id_boleto, $conn);
+
             $numFactura = sprintf("%09s", $datosBoleto[0]['numero_boleto']);
             $sucursal = $datosBoleto[0]['sucursal_emision_boleto'];
             $puntoEmision = $datosBoleto[0]['punto_emision_boleto'];

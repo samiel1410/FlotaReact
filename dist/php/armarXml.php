@@ -70,11 +70,13 @@ class meotodoXml
             $subtotal15Factura = number_format(str_replace(',', '', $datosFactura[0]['subtotal_12_factura']), 2, '.', '');
             $subtotal0Factura  = number_format(str_replace(',', '', $datosFactura[0]['subtotal_0_factura']),  2, '.', '');
 
-            // ── Numeración ─────────────────────────────────────────────────
-            $claveAcceso   = $datosFactura[0]['clave_acceso_factura'] ?? '';
-            
-            // CORRECCIÓN: Extraer estab, ptoEmi y secuencial directamente de la clave de acceso
-            // para garantizar que los tags XML coincidan exactamente con la clave (SRI validación).
+            // ── Numeración y Clave de Acceso Actualizada a HOY ───────────────
+            $claveAccesoOriginal = $datosFactura[0]['clave_acceso_factura'] ?? '';
+            $conn = conexion();
+            $claveAcceso = asegurarClaveAccesoHoy($claveAccesoOriginal, 'factura', 'clave_acceso_factura', 'id_factura', $id_factura, $conn);
+            $fechaFactura = date('d/m/Y'); // Asegurar fecha de emisión actual (hoy)
+
+            // EXTRAER estab, ptoEmi y secuencial directamente de la clave de acceso
             if (strlen($claveAcceso) === 49) {
                 $sucursal     = substr($claveAcceso, 24, 3);
                 $puntoEmision = substr($claveAcceso, 27, 3);
