@@ -6,13 +6,13 @@ import { GuiaNotaVentaService as GuiaService } from '../../services/guiaNotaVent
 import { CONFIG } from '../../config/env';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
-import Swal from 'sweetalert2';
 import './GuiasPage.css';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { CobrarFacturaModal } from './components/CobrarFacturaModal';
 import { CobrosRealizadosModal } from './components/CobrosRealizadosModal';
 import { SeguimientoGuiaModal } from './components/SeguimientoGuiaModal';
 import cajaNotaVentaService from '../../services/cajaNotaVenta.service';
+import MotivoModal from '../../components/common/MotivoModal';
 
 export const GuiasNotaVentaPage = () => {
   const { user, userRole, hasPermission } = useAuth();
@@ -184,6 +184,10 @@ export const GuiasNotaVentaPage = () => {
 
 
 
+  // Modal de Anulación (Componente MotivoModal)
+  const [anularModalOpen, setAnularModalOpen] = useState(false);
+  const [anularModalData, setAnularModalData] = useState(null);
+
   const handleAnular = async (item) => {
     try {
       // Verificar estado de la guía (ExtJS: verificacionanulacion)
@@ -195,41 +199,49 @@ export const GuiasNotaVentaPage = () => {
         return;
       }
 
-      const idUsuario = user?.id_usuario || user?.id || user?.id_user || 0;
-      const rol = Number(userRole || user?.id_rol || user?.rol || 1);
-
       if (codeState === 1 || codeState === 3) {
-        const { value: motivo } = await Swal.fire({ 
-          title: 'Motivo de anulación', 
-          input: 'text', 
-          inputLabel: `Motivo de anulación para la guía ${codeState === 3 ? 'pendiente ' : ''}` + (item.numero_guia_final || item.id_guia) + ':', 
-          showCancelButton: true, 
-          confirmButtonText: 'Anular', 
-          cancelButtonText: 'Cancelar', 
-          inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } 
+        setAnularModalData({
+          item,
+          codeState,
+          title: codeState === 3 ? 'Anular Guía Pendiente' : 'Motivo de Anulación',
+          subtitle: `Ingrese el motivo de anulación para la guía ${codeState === 3 ? 'pendiente ' : ''}${item.numero_guia_final || item.id_guia}:`
         });
-        if (!motivo) return;
-
-        let r;
-        if (codeState === 3 || rol === 1 || rol === 5) {
-          r = await GuiaService.anularAdministrador(item.id_guia, idUsuario, motivo);
-        } else {
-          r = await GuiaService.anularGuia(item.id_guia, idUsuario, motivo);
-        }
-
-        if (r && r.success) {
-          toast.success(codeState === 3 ? 'Guía pendiente anulada correctamente' : 'Guía anulada correctamente');
-          loadGuias(filtros, page);
-        } else {
-          toast.error(r?.message || 'No se pudo anular la guía');
-        }
-
+        setAnularModalOpen(true);
       } else {
         toast.error(verif?.message || 'No se puede anular la guía');
       }
     } catch (err) {
       console.error(err);
       toast.error('Error al anular la guía');
+    }
+  };
+
+  const ejecutarAnulacionGuia = async (motivo) => {
+    if (!anularModalData) return;
+    const { item, codeState } = anularModalData;
+    const idUsuario = user?.id_usuario || user?.id || user?.id_user || 0;
+    const rol = Number(userRole || user?.id_rol || user?.rol || 1);
+
+    try {
+      let r;
+      if (codeState === 3 || rol === 1 || rol === 5) {
+        r = await GuiaService.anularAdministrador(item.id_guia, idUsuario, motivo);
+      } else {
+        r = await GuiaService.anularGuia(item.id_guia, idUsuario, motivo);
+      }
+
+      if (r && r.success) {
+        toast.success(codeState === 3 ? 'Guía pendiente anulada correctamente' : 'Guía anulada correctamente');
+        loadGuias(filtros, page);
+      } else {
+        toast.error(r?.message || 'No se pudo anular la guía');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al procesar anulación');
+    } finally {
+      setAnularModalOpen(false);
+      setAnularModalData(null);
     }
   };
 
@@ -468,6 +480,17 @@ export const GuiasNotaVentaPage = () => {
           guia={selectedGuiaSeguimiento}
           isNotaVenta={true}
           onClose={() => { setSeguimientoModalOpen(false); setSelectedGuiaSeguimiento(null); }}
+        />
+      )}
+
+      {anularModalOpen && (
+        <MotivoModal
+          isOpen={anularModalOpen}
+          onClose={() => { setAnularModalOpen(false); setAnularModalData(null); }}
+          onConfirm={ejecutarAnulacionGuia}
+          title={anularModalData?.title || 'Motivo de Anulación'}
+          subtitle={anularModalData?.subtitle}
+          confirmText="Anular Guía"
         />
       )}
     </div>
