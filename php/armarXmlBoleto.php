@@ -15,7 +15,7 @@ class metodoXmlBoleto
 
             $rucEmpresa = $datosEmpresa[0]['ruc_empresa'];
             $razonEmpresa = $datosEmpresa[0]['nombre_empresa'];
-            $nombre_comercial_empresa = $datosEmpresa[0]['nombre_comercial_empresa'];
+            $nombre_comercial_empresa = !empty(trim($datosEmpresa[0]['nombre_comercial_empresa'] ?? '')) ? trim($datosEmpresa[0]['nombre_comercial_empresa']) : $razonEmpresa;
             $direccionEmpresa = $datosEmpresa[0]['direccion_empresa'];
             $ambiente = $datosEmpresa[0]['ambiente_sri'];
             $direccionEmisor = $datosEmpresa[0]['dir_establecimiento'];
@@ -57,7 +57,9 @@ class metodoXmlBoleto
             $infoTributaria->addChild('ambiente', $ambiente);
             $infoTributaria->addChild('tipoEmision', 1);
             $infoTributaria->addChild('razonSocial', $razonEmpresa);
-            $infoTributaria->addChild('nombreComercial', $nombre_comercial_empresa);
+            if (!empty($nombre_comercial_empresa)) {
+                $infoTributaria->addChild('nombreComercial', $nombre_comercial_empresa);
+            }
             $infoTributaria->addChild('ruc', $rucEmpresa);
             $infoTributaria->addChild('claveAcceso', $claveAcceso);
             $infoTributaria->addChild('codDoc', '01');
