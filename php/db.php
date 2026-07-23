@@ -125,6 +125,13 @@ function asegurarClaveAccesoHoy($claveOriginal, $tabla, $columnaClave, $columnaI
     if (strlen($claveOriginal) >= 48) {
         $restoClave = substr($claveOriginal, 8, 40); // 40 caracteres (pos 8 a 47 inclusive)
         $nuevaBase = str_pad($hoyFormato . $restoClave, 48, '0', STR_PAD_RIGHT);
+
+        // Si la clave original tenía tipoEmision 3, reemplazar el código numérico (pos 39-46, índice 38-45) por uno nuevo de 8 dígitos
+        if ($tipoEmisionActual !== '1') {
+            $nuevoCodigoNum = str_pad((string)rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
+            $nuevaBase = substr_replace($nuevaBase, $nuevoCodigoNum, 38, 8);
+        }
+
         // Forzar tipoEmision = 1 en la posición 47 (índice 46)
         $nuevaSinDigito = substr_replace($nuevaBase, '1', 46, 1);
         $digitoVerificador = calcularModulo11($nuevaSinDigito);
