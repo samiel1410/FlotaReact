@@ -16,9 +16,9 @@ class metodoXmlBoleto
             $rucEmpresa = $datosEmpresa[0]['ruc_empresa'];
             $razonEmpresa = $datosEmpresa[0]['nombre_empresa'];
             $nombre_comercial_empresa = !empty(trim($datosEmpresa[0]['nombre_comercial_empresa'] ?? '')) ? trim($datosEmpresa[0]['nombre_comercial_empresa']) : $razonEmpresa;
-            $direccionEmpresa = $datosEmpresa[0]['direccion_empresa'];
+            $direccionEmpresa = !empty(trim($datosEmpresa[0]['direccion_empresa'] ?? '')) ? trim($datosEmpresa[0]['direccion_empresa']) : 'OFICINA PRINCIPAL';
             $ambiente = $datosEmpresa[0]['ambiente_sri'];
-            $direccionEmisor = $datosEmpresa[0]['dir_establecimiento'];
+            $direccionEmisor = !empty(trim($datosEmpresa[0]['dir_establecimiento'] ?? '')) ? trim($datosEmpresa[0]['dir_establecimiento']) : $direccionEmpresa;
             $regimen_fiscal = $datosEmpresa[0]['regimen_fiscal'] ?? '1';
 
             // Datos del boleto (factura)
