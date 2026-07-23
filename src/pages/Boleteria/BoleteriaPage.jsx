@@ -187,7 +187,7 @@ export const BoleteriaPage = () => {
 
       // 3. Firmar y transmitir al SRI directamente al servicio de firma (CONFIG.API_FIRMA)
       const firmaUrl = CONFIG.API_FIRMA;
-      console.log('[SRI Reenviar] Paso 3: Enviando a servicio de firma:', `${firmaUrl}/firmar-enviar`);
+      console.log('[SRI Reenviar] Paso 3: Enviando sa servicio de firma:', `${firmaUrl}/firmar-enviar`);
       toast('Firmando y enviando al SRI...', { icon: '✍️' });
 
       if (!firmaUrl) {
