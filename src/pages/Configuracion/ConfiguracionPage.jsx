@@ -25,8 +25,20 @@ export const ConfiguracionPage = () => {
   const [buscandoRuc, setBuscandoRuc] = useState(false);
   const [rucDesbloqueado, setRucDesbloqueado] = useState(false);
   const [rucTieneDatos, setRucTieneDatos] = useState(false);
+  const [historialJob, setHistorialJob] = useState([]);
   const fileInputRef = useRef(null);
   const firmaInputRef = useRef(null);
+
+  const cargarHistorialJob = useCallback(async () => {
+    try {
+      const res = await api.get('/factura/historialJobSRI');
+      if (res.data?.success) {
+        setHistorialJob(res.data.data || []);
+      }
+    } catch (e) {
+      console.warn('Error al cargar historial del job SRI:', e.message);
+    }
+  }, []);
 
   const { register, handleSubmit, setValue, getValues } = useForm({
     values: configData,
@@ -80,6 +92,7 @@ export const ConfiguracionPage = () => {
           });
           setRucTieneDatos(!!conf.ruc_empresa);
         }
+        cargarHistorialJob();
       } catch (error) {
         console.error("Error cargando configuración:", error);
       } finally {
@@ -714,6 +727,96 @@ export const ConfiguracionPage = () => {
                         <input type="checkbox" {...register('autorizar_boleto_sri')} id="autorizar_boleto_sri" className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500" />
                         <label htmlFor="autorizar_boleto_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Boletos al guardar</label>
                       </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-100">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const tId = toast.loading('Ejecutando proceso masivo SRI...');
+                          try {
+                            const res = await api.post('/factura/ejecutarJobSRI');
+                            if (res.data?.success) {
+                              toast.success(`Job SRI completado. Facturas procesadas: ${res.data.facturasProcesadas}, Boletos procesados: ${res.data.boletosProcesados}`, { id: tId, duration: 6000 });
+                              cargarHistorialJob();
+                            } else {
+                              toast.error(`Error en Job SRI: ${res.data?.message}`, { id: tId });
+                            }
+                          } catch (err) {
+                            toast.error(`Error al ejecutar Job SRI: ${err.message}`, { id: tId });
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-sm"
+                      >
+                        <i className="fas fa-sync-alt"></i>
+                        Ejecutar Job Horario SRI Ahora
+                      </button>
+                      <p className="text-[11px] text-slate-400 mt-1">
+                        Procesa y envía inmediatamente todas las facturas y boletos pendientes al SRI sin esperar a la hora automática.
+                      </p>
+                    </div>
+
+                    {/* Tabla Historial de Trabajos Automáticos */}
+                    <div className="mt-6 pt-4 border-t border-slate-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                          <i className="fas fa-history text-slate-500 mr-1.5"></i> Historial de Trabajos Automáticos (SRI)
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => cargarHistorialJob()}
+                          className="text-xs font-semibold text-emerald-600 hover:text-emerald-800 transition-colors"
+                        >
+                          <i className="fas fa-redo-alt mr-1"></i> Actualizar
+                        </button>
+                      </div>
+
+                      {historialJob.length === 0 ? (
+                        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 text-center text-xs text-slate-400">
+                          No hay registros de trabajos automáticos aún.
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto border border-slate-200 rounded-lg">
+                          <table className="w-full text-left text-xs">
+                            <thead className="bg-slate-100 text-slate-600 font-bold uppercase text-[10px]">
+                              <tr>
+                                <th className="px-3 py-2">Fecha / Hora</th>
+                                <th className="px-3 py-2">Tipo</th>
+                                <th className="px-3 py-2 text-center">Facturas (Aut / Rech)</th>
+                                <th className="px-3 py-2 text-center">Boletos (Aut / Rech)</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 bg-white">
+                              {historialJob.map((item) => (
+                                <tr key={item.id_job_run} className="hover:bg-slate-50">
+                                  <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+                                    {new Date(item.fecha_ejecucion).toLocaleString()}
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                                      item.tipo_ejecucion === 'MANUAL' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-700'
+                                    }`}>
+                                      {item.tipo_ejecucion}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-center">
+                                    <span className="text-emerald-600 font-bold">{item.facturas_autorizadas}</span>
+                                    <span className="text-slate-400 mx-1">/</span>
+                                    <span className="text-rose-600 font-bold">{item.facturas_rechazadas}</span>
+                                    <span className="text-slate-400 text-[10px] ml-1">({item.facturas_procesadas} tot)</span>
+                                  </td>
+                                  <td className="px-3 py-2 text-center">
+                                    <span className="text-emerald-600 font-bold">{item.boletos_autorizados}</span>
+                                    <span className="text-slate-400 mx-1">/</span>
+                                    <span className="text-rose-600 font-bold">{item.boletos_rechazados}</span>
+                                    <span className="text-slate-400 text-[10px] ml-1">({item.boletos_procesados} tot)</span>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
                   </div>
 
