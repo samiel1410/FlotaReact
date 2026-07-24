@@ -41,6 +41,7 @@ export const FacturasFilterPanel = ({ onSearch, usuarios = [] }) => {
     fechalast: '',
     factura: '',
     numeroguia: '',
+    claveacceso: '',
     idusuario: '',
   });
 
@@ -58,7 +59,7 @@ export const FacturasFilterPanel = ({ onSearch, usuarios = [] }) => {
     const reset = {
       nombrecliente: '', rucliente: '', estado: '', estado_sri: '', mes: '',
       anio: '', fechaini: '', fechalast: '', factura: '',
-      numeroguia: '', idusuario: '',
+      numeroguia: '', claveacceso: '', idusuario: '',
     };
     setFiltros(reset);
     onSearch(reset);
@@ -143,7 +144,7 @@ export const FacturasFilterPanel = ({ onSearch, usuarios = [] }) => {
             <input type="date" name="fechalast" value={filtros.fechalast} onChange={handleChange} className={inputClass} />
           </div>
 
-          {/* Fila 3: Factura #, Guía # */}
+          {/* Fila 3: Factura #, Guía #, Clave Acceso */}
           <div className="col-span-3">
             <label className={labelClass}>N° Factura</label>
             <input type="text" name="factura" value={filtros.factura} onChange={handleChange}
@@ -154,9 +155,14 @@ export const FacturasFilterPanel = ({ onSearch, usuarios = [] }) => {
             <input type="text" name="numeroguia" value={filtros.numeroguia} onChange={handleChange}
               placeholder="Buscar por guía..." className={inputClass} />
           </div>
+          <div className="col-span-6">
+            <label className={labelClass}>Clave de Acceso SRI</label>
+            <input type="text" name="claveacceso" value={filtros.claveacceso} onChange={handleChange}
+              placeholder="49 dígitos de la clave de acceso SRI..." className={`${inputClass} font-mono`} />
+          </div>
 
           {/* Acciones */}
-          <div className="col-span-6 flex items-end justify-end gap-2">
+          <div className="col-span-12 flex items-end justify-end gap-2 mt-2">
             <button type="button" onClick={handleClear}
               className="h-8 px-3 text-xs font-bold text-slate-500 border border-slate-200 rounded-lg hover:bg-slate-50 transition-all flex items-center gap-1.5">
               <i className="fas fa-eraser"></i> Limpiar
