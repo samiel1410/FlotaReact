@@ -115,25 +115,28 @@ function calcularModulo11($cadena) {
 function asegurarClaveAccesoHoy($claveOriginal, $tabla, $columnaClave, $columnaId, $idDocumento, $conn = null) {
     $hoyFormato = date('dmY'); // 8 dígitos: ddmmyyyy
     $fechaAccesoOriginal = strlen($claveOriginal) === 49 ? substr($claveOriginal, 0, 8) : '';
-
     $tipoEmisionActual = strlen($claveOriginal) === 49 ? $claveOriginal[46] : '';
 
     if (strlen($claveOriginal) === 49 && $fechaAccesoOriginal === $hoyFormato && $tipoEmisionActual === '1') {
-        return $claveOriginal; // Ya tiene la fecha de hoy y tipoEmision 1
+        return $claveOriginal; // Ya tiene la fecha de hoy y tipoEmision 1 → no modificar
     }
 
     if (strlen($claveOriginal) >= 48) {
-        $restoClave = substr($claveOriginal, 8, 40); // 40 caracteres (pos 8 a 47 inclusive)
-        $nuevaBase = str_pad($hoyFormato . $restoClave, 48, '0', STR_PAD_RIGHT);
+        // Extraer la parte media: tipo_comprobante(2) + ruc(13) + ambiente(1) + estab(3) + ptoEmi(3) + secuencial(9) = 31 chars
+        $parteMedia = substr($claveOriginal, 8, 31); // posiciones 8 a 38 inclusive
 
-        // Si la clave original tenía tipoEmision 3, reemplazar el código numérico (pos 39-46, índice 38-45) por uno nuevo de 8 dígitos
-        if ($tipoEmisionActual !== '1') {
-            $nuevoCodigoNum = str_pad((string)rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
-            $nuevaBase = substr_replace($nuevaBase, $nuevoCodigoNum, 38, 8);
+        // SIEMPRE generar un código numérico aleatorio nuevo para evitar colisiones
+        // entre facturas con el mismo secuencial que se regeneran el mismo día
+        $nuevoCodigoNum = str_pad((string)rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
+
+        // Base de 48: fecha(8) + parteMedia(31) + codigoNumerico(8) + tipoEmision(1) = 48
+        $nuevaSinDigito = $hoyFormato . $parteMedia . $nuevoCodigoNum . '1';
+
+        if (strlen($nuevaSinDigito) !== 48) {
+            // Fallback seguro: rellenar o truncar
+            $nuevaSinDigito = str_pad(substr($nuevaSinDigito, 0, 48), 48, '0');
         }
 
-        // Forzar tipoEmision = 1 en la posición 47 (índice 46)
-        $nuevaSinDigito = substr_replace($nuevaBase, '1', 46, 1);
         $digitoVerificador = calcularModulo11($nuevaSinDigito);
         $nuevaClave = $nuevaSinDigito . $digitoVerificador;
 
