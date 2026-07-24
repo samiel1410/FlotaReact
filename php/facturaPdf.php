@@ -97,21 +97,21 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle= $id_factura";
   }
   //FORMA DE PAGO
 
-  $query_pago = "SELECT id_comprobante_cobro,monto_comprobante_cobro,id_fkforma_pago,nombre_forma_pago from
-comprobante_cobro,forma_pago WHERE id_fkfactura_comprobante_cobro= $id_factura AND id_fkforma_pago= id_forma_pago";
+  $query_pago = "SELECT c.id_comprobante_cobro, c.monto_comprobante_cobro, 
+                        COALESCE(f.nombre_forma_pago, 'SIN UTILIZACION DEL SISTEMA FINANCIERO') as nombre_forma_pago 
+                 FROM comprobante_cobro c 
+                 LEFT JOIN forma_pago f ON (c.id_fkforma_pago = f.id_forma_pago OR c.id_fkforma_pago = f.codigo_forma_pago) 
+                 WHERE (c.id_fkfactura_comprobante_cobro = $id_factura OR c.id_fkfactura_comprobante_cobro = (SELECT f2.id_fkguia_factura FROM factura f2 WHERE f2.id_factura = $id_factura))";
   $recuperar_pago = mysqli_query($conn, $query_pago) or die(mysqli_error($conn));
   $datos_pago = "";
 
   while ($vals_pago = mysqli_fetch_array($recuperar_pago)) {
-
     $tabla = '
 <tr>
   <td width="70%" class="border"> ' . $vals_pago['nombre_forma_pago'] . '</td>
-  <td width="30%" class="border right"> $' . round($vals_pago['monto_comprobante_cobro'], 2) . '</td>
+  <td width="30%" class="border right"> $' . number_format((float)$vals_pago['monto_comprobante_cobro'], 2, '.', '') . '</td>
 </tr>
 ';
-
-
     $datos_pago .= $tabla;
   }
 
