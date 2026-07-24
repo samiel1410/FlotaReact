@@ -113,10 +113,15 @@ comprobante_cobro,forma_pago WHERE id_fkfactura_comprobante_cobro= $id_factura A
 
 
     $datos_pago .= $tabla;
+  }
 
-
-
-
+  if (empty(trim($datos_pago))) {
+    $datos_pago = '
+<tr>
+  <td width="70%" class="border"> SIN UTILIZACION DEL SISTEMA FINANCIERO</td>
+  <td width="30%" class="border right"> $' . number_format((float)$total_guia, 2, '.', '') . '</td>
+</tr>
+';
   }
 
   $rutaLogo = obtenerRutaLogoEmpresa($conn);
