@@ -84,6 +84,8 @@ export const ConfiguracionPage = () => {
             dir_matriz_empresa: conf.dir_matriz_empresa || conf.direccion_empresa || '',
             dir_establecimiento_empresa: conf.dir_establecimiento_empresa || '',
             actividad_economica_empresa: conf.actividad_economica_empresa || '',
+            agente_retencion: String(conf.agente_retencion || 'NO'),
+            resolucion_agente_retencion: conf.resolucion_agente_retencion || '',
             autorizar_factura_sri: conf.autorizar_factura_sri === 1 || conf.autorizar_factura_sri === true,
             autorizar_boleto_sri: conf.autorizar_boleto_sri === 1 || conf.autorizar_boleto_sri === true,
             enviar_whatsapp: conf.enviar_whatsapp === 1 || conf.enviar_whatsapp === true,
@@ -329,7 +331,8 @@ export const ConfiguracionPage = () => {
           setValue('obligado_contabilidad', c.obligado_contabilidad === 'SI' ? 'SI' : 'NO');
         }
         if (c.agente_retencion) {
-          setValue('contribuyente_especial', c.agente_retencion);
+          setValue('agente_retencion', 'SI');
+          setValue('resolucion_agente_retencion', String(c.agente_retencion).replace(/[^\d]/g, '') || c.agente_retencion);
         }
         if (c.estado_contribuyente || c.tipo_contribuyente) {
           const leyenda = [c.estado_contribuyente, c.tipo_contribuyente].filter(Boolean).join(' — ');
@@ -661,6 +664,19 @@ export const ConfiguracionPage = () => {
                     <div>
                       <label className={labelClass}>Password P12</label>
                       <input type="password" {...register('password_p12')} className={inputClass} placeholder="Dejar en blanco si no cambia" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelClass}>Agente de Retención</label>
+                      <select {...register('agente_retencion')} className={inputClass}>
+                        <option value="SI">SÍ</option>
+                        <option value="NO">NO</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className={labelClass}>N° Resolución Agente</label>
+                      <input type="text" {...register('resolucion_agente_retencion')} className={inputClass} placeholder="Ej: 1" />
                     </div>
                   </div>
                   <div>
