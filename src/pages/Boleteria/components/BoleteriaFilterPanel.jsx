@@ -14,6 +14,7 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
     id_bus: '',
     id_ruta: '',
     estado: '4',
+    estado_sri: '',
     fecha_desde: '',
     fecha_hasta: '',
     numero_boleto: '',
@@ -65,6 +66,7 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
       id_bus: '',
       id_ruta: '',
       estado: '4',
+      estado_sri: '',
       fecha_desde: '',
       fecha_hasta: '',
       numero_boleto: '',
@@ -137,13 +139,25 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
           </div>
 
           <div className="form-group">
-            <label><i className="fas fa-toggle-on" style={{ color: '#e67e22', marginRight: 4 }}></i> Estado</label>
+            <label><i className="fas fa-toggle-on" style={{ color: '#e67e22', marginRight: 4 }}></i> Estado Boleto</label>
             <select name="estado" value={formData.estado} onChange={handleChange}>
               <option value="4">TODOS</option>
               <option value="1">AUTORIZADO</option>
               <option value="0">EN PROCESO</option>
               <option value="3">ANULADO</option>
               <option value="2">RESERVADO</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label><i className="fas fa-cloud" style={{ color: '#e67e22', marginRight: 4 }}></i> Estado SRI</label>
+            <select name="estado_sri" value={formData.estado_sri} onChange={handleChange}>
+              <option value="">TODOS</option>
+              <option value="AUTORIZADO">AUTORIZADO</option>
+              <option value="RECHAZADO">RECHAZADO</option>
+              <option value="DEVUELTA">DEVUELTA</option>
+              <option value="RECIBIDA">RECIBIDA</option>
+              <option value="PENDIENTE">PENDIENTE</option>
             </select>
           </div>
 

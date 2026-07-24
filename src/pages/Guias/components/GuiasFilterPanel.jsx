@@ -22,6 +22,7 @@ export const GuiasFilterPanel = ({ onSearch, visible = true, isNotaVenta = false
     numero_guia: '',
     numero_guia_manual: '',
     estado_busqueda: '4', // 4 = TODOS
+    estado_sri_busqueda: '',
     checknumero: false,
     chechEstadoDespacho: false
   });
@@ -82,6 +83,7 @@ export const GuiasFilterPanel = ({ onSearch, visible = true, isNotaVenta = false
       numero_guia: '',
       numero_guia_manual: '',
       estado_busqueda: '4',
+      estado_sri_busqueda: '',
       checknumero: false,
       chechEstadoDespacho: false
     };
@@ -197,13 +199,26 @@ export const GuiasFilterPanel = ({ onSearch, visible = true, isNotaVenta = false
           </div>
 
           <div className="form-group">
-            <label>Estado</label>
+            <label>Estado Guía</label>
             <select name="estado_busqueda" value={formData.estado_busqueda} onChange={handleChange}>
               <option value="4">TODOS</option>
-              <option value="1">AUTORIZADA</option>
+              <option value="1">EMITIDA</option>
               <option value="0">EN PROCESO</option>
               <option value="3">PENDIENTE</option>
               <option value="2">ANULADOS</option>
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label>Estado SRI</label>
+            <select name="estado_sri_busqueda" value={formData.estado_sri_busqueda} onChange={handleChange}>
+              <option value="">TODOS</option>
+              <option value="AUTORIZADO">AUTORIZADO</option>
+              <option value="RECHAZADO">RECHAZADO</option>
+              <option value="DEVUELTA">DEVUELTA</option>
+              <option value="RECIBIDA">RECIBIDA</option>
+              <option value="PENDIENTE">PENDIENTE</option>
+              <option value="SIN_FACTURA">SIN FACTURA</option>
             </select>
           </div>
 

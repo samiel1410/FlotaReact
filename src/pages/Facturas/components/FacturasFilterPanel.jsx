@@ -20,11 +20,21 @@ const ESTADOS_FACTURA = [
   { value: '4', label: 'Autorizado' },
 ];
 
+const ESTADOS_SRI = [
+  { value: '', label: 'Todos' },
+  { value: 'AUTORIZADO', label: 'Autorizado' },
+  { value: 'RECHAZADO', label: 'Rechazado' },
+  { value: 'DEVUELTA', label: 'Devuelta' },
+  { value: 'RECIBIDA', label: 'Recibida' },
+  { value: 'PENDIENTE', label: 'Pendiente' },
+];
+
 export const FacturasFilterPanel = ({ onSearch, usuarios = [] }) => {
   const [filtros, setFiltros] = useState({
     nombrecliente: '',
     rucliente: '',
     estado: '',
+    estado_sri: '',
     mes: '',
     anio: '',
     fechaini: '',
@@ -46,7 +56,7 @@ export const FacturasFilterPanel = ({ onSearch, usuarios = [] }) => {
 
   const handleClear = () => {
     const reset = {
-      nombrecliente: '', rucliente: '', estado: '', mes: '',
+      nombrecliente: '', rucliente: '', estado: '', estado_sri: '', mes: '',
       anio: '', fechaini: '', fechalast: '', factura: '',
       numeroguia: '', idusuario: '',
     };
@@ -66,7 +76,7 @@ export const FacturasFilterPanel = ({ onSearch, usuarios = [] }) => {
 
       <form onSubmit={handleSubmit} className="p-4">
         <div className="grid grid-cols-12 gap-3">
-          {/* Fila 1: Nombre, RUC, Estado */}
+          {/* Fila 1: Nombre, RUC, Estado, Estado SRI */}
           <div className="col-span-3">
             <label className={labelClass}>Nombre</label>
             <input type="text" name="nombrecliente" value={filtros.nombrecliente} onChange={handleChange}
@@ -78,9 +88,17 @@ export const FacturasFilterPanel = ({ onSearch, usuarios = [] }) => {
               placeholder="Buscar por RUC..." className={inputClass} />
           </div>
           <div className="col-span-3">
-            <label className={labelClass}>Estado</label>
+            <label className={labelClass}>Estado Factura</label>
             <select name="estado" value={filtros.estado} onChange={handleChange} className={inputClass}>
               {ESTADOS_FACTURA.map(e => (
+                <option key={e.value} value={e.value}>{e.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="col-span-3">
+            <label className={labelClass}>Estado SRI</label>
+            <select name="estado_sri" value={filtros.estado_sri} onChange={handleChange} className={inputClass}>
+              {ESTADOS_SRI.map(e => (
                 <option key={e.value} value={e.value}>{e.label}</option>
               ))}
             </select>

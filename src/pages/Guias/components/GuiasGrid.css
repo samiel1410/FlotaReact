@@ -98,6 +98,18 @@
   background-color: #fee2e2;
   color: #991b1b;
 }
+.badge-warning {
+  background-color: #ffedd5;
+  color: #9a3412;
+}
+.badge-info {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+.badge-secondary {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
 
 /* Dropdown de Acciones */
 .action-dropdown-container {

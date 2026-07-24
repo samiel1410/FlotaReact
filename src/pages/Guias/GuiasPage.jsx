@@ -104,6 +104,7 @@ export const GuiasPage = () => {
       factura: nuevosFiltros.numero_factura || '',
       numeroguia: nuevosFiltros.numero_guia || '',
       estado: nuevosFiltros.estado_busqueda || '4',
+      estado_sri: nuevosFiltros.estado_sri_busqueda || '',
       idusuario: nuevosFiltros.usuario_busqueda || '',
       numero_guia_manual: nuevosFiltros.numero_guia_manual || '',
       despacho: nuevosFiltros.chechEstadoDespacho ? 'true' : 'false',

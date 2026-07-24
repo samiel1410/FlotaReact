@@ -40,6 +40,26 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
     return null;
   };
 
+  const getBadgeEstadoSri = (estadoFactura) => {
+    if (!estadoFactura) {
+      return <span className="badge badge-secondary" title="Sin Factura generada">SIN FACTURA</span>;
+    }
+    const est = String(estadoFactura).toUpperCase();
+    if (est === 'AUTORIZADO' || est === 'AUTORIZADA' || est === 'FIRMADO') {
+      return <span className="badge badge-success">AUTORIZADO</span>;
+    }
+    if (est === 'RECHAZADO') {
+      return <span className="badge badge-danger">RECHAZADO</span>;
+    }
+    if (est === 'DEVUELTA') {
+      return <span className="badge badge-warning">DEVUELTA</span>;
+    }
+    if (est === 'RECIBIDA' || est === 'PENDIENTE') {
+      return <span className="badge badge-info">{est}</span>;
+    }
+    return <span className="badge badge-secondary">{est}</span>;
+  };
+
   return (
     <div className="guias-grid-container">
       <div className="flex gap-2 p-2 bg-white border-b">
@@ -73,7 +93,8 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
               <th className="text-right">TOTAL</th>
               <th className="text-right">COBRADO</th>
               <th className="text-right">POR COBRAR</th>
-              <th>ESTADO</th>
+              <th>ESTADO COBRO</th>
+              <th>ESTADO SRI</th>
               <th>FECHA</th>
               <th>N° MANUAL</th>
               <th className="text-center" style={{width: '40px'}}><i className="fas fa-cogs"></i></th>
@@ -109,6 +130,9 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
                   <span className={`badge ${item.estado_cobro_guia === 'COBRADA' ? 'badge-success' : 'badge-danger'}`}>
                     {item.estado_cobro_guia}
                   </span>
+                </td>
+                <td>
+                  {getBadgeEstadoSri(item.estado_autorizacion_factura)}
                 </td>
                 <td>{item.fecha_guia}</td>
                 <td>{item.numero_manual_guia}</td>
