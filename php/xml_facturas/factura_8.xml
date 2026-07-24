@@ -1,1 +1,61 @@
-<?xml version="1.0" encoding="UTF-8"?><factura id="comprobante" version="1.1.0"><infoTributaria><ambiente>2</ambiente><tipoEmision>1</tipoEmision><razonSocial>COOPERATIVA DE TRANSPORTES FLOTA PELILEO</razonSocial><nombreComercial>asdasdasdas</nombreComercial><ruc>0550203806001</ruc><claveAcceso>2405202601055020380600120020030000000088436355018</claveAcceso><codDoc>01</codDoc><estab>001</estab><ptoEmi>003</ptoEmi><secuencial>000000008</secuencial><dirMatriz>Matriz Garcia Moreno y Montalvosad</dirMatriz><regimen>4</regimen><agenteRetencion>1</agenteRetencion></infoTributaria><infoFactura><fechaEmision>24/05/2026</fechaEmision><dirEstablecimiento>Matriz Garcia Moreno y Montalvoasdsasss</dirEstablecimiento><obligadoContabilidad>SI</obligadoContabilidad><contribuyenteEspecial>asdasdas</contribuyenteEspecial><tipoIdentificacionComprador/><razonSocialComprador/><identificacionComprador/><direccionComprador/><totalSinImpuestos>8.7</totalSinImpuestos><totalDescuento>0.00</totalDescuento><totalConImpuestos><totalImpuesto><codigo>2</codigo><codigoPorcentaje>4</codigoPorcentaje><descuentoAdicional>0</descuentoAdicional><baseImponible>8.70</baseImponible><valor>1.30</valor></totalImpuesto></totalConImpuestos><importeTotal>10.00</importeTotal><moneda>DOLAR</moneda></infoFactura><detalles><detalle><codigoPrincipal>19</codigoPrincipal><codigoAuxiliar>19</codigoAuxiliar><descripcion>HH SIN  VALOR DECLARADO</descripcion><cantidad>1</cantidad><precioUnitario>8.7</precioUnitario><descuento>0.00</descuento><precioTotalSinImpuesto>8.7</precioTotalSinImpuesto><impuestos><impuesto><codigo>2</codigo><codigoPorcentaje>4</codigoPorcentaje><tarifa>15</tarifa><baseImponible>8.7</baseImponible><valor>1.3</valor></impuesto></impuestos></detalle></detalles></factura>
+<?xml version="1.0" encoding="UTF-8"?>
+<factura id="comprobante" version="1.1.0">
+    <infoTributaria>
+        <ambiente>2</ambiente>
+        <tipoEmision>1</tipoEmision>
+        <razonSocial>COOPERATIVA DE TRANSPORTES FLOTA PELILEO</razonSocial>
+        <nombreComercial>asdasdasdas</nombreComercial>
+        <ruc>0550203806001</ruc>
+        <claveAcceso>2405202601055020380600120020030000000088436355018</claveAcceso>
+        <codDoc>01</codDoc>
+        <estab>001</estab>
+        <ptoEmi>003</ptoEmi>
+        <secuencial>000000008</secuencial>
+        <dirMatriz>Matriz Garcia Moreno y Montalvosad</dirMatriz>
+        <regimen>4</regimen>
+        <agenteRetencion>1</agenteRetencion>
+    </infoTributaria>
+    <infoFactura>
+        <fechaEmision>24/05/2026</fechaEmision>
+        <dirEstablecimiento>Matriz Garcia Moreno y Montalvoasdsasss</dirEstablecimiento>
+        <obligadoContabilidad>SI</obligadoContabilidad>
+        <contribuyenteEspecial>asdasdas</contribuyenteEspecial>
+        <tipoIdentificacionComprador />
+        <razonSocialComprador />
+        <identificacionComprador />
+        <direccionComprador />
+        <totalSinImpuestos>8.7</totalSinImpuestos>
+        <totalDescuento>0.00</totalDescuento>
+        <totalConImpuestos>
+            <totalImpuesto>
+                <codigo>2</codigo>
+                <codigoPorcentaje>4</codigoPorcentaje>
+                <descuentoAdicional>0</descuentoAdicional>
+                <baseImponible>8.70</baseImponible>
+                <valor>1.30</valor>
+            </totalImpuesto>
+        </totalConImpuestos>
+        <importeTotal>10.00</importeTotal>
+        <moneda>DOLAR</moneda>
+    </infoFactura>
+    <detalles>
+        <detalle>
+            <codigoPrincipal>19</codigoPrincipal>
+            <codigoAuxiliar>19</codigoAuxiliar>
+            <descripcion>HH SIN VALOR DECLARADO</descripcion>
+            <cantidad>1</cantidad>
+            <precioUnitario>8.7</precioUnitario>
+            <descuento>0.00</descuento>
+            <precioTotalSinImpuesto>8.7</precioTotalSinImpuesto>
+            <impuestos>
+                <impuesto>
+                    <codigo>2</codigo>
+                    <codigoPorcentaje>4</codigoPorcentaje>
+                    <tarifa>15</tarifa>
+                    <baseImponible>8.7</baseImponible>
+                    <valor>1.3</valor>
+                </impuesto>
+            </impuestos>
+        </detalle>
+    </detalles>
+</factura>

@@ -113,7 +113,7 @@ class meotodoXml
 
             foreach ($detalleFactura as $i => $item) {
                 $codigoProducto[$i]   = $item['codigo_producto'];
-                $cantidadProducto[$i] = str_replace(',', '', $item['cantidad_factura_detalle']);
+                $cantidadProducto[$i] = number_format((float)str_replace(',', '', $item['cantidad_factura_detalle']), 2, '.', '');
                 $nombreProducto[$i]   = $this->escapeXml($item['nombre_producto']);
                 $ivaProducto[$i]      = $item['iva_producto'];
                 $dctoProducto[$i]     = number_format($item['descuento_factura_detalle'], 2, '.', '');
