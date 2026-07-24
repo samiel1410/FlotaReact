@@ -53,8 +53,8 @@ export const FacturasService = {
   },
 
   getPdf: async (id_factura) => {
-    const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    window.open(`${baseUrl}/php/facturaPdf.php?id_factura=${id_factura}`, '_blank');
+    const { CONFIG } = await import('../../../config/env');
+    window.open(`${CONFIG.PHP_URL}/facturaPdf.php?id_factura=${encodeURIComponent(id_factura)}`, '_blank');
   },
 
   getComboUsuarios: async () => {

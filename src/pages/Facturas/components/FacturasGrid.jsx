@@ -2,6 +2,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import Modal from '../../../components/common/Modal';
 import { FacturasService } from '../services/facturas.service';
+import { PdfViewerModal } from '../../../components/PdfViewerModal';
+import { CONFIG } from '../../../config/env';
 
 const ESTADO_MAP = {
   1: { label: 'En Proceso', class: 'bg-amber-50 text-amber-700 border-amber-200' },
@@ -19,6 +21,11 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
   const [motivo, setMotivo] = useState('');
   const [anulando, setAnulando] = useState(false);
   const [reenviandoId, setReenviandoId] = useState(null);
+
+  // Estado Modal PDF
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfTitle, setPdfTitle] = useState('Factura');
 
   const totalPages = Math.ceil(total / limit) || 1;
 
@@ -73,7 +80,9 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
     setMenuOpen(null);
     switch (action) {
       case 'pdf':
-        FacturasService.getPdf(row.id_factura);
+        setPdfTitle(`Factura ${formatSecuencial(row)}`);
+        setPdfUrl(`${CONFIG.PHP_URL}/facturaPdf.php?id_factura=${encodeURIComponent(row.id_factura)}`);
+        setPdfModalOpen(true);
         break;
       case 'cobrar':
         toast('Módulo de cobros en integración', { icon: 'ℹ️' });
@@ -457,6 +466,16 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
           </div>
         </div>
       </Modal>
+
+      <PdfViewerModal
+        open={pdfModalOpen}
+        onClose={() => {
+          setPdfModalOpen(false);
+          setPdfUrl(null);
+        }}
+        url={pdfUrl}
+        title={pdfTitle}
+      />
     </div>
   );
 };
