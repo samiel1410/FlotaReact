@@ -80,9 +80,26 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
     setMenuOpen(null);
     switch (action) {
       case 'pdf':
-        setPdfTitle(`Factura ${formatSecuencial(row)}`);
-        setPdfUrl(`${CONFIG.PHP_URL}/facturaPdf.php?id_factura=${encodeURIComponent(row.id_factura)}`);
-        setPdfModalOpen(true);
+        (async () => {
+          const tId = toast.loading('Generando PDF de factura...');
+          try {
+            const phpUrl = `${CONFIG.PHP_URL}/facturaPdf.php?id_factura=${encodeURIComponent(row.id_factura)}`;
+            const res = await fetch(phpUrl);
+            if (!res.ok) throw new Error(`Servidor respondió ${res.status}`);
+            const data = await res.json();
+            if (!data.success || !data.ruta) {
+              toast.error(data.error || 'Error al generar el PDF', { id: tId });
+              return;
+            }
+            toast.dismiss(tId);
+            setPdfTitle(`Factura ${formatSecuencial(row)}`);
+            setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}?t=${Date.now()}`);
+            setPdfModalOpen(true);
+          } catch (err) {
+            console.error('Error generando PDF de factura:', err);
+            toast.error('No se pudo generar el PDF de la factura', { id: tId });
+          }
+        })();
         break;
       case 'cobrar':
         toast('Módulo de cobros en integración', { icon: 'ℹ️' });
