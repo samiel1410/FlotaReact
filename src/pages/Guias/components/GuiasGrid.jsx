@@ -134,7 +134,9 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
                 <td>
                   {getBadgeEstadoSri(item.estado_autorizacion_factura)}
                 </td>
-                <td>{item.fecha_guia}</td>
+                <td className="font-mono text-xs text-slate-600">
+                  {item.fecha_guia ? (String(item.fecha_guia).includes('T') ? String(item.fecha_guia).split('T')[0] : String(item.fecha_guia).split(' ')[0]) : '-'}
+                </td>
                 <td>{item.numero_manual_guia}</td>
                 <td className="cell-actions">
                   <div className="action-dropdown-container">

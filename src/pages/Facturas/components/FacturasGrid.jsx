@@ -211,6 +211,13 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
 
   const formatNumeroGuia = (row) => row.numero_guia || '-';
 
+  const formatFechaBonita = (f) => {
+    if (!f) return '-';
+    const str = String(f);
+    const datePart = str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
+    return datePart || '-';
+  };
+
   const tdClass = "px-3 py-2.5 text-xs border-b border-slate-100";
   const thClass = "px-3 py-2.5 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-left bg-slate-50 border-b border-slate-200";
 
@@ -295,8 +302,8 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
                     <td className={`${tdClass} font-mono text-[10px] text-slate-500`}>
                       {formatNumeroGuia(row)}
                     </td>
-                    <td className={`${tdClass} text-slate-500`}>
-                      {row.fecha_creacion_factura ? row.fecha_creacion_factura.split(' ')[0] : '-'}
+                    <td className={`${tdClass} text-slate-500 font-mono text-[11px]`}>
+                      {formatFechaBonita(row.fecha_creacion_factura || row.fecha_factura)}
                     </td>
                     <td className={tdClass}>
                       <div className="text-xs font-medium text-slate-700">{row.nombre_cliente_factura || '-'}</div>
