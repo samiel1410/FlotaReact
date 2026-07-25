@@ -839,7 +839,14 @@ export const ConfiguracionPage = () => {
                               {historialJob.map((item) => (
                                 <tr key={item.id_job_run} className="hover:bg-slate-50">
                                   <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
-                                    {new Date(item.fecha_ejecucion).toLocaleString()}
+                                    {(() => {
+                                      if (!item.fecha_ejecucion) return '-';
+                                      const str = String(item.fecha_ejecucion);
+                                      const isoStr = str.includes('Z') || str.includes('+') || str.includes('-')
+                                        ? str
+                                        : str.replace(' ', 'T') + 'Z';
+                                      return new Date(isoStr).toLocaleString('es-EC', { timeZone: 'America/Guayaquil' });
+                                    })()}
                                   </td>
                                   <td className="px-3 py-2">
                                     <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
