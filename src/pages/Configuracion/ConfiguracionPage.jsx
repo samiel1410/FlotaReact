@@ -237,12 +237,13 @@ export const ConfiguracionPage = () => {
 
       const payload = {
         ...data,
-        maneja_leyenda: data.maneja_leyenda ? 1 : 0,
-        maneja_leyenda_boleteria: data.maneja_leyenda_boleteria ? 1 : 0,
-        maneja_leyenda_nota_venta: data.maneja_leyenda_nota_venta ? 1 : 0,
-        autorizar_factura_sri: data.autorizar_factura_sri ? 1 : 0,
-        autorizar_boleto_sri: data.autorizar_boleto_sri ? 1 : 0,
-        enviar_whatsapp: data.enviar_whatsapp ? 1 : 0,
+        maneja_leyenda: +!!data.maneja_leyenda,
+        maneja_leyenda_boleteria: +!!data.maneja_leyenda_boleteria,
+        maneja_leyenda_nota_venta: +!!data.maneja_leyenda_nota_venta,
+        autorizar_factura_sri: +!!data.autorizar_factura_sri,
+        autorizar_boleto_sri: +!!data.autorizar_boleto_sri,
+        ejecutar_job_sri_automatico: +!!data.ejecutar_job_sri_automatico,
+        enviar_whatsapp: +!!data.enviar_whatsapp,
         cobrar_iva_guia: data.cobrar_iva_guia ? 1 : 0,
         imprimir_boucher_guia: data.imprimir_boucher_guia ? 1 : 0,
         dir_matriz_empresa: data.dir_matriz_empresa || data.direccion_empresa,
@@ -733,15 +734,22 @@ export const ConfiguracionPage = () => {
                   </div>
 
                   <div className="space-y-2 pt-4 border-t border-slate-100">
-                    <label className={labelClass}>Autorización Automática SRI</label>
+                    <label className={labelClass}>Autorización SRI</label>
                     <div className="flex flex-col gap-2">
+                      <div className="flex items-center gap-2 p-2 bg-emerald-50/60 border border-emerald-200 rounded-lg">
+                        <input type="checkbox" {...register('ejecutar_job_sri_automatico')} id="ejecutar_job_sri_automatico" className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500" />
+                        <div>
+                          <label htmlFor="ejecutar_job_sri_automatico" className="text-sm font-bold text-slate-800 cursor-pointer">Habilitar Job Automático Programado (SRI)</label>
+                          <p className="text-[11px] text-slate-500">Si está activo, procesa automáticamente facturas y boletos pendientes sin importar las opciones individuales.</p>
+                        </div>
+                      </div>
                       <div className="flex items-center gap-2">
                         <input type="checkbox" {...register('autorizar_factura_sri')} id="autorizar_factura_sri" className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500" />
-                        <label htmlFor="autorizar_factura_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Guías al guardar</label>
+                        <label htmlFor="autorizar_factura_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Guías inmediatamente al guardar</label>
                       </div>
                       <div className="flex items-center gap-2">
                         <input type="checkbox" {...register('autorizar_boleto_sri')} id="autorizar_boleto_sri" className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500" />
-                        <label htmlFor="autorizar_boleto_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Boletos al guardar</label>
+                        <label htmlFor="autorizar_boleto_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Boletos inmediatamente al guardar</label>
                       </div>
                     </div>
 
