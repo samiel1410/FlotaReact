@@ -90,6 +90,7 @@ export const ConfiguracionPage = () => {
             resolucion_agente_retencion: conf.resolucion_agente_retencion || '',
             autorizar_factura_sri: conf.autorizar_factura_sri === 1 || conf.autorizar_factura_sri === true,
             autorizar_boleto_sri: conf.autorizar_boleto_sri === 1 || conf.autorizar_boleto_sri === true,
+            ejecutar_job_sri_automatico: conf.ejecutar_job_sri_automatico === undefined ? true : (conf.ejecutar_job_sri_automatico === 1 || conf.ejecutar_job_sri_automatico === true),
             enviar_whatsapp: conf.enviar_whatsapp === 1 || conf.enviar_whatsapp === true,
             cobrar_iva_guia: conf.cobrar_iva_guia === 1 || conf.cobrar_iva_guia === true,
             imprimir_boucher_guia: conf.imprimir_boucher_guia === 1 || conf.imprimir_boucher_guia === true,
