@@ -40,10 +40,12 @@ export const ConfiguracionPage = () => {
     }
   }, []);
 
-  const { register, handleSubmit, setValue, getValues } = useForm({
+  const { register, handleSubmit, setValue, getValues, watch } = useForm({
     values: configData,
     resetOptions: { keepDirtyValues: true }
   });
+
+  const jobAutoActivo = !!watch('ejecutar_job_sri_automatico');
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -744,12 +746,34 @@ export const ConfiguracionPage = () => {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <input type="checkbox" {...register('autorizar_factura_sri')} id="autorizar_factura_sri" className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500" />
-                        <label htmlFor="autorizar_factura_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Guías inmediatamente al guardar</label>
+                        <input
+                          type="checkbox"
+                          {...register('autorizar_factura_sri')}
+                          id="autorizar_factura_sri"
+                          disabled={jobAutoActivo}
+                          className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <label
+                          htmlFor="autorizar_factura_sri"
+                          className={`text-sm font-semibold cursor-pointer ${jobAutoActivo ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                        >
+                          Autorizar Guías inmediatamente al guardar {jobAutoActivo && '(gestionado por Job Automático)'}
+                        </label>
                       </div>
                       <div className="flex items-center gap-2">
-                        <input type="checkbox" {...register('autorizar_boleto_sri')} id="autorizar_boleto_sri" className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500" />
-                        <label htmlFor="autorizar_boleto_sri" className="text-sm font-semibold text-slate-700 cursor-pointer">Autorizar Boletos inmediatamente al guardar</label>
+                        <input
+                          type="checkbox"
+                          {...register('autorizar_boleto_sri')}
+                          id="autorizar_boleto_sri"
+                          disabled={jobAutoActivo}
+                          className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <label
+                          htmlFor="autorizar_boleto_sri"
+                          className={`text-sm font-semibold cursor-pointer ${jobAutoActivo ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                        >
+                          Autorizar Boletos inmediatamente al guardar {jobAutoActivo && '(gestionado por Job Automático)'}
+                        </label>
                       </div>
                     </div>
 
