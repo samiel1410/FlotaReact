@@ -38,7 +38,7 @@ try {
     $res_info = mysqli_query($conn, $query_info) or die(mysqli_error($conn));
     $info = mysqli_fetch_assoc($res_info);
 
-    // 2. Detalle de pasajeros del viaje
+    // 2. Detalle de pasajeros del viaje (con campos DEBUG)
     $query_pasajeros = "SELECT
         bd.asiento_boleto_detalle AS asiento,
         bd.identificacion_boleto_detalle AS cedula,
@@ -46,6 +46,15 @@ try {
         COALESCE(d.lugar_destino, sr.nombre_sub_rutas, 'N/A') AS destino,
         bd.total_boleto_detalle AS valor,
         b.nombre_origen AS embarque,
+        b.id_sucursal_venta AS _debug_id_sucursal_venta,
+        b.id_fkusuario_boleto AS _debug_id_usuario_boleto,
+        u.id_fksucursal_usuario AS _debug_id_fksucursal_usuario,
+        s.id_sucursal AS _debug_s_id_sucursal,
+        s.nombre_sucursal AS _debug_s_nombre,
+        s2.suc_codigo_sucursal AS _debug_s2_codigo,
+        s2.nombre_sucursal AS _debug_s2_nombre,
+        s3.suc_codigo_sucursal AS _debug_s3_codigo,
+        s3.nombre_sucursal AS _debug_s3_nombre,
         COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal, 'OFICINA PATATE') AS oficina_venta
     FROM boleto_detalle bd
     JOIN boletos b ON bd.id_fkboleto_boleto_detalle = b.id_boleto
