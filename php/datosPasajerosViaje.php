@@ -46,15 +46,17 @@ try {
         COALESCE(d.lugar_destino, sr.nombre_sub_rutas, 'N/A') AS destino,
         bd.total_boleto_detalle AS valor,
         b.nombre_origen AS embarque,
-        COALESCE(s.nombre_sucursal, s2.nombre_sucursal, 'OFICINA PRINCIPAL') AS oficina_venta
+        COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal, 'OFICINA PATATE') AS oficina_venta
     FROM boleto_detalle bd
     JOIN boletos b ON bd.id_fkboleto_boleto_detalle = b.id_boleto
     LEFT JOIN destino d ON bd.id_destino_boleto = d.id_destino
     LEFT JOIN sub_rutas sr ON bd.id_destino_boleto = sr.id_sub_rutas
     LEFT JOIN sucursal2 s ON b.id_sucursal_venta = s.id_sucursal
     LEFT JOIN sucursal2 s2 ON b.id_sucursal_venta = s2.suc_codigo_sucursal
+    LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
+    LEFT JOIN sucursal2 s3 ON u.id_fksucursal_usuario = s3.suc_codigo_sucursal
     WHERE b.id_fkviaje_boleto = $id_viaje
-    ORDER BY s.nombre_sucursal ASC, b.nombre_origen ASC, CAST(bd.asiento_boleto_detalle AS UNSIGNED) ASC";
+    ORDER BY COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal) ASC, b.nombre_origen ASC, CAST(bd.asiento_boleto_detalle AS UNSIGNED) ASC";
 
     $res_pasajeros = mysqli_query($conn, $query_pasajeros) or die(mysqli_error($conn));
 

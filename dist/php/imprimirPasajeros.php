@@ -35,7 +35,7 @@ COALESCE(d.lugar_destino, sr.nombre_sub_rutas, 'N/A') AS lugar_destino,
 r.nombre_rutas, bd.estado_boleto_detalle, bd.identificacion_boleto_detalle,
 bd.asiento_boleto_detalle, bd.total_boleto_detalle,
 bd.nombre_cliente_boleto_detalle, b.nombre_origen,
-COALESCE(s.nombre_sucursal, s2.nombre_sucursal, 'OFICINA PRINCIPAL') AS nombre_sucursal
+COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal, 'OFICINA PATATE') AS nombre_sucursal
 FROM boleto_detalle bd
 JOIN boletos b ON bd.id_fkboleto_boleto_detalle = b.id_boleto
 JOIN viajes v ON b.id_fkviaje_boleto = v.id_viajes
@@ -44,8 +44,10 @@ LEFT JOIN destino d ON bd.id_destino_boleto = d.id_destino
 LEFT JOIN sub_rutas sr ON bd.id_destino_boleto = sr.id_sub_rutas
 LEFT JOIN sucursal2 s ON b.id_sucursal_venta = s.id_sucursal
 LEFT JOIN sucursal2 s2 ON b.id_sucursal_venta = s2.suc_codigo_sucursal
+LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
+LEFT JOIN sucursal2 s3 ON u.id_fksucursal_usuario = s3.suc_codigo_sucursal
 WHERE b.id_fkviaje_boleto = $id_viaje
-ORDER BY s.nombre_sucursal ASC, b.nombre_origen ASC, CAST(bd.asiento_boleto_detalle AS UNSIGNED) ASC";
+ORDER BY COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal) ASC, b.nombre_origen ASC, CAST(bd.asiento_boleto_detalle AS UNSIGNED) ASC";
 
 $result = mysqli_query($conn, $query) or die(mysqli_error($conn));
 
