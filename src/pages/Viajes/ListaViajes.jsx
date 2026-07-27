@@ -63,37 +63,38 @@ export const ListaViajes = () => {
     const loadCombos = async () => {
       try {
         const [bRes, pRes] = await Promise.all([
-          ViajesService.getBusesCombo(),
-          ViajesService.getPersonalCombo(),
+          ViajesService.getBuses(),
+          ViajesService.getPersonal({ limit: 9999 }),
         ]);
-        setBuses(bRes.data || []);
-        setChoferes(pRes.data || []);
-      } catch (err) {
-        console.error('Error cargando combos:', err);
+        if (bRes.success) setBuses(bRes.data);
+        if (pRes.success) setChoferes(pRes.data);
+      } catch (e) {
+        console.error('Error loading combos:', e);
       }
     };
     loadCombos();
   }, []);
 
   // Cargar viajes
-  const fetchTrips = useCallback(async (p = 1) => {
+  const fetchTrips = useCallback(async (pageNum = 1) => {
     setLoading(true);
     try {
-      const res = await ViajesService.getViajes({
-        ...filtros,
-        pagina: p,
-        limite: limit,
-      });
-      setTrips(res.data || []);
-      setTotal(res.total || 0);
-      setPage(p);
-    } catch (err) {
-      console.error('Error cargando viajes:', err);
-      toast.error('Error al cargar la lista de viajes');
+      const params = { ...filtros, page: pageNum, limit, id_sucursal: user?.id_sucursal || user?.sucursal };
+      Object.keys(params).forEach(k => { if (params[k] === '' || params[k] === null || params[k] === undefined) delete params[k]; });
+      const response = await ViajesService.getTrips(params);
+      if (response.success) {
+        setTrips(response.data);
+        setTotal(response.total);
+      } else {
+        toast.error(response.message);
+      }
+    } catch (error) {
+      console.error('Error cargando viajes:', error);
+      toast.error('Error al cargar viajes');
     } finally {
       setLoading(false);
     }
-  }, [filtros, limit]);
+  }, [filtros, limit, user]);
 
   useEffect(() => {
     fetchTrips(1);
