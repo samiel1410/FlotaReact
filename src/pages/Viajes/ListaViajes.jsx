@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import ViajesService from '../../services/viajes.service';
 import { DespachoViajeModal } from './components/DespachoViajeModal';
 import { ItinerarioViajeModal } from './components/ItinerarioViajeModal';
 import { ConfigurarAlimentosModal } from './components/ConfigurarAlimentosModal';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { useAuth } from '../../context/AuthContext';
 
 const inputCls = 'w-full h-9 px-3 text-xs font-semibold border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none bg-white';
@@ -52,46 +53,55 @@ export const ListaViajes = () => {
   const [modalAlimentos, setModalAlimentos] = useState(null);
   const [menuAbierto, setMenuAbierto] = useState(null);
 
+  // Modal PDF
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfTitle, setPdfTitle] = useState('');
+
   // Cargar combos
   useEffect(() => {
     const loadCombos = async () => {
       try {
         const [bRes, pRes] = await Promise.all([
-          ViajesService.getBuses(),
-          ViajesService.getPersonal({ limit: 9999 }),
+          ViajesService.getBusesCombo(),
+          ViajesService.getPersonalCombo(),
         ]);
-        if (bRes.success) setBuses(bRes.data);
-        if (pRes.success) setChoferes(pRes.data);
-      } catch (e) { console.error('Error loading combos:', e); }
+        setBuses(bRes.data || []);
+        setChoferes(pRes.data || []);
+      } catch (err) {
+        console.error('Error cargando combos:', err);
+      }
     };
     loadCombos();
   }, []);
 
   // Cargar viajes
-  const fetchTrips = useCallback(async (pageNum = 1) => {
+  const fetchTrips = useCallback(async (p = 1) => {
     setLoading(true);
     try {
-      const params = { ...filtros, page: pageNum, limit, id_sucursal: user?.id_sucursal || user?.sucursal };
-      Object.keys(params).forEach(k => { if (params[k] === '' || params[k] === null || params[k] === undefined) delete params[k]; });
-      const response = await ViajesService.getTrips(params);
-      if (response.success) {
-        setTrips(response.data);
-        setTotal(response.total);
-      } else {
-        toast.error(response.message);
-      }
-    } catch (error) {
-      toast.error('Error al cargar viajes');
+      const res = await ViajesService.getViajes({
+        ...filtros,
+        pagina: p,
+        limite: limit,
+      });
+      setTrips(res.data || []);
+      setTotal(res.total || 0);
+      setPage(p);
+    } catch (err) {
+      console.error('Error cargando viajes:', err);
+      toast.error('Error al cargar la lista de viajes');
     } finally {
       setLoading(false);
     }
-  }, [filtros, limit, searchTrigger, user]);
+  }, [filtros, limit]);
 
-  useEffect(() => { fetchTrips(page); }, [page, searchTrigger]);
+  useEffect(() => {
+    fetchTrips(1);
+  }, [searchTrigger]);
 
-  const handleBuscar = () => {
-    setPage(1);
-    setSearchTrigger(t => t + 1);
+  const handleBuscar = (e) => {
+    e.preventDefault();
+    setSearchTrigger(prev => prev + 1);
   };
   const handleLimpiar = () => {
     const localDate = new Date();
@@ -116,22 +126,19 @@ export const ListaViajes = () => {
       toast.error('El viaje debe estar despachado para generar PDF');
       return;
     }
-    window.open(`php/despachoViajePdf.php?id_viajes=${trip.id_viajes}`, '_blank');
+    const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
+    setPdfUrl(`${baseUrl}/php/despachoViajePdf.php?id_viajes=${trip.id_viajes}`);
+    setPdfTitle(`Despacho — Viaje #${trip.id_viajes}`);
+    setPdfModalOpen(true);
   };
 
   const handleImprimirPasajeros = (trip) => {
     setMenuAbierto(null);
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    const url = `${baseUrl}/php/imprimirPasajeros.php?inline=1&id_viaje=${trip.id_viajes}`;
-    Swal.fire({
-      title: `Pasajeros — Viaje #${trip.id_viajes}`,
-      html: `<iframe src="${url}" style="width:100%;height:80vh;border:0;border-radius:8px;"></iframe>`,
-      width: '900px', showConfirmButton: false, showCloseButton: true,
-      customClass: { popup: 'rounded-2xl' }
-    });
+    setPdfUrl(`${baseUrl}/php/imprimirPasajeros.php?inline=1&id_viaje=${trip.id_viajes}`);
+    setPdfTitle(`Lista de Pasajeros — Viaje #${trip.id_viajes}`);
+    setPdfModalOpen(true);
   };
-
-
 
   const handleAlimentos = (trip) => {
     setMenuAbierto(null);
@@ -440,6 +447,15 @@ export const ListaViajes = () => {
           onClose={() => setModalAlimentos(null)}
         />
       )}
+      <PdfViewerModal
+        open={pdfModalOpen}
+        onClose={() => {
+          setPdfModalOpen(false);
+          setPdfUrl(null);
+        }}
+        url={pdfUrl}
+        title={pdfTitle}
+      />
     </div>
   );
 };
