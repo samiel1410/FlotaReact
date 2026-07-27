@@ -13,48 +13,39 @@ $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(500, 200), true, 'UTF-8',
 
 $conn = conexion();
 
-// Consulta de datos del bus y oficinista
+// Consulta optimizada de datos del bus, ruta y conductor
 $query_info = "SELECT
+v.id_viajes, v.dia_viajes, v.hora_salida_estimado, r.nombre_rutas,
 b.disco_buses, b.placa_buses, p.per_cedula_personal,
-p.per_nombres_persona,
-p.per_apellidos_personal ,d.fecha_salida_despacho_viaje,u.nombre_usuario,
-u.apellido_usuario
+CONCAT(p.per_nombres_persona, ' ', p.per_apellidos_personal) AS per_nombres_persona,
+d.fecha_salida_despacho_viaje, u.nombre_usuario, u.apellido_usuario
 FROM viajes v
+LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
 LEFT JOIN buses b ON v.id_fkbus_viajes = b.id_buses
-JOIN personal p ON b.id_fkpersonal_buses = p.id_personal
+LEFT JOIN personal p ON b.id_fkpersonal_buses = p.id_personal
 LEFT JOIN despacho_viaje d ON v.id_viajes = d.id_fkviaje_despacho_viaje
 LEFT JOIN usuario u ON d.id_fkusuario_aprueba = u.id_usuario
-
-
-WHERE v.id_viajes = $id_viaje";
+WHERE v.id_viajes = $id_viaje LIMIT 1";
 $result_info = mysqli_query($conn, $query_info) or die(mysqli_error($conn));
 $info = mysqli_fetch_assoc($result_info);
 
-
-
-
-
-// Consulta de pasajeros (agrupados por oficina de venta)
-// id_sucursal_venta almacena id_sucursal (PK de sucursal2)
-// Si es NULL, ejecutar el script: Back/migrations/fix_id_sucursal_venta_null.sql
-$query = "SELECT COALESCE(d.lugar_destino, (SELECT nombre_sub_rutas FROM sub_rutas sr WHERE sr.id_sub_rutas =
-bd.id_destino_boleto LIMIT 1)) as lugar_destino,
-r.nombre_rutas, bd.estado_boleto_detalle, identificacion_boleto_detalle,
-bd.asiento_boleto_detalle, r.id_fkdestino_rutas, bd.id_destino_boleto, bd.total_boleto_detalle,
+// Consulta optimizada de pasajeros (agrupados por oficina de venta y embarque)
+$query = "SELECT 
+COALESCE(d.lugar_destino, sr.nombre_sub_rutas, 'N/A') AS lugar_destino,
+r.nombre_rutas, bd.estado_boleto_detalle, bd.identificacion_boleto_detalle,
+bd.asiento_boleto_detalle, bd.total_boleto_detalle,
 bd.nombre_cliente_boleto_detalle, b.nombre_origen,
-b.id_sucursal_venta,
-COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal, 'OFICINA PRINCIPAL') AS nombre_sucursal
+COALESCE(s.nombre_sucursal, s2.nombre_sucursal, 'OFICINA PRINCIPAL') AS nombre_sucursal
 FROM boleto_detalle bd
 JOIN boletos b ON bd.id_fkboleto_boleto_detalle = b.id_boleto
 JOIN viajes v ON b.id_fkviaje_boleto = v.id_viajes
-JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
+LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
 LEFT JOIN destino d ON bd.id_destino_boleto = d.id_destino
+LEFT JOIN sub_rutas sr ON bd.id_destino_boleto = sr.id_sub_rutas
 LEFT JOIN sucursal2 s ON b.id_sucursal_venta = s.id_sucursal
 LEFT JOIN sucursal2 s2 ON b.id_sucursal_venta = s2.suc_codigo_sucursal
-LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
-LEFT JOIN sucursal2 s3 ON u.id_fksucursal_usuario = s3.suc_codigo_sucursal
 WHERE b.id_fkviaje_boleto = $id_viaje
-ORDER BY s.nombre_sucursal ASC, b.nombre_origen ASC, bd.asiento_boleto_detalle ASC";
+ORDER BY s.nombre_sucursal ASC, b.nombre_origen ASC, CAST(bd.asiento_boleto_detalle AS UNSIGNED) ASC";
 
 $result = mysqli_query($conn, $query) or die(mysqli_error($conn));
 
