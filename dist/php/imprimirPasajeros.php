@@ -332,7 +332,7 @@ $html = '
 $pdf->SetFont('helvetica', '', 10);
 $pdf->AddPage('P', array(500, 120));
 $pdf->writeHTML($html, true, false, true, false, '');
-$pdf->IncludeJS("print();");
+
 
 $tempDir = __DIR__ . '/tmp/';
 $fileName = 'pasajeros.pdf';
