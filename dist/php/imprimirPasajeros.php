@@ -43,13 +43,16 @@ r.nombre_rutas, bd.estado_boleto_detalle, identificacion_boleto_detalle,
 bd.asiento_boleto_detalle, r.id_fkdestino_rutas, bd.id_destino_boleto, bd.total_boleto_detalle,
 bd.nombre_cliente_boleto_detalle, b.nombre_origen,
 b.id_sucursal_venta,
-COALESCE(s.nombre_sucursal, 'SIN OFICINA') AS nombre_sucursal
+COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal, 'OFICINA PRINCIPAL') AS nombre_sucursal
 FROM boleto_detalle bd
 JOIN boletos b ON bd.id_fkboleto_boleto_detalle = b.id_boleto
 JOIN viajes v ON b.id_fkviaje_boleto = v.id_viajes
 JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
 LEFT JOIN destino d ON bd.id_destino_boleto = d.id_destino
 LEFT JOIN sucursal2 s ON b.id_sucursal_venta = s.id_sucursal
+LEFT JOIN sucursal2 s2 ON b.id_sucursal_venta = s2.suc_codigo_sucursal
+LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
+LEFT JOIN sucursal2 s3 ON u.id_fksucursal_usuario = s3.suc_codigo_sucursal
 WHERE b.id_fkviaje_boleto = $id_viaje
 ORDER BY s.nombre_sucursal ASC, b.nombre_origen ASC, bd.asiento_boleto_detalle ASC";
 
@@ -70,7 +73,7 @@ $origen_subtotal_valor = 0;
 $ruta = "";
 
 while ($row = mysqli_fetch_array($result)) {
-$sucursal = $row['nombre_sucursal'] ? $row['nombre_sucursal'] : 'SIN OFICINA';
+$sucursal = !empty($row['nombre_sucursal']) ? $row['nombre_sucursal'] : 'OFICINA PRINCIPAL';
 $origen = $row['nombre_origen'] ? $row['nombre_origen'] : 'ORIGEN PRINCIPAL';
 
 // Detectar cambio de oficina (sucursal de venta)
