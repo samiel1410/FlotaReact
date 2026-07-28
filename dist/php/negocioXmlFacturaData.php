@@ -17,6 +17,7 @@ header('Content-Type: application/json');
 echo json_encode([
     'success' => true,
     'xml' => $var['comprobante'],
+    'ruc' => isset($var['ruc_empresa']) ? $var['ruc_empresa'] : (isset($var['ruc']) ? $var['ruc'] : null),
     'clave_acceso' => isset($var['clave_acceso_factura']) ? $var['clave_acceso_factura'] : null,
     'p12_password' => isset($var['p12_password']) ? $var['p12_password'] : null
 ]);
