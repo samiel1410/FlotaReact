@@ -125,10 +125,9 @@ function calcularModulo11($cadena) {
 function asegurarClaveAccesoHoy($claveOriginal, $tabla, $columnaClave, $columnaId, $idDocumento, $conn = null) {
     $hoyFormato = date('dmY'); // 8 dígitos: ddmmyyyy
     $fechaAccesoOriginal = strlen($claveOriginal) === 49 ? substr($claveOriginal, 0, 8) : '';
-    $tipoEmisionActual = strlen($claveOriginal) === 49 ? $claveOriginal[46] : '';
 
-    if (strlen($claveOriginal) === 49 && $fechaAccesoOriginal === $hoyFormato && $tipoEmisionActual === '1') {
-        return $claveOriginal; // Ya tiene la fecha de hoy y tipoEmision 1 → no modificar
+    if (strlen($claveOriginal) === 49 && $fechaAccesoOriginal === $hoyFormato) {
+        return $claveOriginal; // Ya tiene la fecha de hoy → no modificar
     }
 
     if (strlen($claveOriginal) >= 48) {
@@ -136,14 +135,12 @@ function asegurarClaveAccesoHoy($claveOriginal, $tabla, $columnaClave, $columnaI
         $parteMedia = substr($claveOriginal, 8, 31); // posiciones 8 a 38 inclusive
 
         // SIEMPRE generar un código numérico aleatorio nuevo para evitar colisiones
-        // entre facturas con el mismo secuencial que se regeneran el mismo día
         $nuevoCodigoNum = str_pad((string)rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
 
         // Base de 48: fecha(8) + parteMedia(31) + codigoNumerico(8) + tipoEmision(1) = 48
         $nuevaSinDigito = $hoyFormato . $parteMedia . $nuevoCodigoNum . '1';
 
         if (strlen($nuevaSinDigito) !== 48) {
-            // Fallback seguro: rellenar o truncar
             $nuevaSinDigito = str_pad(substr($nuevaSinDigito, 0, 48), 48, '0');
         }
 
