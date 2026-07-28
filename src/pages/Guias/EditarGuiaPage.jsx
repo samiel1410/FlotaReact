@@ -13,27 +13,9 @@ export const EditarGuiaPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadGuia = async () => {
-      try {
-        const res = await GuiaService.informacionGuia(id);
-        if (res && (res.data || res.id_guia)) {
-          // Navegar a NuevaGuiaPage con los datos de la guía completos en location state
-          // Pasamos "res" completo para que NuevaGuiaPage tenga res.data y res.data_detalle
-          navigate('/guias/nueva', { state: { editarGuia: res, idGuia: id }, replace: true });
-        } else {
-          toast.error('No se encontró la guía');
-          navigate('/guias', { replace: true });
-        }
-      } catch (err) {
-        console.error(err);
-        toast.error('Error al cargar la guía para edición');
-        navigate('/guias', { replace: true });
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadGuia();
-  }, [id, navigate]);
+    toast.error('La edición de guías y facturas se encuentra deshabilitada');
+    navigate('/guias', { replace: true });
+  }, [navigate]);
 
   if (loading) {
     return (
