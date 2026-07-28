@@ -412,7 +412,7 @@ class metodoXmlBoleto
     public function seleccionarViaje($id_viaje)
     {
         $conn = conexion();
-        $query = "SELECT * FROM viajes WHERE id_viajes = $id_viaje LIMIT 1";
+        $query = "SELECT id_viajes, id_fkruta_viajes, id_fkbus_viajes, id_fkalimento_viajes, dia_viajes, hora_salida_estimado, fecha_cierre, hora_origen_salida, estado_viajes FROM viajes WHERE id_viajes = $id_viaje LIMIT 1";
         $result = mysqli_query($conn, $query) or die(mysqli_error($conn));
         return mysqli_fetch_assoc($result);
     }
@@ -420,7 +420,7 @@ class metodoXmlBoleto
     public function seleccionarRuta($id_ruta)
     {
         $conn = conexion();
-        $query = "SELECT * FROM rutas WHERE id_rutas = $id_ruta LIMIT 1";
+        $query = "SELECT id_rutas, codigo_rutas, nombre_rutas, descripcion_rutas FROM rutas WHERE id_rutas = $id_ruta LIMIT 1";
         $result = mysqli_query($conn, $query) or die(mysqli_error($conn));
         return mysqli_fetch_assoc($result);
     }

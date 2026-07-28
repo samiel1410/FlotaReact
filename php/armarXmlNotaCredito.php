@@ -128,7 +128,7 @@ class metodoXmlNotaCredito
     public function seleccionarDatosNC($id_boleto)
     {
         $conn = conexion();
-        $query = "SELECT * FROM boletos WHERE id_boleto = $id_boleto";
+        $query = "SELECT id_boleto, identificacion_boleto, tipo_identificacion_boleto, nombres_boleto, subtotal_boleto, iva_boleto, total_boleto, numero_boleto, punto_emision_boleto, sucursal_emision_boleto, fecha_boleto, clave_acceso_boletos, clave_acceso_nota_credito, numero_nota_credito FROM boletos WHERE id_boleto = $id_boleto";
         $result = mysqli_query($conn, $query) or die(mysqli_error($conn));
         $data = array();
         while ($vals = mysqli_fetch_array($result)) {
@@ -140,7 +140,7 @@ class metodoXmlNotaCredito
     public function seleccionarDetallesBoleto($id_boleto)
     {
         $conn = conexion();
-        $query = "SELECT * FROM boleto_detalle WHERE id_fkboleto_boleto_detalle = $id_boleto";
+        $query = "SELECT id_boleto_detalle, id_fkboleto_boleto_detalle, asiento_boleto_detalle, nombre_cliente_boleto_detalle, identificacion_boleto_detalle, total_boleto_detalle, descuento_boleto_detalle, precio_boleto_detalle FROM boleto_detalle WHERE id_fkboleto_boleto_detalle = $id_boleto";
         $result = mysqli_query($conn, $query) or die(mysqli_error($conn));
         $data = array();
         while ($vals = mysqli_fetch_array($result)) {

@@ -15,7 +15,7 @@ try {
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
     // ─── EMPRESA ─────────────────────────────────────────────────────────────
-    $rsEmp = mysqli_query($conn, "SELECT * FROM empresa LIMIT 1") or die(mysqli_error($conn));
+    $rsEmp = mysqli_query($conn, "SELECT id_empresa, ruc_empresa, razon_social_empresa, direccion_empresa, telefono_empresa, correo_empresa, imagen_empresa, nombre_comercial_empresa FROM empresa LIMIT 1") or die(mysqli_error($conn));
     $emp = mysqli_fetch_array($rsEmp);
     $razon_social = $emp['razon_social_empresa'] ?? 'FLOTA PELILEO';
     $ruc_empresa   = $emp['ruc_empresa'] ?? '';
