@@ -844,10 +844,21 @@ export const ConfiguracionPage = () => {
                                     {(() => {
                                       if (!item.fecha_ejecucion) return '-';
                                       const str = String(item.fecha_ejecucion);
-                                      const isoStr = str.includes('Z') || str.includes('+') || str.includes('-')
-                                        ? str
-                                        : str.replace(' ', 'T') + 'Z';
-                                      return new Date(isoStr).toLocaleString('es-EC', { timeZone: 'America/Guayaquil' });
+                                      if (!str.includes('Z') && !str.includes('+') && !str.includes('T')) {
+                                        const parts = str.split(' ');
+                                        if (parts.length === 2) {
+                                          const [yy, mm, dd] = parts[0].split('-');
+                                          const [hh, min, ss] = parts[1].split(':');
+                                          if (yy && mm && dd && hh && min) {
+                                            const dLocal = new Date(Number(yy), Number(mm) - 1, Number(dd), Number(hh), Number(min), Number(ss || 0));
+                                            return dLocal.toLocaleString('es-EC');
+                                          }
+                                        }
+                                      }
+                                      const d = new Date(str);
+                                      return !isNaN(d.getTime())
+                                        ? d.toLocaleString('es-EC', { timeZone: 'America/Guayaquil' })
+                                        : str;
                                     })()}
                                   </td>
                                   <td className="px-3 py-2">
