@@ -74,7 +74,16 @@ class meotodoXml
             $claveAccesoOriginal = $datosFactura[0]['clave_acceso_factura'] ?? '';
             $conn = conexion();
             $claveAcceso = asegurarClaveAccesoHoy($claveAccesoOriginal, 'factura', 'clave_acceso_factura', 'id_factura', $id_factura, $conn);
-            $fechaFactura = date('d/m/Y'); // Asegurar fecha de emisión actual (hoy)
+            
+            // Garantizar que $fechaFactura coincida EXACTAMENTE con los primeros 8 dígitos de $claveAcceso
+            if (strlen($claveAcceso) === 49) {
+                $dClave = substr($claveAcceso, 0, 2);
+                $mClave = substr($claveAcceso, 2, 2);
+                $aClave = substr($claveAcceso, 4, 4);
+                $fechaFactura = "{$dClave}/{$mClave}/{$aClave}";
+            } else {
+                $fechaFactura = date('d/m/Y');
+            }
 
             // EXTRAER estab, ptoEmi y secuencial directamente de la clave de acceso
             if (strlen($claveAcceso) === 49) {
