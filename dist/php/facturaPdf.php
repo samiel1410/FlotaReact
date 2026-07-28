@@ -6,113 +6,126 @@ require 'vendor/autoload.php';
 $generator = new Picqer\Barcode\BarcodeGeneratorHTML();
 
 try {
-  $id_factura = $_GET['id_factura'];
-
-
-
+  $id_factura = isset($_GET['id_factura']) ? (int)$_GET['id_factura'] : 0;
+  if ($id_factura <= 0) {
+    throw new Exception("ID de factura no válido");
+  }
 
   // create new PDF document
   $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, 'A4', true, 'UTF-8', false);
 
-
   $conn = conexion();
   $query = "select
 id_factura,fecha_factura,fecha_hora_autorizacion,telefono_cliente_factura,direccion_clientes_factura,correo_cliente_factura,ruc_cliente_factura,nombre_cliente_factura,id_fksucursal_factura,clave_acceso_factura,fecha_hora_sincronizacion,punto_emision_factura,numero_factura,total_factura,subtotal_12_factura,subtotal_0_factura,subtotal_factura,iva_factura,descuento_total_factura
-from factura where id_factura = " . $id_factura . "";
-  $recuperar = mysqli_query($conn, $query) or die(mysqli_error($conn));
+from factura where id_factura = " . $id_factura;
+  $recuperar = mysqli_query($conn, $query);
+  if (!$recuperar) {
+    throw new Exception("Error en consulta de factura: " . mysqli_error($conn));
+  }
   $vals = mysqli_fetch_array($recuperar);
+  if (!$vals) {
+    throw new Exception("Factura no encontrada");
+  }
 
-  $id_sucursal = $vals["id_fksucursal_factura"];
-  $subtotal_12 = $vals["subtotal_12_factura"];
-  $subtotal_0 = $vals["subtotal_0_factura"];
-  $subtotal = $vals["subtotal_factura"];
-  $descuento_guia = $vals["descuento_total_factura"];
-  $iva_guia = $vals["iva_factura"];
-  $total_guia = $vals["total_factura"];
-  $clave_autorizacion = $vals["clave_acceso_factura"];
-  $hora_autorizacion = $vals["fecha_hora_autorizacion"];
+  $id_sucursal = (int)($vals["id_fksucursal_factura"] ?? 0);
+  $subtotal_12 = $vals["subtotal_12_factura"] ?? 0;
+  $subtotal_0 = $vals["subtotal_0_factura"] ?? 0;
+  $subtotal = $vals["subtotal_factura"] ?? 0;
+  $descuento_guia = $vals["descuento_total_factura"] ?? 0;
+  $iva_guia = $vals["iva_factura"] ?? 0;
+  $total_guia = $vals["total_factura"] ?? 0;
+  $clave_autorizacion = $vals["clave_acceso_factura"] ?? '';
+  $hora_autorizacion = $vals["fecha_hora_autorizacion"] ?? '';
 
   //CLIENTE
-  $razon_social = $vals["nombre_cliente_factura"];
-  $ruc_cliente = $vals["ruc_cliente_factura"];
-  $telefono = $vals["telefono_cliente_factura"];
-  $correo = $vals["correo_cliente_factura"];
-  $direccion = $vals["direccion_clientes_factura"];
-  $fecha_emision = $vals["fecha_factura"];
+  $razon_social = $vals["nombre_cliente_factura"] ?? '';
+  $ruc_cliente = $vals["ruc_cliente_factura"] ?? '';
+  $telefono = $vals["telefono_cliente_factura"] ?? '';
+  $correo = $vals["correo_cliente_factura"] ?? '';
+  $direccion = $vals["direccion_clientes_factura"] ?? '';
+  $fecha_emision = $vals["fecha_factura"] ?? '';
 
-  $resultado = sprintf("%09s", $vals['numero_factura']);
+  $resultado = sprintf("%09s", $vals['numero_factura'] ?? 0);
 
+  $nombre_sucursal = '';
+  $ubicacion_sucursal = '';
+  $punto_emision_sucursal = '001';
 
-  $query_sucural = "SELECT nombre_sucursal, ubicacion_sucursal,punto_emision_sucursal FROM sucursal WHERE id_sucursal =
-$id_sucursal";
-  $recuperar_sucursal = mysqli_query($conn, $query_sucural) or die(mysqli_error($conn));
-  $vals_sucursal = mysqli_fetch_array($recuperar_sucursal);
+  if ($id_sucursal > 0) {
+    // Intentar primero sucursal2 (tabla principal de sucursales)
+    $query_sucursal2 = "SELECT nombre_sucursal, COALESCE(direccion_sucursal, '') as ubicacion_sucursal, punto_emision_sucursal FROM sucursal2 WHERE suc_codigo_sucursal = $id_sucursal OR id_sucursal = $id_sucursal LIMIT 1";
+    $recuperar_sucursal = mysqli_query($conn, $query_sucursal2);
+    if ($recuperar_sucursal && ($vals_sucursal = mysqli_fetch_array($recuperar_sucursal))) {
+      $nombre_sucursal = $vals_sucursal["nombre_sucursal"] ?? '';
+      $ubicacion_sucursal = $vals_sucursal["ubicacion_sucursal"] ?? '';
+      $punto_emision_sucursal = !empty($vals_sucursal["punto_emision_sucursal"]) ? $vals_sucursal["punto_emision_sucursal"] : '001';
+    } else {
+      // Intentar en tabla sucursal como respaldo
+      $query_sucursal = "SELECT nombre_sucursal, ubicacion_sucursal, punto_emision_sucursal FROM sucursal WHERE id_sucursal = $id_sucursal LIMIT 1";
+      $recuperar_sucursal = @mysqli_query($conn, $query_sucursal);
+      if ($recuperar_sucursal && ($vals_sucursal = mysqli_fetch_array($recuperar_sucursal))) {
+        $nombre_sucursal = $vals_sucursal["nombre_sucursal"] ?? '';
+        $ubicacion_sucursal = $vals_sucursal["ubicacion_sucursal"] ?? '';
+        $punto_emision_sucursal = !empty($vals_sucursal["punto_emision_sucursal"]) ? $vals_sucursal["punto_emision_sucursal"] : '001';
+      }
+    }
+  }
 
-
-
-  $numero_factura = $vals_sucursal["punto_emision_sucursal"] . '-' . $vals["punto_emision_factura"] . '-' . $resultado;
-  $nombre_sucursal = $vals_sucursal["nombre_sucursal"];
-  $ubicacion_sucursal = $vals_sucursal["ubicacion_sucursal"];
-
+  $punto_emision_factura = !empty($vals["punto_emision_factura"]) ? $vals["punto_emision_factura"] : '001';
+  $numero_factura = $punto_emision_sucursal . '-' . $punto_emision_factura . '-' . $resultado;
 
   //EMPRESA
   $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa,
-razon_social_empresa FROM empresa";
-  $recuperar_empresa = mysqli_query($conn, $query_empresa) or die(mysqli_error($conn));
-  $vals_empresa = mysqli_fetch_array($recuperar_empresa);
+razon_social_empresa FROM empresa LIMIT 1";
+  $recuperar_empresa = mysqli_query($conn, $query_empresa);
+  $vals_empresa = $recuperar_empresa ? mysqli_fetch_array($recuperar_empresa) : [];
 
-  $nombre_empresa = $vals_empresa['razon_social_empresa'];
-
-  $direccion_empresa = $vals_empresa['direccion_empresa'];
-  $ruc_empresa = $vals_empresa['ruc_empresa'];
-
+  $nombre_empresa = $vals_empresa['razon_social_empresa'] ?? '';
+  $direccion_empresa = $vals_empresa['direccion_empresa'] ?? '';
+  $ruc_empresa = $vals_empresa['ruc_empresa'] ?? '';
 
   //DETALLES FACTURA
-
   $query_dettales = "SELECT
 nombre_producto_factura_detalle,cantidad_factura_detalle,total_factura_detalle,descuento_factura_detalle,tarifa_factura_detalle
-FROM factura_detalle WHERE id_fkfactura_factura_detalle= $id_factura";
-  $recuperar_detalles = mysqli_query($conn, $query_dettales) or die(mysqli_error($conn));
+FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
+  $recuperar_detalles = mysqli_query($conn, $query_dettales);
 
   $datos = "";
 
-  while ($vals_detalles = mysqli_fetch_array($recuperar_detalles)) {
-
-    $tabla = '
+  if ($recuperar_detalles) {
+    while ($vals_detalles = mysqli_fetch_array($recuperar_detalles)) {
+      $tabla = '
 <tr>
-  <td width="50%" class="border"> ' . $vals_detalles['nombre_producto_factura_detalle'] . '</td>
-  <td width="10%" class="border center"> ' . $vals_detalles['cantidad_factura_detalle'] . '</td>
-  <td width="15%" class="border right"> $' . round($vals_detalles['descuento_factura_detalle'], 2) . '</td>
-  <td width="10%" class="border right"> $' . round($vals_detalles['tarifa_factura_detalle'], 2) . '</td>
-  <td width="15%" class="border right"> $' . round($vals_detalles['total_factura_detalle'], 2) . '</td>
+  <td width="50%" class="border"> ' . ($vals_detalles['nombre_producto_factura_detalle'] ?? '') . '</td>
+  <td width="10%" class="border center"> ' . ($vals_detalles['cantidad_factura_detalle'] ?? 0) . '</td>
+  <td width="15%" class="border right"> $' . round((float)($vals_detalles['descuento_factura_detalle'] ?? 0), 2) . '</td>
+  <td width="10%" class="border right"> $' . round((float)($vals_detalles['tarifa_factura_detalle'] ?? 0), 2) . '</td>
+  <td width="15%" class="border right"> $' . round((float)($vals_detalles['total_factura_detalle'] ?? 0), 2) . '</td>
 </tr>
 ';
-
-
-    $datos .= $tabla;
-
-
-
-
+      $datos .= $tabla;
+    }
   }
-  //FORMA DE PAGO
 
+  //FORMA DE PAGO
   $query_pago = "SELECT c.id_comprobante_cobro, c.monto_comprobante_cobro, 
                         COALESCE(f.nombre_forma_pago, 'SIN UTILIZACION DEL SISTEMA FINANCIERO') as nombre_forma_pago 
                  FROM comprobante_cobro c 
                  LEFT JOIN forma_pago f ON (c.id_fkforma_pago = f.id_forma_pago OR c.id_fkforma_pago = f.codigo_forma_pago) 
                  WHERE (c.id_fkfactura_comprobante_cobro = $id_factura OR c.id_fkfactura_comprobante_cobro = (SELECT f2.id_fkguia_factura FROM factura f2 WHERE f2.id_factura = $id_factura))";
-  $recuperar_pago = mysqli_query($conn, $query_pago) or die(mysqli_error($conn));
+  $recuperar_pago = mysqli_query($conn, $query_pago);
   $datos_pago = "";
 
-  while ($vals_pago = mysqli_fetch_array($recuperar_pago)) {
-    $tabla = '
+  if ($recuperar_pago) {
+    while ($vals_pago = mysqli_fetch_array($recuperar_pago)) {
+      $tabla = '
 <tr>
-  <td width="70%" class="border"> ' . $vals_pago['nombre_forma_pago'] . '</td>
-  <td width="30%" class="border right"> $' . number_format((float)$vals_pago['monto_comprobante_cobro'], 2, '.', '') . '</td>
+  <td width="70%" class="border"> ' . ($vals_pago['nombre_forma_pago'] ?? '') . '</td>
+  <td width="30%" class="border right"> $' . number_format((float)($vals_pago['monto_comprobante_cobro'] ?? 0), 2, '.', '') . '</td>
 </tr>
 ';
-    $datos_pago .= $tabla;
+      $datos_pago .= $tabla;
+    }
   }
 
   if (empty(trim($datos_pago))) {
