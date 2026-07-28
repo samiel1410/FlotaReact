@@ -745,7 +745,7 @@ export const ConfiguracionPage = () => {
                         <input type="checkbox" {...register('ejecutar_job_sri_automatico')} id="ejecutar_job_sri_automatico" className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500" />
                         <div>
                           <label htmlFor="ejecutar_job_sri_automatico" className="text-sm font-bold text-slate-800 cursor-pointer">Habilitar Job Automático Programado (SRI)</label>
-                          <p className="text-[11px] text-slate-500">Si está activo, procesa automáticamente facturas y boletos pendientes sin importar las opciones individuales.</p>
+                          <p className="text-[11px] text-slate-500">Procesa periódicamente comprobantes pendientes en segundo plano.</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
@@ -753,14 +753,13 @@ export const ConfiguracionPage = () => {
                           type="checkbox"
                           {...register('autorizar_factura_sri')}
                           id="autorizar_factura_sri"
-                          disabled={jobAutoActivo}
-                          className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500"
                         />
                         <label
                           htmlFor="autorizar_factura_sri"
-                          className={`text-sm font-semibold cursor-pointer ${jobAutoActivo ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                          className="text-sm font-semibold text-slate-700 cursor-pointer"
                         >
-                          Autorizar Guías inmediatamente al guardar {jobAutoActivo && '(gestionado por Job Automático)'}
+                          Autorizar Guías inmediatamente al guardar
                         </label>
                       </div>
                       <div className="flex items-center gap-2">
@@ -768,14 +767,13 @@ export const ConfiguracionPage = () => {
                           type="checkbox"
                           {...register('autorizar_boleto_sri')}
                           id="autorizar_boleto_sri"
-                          disabled={jobAutoActivo}
-                          className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500"
                         />
                         <label
                           htmlFor="autorizar_boleto_sri"
-                          className={`text-sm font-semibold cursor-pointer ${jobAutoActivo ? 'text-slate-400 line-through' : 'text-slate-700'}`}
+                          className="text-sm font-semibold text-slate-700 cursor-pointer"
                         >
-                          Autorizar Boletos inmediatamente al guardar {jobAutoActivo && '(gestionado por Job Automático)'}
+                          Autorizar Boletos inmediatamente al guardar
                         </label>
                       </div>
                     </div>
