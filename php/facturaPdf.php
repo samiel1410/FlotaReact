@@ -20,6 +20,8 @@ try {
   $query = "select
 id_factura,fecha_factura,fecha_hora_autorizacion,telefono_cliente_factura,direccion_clientes_factura,correo_cliente_factura,ruc_cliente_factura,nombre_cliente_factura,id_fksucursal_factura,clave_acceso_factura,fecha_hora_sincronizacion,punto_emision_factura,numero_factura,total_factura,subtotal_12_factura,subtotal_0_factura,subtotal_factura,iva_factura,descuento_total_factura
 from factura where id_factura = '$id_esc' OR id_fkguia_factura = '$id_esc' OR numero_factura = '$id_esc' OR clave_acceso_factura = '$id_esc' ORDER BY (id_factura = '$id_esc') DESC, id_factura DESC LIMIT 1";
+
+echo  $query;
   $recuperar = mysqli_query($conn, $query);
   if (!$recuperar) {
     throw new Exception("Error en consulta de factura: " . mysqli_error($conn));
