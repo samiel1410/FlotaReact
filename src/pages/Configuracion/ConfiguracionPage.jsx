@@ -40,7 +40,7 @@ export const ConfiguracionPage = () => {
     }
   }, []);
 
-  const { register, handleSubmit, setValue, getValues, watch } = useForm({
+  const { register, handleSubmit, setValue, getValues, watch, reset } = useForm({
     values: configData,
     resetOptions: { keepDirtyValues: true }
   });
@@ -56,7 +56,7 @@ export const ConfiguracionPage = () => {
         const response = await api.get('/configuracion/configuracionSeleccion');
         if (response.data && response.data.data && response.data.data.length > 0) {
           const conf = response.data.data[0];
-          setConfigData({
+          const newConf = {
             formapago: conf.id_forma_pago_configuracion || '',
             numero_factura: conf.numero_factura || '',
             numero_version: conf.version_sistema || '',
@@ -94,7 +94,9 @@ export const ConfiguracionPage = () => {
             enviar_whatsapp: conf.enviar_whatsapp === 1 || conf.enviar_whatsapp === true,
             cobrar_iva_guia: conf.cobrar_iva_guia === 1 || conf.cobrar_iva_guia === true,
             imprimir_boucher_guia: conf.imprimir_boucher_guia === 1 || conf.imprimir_boucher_guia === true,
-          });
+          };
+          setConfigData(newConf);
+          reset(newConf);
           setRucTieneDatos(!!conf.ruc_empresa);
         }
         cargarHistorialJob();
