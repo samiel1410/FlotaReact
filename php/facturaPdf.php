@@ -6,8 +6,8 @@ require 'vendor/autoload.php';
 $generator = new Picqer\Barcode\BarcodeGeneratorHTML();
 
 try {
-  $id_factura = isset($_GET['id_factura']) ? (int)$_GET['id_factura'] : 0;
-  if ($id_factura <= 0) {
+  $id_param = isset($_GET['id_factura']) ? trim($_GET['id_factura']) : '';
+  if ($id_param === '') {
     throw new Exception("ID de factura no válido");
   }
 
@@ -15,9 +15,11 @@ try {
   $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, 'A4', true, 'UTF-8', false);
 
   $conn = conexion();
+  $id_esc = mysqli_real_escape_string($conn, $id_param);
+
   $query = "select
 id_factura,fecha_factura,fecha_hora_autorizacion,telefono_cliente_factura,direccion_clientes_factura,correo_cliente_factura,ruc_cliente_factura,nombre_cliente_factura,id_fksucursal_factura,clave_acceso_factura,fecha_hora_sincronizacion,punto_emision_factura,numero_factura,total_factura,subtotal_12_factura,subtotal_0_factura,subtotal_factura,iva_factura,descuento_total_factura
-from factura where id_factura = " . $id_factura;
+from factura where id_factura = '$id_esc' OR id_fkguia_factura = '$id_esc' OR numero_factura = '$id_esc' OR clave_acceso_factura = '$id_esc' ORDER BY (id_factura = '$id_esc') DESC, id_factura DESC LIMIT 1";
   $recuperar = mysqli_query($conn, $query);
   if (!$recuperar) {
     throw new Exception("Error en consulta de factura: " . mysqli_error($conn));
@@ -27,6 +29,7 @@ from factura where id_factura = " . $id_factura;
     throw new Exception("Factura no encontrada");
   }
 
+  $id_factura = (int)$vals["id_factura"];
   $id_sucursal = (int)($vals["id_fksucursal_factura"] ?? 0);
   $subtotal_12 = $vals["subtotal_12_factura"] ?? 0;
   $subtotal_0 = $vals["subtotal_0_factura"] ?? 0;
