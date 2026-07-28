@@ -70,19 +70,27 @@ class meotodoXml
             $subtotal15Factura = number_format(str_replace(',', '', $datosFactura[0]['subtotal_12_factura']), 2, '.', '');
             $subtotal0Factura  = number_format(str_replace(',', '', $datosFactura[0]['subtotal_0_factura']),  2, '.', '');
 
-            // ── Numeración y Clave de Acceso Actualizada a HOY ───────────────
+            // ── Fecha de emisión y Clave de Acceso actualizadas a HOY ───────
+            $fechaFactura = date('d/m/Y'); // Fecha emisión SRI = HOY (dd/mm/yyyy)
             $claveAccesoOriginal = $datosFactura[0]['clave_acceso_factura'] ?? '';
             $conn = conexion();
             $claveAcceso = asegurarClaveAccesoHoy($claveAccesoOriginal, 'factura', 'clave_acceso_factura', 'id_factura', $id_factura, $conn);
             
-            // Garantizar que $fechaFactura coincida EXACTAMENTE con los primeros 8 dígitos de $claveAcceso
-            if (strlen($claveAcceso) === 49) {
-                $dClave = substr($claveAcceso, 0, 2);
-                $mClave = substr($claveAcceso, 2, 2);
-                $aClave = substr($claveAcceso, 4, 4);
-                $fechaFactura = "{$dClave}/{$mClave}/{$aClave}";
-            } else {
-                $fechaFactura = date('d/m/Y');
+            // Garantizar 100% que la claveAcceso comience con la fecha de HOY
+            $hoyDmY = date('dmY');
+            if (strlen($claveAcceso) === 49 && substr($claveAcceso, 0, 8) !== $hoyDmY) {
+                $parteMedia = substr($claveAcceso, 8, 31);
+                $nuevoCod = str_pad((string)rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
+                $sinDig = $hoyDmY . $parteMedia . $nuevoCod . '1';
+                $claveAcceso = $sinDig . calcularModulo11($sinDig);
+                if ($conn) {
+                    $stmt = $conn->prepare("UPDATE factura SET clave_acceso_factura = ? WHERE id_factura = ?");
+                    if ($stmt) {
+                        $stmt->bind_param('si', $claveAcceso, $id_factura);
+                        $stmt->execute();
+                        $stmt->close();
+                    }
+                }
             }
 
             // EXTRAER estab, ptoEmi y secuencial directamente de la clave de acceso
