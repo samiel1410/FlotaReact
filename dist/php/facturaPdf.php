@@ -26,10 +26,11 @@ from factura where id_factura = '$id_esc' OR id_fkguia_factura = '$id_esc' OR nu
   if (!$recuperar) {
     throw new Exception("Error en consulta de factura: " . mysqli_error($conn));
   }
-   var_dump($recuperar);
+  var_dump($recuperar);
   $vals = mysqli_fetch_array($recuperar);
 
-  var_dump($vals);
+  echo "<br>";
+  var_dump($recuperar);
   if (!$recuperar) {
     die(mysqli_error($conn));
 }
