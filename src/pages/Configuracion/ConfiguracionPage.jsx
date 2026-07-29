@@ -676,7 +676,7 @@ export const ConfiguracionPage = () => {
                     </div>
                     <div>
                       <label className={labelClass}>Password P12</label>
-                      <input type="password" {...register('password_p12')} className={inputClass} placeholder="Dejar en blanco si no cambia" />
+                      <input type="password" {...register('password_p12')} className={inputClass} placeholder="Dejar en blanco si no cambia" autoComplete="new-password" />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
