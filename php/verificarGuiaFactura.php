@@ -10,6 +10,11 @@
  * Ejemplo: /php/verificarGuiaFactura.php?id_factura=51
  */
 
+// DEBUG: mostrar errores PHP
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once('db.php');
 
 header('Content-Type: application/json; charset=utf-8');
