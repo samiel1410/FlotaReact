@@ -2,12 +2,16 @@ import { api } from '../../../config/axios';
 
 export const FacturasService = {
   listar: async (params = {}) => {
-    const response = await api.get('/factura/facturalistado', { params });
+    const response = await api.get('/factura/facturalistado', { 
+      params: { ...params, _t: Date.now() } 
+    });
     return response.data;
   },
 
   listarPendientes: async (params = {}) => {
-    const response = await api.get('/factura/facturalistadoPendientes', { params });
+    const response = await api.get('/factura/facturalistadoPendientes', { 
+      params: { ...params, _t: Date.now() } 
+    });
     return response.data;
   },
 

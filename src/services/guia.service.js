@@ -10,7 +10,9 @@ export const GuiaService = {
    * Obtiene la lista de guías con paginación y filtros
    */
   getGuias: async (params = {}) => {
-    const response = await api.get('/guia/guialistado', { params });
+    const response = await api.get('/guia/guialistado', { 
+      params: { ...params, _t: Date.now() } 
+    });
     return response.data;
   },
 

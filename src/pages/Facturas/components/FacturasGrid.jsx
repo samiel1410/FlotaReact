@@ -199,12 +199,7 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
   };
 
   const formatSecuencial = (row) => {
-    if (row.clave_acceso_factura && row.clave_acceso_factura.length === 49) {
-      const estab = row.clave_acceso_factura.substring(24, 27);
-      const ptoEmi = row.clave_acceso_factura.substring(27, 30);
-      const num = row.clave_acceso_factura.substring(30, 39);
-      return `${estab}-${ptoEmi}-${num}`;
-    }
+    if (row.secuencial_factura) return row.secuencial_factura;
     const num = String(row.numero_factura || '').padStart(9, '0');
     return `${row.punto_emision_sucursal || ''}-${row.punto_emision_factura || ''}-${num}`;
   };

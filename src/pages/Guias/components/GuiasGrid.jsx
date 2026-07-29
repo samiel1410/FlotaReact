@@ -86,6 +86,7 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
               <th className="text-center" style={{width: '30px'}}></th>
               <th className="text-center" style={{width: '30px'}}></th>
               <th>CÓDIGO</th>
+              <th># FACTURA</th>
               <th>CLIENTE REMITENTE</th>
               <th>CLIENTE DESTINATARIO</th>
               <th>SALIDA</th>
@@ -112,6 +113,9 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
                 <td className="text-center">{getSemaforoSeguimiento(item.estado_guia_seguimiento)}</td>
                 <td className="font-semibold text-blue-600 font-mono">
                   {item.numero_guia_final}
+                </td>
+                <td className="font-mono text-xs font-semibold text-slate-700">
+                  {item.numero_factura_asociada}
                 </td>
                 <td className="cell-client">
                   <strong>RUC:</strong> {item.cedula_cliente_remitente}<br/>
