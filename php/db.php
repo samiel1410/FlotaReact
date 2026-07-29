@@ -47,7 +47,18 @@ function conexion()
     $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
     $isLocal = ($host == 'localhost' || $host == '127.0.0.1');
 
-    if (isset($_GET['db_name']) && !empty($_GET['db_name'])) {
+    $sessionDbName = isset($_SESSION['db_name']) && !empty($_SESSION['db_name']) ? decrypt_db_data($_SESSION['db_name']) : null;
+    $sessionDbHost = isset($_SESSION['db_host']) && !empty($_SESSION['db_host']) ? decrypt_db_data($_SESSION['db_host']) : null;
+    $sessionDbUser = isset($_SESSION['db_user']) && !empty($_SESSION['db_user']) ? decrypt_db_data($_SESSION['db_user']) : null;
+    $sessionDbPass = isset($_SESSION['db_pass']) && !empty($_SESSION['db_pass']) ? decrypt_db_data($_SESSION['db_pass']) : null;
+
+    if (!empty($sessionDbName)) {
+        // En producción multi-tenant, priorizar los datos del tenant activo en la sesión.
+        $db_name = $sessionDbName;
+        $db_host = $sessionDbHost ?: "localhost";
+        $db_user = $sessionDbUser ?: ($isLocal ? "root" : "patate_user");
+        $db_pass = $sessionDbPass ?: ($isLocal ? "" : "Latacunga14");
+    } else if (isset($_GET['db_name']) && !empty($_GET['db_name'])) {
         $db_name = $_GET['db_name'];
         $db_host = isset($_GET['db_host']) ? $_GET['db_host'] : "localhost";
         $db_user = isset($_GET['db_user']) ? $_GET['db_user'] : ($isLocal ? "root" : "patate_user");
@@ -57,12 +68,6 @@ function conexion()
         $db_host = isset($_POST['db_host']) ? $_POST['db_host'] : "localhost";
         $db_user = isset($_POST['db_user']) ? $_POST['db_user'] : ($isLocal ? "root" : "patate_user");
         $db_pass = isset($_POST['db_pass']) ? $_POST['db_pass'] : ($isLocal ? "" : "Latacunga14");
-    } else if (isset($_SESSION['db_name']) && !empty($_SESSION['db_name'])) {
-        // Desencriptamos los datos que vienen de la sesión (seteados por login.php)
-        $db_name = decrypt_db_data($_SESSION['db_name']);
-        $db_host = isset($_SESSION['db_host']) ? decrypt_db_data($_SESSION['db_host']) : "localhost";
-        $db_user = isset($_SESSION['db_user']) ? decrypt_db_data($_SESSION['db_user']) : "root";
-        $db_pass = isset($_SESSION['db_pass']) ? decrypt_db_data($_SESSION['db_pass']) : "";
     } else if ($isLocal) {
         // Credenciales de DESARROLLO (Fallback)
         $db_host = "localhost";

@@ -213,6 +213,17 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
 
   const formatFechaBonita = (f) => {
     if (!f) return '-';
+
+    const fecha = new Date(f);
+    if (!Number.isNaN(fecha.getTime())) {
+      return new Intl.DateTimeFormat('es-EC', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        timeZone: 'America/Guayaquil',
+      }).format(fecha);
+    }
+
     const str = String(f);
     const datePart = str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
     return datePart || '-';
