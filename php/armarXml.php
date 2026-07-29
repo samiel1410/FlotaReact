@@ -165,12 +165,18 @@ class meotodoXml
             $infoTributaria->addChild('secuencial',      $numFactura);
             $infoTributaria->addChild('dirMatriz',       $dirMatrizDef);
 
-            // Régimen especial (RIMPE o Microempresas) — mutuamente excluyentes
-            if ($regimen_fiscal == '4' || strtoupper($regimen_fiscal) === 'RIMPE') {
+            // Régimen fiscal SRI: 1=General, 2=RIMPE Emprendedor, 3=RIMPE Popular,
+            // 4=Microempresa, 5=RISE, 6=Agropecuario
+            $regimenInt = (int)$regimen_fiscal;
+            if ($regimenInt === 2 || $regimenInt === 3) {
+                // RIMPE Emprendedor (2) o RIMPE Popular (3)
                 $infoTributaria->addChild('contribuyenteRimpe', 'CONTRIBUYENTE RÉGIMEN RIMPE');
-            } elseif ($regimen_fiscal == '3' || strtoupper($regimen_fiscal) === 'MICROEMPRESA') {
+            } elseif ($regimenInt === 4) {
+                // Microempresa
                 $infoTributaria->addChild('regimenMicroempresas', 'CONTRIBUYENTE RÉGIMEN MICROEMPRESAS');
             }
+            // 1=General, 5=RISE, 6=Agropecuario → no requieren tag adicional en infoTributaria
+
 
             // CORRECCIÓN 1: agenteRetencion solo si la empresa efectivamente lo es
             if (!empty($agente_retencion) && !empty($resolucion_retencion)) {

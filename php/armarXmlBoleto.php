@@ -82,11 +82,18 @@ class metodoXmlBoleto
             $infoTributaria->addChild('ptoEmi', $puntoEmision);
             $infoTributaria->addChild('secuencial', $numFactura);
             $infoTributaria->addChild('dirMatriz', $direccionEmpresa);
-            if ($regimen_fiscal == '2' || $regimen_fiscal === 'RIMPE_EMPRENDEDOR' || $regimen_fiscal === 'RIMPE') {
+            // Régimen fiscal SRI: 1=General, 2=RIMPE Emprendedor, 3=RIMPE Popular,
+            // 4=Microempresa, 5=RISE, 6=Agropecuario
+            $regimenInt = (int)$regimen_fiscal;
+            if ($regimenInt === 2) {
                 $infoTributaria->addChild('contribuyenteRimpe', 'CONTRIBUYENTE RÉGIMEN RIMPE');
-            } else if ($regimen_fiscal === 'RIMPE_POPULAR') {
+            } elseif ($regimenInt === 3) {
                 $infoTributaria->addChild('contribuyenteRimpe', 'CONTRIBUYENTE NEGOCIO POPULAR - RÉGIMEN RIMPE');
+            } elseif ($regimenInt === 4) {
+                $infoTributaria->addChild('regimenMicroempresas', 'CONTRIBUYENTE RÉGIMEN MICROEMPRESAS');
             }
+            // 1=General, 5=RISE, 6=Agropecuario → no requieren tag adicional
+
 
             $infoFactura = $xml->addChild('infoFactura');
             $infoFactura->addChild('fechaEmision', $fechaEmision);
