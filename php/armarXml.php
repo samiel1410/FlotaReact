@@ -367,20 +367,25 @@ class meotodoXml
         $conn = conexion();
 
         $sql = "SELECT
-                    dg.id_fktipo_envio_detalle_guia  AS codigo_producto,
-                    COUNT(dg.id_fktipo_envio_detalle_guia) AS cantidad_factura_detalle,
-                    dg.contenido_guia                AS nombre_producto,
-                    dg.tipo_iva_detalle_guia          AS iva_producto,
-                    dg.tipo_descuento_detalle_guia    AS descuento_factura_detalle,
-                    dg.costo_detalle_guia             AS precio_factura_detalle,
-                    dg.total_detalle_guia             AS total_factura_detalle,
-                    COALESCE(te.tipo_impuesto, 0)     AS tipo_impuesto
+                    COALESCE(dg.id_fktipo_envio_detalle_guia, 0) AS codigo_producto,
+                    dg.cantidad_detalle_guia                      AS cantidad_factura_detalle,
+                    dg.contenido_guia                             AS nombre_producto,
+                    dg.tipo_iva_detalle_guia                      AS iva_producto,
+                    dg.tipo_descuento_detalle_guia                AS descuento_factura_detalle,
+                    CASE
+                        WHEN dg.costo_detalle_guia > 0 THEN dg.costo_detalle_guia
+                        WHEN dg.cantidad_detalle_guia > 0 THEN dg.total_detalle_guia / dg.cantidad_detalle_guia
+                        ELSE dg.total_detalle_guia
+                    END                                           AS precio_factura_detalle,
+                    dg.total_detalle_guia                         AS total_factura_detalle,
+                    COALESCE(te.tipo_impuesto, 0)                 AS tipo_impuesto
                 FROM detalle_guia dg
                 LEFT JOIN tipo_envio te ON dg.id_fktipo_envio_detalle_guia = te.id_tipo_envio
                 WHERE dg.id_fkguia_detalle_envio = (
                     SELECT id_fkguia_factura FROM factura WHERE id_factura = ?
                 )
                 GROUP BY dg.id_detalle_guia";
+
 
 
         $stmt = $conn->prepare($sql);
