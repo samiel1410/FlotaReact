@@ -5,28 +5,38 @@
  * Compara cabecera y detalles de ambos documentos.
  *
  * Parámetros GET:
- *   id_factura   — ID de la factura a verificar
+ *   id_factura — ID de la factura a verificar
  *
  * Ejemplo: /php/verificarGuiaFactura.php?id_factura=51
  */
 
-// DEBUG: mostrar errores PHP
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+// Capturar cualquier salida (ej: die() de db.php si falla la conexión)
+ob_start();
 
 require_once('db.php');
 
+// Re-activar errores DESPUÉS de db.php (que los suprime con display_errors=0)
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+// Capturar y limpiar cualquier texto producido por db.php (ej: error de conexión)
+$dbOutput = trim(ob_get_clean());
+
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-
-mysqli_report(MYSQLI_REPORT_OFF);
 
 function jsonError($msg, $code = 400) {
     http_response_code($code);
     echo json_encode(['success' => false, 'error' => $msg], JSON_UNESCAPED_UNICODE);
     exit;
 }
+
+// Si db.php produjo alguna salida (error de conexión, die(), etc.) la retornamos como JSON
+if (!empty($dbOutput)) {
+    jsonError('Error en db.php: ' . $dbOutput, 500);
+}
+
+mysqli_report(MYSQLI_REPORT_OFF);
 
 // ── Parámetros ──────────────────────────────────────────────
 $id_factura = isset($_GET['id_factura']) ? (int)$_GET['id_factura'] : 0;
@@ -35,7 +45,17 @@ if ($id_factura <= 0) {
 }
 
 try {
-    $conn = conexion();
+    // Intentar conexión — capturar error si falla
+    $conn = null;
+    try {
+        $conn = conexion();
+    } catch (Exception $connEx) {
+        jsonError('No se pudo conectar a la BD: ' . $connEx->getMessage() . '. Asegúrese de estar logueado en la app (sesión activa) antes de acceder a este endpoint.', 503);
+    }
+    if (!$conn) {
+        jsonError('Conexión a BD devolvió null. Verifique que la sesión de la app está activa.', 503);
+    }
+
 
     // ── 1. Obtener la FACTURA ────────────────────────────────
     $sqlFac = "
