@@ -42,45 +42,65 @@ function decrypt_db_data($data) {
     }
 }
 
-function conexion()
+function obtenerCredencialesDb($isLocal)
 {
-    $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
-    $isLocal = ($host == 'localhost' || $host == '127.0.0.1');
-
     $sessionDbName = isset($_SESSION['db_name']) && !empty($_SESSION['db_name']) ? decrypt_db_data($_SESSION['db_name']) : null;
     $sessionDbHost = isset($_SESSION['db_host']) && !empty($_SESSION['db_host']) ? decrypt_db_data($_SESSION['db_host']) : null;
     $sessionDbUser = isset($_SESSION['db_user']) && !empty($_SESSION['db_user']) ? decrypt_db_data($_SESSION['db_user']) : null;
     $sessionDbPass = isset($_SESSION['db_pass']) && !empty($_SESSION['db_pass']) ? decrypt_db_data($_SESSION['db_pass']) : null;
 
     if (!empty($sessionDbName)) {
-        // En producción multi-tenant, priorizar los datos del tenant activo en la sesión.
-        $db_name = $sessionDbName;
-        $db_host = $sessionDbHost ?: "localhost";
-        $db_user = $sessionDbUser ?: ($isLocal ? "root" : "patate_user");
-        $db_pass = $sessionDbPass ?: ($isLocal ? "" : "Latacunga14");
-    } else if (isset($_GET['db_name']) && !empty($_GET['db_name'])) {
-        $db_name = $_GET['db_name'];
-        $db_host = isset($_GET['db_host']) ? $_GET['db_host'] : "localhost";
-        $db_user = isset($_GET['db_user']) ? $_GET['db_user'] : ($isLocal ? "root" : "patate_user");
-        $db_pass = isset($_GET['db_pass']) ? $_GET['db_pass'] : ($isLocal ? "" : "Latacunga14");
-    } else if (isset($_POST['db_name']) && !empty($_POST['db_name'])) {
-        $db_name = $_POST['db_name'];
-        $db_host = isset($_POST['db_host']) ? $_POST['db_host'] : "localhost";
-        $db_user = isset($_POST['db_user']) ? $_POST['db_user'] : ($isLocal ? "root" : "patate_user");
-        $db_pass = isset($_POST['db_pass']) ? $_POST['db_pass'] : ($isLocal ? "" : "Latacunga14");
-    } else if ($isLocal) {
-        // Credenciales de DESARROLLO (Fallback)
-        $db_host = "localhost";
-        $db_user = "root";
-        $db_pass = "";
-        $db_name = "flotapelileo_produccion";
-    } else {
-        // Credenciales de PRODUCCION (Fallback)
-        $db_host = "localhost";
-        $db_user = "patate_user";
-        $db_pass = "Latacunga14";
-        $db_name = "admin_patate";
+        return [
+            $sessionDbHost ?: 'localhost',
+            $sessionDbUser ?: ($isLocal ? 'root' : ''),
+            $sessionDbPass ?: '',
+            $sessionDbName
+        ];
     }
+
+    if (isset($_GET['db_name']) && !empty($_GET['db_name'])) {
+        return [
+            isset($_GET['db_host']) ? $_GET['db_host'] : 'localhost',
+            isset($_GET['db_user']) ? $_GET['db_user'] : ($isLocal ? 'root' : ''),
+            isset($_GET['db_pass']) ? $_GET['db_pass'] : '',
+            $_GET['db_name']
+        ];
+    }
+
+    if (isset($_POST['db_name']) && !empty($_POST['db_name'])) {
+        return [
+            isset($_POST['db_host']) ? $_POST['db_host'] : 'localhost',
+            isset($_POST['db_user']) ? $_POST['db_user'] : ($isLocal ? 'root' : ''),
+            isset($_POST['db_pass']) ? $_POST['db_pass'] : '',
+            $_POST['db_name']
+        ];
+    }
+
+    $db_host = $isLocal
+        ? (getenv('DB_HOST') ?: getenv('MYSQL_HOST') ?: 'localhost')
+        : (getenv('PROD_DB_HOST') ?: getenv('DB_HOST') ?: getenv('MYSQL_HOST') ?: 'localhost');
+
+    $db_user = $isLocal
+        ? (getenv('DB_USER') ?: getenv('DB_USERNAME') ?: getenv('MYSQL_USER') ?: 'root')
+        : (getenv('PROD_DB_USER') ?: getenv('DB_USER') ?: getenv('DB_USERNAME') ?: getenv('MYSQL_USER') ?: '');
+
+    $db_pass = $isLocal
+        ? (getenv('DB_PASSWORD') ?: getenv('MYSQL_PASSWORD') ?: '')
+        : (getenv('PROD_DB_PASSWORD') ?: getenv('DB_PASSWORD') ?: getenv('MYSQL_PASSWORD') ?: '');
+
+    $db_name = $isLocal
+        ? (getenv('DB_NAME') ?: getenv('MYSQL_DATABASE') ?: 'flotapelileo_produccion')
+        : (getenv('PROD_DB_NAME') ?: getenv('DB_NAME') ?: getenv('MYSQL_DATABASE') ?: '');
+
+    return [$db_host, $db_user, $db_pass, $db_name];
+}
+
+function conexion()
+{
+    $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
+    $isLocal = ($host == 'localhost' || $host == '127.0.0.1');
+
+    list($db_host, $db_user, $db_pass, $db_name) = obtenerCredencialesDb($isLocal);
 
     $conn = mysqli_connect($db_host, $db_user, $db_pass, $db_name);
 
