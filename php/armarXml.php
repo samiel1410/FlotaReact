@@ -374,13 +374,14 @@ class meotodoXml
                     dg.tipo_descuento_detalle_guia    AS descuento_factura_detalle,
                     dg.costo_detalle_guia             AS precio_factura_detalle,
                     dg.total_detalle_guia             AS total_factura_detalle,
-                    te.tipo_impuesto
+                    COALESCE(te.tipo_impuesto, 0)     AS tipo_impuesto
                 FROM detalle_guia dg
-                JOIN tipo_envio   te ON dg.id_fktipo_envio_detalle_guia = te.id_tipo_envio
+                LEFT JOIN tipo_envio te ON dg.id_fktipo_envio_detalle_guia = te.id_tipo_envio
                 WHERE dg.id_fkguia_detalle_envio = (
                     SELECT id_fkguia_factura FROM factura WHERE id_factura = ?
                 )
                 GROUP BY dg.id_detalle_guia";
+
 
         $stmt = $conn->prepare($sql);
         $stmt->bind_param('i', $id_factura);
