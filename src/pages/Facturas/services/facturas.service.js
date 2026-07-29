@@ -114,37 +114,37 @@ export const FacturasService = {
 
     // 3. Determinar estado y registrar en la BD
     let estadoSRI = 'RECHAZADO';
-    let mensajeRes = resultFirma.message || 'Error en proceso SRI';
+    let mensajeRes = resultFirma.message || resultFirma.mensaje || (typeof resultFirma === 'string' ? resultFirma : 'Error en proceso SRI');
+    const fullText = JSON.stringify(resultFirma || {});
 
-    if (resultFirma.success) {
+    if (/LIMITE DE INTENTOS/i.test(fullText)) {
+      estadoSRI = 'RECHAZADO';
+      const msgs = resultFirma.infoRecepcion?.mensajes || resultFirma.detalles?.mensajes;
+      const msgsText = Array.isArray(msgs) ? msgs.join(' | ') : (resultFirma.mensaje || resultFirma.message || '');
+      mensajeRes = msgsText || 'LIMITE DE INTENTOS NO AUTORIZADOS POR DIA';
+    } else if (/Invalid password|PKCS#12 MAC could not be verified|serial\/tipo del certificado/i.test(fullText)) {
+      estadoSRI = 'RECHAZADO';
+      mensajeRes = 'La contraseña de la firma (.p12) no es correcta. Por favor configure bien la clave de la firma en la empresa.';
+    } else if (/ERROR SECUENCIAL REGISTRADO|CLAVE ACCESO REGISTRADA|CLAVE DE ACCESO REGISTRADA/i.test(fullText)) {
+      estadoSRI = 'AUTORIZADO';
+      mensajeRes = 'Comprobante autorizado por el SRI (Clave de acceso/secuencial ya registrado previamente)';
+    } else if (resultFirma.success) {
       if (resultFirma.estado === 'RECIBIDA') {
         estadoSRI = 'RECIBIDA';
-        mensajeRes = resultFirma.message || 'Comprobante recibido, pendiente de autorización';
+        mensajeRes = resultFirma.message || resultFirma.mensaje || 'Comprobante recibido, pendiente de autorización';
       } else if (resultFirma.estado === 'DEVUELTA') {
         const msgs = resultFirma.infoRecepcion?.mensajes || resultFirma.detalles?.mensajes;
-        const msgsText = Array.isArray(msgs) ? msgs.join(' | ') : (resultFirma.message || '');
-        if (/ERROR SECUENCIAL REGISTRADO|CLAVE ACCESO REGISTRADA|identificador.*(43|45)/i.test(msgsText)) {
-          estadoSRI = 'AUTORIZADO';
-          mensajeRes = 'Comprobante autorizado por el SRI (Clave de acceso/secuencial ya registrado previamente)';
-        } else {
-          estadoSRI = 'DEVUELTA';
-          mensajeRes = msgsText || 'DEVUELTA por el SRI';
-        }
+        const msgsText = Array.isArray(msgs) ? msgs.join(' | ') : (resultFirma.mensaje || resultFirma.message || '');
+        estadoSRI = 'DEVUELTA';
+        mensajeRes = msgsText || 'DEVUELTA por el SRI';
       } else {
         estadoSRI = 'AUTORIZADO';
         mensajeRes = 'Comprobante autorizado por el SRI';
       }
     } else {
-      const msgsText = JSON.stringify(resultFirma);
-      if (/Invalid password|PKCS#12 MAC could not be verified|serial\/tipo del certificado/i.test(msgsText)) {
-        estadoSRI = 'RECHAZADO';
-        mensajeRes = 'La contraseña de la firma (.p12) no es correcta. Por favor configure bien la clave de la firma en la empresa.';
-      } else if (/ERROR SECUENCIAL REGISTRADO|CLAVE ACCESO REGISTRADA|identificador.*(43|45)/i.test(msgsText)) {
-        estadoSRI = 'AUTORIZADO';
-        mensajeRes = 'Comprobante autorizado por el SRI (Clave de acceso/secuencial ya registrado previamente)';
-      } else if (resultFirma.autorizacion) {
+      if (resultFirma.autorizacion) {
         estadoSRI = resultFirma.autorizacion.estado || 'RECHAZADO';
-        mensajeRes = resultFirma.autorizacion.mensaje || resultFirma.autorizacion.infoAdicional || resultFirma.message;
+        mensajeRes = resultFirma.autorizacion.mensaje || resultFirma.autorizacion.infoAdicional || resultFirma.message || resultFirma.mensaje;
       }
     }
 
@@ -156,6 +156,6 @@ export const FacturasService = {
     } catch (eReg) {
       console.warn(`[FacturasService reenviarSri] ⚠️ registrarAutorizacion no disponible o falló:`, eReg.message);
     }
-    return { success: esAutorizado || Boolean(resultFirma.success), estado: estadoSRI, mensaje: mensajeRes, resultFirma };
+    return { success: esAutorizado, estado: estadoSRI, mensaje: mensajeRes, resultFirma };
   }
 };
