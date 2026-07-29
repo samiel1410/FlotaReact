@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . "/armarXml.php";
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 $ver = new meotodoXml();
 $id_factura = $_GET['id_factura'];
 $var = $ver->armarXml($id_factura);

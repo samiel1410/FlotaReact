@@ -189,6 +189,12 @@ export const ConfiguracionPage = () => {
     }
   };
 
+  const shouldSendValue = (value) => {
+    if (value === undefined || value === null) return false;
+    if (typeof value === 'string') return value.trim() !== '';
+    return true;
+  };
+
   const handleSave = async (data) => {
     try {
       let finalFirmaPath = null;
@@ -240,22 +246,25 @@ export const ConfiguracionPage = () => {
         finalPassword = undefined;
       }
 
-      const payload = {
-        ...data,
-        maneja_leyenda: +!!data.maneja_leyenda,
-        maneja_leyenda_boleteria: +!!data.maneja_leyenda_boleteria,
-        maneja_leyenda_nota_venta: +!!data.maneja_leyenda_nota_venta,
-        autorizar_factura_sri: +!!data.autorizar_factura_sri,
-        autorizar_boleto_sri: +!!data.autorizar_boleto_sri,
-        ejecutar_job_sri_automatico: +!!data.ejecutar_job_sri_automatico,
-        enviar_whatsapp: +!!data.enviar_whatsapp,
-        cobrar_iva_guia: data.cobrar_iva_guia ? 1 : 0,
-        imprimir_boucher_guia: data.imprimir_boucher_guia ? 1 : 0,
-        dir_matriz_empresa: data.dir_matriz_empresa || data.direccion_empresa,
-      };
+      const payload = Object.entries(data).reduce((acc, [key, value]) => {
+        if (!shouldSendValue(value)) return acc;
+
+        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp') {
+          acc[key] = +!!value;
+        } else if (key === 'cobrar_iva_guia' || key === 'imprimir_boucher_guia') {
+          acc[key] = value ? 1 : 0;
+        } else if (key === 'dir_matriz_empresa') {
+          acc[key] = value || data.direccion_empresa;
+        } else {
+          acc[key] = value;
+        }
+
+        return acc;
+      }, {});
 
       if (finalFirmaPath) payload.firma_empresa = finalFirmaPath;
-      if (finalPassword !== undefined) payload.password_p12 = finalPassword;
+      if (finalPassword !== undefined && shouldSendValue(finalPassword)) payload.password_p12 = finalPassword;
+      if (!shouldSendValue(data.password_p12)) delete payload.password_p12;
 
       const response = await api.post('/configuracion/Actualizarconfiguracion', payload);
       if (response.data && response.data.success) {
