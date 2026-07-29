@@ -90,6 +90,7 @@ try {
         SELECT id_factura_detalle,
                nombre_producto_factura_detalle AS descripcion,
                cantidad_factura_detalle        AS cantidad,
+               costo_detalle_guia              AS costo,
                descuento_factura_detalle       AS descuento,
                tarifa_factura_detalle          AS tarifa,
                subtotal_factura_detalle        AS subtotal,
@@ -99,7 +100,22 @@ try {
         ORDER BY id_factura_detalle ASC
     ";
     $stmtDetFac = $conn->prepare($sqlDetFac);
-    if (!$stmtDetFac) jsonError('Error preparando consulta detalles factura: ' . $conn->error, 500);
+    if (!$stmtDetFac) {
+        // Columna costo_detalle_guia puede no existir en factura_detalle, intentamos sin ella
+        $sqlDetFac = "
+            SELECT id_factura_detalle,
+                   nombre_producto_factura_detalle AS descripcion,
+                   cantidad_factura_detalle        AS cantidad,
+                   descuento_factura_detalle       AS descuento,
+                   tarifa_factura_detalle          AS tarifa,
+                   subtotal_factura_detalle        AS subtotal,
+                   total_factura_detalle           AS total
+            FROM factura_detalle
+            WHERE id_fkfactura_factura_detalle = ?
+            ORDER BY id_factura_detalle ASC
+        ";
+        $stmtDetFac = $conn->prepare($sqlDetFac);
+    }
     $stmtDetFac->bind_param('i', $id_factura);
     $stmtDetFac->execute();
     $detallesFactura = $stmtDetFac->get_result()->fetch_all(MYSQLI_ASSOC);
@@ -133,22 +149,22 @@ try {
     $diferencias_cabecera = [];
 
     $comparaciones = [
-        ['campo' => 'Total',       'factura' => (float)$factura['total_factura'],            'guia' => (float)$guia['total_guia']],
-        ['campo' => 'Subtotal',    'factura' => (float)$factura['subtotal_factura'],         'guia' => (float)$guia['subtotal_guia']],
-        ['campo' => 'IVA',         'factura' => (float)$factura['iva_factura'],              'guia' => (float)$guia['impuesto_iva_guia']],
-        ['campo' => 'Descuento',   'factura' => (float)$factura['descuento_total_factura'],  'guia' => (float)$guia['descuento_guia']],
-        ['campo' => 'Subtotal 12%','factura' => (float)$factura['subtotal_12_factura'],      'guia' => (float)$guia['subtotal_12_guia']],
-        ['campo' => 'Subtotal 0%', 'factura' => (float)$factura['subtotal_0_factura'],       'guia' => (float)$guia['subtotal_0_guia']],
+        ['campo' => 'Total',      'factura' => (float)$factura['total_factura'],   'guia' => (float)$guia['total_guia']],
+        ['campo' => 'Subtotal',   'factura' => (float)$factura['subtotal_factura'],'guia' => (float)$guia['subtotal_guia']],
+        ['campo' => 'IVA',        'factura' => (float)$factura['iva_factura'],     'guia' => (float)$guia['impuesto_iva_guia']],
+        ['campo' => 'Descuento',  'factura' => (float)$factura['descuento_total_factura'], 'guia' => (float)$guia['descuento_guia']],
+        ['campo' => 'Subtotal 12%','factura' => (float)$factura['subtotal_12_factura'],    'guia' => (float)$guia['subtotal_12_guia']],
+        ['campo' => 'Subtotal 0%', 'factura' => (float)$factura['subtotal_0_factura'],     'guia' => (float)$guia['subtotal_0_guia']],
     ];
 
     foreach ($comparaciones as $c) {
         $ok = abs($c['factura'] - $c['guia']) < 0.01;
         if (!$ok) {
             $diferencias_cabecera[] = [
-                'campo'      => $c['campo'],
-                'en_factura' => $c['factura'],
-                'en_guia'    => $c['guia'],
-                'diferencia' => round($c['factura'] - $c['guia'], 4),
+                'campo'       => $c['campo'],
+                'en_factura'  => $c['factura'],
+                'en_guia'     => $c['guia'],
+                'diferencia'  => round($c['factura'] - $c['guia'], 4),
             ];
         }
     }
@@ -169,10 +185,10 @@ try {
         ];
     }
 
-    $maxLineas = ($cntFac > $cntGuia ? $cntFac : $cntGuia);
+    $maxLineas = max($cntFac, $cntGuia);
     for ($i = 0; $i < $maxLineas; $i++) {
-        $df = isset($detallesFactura[$i]) ? $detallesFactura[$i] : null;
-        $dg = isset($detallesGuia[$i])    ? $detallesGuia[$i]    : null;
+        $df = $detallesFactura[$i] ?? null;
+        $dg = $detallesGuia[$i]    ?? null;
 
         $lineaNum = $i + 1;
 
@@ -231,16 +247,16 @@ try {
         }
 
         $resumen_detalles[] = [
-            'linea'           => $lineaNum,
-            'descripcion_fac' => $df['descripcion'],
-            'descripcion_gui' => $dg['descripcion'],
-            'cantidad_fac'    => (float)$df['cantidad'],
-            'cantidad_gui'    => (float)$dg['cantidad'],
-            'total_fac'       => (float)($df['total'] ?? 0),
-            'total_gui'       => (float)($dg['total'] ?? 0),
-            'coincide'        => ($descFac === $descGui)
-                              && ((float)$df['cantidad'] == (float)$dg['cantidad'])
-                              && (abs($totalFac - $totalGui) < 0.01),
+            'linea'          => $lineaNum,
+            'descripcion_fac'=> $df['descripcion'],
+            'descripcion_gui'=> $dg['descripcion'],
+            'cantidad_fac'   => (float)$df['cantidad'],
+            'cantidad_gui'   => (float)$dg['cantidad'],
+            'total_fac'      => (float)($df['total'] ?? 0),
+            'total_gui'      => (float)($dg['total'] ?? 0),
+            'coincide'       => (mb_strtoupper(trim($df['descripcion'])) === mb_strtoupper(trim($dg['descripcion'])))
+                                && ((float)$df['cantidad'] == (float)$dg['cantidad'])
+                                && (abs((float)($df['total'] ?? 0) - (float)($dg['total'] ?? 0)) < 0.01),
         ];
     }
 
@@ -260,50 +276,56 @@ try {
             . $numGui;
 
     $resultado = [
-        'success'     => true,
-        'consistente' => !$hayDiferencias,
-        'resumen'     => $hayDiferencias
-            ? 'DIFERENCIAS ENCONTRADAS entre la factura y la guia.'
-            : 'OK - La factura y la guia son CONSISTENTES, no hay diferencias.',
+        'success'          => true,
+        'consistente'      => !$hayDiferencias,
+        'resumen'          => $hayDiferencias
+            ? '⚠️  Se encontraron diferencias entre la factura y la guía.'
+            : '✅  La factura y la guía son CONSISTENTES, no hay diferencias.',
 
+        // Cabecera de los documentos
         'factura' => [
-            'id_factura'       => (int)$factura['id_factura'],
-            'secuencial'       => $secFac,
-            'fecha'            => $factura['fecha_factura'],
-            'cliente'          => $factura['nombre_cliente_factura'],
-            'ruc_cliente'      => $factura['ruc_cliente_factura'],
-            'total'            => (float)$factura['total_factura'],
-            'subtotal'         => (float)$factura['subtotal_factura'],
-            'iva'              => (float)$factura['iva_factura'],
-            'descuento'        => (float)$factura['descuento_total_factura'],
-            'estado_factura'   => (int)$factura['estado_factura'],
-            'estado_sri'       => $factura['estado_sri'],
-            'observacion'      => $factura['observacion_factura'],
-            'clave_acceso'     => $factura['clave_acceso_factura'],
-            'id_guia_asociada' => $id_guia,
-            'n_detalles'       => $cntFac,
+            'id_factura'        => (int)$factura['id_factura'],
+            'secuencial'        => $secFac,
+            'fecha'             => $factura['fecha_factura'],
+            'cliente'           => $factura['nombre_cliente_factura'],
+            'ruc_cliente'       => $factura['ruc_cliente_factura'],
+            'total'             => (float)$factura['total_factura'],
+            'subtotal'          => (float)$factura['subtotal_factura'],
+            'iva'               => (float)$factura['iva_factura'],
+            'descuento'         => (float)$factura['descuento_total_factura'],
+            'estado_factura'    => (int)$factura['estado_factura'],
+            'estado_sri'        => $factura['estado_sri'],
+            'observacion'       => $factura['observacion_factura'],
+            'clave_acceso'      => $factura['clave_acceso_factura'],
+            'id_guia_asociada'  => $id_guia,
+            'n_detalles'        => $cntFac,
         ],
         'guia' => [
-            'id_guia'    => (int)$guia['id_guia'],
-            'secuencial' => $secGui,
-            'fecha'      => $guia['fecha_guia'],
-            'remitente'  => $guia['nombre_cliente_remitente'],
-            'receptor'   => $guia['nombre_cliente_receptor'],
-            'origen'     => $guia['origen_guia'],
-            'destino'    => $guia['destino_guia'],
-            'total'      => (float)$guia['total_guia'],
-            'subtotal'   => (float)$guia['subtotal_guia'],
-            'iva'        => (float)$guia['impuesto_iva_guia'],
-            'descuento'  => (float)$guia['descuento_guia'],
-            'estado_guia'=> (int)$guia['estado_guia'],
-            'n_detalles' => $cntGuia,
+            'id_guia'           => (int)$guia['id_guia'],
+            'secuencial'        => $secGui,
+            'fecha'             => $guia['fecha_guia'],
+            'remitente'         => $guia['nombre_cliente_remitente'],
+            'receptor'          => $guia['nombre_cliente_receptor'],
+            'origen'            => $guia['origen_guia'],
+            'destino'           => $guia['destino_guia'],
+            'total'             => (float)$guia['total_guia'],
+            'subtotal'          => (float)$guia['subtotal_guia'],
+            'iva'               => (float)$guia['impuesto_iva_guia'],
+            'descuento'         => (float)$guia['descuento_guia'],
+            'estado_guia'       => (int)$guia['estado_guia'],
+            'n_detalles'        => $cntGuia,
         ],
 
+        // Diferencias encontradas
         'diferencias_cabecera' => $diferencias_cabecera,
         'diferencias_detalles' => $diferencias_detalles,
+
+        // Comparación línea a línea
         'comparacion_detalles' => $resumen_detalles,
-        'detalles_factura'     => $detallesFactura,
-        'detalles_guia'        => $detallesGuia,
+
+        // Detalles raw para inspección
+        'detalles_factura' => $detallesFactura,
+        'detalles_guia'    => $detallesGuia,
     ];
 
     echo json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
