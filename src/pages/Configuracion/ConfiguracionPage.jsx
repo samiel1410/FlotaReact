@@ -41,8 +41,7 @@ export const ConfiguracionPage = () => {
   }, []);
 
   const { register, handleSubmit, setValue, getValues, watch, reset } = useForm({
-    values: configData,
-    resetOptions: { keepDirtyValues: true }
+    values: configData
   });
 
   const jobAutoActivo = !!watch('ejecutar_job_sri_automatico');
@@ -247,7 +246,7 @@ export const ConfiguracionPage = () => {
       }
 
       const payload = Object.entries(data).reduce((acc, [key, value]) => {
-        if (!shouldSendValue(value)) return acc;
+        if (value === undefined || value === null) return acc;
 
         if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp') {
           acc[key] = +!!value;
@@ -282,6 +281,9 @@ export const ConfiguracionPage = () => {
         }
 
         toast.success('Configuración guardada correctamente');
+        setConfigData(prev => ({ ...prev, ...data }));
+        reset({ ...configData, ...data });
+
         // Actualizar sessionStorage para el header
         const stored = sessionStorage.getItem('empresa_data');
         if (stored) {
@@ -404,25 +406,25 @@ export const ConfiguracionPage = () => {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="border-b border-slate-200 bg-slate-50/50 px-6 pt-4">
           <nav className="flex space-x-8" aria-label="Tabs">
-            <button onClick={() => setActiveTab('general')}
+            <button type="button" onClick={() => setActiveTab('general')}
               className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-bold text-sm transition-colors ${
                 activeTab === 'general' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}>
               <i className="fas fa-sliders-h text-lg"></i> General
             </button>
-            <button onClick={() => setActiveTab('empresa')}
+            <button type="button" onClick={() => setActiveTab('empresa')}
               className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-bold text-sm transition-colors ${
                 activeTab === 'empresa' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}>
               <i className="fas fa-building text-lg"></i> Empresa
             </button>
-            <button onClick={() => setActiveTab('whatsapp')}
+            <button type="button" onClick={() => setActiveTab('whatsapp')}
               className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-bold text-sm transition-colors ${
                 activeTab === 'whatsapp' ? 'border-green-500 text-green-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}>
               <i className="fab fa-whatsapp text-lg"></i> WhatsApp
             </button>
-            <button onClick={() => setActiveTab('impresiones')}
+            <button type="button" onClick={() => setActiveTab('impresiones')}
               className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-bold text-sm transition-colors ${
                 activeTab === 'impresiones' ? 'border-purple-500 text-purple-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}>
@@ -433,10 +435,8 @@ export const ConfiguracionPage = () => {
 
         <div className="p-6">
           <form onSubmit={handleSubmit(handleSave)} className="space-y-6">
-
             {/* ════ TAB GENERAL ════ */}
-            {activeTab === 'general' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className={activeTab === 'general' ? 'grid grid-cols-1 md:grid-cols-2 gap-8' : 'hidden'}>
                 <div className="space-y-4">
                   <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
                     <i className="fas fa-cog text-blue-500 mr-2"></i>Sistema
@@ -529,12 +529,10 @@ export const ConfiguracionPage = () => {
                     <label htmlFor="maneja_leyenda_boleteria" className="text-sm font-semibold text-slate-700 cursor-pointer">Mostrar en Boletos</label>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
 
             {/* ════ TAB EMPRESA (unificado) ════ */}
-            {activeTab === 'empresa' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className={activeTab === 'empresa' ? 'grid grid-cols-1 md:grid-cols-2 gap-8' : 'hidden'}>
                 {/* Col 1: Datos principales */}
                 <div className="space-y-4">
                   <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
@@ -910,12 +908,10 @@ export const ConfiguracionPage = () => {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
 
             {/* ════ TAB IMPRESIONES ════ */}
-            {activeTab === 'impresiones' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className={activeTab === 'impresiones' ? 'grid grid-cols-1 md:grid-cols-2 gap-8' : 'hidden'}>
                 <div className="space-y-6">
                   <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
                     <i className="fas fa-print text-purple-500 mr-2"></i>Configuración de Impresiones
@@ -943,12 +939,10 @@ export const ConfiguracionPage = () => {
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
 
             {/* ════ TAB WHATSAPP ════ */}
-            {activeTab === 'whatsapp' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className={activeTab === 'whatsapp' ? 'grid grid-cols-1 md:grid-cols-2 gap-8' : 'hidden'}>
                 <div className="space-y-6">
                   <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
                     <i className="fab fa-whatsapp text-green-500 mr-2"></i>Configuración de WhatsApp
@@ -997,8 +991,7 @@ export const ConfiguracionPage = () => {
                     Los mensajes enviados aparecerán aquí durante la sesión
                   </div>
                 </div>
-              </div>
-            )}
+            </div>
 
             {/* Acciones */}
             <div className="flex justify-end pt-6 border-t border-slate-200 mt-8">
