@@ -245,7 +245,11 @@ export const ConfiguracionPage = () => {
         finalPassword = undefined;
       }
 
+      // Campos que se manejan por separado — excluir del bucle general
+      const CAMPOS_ESPECIALES = ['password_p12', 'firma_empresa'];
+
       const payload = Object.entries(data).reduce((acc, [key, value]) => {
+        if (CAMPOS_ESPECIALES.includes(key)) return acc; // se agregan abajo si aplican
         if (value === undefined || value === null) return acc;
 
         if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp') {
@@ -261,9 +265,14 @@ export const ConfiguracionPage = () => {
         return acc;
       }, {});
 
+      // Solo enviar firma si el usuario subió un archivo nuevo
       if (finalFirmaPath) payload.firma_empresa = finalFirmaPath;
-      if (finalPassword !== undefined && shouldSendValue(finalPassword)) payload.password_p12 = finalPassword;
-      if (!shouldSendValue(data.password_p12)) delete payload.password_p12;
+
+      // Solo enviar clave si el usuario escribió una contraseña nueva (no vacía)
+      if (finalPassword !== undefined && shouldSendValue(finalPassword)) {
+        payload.password_p12 = finalPassword;
+      }
+      // Si no hay clave nueva ni firma nueva → no se tocan esos campos en la BD
 
       const response = await api.post('/configuracion/Actualizarconfiguracion', payload);
       if (response.data && response.data.success) {
@@ -281,6 +290,8 @@ export const ConfiguracionPage = () => {
         }
 
         toast.success('Configuración guardada correctamente');
+        setFirmaFile(null); // limpiar firma seleccionada
+        if (firmaInputRef.current) firmaInputRef.current.value = '';
         setConfigData(prev => ({ ...prev, ...data }));
         reset({ ...configData, ...data });
 
