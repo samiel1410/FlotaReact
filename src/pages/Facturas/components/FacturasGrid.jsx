@@ -298,7 +298,8 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
                   row.estado_factura == 3 ? 'bg-amber-50/30' :
                   row.estado_factura == 4 ? 'bg-emerald-50/20' : '';
 
-                const estadoAutorizacion = row.estado_autorizacion || row.estado_sri || (row.clave_acceso_factura ? 'AUTORIZADO' : 'PENDIENTE');
+                // Usar estado_sri directo; solo asumir PENDIENTE si no hay ningún estado
+                const estadoAutorizacion = row.estado_sri || row.estado_autorizacion || 'PENDIENTE';
 
                 return (
                   <tr key={row.id_factura || idx} className={`${rowClass} hover:bg-blue-50/40 transition-colors`}>

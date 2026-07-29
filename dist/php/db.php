@@ -3,6 +3,9 @@
 ini_set('display_errors', 0);
 error_reporting(E_ERROR | E_WARNING | E_PARSE);
 
+// Zona horaria de Ecuador para que la fecha de emisión del SRI sea consistente.
+date_default_timezone_set('America/Guayaquil');
+
 // Configuración de sesión persistente (30 días)
 if (session_status() === PHP_SESSION_NONE) {
     $sessionLifetime = 30 * 24 * 60 * 60;

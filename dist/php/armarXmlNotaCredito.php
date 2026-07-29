@@ -25,7 +25,9 @@ class metodoXmlNotaCredito
 
             // Datos de la Nota de Crédito
             $fechaEmisionNC = date('d/m/Y');
-            $claveAccesoNC = $datosNC[0]['clave_acceso_nota_credito'];
+            $conn = conexion();
+            $claveAccesoNC = $datosNC[0]['clave_acceso_nota_credito'] ?? '';
+            $claveAccesoNC = asegurarClaveAccesoHoy($claveAccesoNC, 'boletos', 'clave_acceso_nota_credito', 'id_boleto', $id_boleto, $conn);
             $numNC = sprintf("%09s", $datosNC[0]['numero_nota_credito']);
             $sucursal = $datosNC[0]['sucursal_emision_boleto'];
             $puntoEmision = $datosNC[0]['punto_emision_boleto'];
