@@ -46,15 +46,9 @@ export const GuiasFilterPanel = ({ onSearch, visible = true, isNotaVenta = false
     const { name, value, type, checked } = e.target;
     let newValue = type === 'checkbox' ? checked : value;
     
-    // Formato para numero de guia (000-000-00000000)
+    // Formato flexible para numero de guia
     if (name === 'numero_guia') {
-      const digits = value.replace(/\D/g, '').slice(0, 14);
-      let formatted = '';
-      for (let i = 0; i < digits.length; i++) {
-        if (i === 3 || i === 6) formatted += '-';
-        formatted += digits[i];
-      }
-      newValue = formatted;
+      newValue = value;
     }
 
     setFormData({
