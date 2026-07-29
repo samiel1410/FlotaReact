@@ -111,14 +111,13 @@ try {
     }
 
     // ── 3. Obtener DETALLES DE LA FACTURA ───────────────────
+    // Usamos solo columnas confirmadas en facturaPdf.php (que ya funciona en producción)
     $sqlDetFac = "
         SELECT id_factura_detalle,
                nombre_producto_factura_detalle AS descripcion,
                cantidad_factura_detalle        AS cantidad,
-               costo_detalle_guia              AS costo,
                descuento_factura_detalle       AS descuento,
                tarifa_factura_detalle          AS tarifa,
-               subtotal_factura_detalle        AS subtotal,
                total_factura_detalle           AS total
         FROM factura_detalle
         WHERE id_fkfactura_factura_detalle = ?
@@ -126,25 +125,17 @@ try {
     ";
     $stmtDetFac = $conn->prepare($sqlDetFac);
     if (!$stmtDetFac) {
-        // Columna costo_detalle_guia puede no existir en factura_detalle, intentamos sin ella
-        $sqlDetFac = "
-            SELECT id_factura_detalle,
-                   nombre_producto_factura_detalle AS descripcion,
-                   cantidad_factura_detalle        AS cantidad,
-                   descuento_factura_detalle       AS descuento,
-                   tarifa_factura_detalle          AS tarifa,
-                   subtotal_factura_detalle        AS subtotal,
-                   total_factura_detalle           AS total
-            FROM factura_detalle
-            WHERE id_fkfactura_factura_detalle = ?
-            ORDER BY id_factura_detalle ASC
-        ";
-        $stmtDetFac = $conn->prepare($sqlDetFac);
+        // Si falla, intentar con SELECT * para obtener lo que sea disponible
+        $id_esc = (int)$id_factura;
+        $resRaw = $conn->query("SELECT * FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_esc ORDER BY id_factura_detalle ASC");
+        $detallesFactura = $resRaw ? $resRaw->fetch_all(MYSQLI_ASSOC) : [];
+    } else {
+        $stmtDetFac->bind_param('i', $id_factura);
+        $stmtDetFac->execute();
+        $detallesFactura = $stmtDetFac->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmtDetFac->close();
     }
-    $stmtDetFac->bind_param('i', $id_factura);
-    $stmtDetFac->execute();
-    $detallesFactura = $stmtDetFac->get_result()->fetch_all(MYSQLI_ASSOC);
-    $stmtDetFac->close();
+
 
     // ── 4. Obtener DETALLES DE LA GUÍA ──────────────────────
     $sqlDetGuia = "
