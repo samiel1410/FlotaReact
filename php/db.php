@@ -1,7 +1,8 @@
 <?php
 
-ini_set('display_errors', 0);
-error_reporting(E_ERROR | E_WARNING | E_PARSE);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 // Zona horaria de Ecuador para que la fecha de emisión del SRI sea consistente.
 date_default_timezone_set('America/Guayaquil');
@@ -146,13 +147,9 @@ function conexion()
     $conn = mysqli_connect($db_host, $db_user, $db_pass, $db_name);
 
     if (!$conn) {
-        if ($isLocal) {
-            die("Error: Failed to connect to database (" . mysqli_connect_error() . ")");
-        } else {
-            // Log de error interno sin exponer datos sensibles
-            error_log("DB Connection Error: " . mysqli_connect_error());
-            die("Error: Failed to connect to database!");
-        }
+        $err = mysqli_connect_error();
+        error_log("DB Connection Error: " . $err);
+        die("Error de Conexión BD [Host: {$db_host}, User: {$db_user}, DB: {$db_name}]: " . $err);
     }
 
     mysqli_set_charset($conn, "utf8");
