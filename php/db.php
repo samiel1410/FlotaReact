@@ -1,8 +1,7 @@
 <?php
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
+ini_set('display_errors', 0);
+error_reporting(E_ERROR | E_WARNING | E_PARSE);
 
 // Zona horaria de Ecuador para que la fecha de emisión del SRI sea consistente.
 date_default_timezone_set('America/Guayaquil');
@@ -54,8 +53,6 @@ function obtenerCredencialesDb($isLocal)
         $endpoint = "{$authUrl}/auth/tenant-db/{$tId}";
         
         $json = null;
-        $httpCode = 0;
-        $curlErr = '';
 
         if (function_exists('curl_init')) {
             $ch = curl_init();
@@ -65,8 +62,6 @@ function obtenerCredencialesDb($isLocal)
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
             $json = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlErr = curl_error($ch);
             curl_close($ch);
         }
         
@@ -94,10 +89,10 @@ function obtenerCredencialesDb($isLocal)
                     $dbName
                 ];
             } else {
-                trigger_error("[TenantDB Error] JSON recibido sin tenant: " . $json, E_USER_WARNING);
+                error_log("[TenantDB Error] Respuesta no válida: " . $json);
             }
         } else {
-            trigger_error("[TenantDB Error] No se pudo obtener credenciales de {$endpoint}. HTTP: {$httpCode}, CurlErr: {$curlErr}", E_USER_WARNING);
+            error_log("[TenantDB Error] No se pudo obtener respuesta de {$endpoint}");
         }
     }
 
@@ -164,7 +159,7 @@ function conexion()
     if (!$conn) {
         $err = mysqli_connect_error();
         error_log("DB Connection Error: " . $err);
-        die("Error de Conexión BD [Host: {$db_host}, User: {$db_user}, DB: {$db_name}]: " . $err);
+        die("Error de Conexión a Base de Datos");
     }
 
     mysqli_set_charset($conn, "utf8");
