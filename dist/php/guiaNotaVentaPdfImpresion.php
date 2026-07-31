@@ -142,7 +142,7 @@ $id_guia AND sucursal_guia=suc_codigo_sucursal AND id_fkusuario_guia=id_usuario"
 $id_usuario_guia";
   $recuperar_ubicacion = mysqli_query($conn, $query_ubicacion) or die(mysqli_error($conn));
   $vals_ubicacion = mysqli_fetch_array($recuperar_ubicacion);
-  $ubicacion_usuaurio = $vals_ubicacion['lugar_destino'];
+  $ubicacion_usuaurio = $vals_ubicacion ? $vals_ubicacion['lugar_destino'] : '';
 
 
   $detalles_forma_pago = "";
