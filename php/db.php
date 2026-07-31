@@ -54,17 +54,28 @@ function obtenerCredencialesDb($isLocal)
         $endpoint = "{$authUrl}/api/admin/tenant-db/{$tId}";
         
         $json = null;
+        $httpCode = 0;
+        $curlErr = '';
+
         if (function_exists('curl_init')) {
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $endpoint);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 4);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
             $json = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlErr = curl_error($ch);
             curl_close($ch);
         }
+        
         if (!$json) {
-            $json = @file_get_contents($endpoint);
+            $ctx = stream_context_create([
+                "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
+                "http" => ["timeout" => 5]
+            ]);
+            $json = @file_get_contents($endpoint, false, $ctx);
         }
 
         if ($json) {
@@ -82,7 +93,11 @@ function obtenerCredencialesDb($isLocal)
                     $dbPass ?: '',
                     $dbName
                 ];
+            } else {
+                trigger_error("[TenantDB Error] JSON recibido sin tenant: " . $json, E_USER_WARNING);
             }
+        } else {
+            trigger_error("[TenantDB Error] No se pudo obtener credenciales de {$endpoint}. HTTP: {$httpCode}, CurlErr: {$curlErr}", E_USER_WARNING);
         }
     }
 
