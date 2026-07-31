@@ -1,4 +1,8 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
@@ -387,9 +391,12 @@ $pdf->Output('guia_' . $id_guia . '.pdf', 'I');
 exit;
 }
 
-}catch(Exception $e){
-  header('Content-Type: text/plain', true, 500);
-  echo 'Error generando PDF: ' . $e->getMessage();
+}catch(Throwable $e){
+  header('Content-Type: text/plain; charset=utf-8', true, 500);
+  echo "Error generando PDF:\n";
+  echo "Mensaje: " . $e->getMessage() . "\n";
+  echo "Archivo: " . $e->getFile() . " (Línea " . $e->getLine() . ")\n\n";
+  echo "Trace:\n" . $e->getTraceAsString();
   exit;
 }
 
