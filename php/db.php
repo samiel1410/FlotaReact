@@ -61,6 +61,24 @@ function obtenerCredencialesDb($isLocal)
         ];
     }
 
+    if (isset($_GET['tenantId']) || isset($_POST['tenantId'])) {
+        $tId = isset($_GET['tenantId']) ? $_GET['tenantId'] : $_POST['tenantId'];
+        $authUrl = $isLocal ? 'http://localhost:4000' : 'https://usuarioeasys.easysplus.com';
+        $json = @file_get_contents("{$authUrl}/api/admin/tenants/{$tId}");
+        if ($json) {
+            $data = json_decode($json, true);
+            if (isset($data['success']) && $data['success'] && isset($data['tenant'])) {
+                $t = $data['tenant'];
+                return [
+                    !empty($t['db_host']) ? $t['db_host'] : 'localhost',
+                    !empty($t['db_user']) ? $t['db_user'] : '',
+                    !empty($t['db_pass']) ? $t['db_pass'] : '',
+                    !empty($t['db_name']) ? $t['db_name'] : ''
+                ];
+            }
+        }
+    }
+
     if (isset($_GET['db_name']) && !empty($_GET['db_name'])) {
         return [
             isset($_GET['db_host']) ? $_GET['db_host'] : 'localhost',
