@@ -47,24 +47,25 @@ function decrypt_db_data($data) {
 
 function obtenerCredencialesDb($isLocal)
 {
-    $sessionDbName = isset($_SESSION['db_name']) && !empty($_SESSION['db_name']) ? decrypt_db_data($_SESSION['db_name']) : null;
-    $sessionDbHost = isset($_SESSION['db_host']) && !empty($_SESSION['db_host']) ? decrypt_db_data($_SESSION['db_host']) : null;
-    $sessionDbUser = isset($_SESSION['db_user']) && !empty($_SESSION['db_user']) ? decrypt_db_data($_SESSION['db_user']) : null;
-    $sessionDbPass = isset($_SESSION['db_pass']) && !empty($_SESSION['db_pass']) ? decrypt_db_data($_SESSION['db_pass']) : null;
-
-    if (!empty($sessionDbName)) {
-        return [
-            $sessionDbHost ?: 'localhost',
-            $sessionDbUser ?: ($isLocal ? 'root' : ''),
-            $sessionDbPass ?: '',
-            $sessionDbName
-        ];
-    }
-
     if (isset($_GET['tenantId']) || isset($_POST['tenantId'])) {
         $tId = isset($_GET['tenantId']) ? $_GET['tenantId'] : $_POST['tenantId'];
         $authUrl = $isLocal ? 'http://localhost:4000' : 'https://usuarioeasys.easysplus.com';
-        $json = @file_get_contents("{$authUrl}/api/admin/tenants/{$tId}");
+        $endpoint = "{$authUrl}/api/admin/tenants/{$tId}";
+        
+        $json = null;
+        if (function_exists('curl_init')) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $endpoint);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 4);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            $json = curl_exec($ch);
+            curl_close($ch);
+        }
+        if (!$json) {
+            $json = @file_get_contents($endpoint);
+        }
+
         if ($json) {
             $data = json_decode($json, true);
             if (isset($data['success']) && $data['success'] && isset($data['tenant'])) {
@@ -77,6 +78,20 @@ function obtenerCredencialesDb($isLocal)
                 ];
             }
         }
+    }
+
+    $sessionDbName = isset($_SESSION['db_name']) && !empty($_SESSION['db_name']) ? decrypt_db_data($_SESSION['db_name']) : null;
+    $sessionDbHost = isset($_SESSION['db_host']) && !empty($_SESSION['db_host']) ? decrypt_db_data($_SESSION['db_host']) : null;
+    $sessionDbUser = isset($_SESSION['db_user']) && !empty($_SESSION['db_user']) ? decrypt_db_data($_SESSION['db_user']) : null;
+    $sessionDbPass = isset($_SESSION['db_pass']) && !empty($_SESSION['db_pass']) ? decrypt_db_data($_SESSION['db_pass']) : null;
+
+    if (!empty($sessionDbName)) {
+        return [
+            $sessionDbHost ?: 'localhost',
+            $sessionDbUser ?: ($isLocal ? 'root' : ''),
+            $sessionDbPass ?: '',
+            $sessionDbName
+        ];
     }
 
     if (isset($_GET['db_name']) && !empty($_GET['db_name'])) {
