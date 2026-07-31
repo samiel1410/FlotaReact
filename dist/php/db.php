@@ -51,7 +51,7 @@ function obtenerCredencialesDb($isLocal)
     if (isset($_GET['tenantId']) || isset($_POST['tenantId'])) {
         $tId = isset($_GET['tenantId']) ? $_GET['tenantId'] : $_POST['tenantId'];
         $authUrl = $isLocal ? 'http://localhost:4000' : 'https://usuarioeasys.easysplus.com';
-        $endpoint = "{$authUrl}/public/tenant-db/{$tId}";
+        $endpoint = "{$authUrl}/auth/tenant-db/{$tId}";
         
         $json = null;
         $httpCode = 0;
