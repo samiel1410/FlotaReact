@@ -50,7 +50,7 @@ function obtenerCredencialesDb($isLocal)
     if (isset($_GET['tenantId']) || isset($_POST['tenantId'])) {
         $tId = isset($_GET['tenantId']) ? $_GET['tenantId'] : $_POST['tenantId'];
         $authUrl = $isLocal ? 'http://localhost:4000' : 'https://usuarioeasys.easysplus.com';
-        $endpoint = "{$authUrl}/api/admin/tenants/{$tId}";
+        $endpoint = "{$authUrl}/api/admin/tenant-db/{$tId}";
         
         $json = null;
         if (function_exists('curl_init')) {
@@ -70,11 +70,16 @@ function obtenerCredencialesDb($isLocal)
             $data = json_decode($json, true);
             if (isset($data['success']) && $data['success'] && isset($data['tenant'])) {
                 $t = $data['tenant'];
+                $dbHost = !empty($t['db_host']) ? decrypt_db_data($t['db_host']) : 'localhost';
+                $dbUser = !empty($t['db_user']) ? decrypt_db_data($t['db_user']) : '';
+                $dbPass = !empty($t['db_pass']) ? decrypt_db_data($t['db_pass']) : '';
+                $dbName = !empty($t['db_name']) ? decrypt_db_data($t['db_name']) : '';
+
                 return [
-                    !empty($t['db_host']) ? $t['db_host'] : 'localhost',
-                    !empty($t['db_user']) ? $t['db_user'] : '',
-                    !empty($t['db_pass']) ? $t['db_pass'] : '',
-                    !empty($t['db_name']) ? $t['db_name'] : ''
+                    $dbHost ?: 'localhost',
+                    $dbUser ?: ($isLocal ? 'root' : ''),
+                    $dbPass ?: '',
+                    $dbName
                 ];
             }
         }
