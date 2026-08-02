@@ -327,6 +327,7 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
 
 
   // ── Servir el PDF directamente al navegador (sin JSON, sin CORS) ──
+  // El browser verá Content-Type: application/pdf y mostrará el visor nativo
   $tmp_dir = __DIR__ . DIRECTORY_SEPARATOR . 'tmp';
   if (!is_dir($tmp_dir)) {
     mkdir($tmp_dir, 0777, true);
@@ -334,8 +335,10 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
   $pdf_file_name = 'factura_' . time() . '.pdf';
   $pdf_path = $tmp_dir . DIRECTORY_SEPARATOR . $pdf_file_name;
 
+  // Guardar en disco como respaldo
   $pdf->Output($pdf_path, 'F');
 
+  // Enviar directamente al navegador
   header('Content-Type: application/pdf');
   header('Content-Disposition: inline; filename="factura.pdf"');
   header('Cache-Control: private, max-age=0, must-revalidate');
