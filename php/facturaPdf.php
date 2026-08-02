@@ -325,34 +325,34 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
 
   $pdf->SetFont('helvetica', '', 10);
 
-  // Output PDF
 
+  // ── Servir el PDF directamente al navegador (sin JSON, sin CORS) ──
+  // El browser verá Content-Type: application/pdf y mostrará el visor nativo
   $tmp_dir = __DIR__ . DIRECTORY_SEPARATOR . 'tmp';
   if (!is_dir($tmp_dir)) {
     mkdir($tmp_dir, 0777, true);
   }
-  $pdf_file_name = 'factura.pdf';
+  $pdf_file_name = 'factura_' . time() . '.pdf';
   $pdf_path = $tmp_dir . DIRECTORY_SEPARATOR . $pdf_file_name;
 
+  // Guardar en disco como respaldo
   $pdf->Output($pdf_path, 'F');
 
-  $array = array(
-    "ruta" => $pdf_file_name,
-    "success" => true,
-    "borrar" => $pdf_path,
-
-  );
-
-  echo json_encode($array);
+  // Enviar directamente al navegador
+  header('Content-Type: application/pdf');
+  header('Content-Disposition: inline; filename="factura.pdf"');
+  header('Cache-Control: private, max-age=0, must-revalidate');
+  header('Content-Length: ' . filesize($pdf_path));
+  readfile($pdf_path);
+  exit;
 
 } catch (Exception $e) {
-  $array = array(
-    "error" => $e->getMessage(),
-    "success" => false,
-
-  );
-
-  echo json_encode($array);
+  http_response_code(500);
+  header('Content-Type: application/json');
+  echo json_encode([
+    'success' => false,
+    'error'   => $e->getMessage(),
+  ]);
 }
 
 
