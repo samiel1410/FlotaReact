@@ -17,12 +17,12 @@ import NewAlimentoForm from '../pages/Alimentos/components/NewAlimentoForm';
 import NewDestinoForm from '../pages/Destino/components/NewDestinoForm';
 import ClienteForm from '../pages/Clientes/components/ClienteForm';
 import { TipoCobroForm } from '../pages/TipoCobros/components/TipoCobroForm';
-import { GenericForm } from '../components/common/GenericForm';
 import { NuevaGuiaCompaniaForm } from '../pages/Guias/components/NuevaGuiaCompaniaForm';
 import { createAperturaAction, createBuscarCajaAction, createCerrarAction } from './cajaUtils';
 import { api, authApi } from '../config/axios';
 import toast from 'react-hot-toast';
 import comprobantesService from '../services/comprobantes.service';
+import Swal from 'sweetalert2';
 
 // Configuración centralizada para todas las páginas genéricas de listado
 export const PAGES_CONFIG = {
@@ -54,12 +54,12 @@ export const PAGES_CONFIG = {
       { key: 'pisos_buses', label: 'Pisos', render: v => v == 2 ? '2 Pisos' : '1 Piso' },
       { key: 'busero', label: 'Conductor', render: (_, r) => `${r.per_cedula_personal || ''} - ${r.per_nombres_persona || ''} ${r.per_apellidos_personal || ''}`.trim().replace(/^-\s*|\s*-$/g, '') || '-' },
       { key: 'auxiliar', label: 'Auxiliar', render: (_, r) => r.id_fkauxiliar_buses ? `${r.auxiliar_cedula || ''} - ${r.auxiliar_nombres || ''} ${r.auxiliar_apellidos || ''}`.trim().replace(/^-\s*|\s*-$/g, '') : '-' },
-      { 
-        key: 'socios_nombres', label: 'Socios', 
+      {
+        key: 'socios_nombres', label: 'Socios',
         render: (_, r) => {
           const socios = r.socios || r.socios_nombres || [];
           if (Array.isArray(socios) && socios.length > 0) {
-            return socios.map(s => 
+            return socios.map(s =>
               `${s.per_cedula_personal || ''} - ${s.per_nombres_persona || ''} ${s.per_apellidos_personal || ''}`.trim().replace(/^-\s*|\s*-$/g, '')
             ).join(', ');
           }
@@ -846,7 +846,7 @@ export const PAGES_CONFIG = {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
             window.open(`${baseUrl}/php/pdfArqueoCaja.php?id_caja=${row.id_caja}`, '_blank');
           }
-        },        {
+        }, {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
@@ -1033,7 +1033,7 @@ export const PAGES_CONFIG = {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
             window.open(`${baseUrl}/php/pdfArqueoCajaBoleteria.php?id_caja=${row.id_caja_boleteria}`, '_blank');
           }
-        },        {
+        }, {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
@@ -1227,7 +1227,7 @@ export const PAGES_CONFIG = {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
             window.open(`${baseUrl}/php/pdfArqueoCajaRetenciones.php?id_caja=${row.id_caja_retenciones}`, '_blank');
           }
-        },        {
+        }, {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
