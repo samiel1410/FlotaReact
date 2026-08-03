@@ -295,32 +295,32 @@ export const BuserosPage = () => {
         )}
 
         {/* Paginación */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200 text-[10px]">
-            <span className="text-slate-500">
-              Mostrando {((page - 1) * PAGE_SIZE) + 1} - {Math.min(page * PAGE_SIZE, total)} de {total}
+        <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-t border-slate-200 text-[10px]">
+          <span className="text-slate-500">
+            Mostrando {total > 0 ? ((page - 1) * PAGE_SIZE) + 1 : 0} - {Math.min(page * PAGE_SIZE, total)} de {total}
+          </span>
+          <div className="flex items-center gap-1">
+            <button disabled={page <= 1} onClick={() => setPage(1)}
+              className="px-2 py-1 rounded border border-slate-300 disabled:opacity-30 hover:bg-slate-100 font-semibold" title="Primera página">
+              <i className="fas fa-angle-double-left text-[9px]"></i>
+            </button>
+            <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+              className="px-2 py-1 rounded border border-slate-300 disabled:opacity-30 hover:bg-slate-100 font-semibold" title="Página anterior">
+              <i className="fas fa-chevron-left text-[9px]"></i>
+            </button>
+            <span className="px-2 py-1 font-bold text-slate-700 bg-white border border-slate-200 rounded">
+              Pág. {page} de {totalPages}
             </span>
-            <div className="flex gap-1">
-              <button disabled={page <= 1} onClick={() => setPage(1)}
-                className="px-2 py-1 rounded border border-slate-300 disabled:opacity-30 hover:bg-slate-100">
-                <i className="fas fa-angle-double-left text-[9px]"></i>
-              </button>
-              <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-                className="px-2 py-1 rounded border border-slate-300 disabled:opacity-30 hover:bg-slate-100">
-                <i className="fas fa-chevron-left text-[9px]"></i>
-              </button>
-              <span className="px-2 py-1 font-bold text-slate-600">Pág. {page}</span>
-              <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
-                className="px-2 py-1 rounded border border-slate-300 disabled:opacity-30 hover:bg-slate-100">
-                <i className="fas fa-chevron-right text-[9px]"></i>
-              </button>
-              <button disabled={page >= totalPages} onClick={() => setPage(totalPages)}
-                className="px-2 py-1 rounded border border-slate-300 disabled:opacity-30 hover:bg-slate-100">
-                <i className="fas fa-angle-double-right text-[9px]"></i>
-              </button>
-            </div>
+            <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
+              className="px-2 py-1 rounded border border-slate-300 disabled:opacity-30 hover:bg-slate-100 font-semibold" title="Página siguiente">
+              <i className="fas fa-chevron-right text-[9px]"></i>
+            </button>
+            <button disabled={page >= totalPages} onClick={() => setPage(totalPages)}
+              className="px-2 py-1 rounded border border-slate-300 disabled:opacity-30 hover:bg-slate-100 font-semibold" title="Última página">
+              <i className="fas fa-angle-double-right text-[9px]"></i>
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
       {/* Modal Búsqueda Socio */}
