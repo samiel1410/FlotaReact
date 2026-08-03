@@ -279,13 +279,13 @@ export const BuserosPage = () => {
                   data.map((row, idx) => (
                     <tr key={row.viaje || idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                       <td className="px-3 py-2 font-bold">{row.socio || '-'}</td>
-                      <td className="px-3 py-2 font-mono font-bold text-blue-600">{row.disco || '-'}</td>
+                      <td className="px-3 py-2 font-mono font-bold text-blue-600">{row.bus_disco || '-'}</td>
                       <td className="px-3 py-2">#{row.viaje || '-'}</td>
-                      <td className="px-3 py-2">{row.nombre_rutas || '-'}</td>
+                      <td className="px-3 py-2">{row.ruta || '-'}</td>
                       <td className="px-3 py-2">{row.fecha ? row.fecha.split(' ')[0] : '-'}</td>
-                      <td className="px-3 py-2 text-right font-bold">{row.cantidad_boletos || 0}</td>
-                      <td className="px-3 py-2 text-right font-bold text-emerald-600">${parseFloat(row.vendido || 0).toFixed(2)}</td>
-                      <td className="px-3 py-2 text-right font-bold text-rose-600">${parseFloat(row.retenido || 0).toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right font-bold">{row.facturas || 0}</td>
+                      <td className="px-3 py-2 text-right font-bold text-emerald-600">${parseFloat(row.venta || 0).toFixed(2)}</td>
+                      <td className="px-3 py-2 text-right font-bold text-rose-600">${parseFloat(row.retenidio || 0).toFixed(2)}</td>
                     </tr>
                   ))
                 )}
