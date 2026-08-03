@@ -16,13 +16,23 @@ export const RecaudadoFilterPanel = ({ onSearch }) => {
   });
 
   useEffect(() => {
+    // Emitir filtro inicial formateado para el backend (mes y año actual)
+    onSearch({
+      per_codigo: '',
+      ruta_codigo: '',
+      bus_codigo: '',
+      mes: new Date().getMonth() + 1,
+      anio: new Date().getFullYear(),
+      fecha: ''
+    });
+
     // Cargar combos
     const loadCombos = async () => {
       try {
         const [p, r, b] = await Promise.all([
-          RecaudadoService.getPersonalParaFiltro().catch(()=>({data:[{id_personal:1, nombres_personal:'Juan Perez'}]})),
-          RecaudadoService.getRutasParaFiltro().catch(()=>({data:[{id_rutas:1, nombre_rutas:'Quito - Guayaquil'}]})),
-          RecaudadoService.getBusesParaFiltro().catch(()=>({data:[{id_buses:1, alias_bus:'Bus 45'}]}))
+          RecaudadoService.getPersonalParaFiltro().catch(()=>({data:[]})),
+          RecaudadoService.getRutasParaFiltro().catch(()=>({data:[]})),
+          RecaudadoService.getBusesParaFiltro().catch(()=>({data:[]}))
         ]);
         if(p.data) setPersonal(p.data);
         if(r.data) setRutas(r.data);
@@ -44,7 +54,14 @@ export const RecaudadoFilterPanel = ({ onSearch }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSearch(formData);
+    onSearch({
+      per_codigo: formData.id_personal,
+      ruta_codigo: formData.id_ruta_busqueda,
+      bus_codigo: formData.id_bus_busqueda,
+      mes: formData.comboMes,
+      anio: formData.comboAnioFactura,
+      fecha: formData.buscarPorFechaDesde
+    });
   };
 
   const handleClear = () => {
@@ -57,7 +74,14 @@ export const RecaudadoFilterPanel = ({ onSearch }) => {
       buscarPorFechaDesde: ''
     };
     setFormData(resetData);
-    onSearch(resetData);
+    onSearch({
+      per_codigo: '',
+      ruta_codigo: '',
+      bus_codigo: '',
+      mes: 0,
+      anio: 0,
+      fecha: ''
+    });
   };
 
   return (
@@ -73,7 +97,7 @@ export const RecaudadoFilterPanel = ({ onSearch }) => {
             <label>Socio</label>
             <select name="id_personal" value={formData.id_personal} onChange={handleChange}>
               <option value="">Todos</option>
-              {personal.map(p => <option key={p.id_personal} value={p.id_personal}>{p.nombres_personal}</option>)}
+              {personal.map(p => <option key={p.id_personal} value={p.id_personal}>{p.per_nombres_persona}</option>)}
             </select>
           </div>
 

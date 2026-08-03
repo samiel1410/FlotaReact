@@ -17,10 +17,7 @@ export const RecaudadoPage = () => {
   });
 
   // Estado de filtros y paginación
-  const [filtros, setFiltros] = useState({
-    mes: new Date().getMonth(),
-    anio: new Date().getFullYear()
-  });
+  const [filtros, setFiltros] = useState(null);
   
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -69,7 +66,9 @@ export const RecaudadoPage = () => {
   };
 
   useEffect(() => {
-    loadData(filtros, page);
+    if (filtros !== null) {
+      loadData(filtros, page);
+    }
   }, [filtros, page]);
 
   const handleSearch = (nuevosFiltros) => {

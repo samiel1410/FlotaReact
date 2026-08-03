@@ -11,7 +11,7 @@ export const RecaudadoService = {
    */
   getRecaudacion: async (params = {}) => {
     // URL original de ExtJS: /boleteria/facturaRetenidoEmitido
-    const response = await api.post('/boleteria/facturaRetenidoEmitido', params);
+    const response = await api.get('/boleteria/facturaRetenidoEmitido', { params });
     return response.data;
   },
 

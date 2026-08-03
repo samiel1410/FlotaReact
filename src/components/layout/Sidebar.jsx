@@ -158,6 +158,7 @@ const MENU = [
     items: [
       { to: '/buseros', icon: 'fas fa-bus', label: 'Listado Buseros', permission: 'buseros.gestion_buseros' },
       { to: '/asientos', icon: 'fas fa-chair', label: 'Asientos', permission: 'buseros.gestion_asientos' },
+      { to: '/recaudado', icon: 'fas fa-coins', label: 'Recaudado', permission: 'buseros.gestion_buseros' },
     ]
   },
   {

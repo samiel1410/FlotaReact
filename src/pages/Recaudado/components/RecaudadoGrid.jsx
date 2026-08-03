@@ -51,18 +51,18 @@ export const RecaudadoGrid = ({ data, loading, page, limit, total, totales, onPa
               </tr>
             ) : (
               data.map((item, idx) => (
-                <tr key={item.id || idx}>
+                <tr key={item.viaje || idx}>
                   <td className="socio-cell">{item.socio}</td>
-                  <td className="disco-cell text-center">{item.disco}</td>
+                  <td className="disco-cell text-center">{item.bus_disco || item.disco || '-'}</td>
                   <td className="text-center font-mono">{item.viaje}</td>
-                  <td>{item.nombre_rutas}</td>
+                  <td>{item.ruta || item.nombre_rutas || '-'}</td>
                   <td className="text-center">{item.fecha}</td>
-                  <td className="text-center font-bold">{item.cantidad_boletos}</td>
+                  <td className="text-center font-bold">{item.facturas ?? item.cantidad_boletos ?? 0}</td>
                   <td className="monto-venta text-right">
-                    ${parseFloat(item.vendido || 0).toFixed(2)}
+                    ${parseFloat(item.venta ?? item.vendido ?? 0).toFixed(2)}
                   </td>
                   <td className="monto-retenido text-right">
-                    ${parseFloat(item.retenido || 0).toFixed(2)}
+                    ${parseFloat(item.retenidio ?? item.retenido ?? 0).toFixed(2)}
                   </td>
                 </tr>
               ))

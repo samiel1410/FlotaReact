@@ -13,6 +13,7 @@ import { CobrosRealizadosModal } from './components/CobrosRealizadosModal';
 import { SeguimientoGuiaModal } from './components/SeguimientoGuiaModal';
 import cajaNotaVentaService from '../../services/cajaNotaVenta.service';
 import MotivoModal from '../../components/common/MotivoModal';
+import { PrintSelectorModal } from './components/PrintSelectorModal';
 
 export const GuiasNotaVentaPage = () => {
   const { user, userRole, hasPermission } = useAuth();
@@ -156,6 +157,26 @@ export const GuiasNotaVentaPage = () => {
     } catch (err) {
       console.error('Error imprimiendo QR:', err);
       toast.error('No se pudo generar el PDF de QR');
+    }
+  };
+
+  const handlePrintTicket = async () => {
+    const item = selectedPrintItem;
+    setPrintSelectorOpen(false);
+    try {
+      const idUsuario = user?.id_usuario || 0;
+      const phpUrl = `${CONFIG.PHP_URL}/ticketPdf.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
+      const res = await fetch(phpUrl);
+      if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
+      const data = await res.json();
+      if (!data.success || !data.ruta) { toast.error(data.error || 'Error generando Ticket'); return; }
+      setPdfTitle(`Ticket Guía ${item.numero_guia_final || item.id_guia}`);
+      setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}`);
+      setPdfShouldShowPrint(true);
+      setPdfModalOpen(true);
+    } catch (err) {
+      console.error('Error imprimiendo Ticket:', err);
+      toast.error('No se pudo generar el PDF de Ticket');
     }
   };
 
@@ -410,37 +431,14 @@ export const GuiasNotaVentaPage = () => {
       </div>
 
       {/* Mini-modal selector de impresión — idéntico a Impresion.js de ExtJS */}
-      {printSelectorOpen && selectedPrintItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-xl shadow-2xl p-6 w-56 flex flex-col gap-3">
-            <div className="text-center font-bold text-slate-700 text-sm border-b pb-3">
-              <i className="fas fa-print mr-2 text-blue-500"></i>
-              IMPRIMIR GUÍA
-            </div>
-            <p className="text-xs text-slate-500 text-center">
-              Guía: <strong>{selectedPrintItem.numero_guia_final || selectedPrintItem.id_guia}</strong>
-            </p>
-            <button
-              onClick={handlePrintGuia}
-              className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2"
-            >
-              <i className="fas fa-file-alt"></i> GUIA
-            </button>
-            <button
-              onClick={handlePrintQR}
-              className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2"
-            >
-              <i className="fas fa-qrcode"></i> QR
-            </button>
-            <button
-              onClick={() => { setPrintSelectorOpen(false); setSelectedPrintItem(null); }}
-              className="w-full py-1.5 border border-slate-200 text-slate-500 hover:bg-slate-50 rounded-lg text-xs transition-all"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
+      <PrintSelectorModal
+        isOpen={printSelectorOpen}
+        item={selectedPrintItem}
+        onClose={() => { setPrintSelectorOpen(false); setSelectedPrintItem(null); }}
+        onPrintGuia={handlePrintGuia}
+        onPrintQR={handlePrintQR}
+        onPrintTicket={handlePrintTicket}
+      />
 
       <PdfViewerModal
         open={pdfModalOpen}
