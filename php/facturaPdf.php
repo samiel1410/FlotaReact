@@ -13,12 +13,15 @@ try {
 
   // create new PDF document
   $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, 'A4', true, 'UTF-8', false);
+  $pdf->setPrintHeader(false);
+  $pdf->setPrintFooter(false);
+  $pdf->SetAutoPageBreak(false);
 
   $conn = conexion();
   $id_esc = mysqli_real_escape_string($conn, $id_param);
 
   $query = "select
-id_factura,fecha_factura,fecha_hora_autorizacion,telefono_cliente_factura,direccion_clientes_factura,correo_cliente_factura,ruc_cliente_factura,nombre_cliente_factura,id_fksucursal_factura,clave_acceso_factura,fecha_hora_sincronizacion,punto_emision_factura,numero_factura,total_factura,subtotal_12_factura,subtotal_0_factura,subtotal_factura,iva_factura,descuento_total_factura
+id_factura,id_fkguia_factura,fecha_factura,fecha_hora_autorizacion,telefono_cliente_factura,direccion_clientes_factura,correo_cliente_factura,ruc_cliente_factura,nombre_cliente_factura,id_fksucursal_factura,clave_acceso_factura,fecha_hora_sincronizacion,punto_emision_factura,numero_factura,total_factura,subtotal_12_factura,subtotal_0_factura,subtotal_factura,iva_factura,descuento_total_factura
 from factura where id_factura = '$id_esc' OR id_fkguia_factura = '$id_esc' OR numero_factura = '$id_esc' OR clave_acceso_factura = '$id_esc' ORDER BY (id_factura = '$id_esc') DESC, id_factura DESC LIMIT 1";
 
 
@@ -84,36 +87,91 @@ from factura where id_factura = '$id_esc' OR id_fkguia_factura = '$id_esc' OR nu
 
   //EMPRESA
   $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa,
-razon_social_empresa FROM empresa LIMIT 1";
+razon_social_empresa, obligado_contabilidad FROM empresa LIMIT 1";
   $recuperar_empresa = mysqli_query($conn, $query_empresa);
   $vals_empresa = $recuperar_empresa ? mysqli_fetch_array($recuperar_empresa) : [];
 
   $nombre_empresa = $vals_empresa['razon_social_empresa'] ?? '';
   $direccion_empresa = $vals_empresa['direccion_empresa'] ?? '';
   $ruc_empresa = $vals_empresa['ruc_empresa'] ?? '';
+  $obligado_contabilidad = !empty($vals_empresa['obligado_contabilidad']) ? strtoupper(trim($vals_empresa['obligado_contabilidad'])) : 'NO';
 
-  //DETALLES FACTURA
-  $query_dettales = "SELECT
-nombre_producto_factura_detalle,cantidad_factura_detalle,total_factura_detalle,descuento_factura_detalle,tarifa_factura_detalle
-FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
+  //DETALLES FACTURA Y VALOR DECLARADO DESDE GUIA
+  $id_fkguia = (int)($vals['id_fkguia_factura'] ?? 0);
+  $texto_valor_declarado = "";
+  if ($id_fkguia > 0) {
+    $q_guia = "SELECT * FROM guia WHERE id_guia = $id_fkguia LIMIT 1";
+    $res_guia = @mysqli_query($conn, $q_guia);
+    if ($res_guia && ($row_guia = mysqli_fetch_assoc($res_guia))) {
+      $val_dec = (float)($row_guia['valor_declarado_valor'] ?? $row_guia['valor_declarado'] ?? 0);
+      if ($val_dec > 0) {
+        $texto_valor_declarado = " CON VALOR DECLARADO ($" . number_format($val_dec, 2, '.', '') . ")";
+      } else {
+        $texto_valor_declarado = " SIN VALOR DECLARADO";
+      }
+    }
+  }
+
+  // DETALLES FACTURA CON IMPUESTO DINÁMICO DESDE TIPO DE ENVÍO
+  $query_dettales = "
+    SELECT 
+      fd.nombre_producto_factura_detalle,
+      fd.cantidad_factura_detalle,
+      fd.total_factura_detalle,
+      fd.descuento_factura_detalle,
+      fd.tarifa_factura_detalle,
+      COALESCE(te.tipo_impuesto, 0) AS tipo_impuesto
+    FROM factura_detalle fd
+    LEFT JOIN detalle_guia dg ON (
+      dg.id_fkguia_detalle_envio = $id_fkguia 
+      AND (
+        dg.contenido_guia = fd.nombre_producto_factura_detalle 
+        OR LOWER(TRIM(dg.contenido_guia)) = LOWER(TRIM(fd.nombre_producto_factura_detalle))
+      )
+    )
+    LEFT JOIN tipo_envio te ON dg.id_fktipo_envio_detalle_guia = te.id_tipo_envio
+    WHERE fd.id_fkfactura_factura_detalle = $id_factura
+  ";
   $recuperar_detalles = mysqli_query($conn, $query_dettales);
 
+  // Si no hizo match con detalle_guia, hacer fallback directo a factura_detalle
+  if (!$recuperar_detalles || mysqli_num_rows($recuperar_detalles) == 0) {
+    $query_dettales = "SELECT nombre_producto_factura_detalle, cantidad_factura_detalle, total_factura_detalle, descuento_factura_detalle, tarifa_factura_detalle, 0 AS tipo_impuesto FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
+    $recuperar_detalles = mysqli_query($conn, $query_dettales);
+  }
+
   $datos = "";
+  $tasa_iva_maxima = 0;
 
   if ($recuperar_detalles) {
     while ($vals_detalles = mysqli_fetch_array($recuperar_detalles)) {
+      $nombre_prod = trim($vals_detalles['nombre_producto_factura_detalle'] ?? '');
+      if ($texto_valor_declarado !== '' && stripos($nombre_prod, 'VALOR DECLARADO') === false) {
+        $nombre_prod .= $texto_valor_declarado;
+      }
+
+      $idx_imp = (int)($vals_detalles['tipo_impuesto'] ?? 0);
+      $pct_iva = $idx_imp > 0 ? (11 + $idx_imp) : 0;
+      if ($pct_iva > $tasa_iva_maxima) {
+        $tasa_iva_maxima = $pct_iva;
+      }
+
       $tabla = '
 <tr>
-  <td width="50%" class="border"> ' . ($vals_detalles['nombre_producto_factura_detalle'] ?? '') . '</td>
+  <td width="40%" class="border"> ' . htmlspecialchars($nombre_prod) . '</td>
   <td width="10%" class="border center"> ' . ($vals_detalles['cantidad_factura_detalle'] ?? 0) . '</td>
-  <td width="15%" class="border right"> $' . round((float)($vals_detalles['descuento_factura_detalle'] ?? 0), 2) . '</td>
-  <td width="10%" class="border right"> $' . round((float)($vals_detalles['tarifa_factura_detalle'] ?? 0), 2) . '</td>
-  <td width="15%" class="border right"> $' . round((float)($vals_detalles['total_factura_detalle'] ?? 0), 2) . '</td>
+  <td width="12%" class="border right"> $' . round((float)($vals_detalles['descuento_factura_detalle'] ?? 0), 2) . '</td>
+  <td width="12%" class="border center font-bold"> ' . $pct_iva . '%</td>
+  <td width="13%" class="border right"> $' . round((float)($vals_detalles['tarifa_factura_detalle'] ?? 0), 2) . '</td>
+  <td width="13%" class="border right"> $' . round((float)($vals_detalles['total_factura_detalle'] ?? 0), 2) . '</td>
 </tr>
 ';
       $datos .= $tabla;
     }
   }
+
+  // Definir etiqueta dinámica (ej: 12%, 15%, etc.)
+  $label_iva = ($tasa_iva_maxima > 0 ? $tasa_iva_maxima : 12) . '%';
 
   //FORMA DE PAGO
   $query_pago = "SELECT c.id_comprobante_cobro, c.monto_comprobante_cobro, 
@@ -168,7 +226,7 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
 <span class="value">' . $direccion_empresa . '</span><br><br>
 <span class="label">Dirección Sucursal:</span><br>
 <span class="value">' . $ubicacion_sucursal . '</span><br><br>
-<span class="label">Obligado a llevar Contabilidad:</span> SI
+<span class="label">Obligado a llevar Contabilidad:</span> ' . $obligado_contabilidad . '
 ';
 
   $html_right = '
@@ -180,7 +238,7 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
 </style>
 <span class="label">R.U.C.:</span> <span class="value">' . $ruc_empresa . '</span><br>
 <span class="title">FACTURA</span><br>
-<span class="label">No.</span> <span class="value">' . $numero_factura . '</span><br><br>
+<span class="label">No.</span> <span class="value" style="color: red; font-weight: bold;">' . $numero_factura . '</span><br><br>
 <span class="label">NÚMERO DE AUTORIZACIÓN:</span><br>
 <span class="small">' . $clave_autorizacion . '</span><br><br>
 <span class="label">FECHA Y HORA DE AUTORIZACIÓN:</span><br>
@@ -208,6 +266,7 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
       <td width="70%">
         <span class="label">Razón Social / Nombres y Apellidos:</span> <span class="value">' . $razon_social . '</span><br>
         <span class="label">Identificación:</span> <span class="value">' . $ruc_cliente . '</span><br>
+        <span class="label">Teléfono / Celular:</span> <span class="value">' . $telefono . '</span><br>
         <span class="label">Fecha Emisión:</span> <span class="value">' . $fecha_emision . '</span><br>
         <span class="label">Dirección:</span> <span class="value">' . $direccion . '</span>
       </td>
@@ -219,16 +278,17 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
   </table>
 </div>
 
-<br><br>
+<br>
 
-<table cellpadding="3">
+<table cellpadding="2">
   <thead>
     <tr class="background">
-      <th width="45%" class="border center"><b>Descripción</b></th>
+      <th width="40%" class="border center"><b>Descripción</b></th>
       <th width="10%" class="border center"><b>Cant</b></th>
-      <th width="15%" class="border center"><b>Descuento</b></th>
-      <th width="15%" class="border center"><b>Tarifa</b></th>
-      <th width="15%" class="border center"><b>Subtotal</b></th>
+      <th width="12%" class="border center"><b>Descuento</b></th>
+      <th width="12%" class="border center"><b>IVA</b></th>
+      <th width="13%" class="border center"><b>Tarifa</b></th>
+      <th width="13%" class="border center"><b>Subtotal</b></th>
     </tr>
   </thead>
   <tbody>
@@ -236,12 +296,12 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
   </tbody>
 </table>
 
-<br><br>
+<br>
 
 <table>
   <tr>
     <td width="60%">
-      <table cellpadding="3" class="border">
+      <table cellpadding="2" class="border">
         <tr class="background">
           <th width="70%" class="center"><b>Forma de Pago</b></th>
           <th width="30%" class="center"><b>Valor</b></th>
@@ -250,9 +310,9 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
       </table>
     </td>
     <td width="40%">
-      <table cellpadding="2">
+      <table cellpadding="1.5">
         <tr>
-          <td width="65%" class="border">SUBTOTAL 12%</td>
+          <td width="65%" class="border">SUBTOTAL ' . $label_iva . '</td>
           <td width="35%" class="border right">$' . round($subtotal_12, 2) . '</td>
         </tr>
         <tr>
@@ -276,7 +336,7 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
           <td class="border right">$' . round($descuento_guia, 2) . '</td>
         </tr>
         <tr>
-          <td class="border">IVA 12%</td>
+          <td class="border">IVA ' . $label_iva . '</td>
           <td class="border right">$' . round($iva_guia, 2) . '</td>
         </tr>
         <tr>
@@ -290,7 +350,7 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
 ';
 
   // set font
-  $pdf->SetFont('helvetica', '', 10);
+  $pdf->SetFont('helvetica', '', 9);
 
   // add a page
   $pdf->AddPage();
@@ -322,6 +382,23 @@ FROM factura_detalle WHERE id_fkfactura_factura_detalle = $id_factura";
   // Body content starts below header boxes
   $pdf->SetY(110);
   $pdf->writeHTML($html_body, true, false, true, false, '');
+
+  // Footer fijo en la parte inferior de la página 1 (PNG liviano para máxima velocidad)
+  $rutaIcono = __DIR__ . '/public/images/transpaeasy_icon.png';
+  if (!file_exists($rutaIcono)) {
+    $rutaIcono = dirname(__DIR__) . '/public/images/transpaeasy_icon.png';
+  }
+  
+  $html_footer_cell = '<table style="width:100%; border-top:1px solid #d1d5db; padding-top:4px;">
+    <tr>
+      <td style="text-align:center; font-size:8pt; color:#475569;">
+        ' . (file_exists($rutaIcono) ? '<img src="' . $rutaIcono . '" width="12" height="12"> ' : '') . '
+        <b>Easysplus</b> - Sistema de facturación electrónica
+      </td>
+    </tr>
+  </table>';
+
+  $pdf->writeHTMLCell(190, 10, 10, 280, $html_footer_cell, 0, 0, false, true, 'C', true);
 
   $pdf->SetFont('helvetica', '', 10);
 
