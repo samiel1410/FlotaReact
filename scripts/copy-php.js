@@ -29,3 +29,10 @@ function copyDir(from, to) {
 
 copyDir(src, dst);
 console.log('✅ php/ copiado a dist/php/ exitosamente.');
+
+const publicSrc = join(root, 'public');
+const publicDst = join(root, 'dist');
+if (existsSync(publicSrc)) {
+    copyDir(publicSrc, publicDst);
+    console.log('✅ public/ copiado a dist/ exitosamente.');
+}

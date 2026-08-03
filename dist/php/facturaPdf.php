@@ -384,15 +384,26 @@ razon_social_empresa, obligado_contabilidad FROM empresa LIMIT 1";
   $pdf->writeHTML($html_body, true, false, true, false, '');
 
   // Footer fijo en la parte inferior de la página 1 (PNG liviano para máxima velocidad)
-  $rutaIcono = __DIR__ . '/public/images/transpaeasy_icon.png';
-  if (!file_exists($rutaIcono)) {
-    $rutaIcono = dirname(__DIR__) . '/public/images/transpaeasy_icon.png';
+  $pathsIcono = [
+    __DIR__ . '/public/images/transpaeasy_icon.png',
+    dirname(__DIR__) . '/public/images/transpaeasy_icon.png',
+    dirname(__DIR__) . '/images/transpaeasy_icon.png',
+    __DIR__ . '/images/transpaeasy_icon.png',
+    $_SERVER['DOCUMENT_ROOT'] . '/images/transpaeasy_icon.png',
+    $_SERVER['DOCUMENT_ROOT'] . '/public/images/transpaeasy_icon.png'
+  ];
+  $rutaIcono = '';
+  foreach ($pathsIcono as $pathCandidate) {
+    if (file_exists($pathCandidate)) {
+      $rutaIcono = $pathCandidate;
+      break;
+    }
   }
   
   $html_footer_cell = '<table style="width:100%; border-top:1px solid #d1d5db; padding-top:4px;">
     <tr>
       <td style="text-align:center; font-size:8pt; color:#475569;">
-        ' . (file_exists($rutaIcono) ? '<img src="' . $rutaIcono . '" width="12" height="12"> ' : '') . '
+        ' . (!empty($rutaIcono) ? '<img src="' . $rutaIcono . '" width="12" height="12"> ' : '') . '
         <b>Easysplus</b> - Sistema de facturación electrónica
       </td>
     </tr>
