@@ -27,8 +27,14 @@ nul
 
 
 # PHP temp / generated
-php/tmp/
-php/vendor/
-php/xml_boletos/
-php/xml_facturas/
-tmp/
+FrontReact/php/xml_boletos/*
+FrontReact/php/xml_facturas/*
+FrontReact/php/tmp/*
+php/tmp/*
+php/vendor/*
+php/xml_boletos/*
+php/xml_facturas/*
+dist/php/tmp/*
+tmp/*
+
+

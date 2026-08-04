@@ -228,19 +228,8 @@ WHERE
     $pdf->writeHTML($html, true, false, true, false, '');
     // Output PDF
 
-    $tempDir = __DIR__ . '/tmp/';
-    $fileName = 'entregado.pdf';
-    $fullPath = $tempDir . $fileName;
-
-    $pdf->Output($fullPath, 'F');
-
-    $array = array(
-        "ruta" => $fileName,
-        "success" => true,
-        "borrar" => $fullPath,
-    );
-
-    echo json_encode($array);
+    $pdf->Output('entregado.pdf', 'I');
+    exit;
 
 } catch (Exception $e) {
     $array = array(

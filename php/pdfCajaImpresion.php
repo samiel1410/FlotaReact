@@ -58,19 +58,15 @@ FROM guia as a
 INNER JOIN sucursal2 as f ON a.sucursal_guia = f.suc_codigo_sucursal
 LEFT JOIN detalle_guia as v ON a.id_guia = v.id_fkguia_detalle_envio
 LEFT JOIN (
-SELECT id_factura, id_fkguia_factura
-FROM factura
-WHERE estado_factura = 1 OR estado_factura = 4
-) as g ON g.id_fkguia_factura = a.id_guia
-LEFT JOIN (
-SELECT id_fkfactura_comprobante_cobro, SUM(monto_comprobante_cobro) as monto_comprobante_cobro
-FROM comprobante_cobro
-JOIN forma_pago ON id_fkforma_pago = forma_pago.id_forma_pago
-WHERE estado_comprobante_cobro = 'COBRADA'
-AND forma_pago.tipo_forma_pago = 2
-AND id_fkcaja_comprobante_cobro = $id_caja
-GROUP BY id_fkfactura_comprobante_cobro
-) as h ON h.id_fkfactura_comprobante_cobro = g.id_factura
+SELECT fa.id_fkguia_factura, SUM(cc.monto_comprobante_cobro) as monto_comprobante_cobro
+FROM comprobante_cobro cc
+JOIN factura fa ON cc.id_fkfactura_comprobante_cobro = fa.id_factura
+JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
+WHERE cc.estado_comprobante_cobro = 'COBRADA'
+AND fp.tipo_forma_pago = 2
+AND cc.id_fkcaja_comprobante_cobro = $id_caja
+GROUP BY fa.id_fkguia_factura
+) as h ON h.id_fkguia_factura = a.id_guia
 WHERE id_fkcaja_guia = $id_caja AND estado_guia = 1
 GROUP BY a.id_guia, a.punto_emision_guia, a.numero_guia, a.total_guia, f.punto_emision_sucursal, h.monto_comprobante_cobro
 ORDER BY a.id_guia DESC
@@ -484,16 +480,8 @@ caja_detalle WHERE id_fkcaja =$id_caja GROUP BY tipo_caja_detalle";
 
     // Output PDF
 
-    $pdf->Output(__DIR__ . '/tmp/guiaImpresion.pdf', 'I');
-
-    $array = array(
-        "ruta" => 'guiaImpresion.pdf',
-        "success" => true,
-        "borrar" => __DIR__ . '/tmp/guiaImpresion.pdf',
-
-    );
-
-    echo json_encode($array);
+    $pdf->Output('guiaImpresion.pdf', 'I');
+    exit;
 
 } catch (Exception $e) {
     $array = array(

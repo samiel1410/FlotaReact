@@ -57,7 +57,7 @@ try {
     $total_guias = 0;
     while ($row = mysqli_fetch_array($rsGuias)) {
         $guias[] = $row;
-        if ($row['estado_guia'] == 1 || $row['estado_guia'] == 0 || $row['estado_guia'] == 3) {
+        if ($row['estado_guia'] != 2) {
             $total_guias += floatval($row['total_guia']);
         }
     }
@@ -76,7 +76,7 @@ try {
     $total_facturas = 0;
     while ($row = mysqli_fetch_array($rsFacturas)) {
         $facturas[] = $row;
-        if ($row['estado_factura'] == 1 || $row['estado_factura'] == 0 || $row['estado_factura'] == 3) {
+        if ($row['estado_factura'] != 2) {
             $total_facturas += floatval($row['total_factura']);
         }
     }
@@ -91,10 +91,10 @@ try {
                s.punto_emision_sucursal,
                fp.nombre_forma_pago, fp.tipo_forma_pago
         FROM comprobante_cobro cc
-        JOIN factura f ON cc.id_fkfactura_comprobante_cobro = f.id_factura
-        JOIN sucursal2 s ON f.id_fksucursal_factura = s.suc_codigo_sucursal
-        JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
-        WHERE f.id_fkcaja_factura = $idcaja
+        LEFT JOIN factura f ON cc.id_fkfactura_comprobante_cobro = f.id_factura
+        LEFT JOIN sucursal2 s ON f.id_fksucursal_factura = s.suc_codigo_sucursal
+        LEFT JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
+        WHERE cc.id_fkcaja_comprobante_cobro = $idcaja
         ORDER BY cc.id_comprobante_cobro DESC
     ") or die(mysqli_error($conn));
     $comprobantes = [];
@@ -151,7 +151,9 @@ try {
         return 'DESCONOCIDO';
     }
     function estadoFactura($est) {
-        if ($est == 1) return 'AUTORIZADO';
+        // Según la app: 1 EN PROCESO, 2 ANULADO, 3 PENDIENTE, 4 AUTORIZADO
+        if ($est == 4) return 'AUTORIZADO';
+        if ($est == 1) return 'EN PROCESO';
         if ($est == 2) return 'ANULADO';
         if ($est == 3) return 'PENDIENTE ANULAR';
         if ($est == 0) return 'EN PROCESO';
@@ -174,7 +176,19 @@ try {
 
     // Logo + Empresa
     if ($logo) {
-        $html .= '<div class="center"><img src="'.$logo.'" style="max-width:80px;max-height:80px;" /></div>';
+        $imgInfo = @getimagesize($logo);
+        if ($imgInfo && $imgInfo[0] > 0 && $imgInfo[1] > 0) {
+            $srcW = $imgInfo[0];
+            $srcH = $imgInfo[1];
+            $maxW = 80;
+            $maxH = 80;
+            $ratio = min($maxW / $srcW, $maxH / $srcH, 1);
+            $w = max(1, round($srcW * $ratio));
+            $h = max(1, round($srcH * $ratio));
+            $html .= '<div class="center"><img src="'.$logo.'" width="'.$w.'px" height="'.$h.'px" /></div>';
+        } else {
+            $html .= '<div class="center"><img src="'.$logo.'" style="max-width:80px;max-height:80px;" /></div>';
+        }
     }
     $html .= '<div class="empresa">'.$razon_social.'</div>';
     $html .= '<table style="margin:4px 0;"><tr>
@@ -268,8 +282,8 @@ try {
     foreach ($comprobantes as $c) {
         $nro = $c['numero_comprobante_cobro'];
         $fec = date('Y-m-d', strtotime($c['fecha_emision_comprobante_cobro']));
-        $nroFact = fmtFactura($c['numero_factura'], $c['punto_emision_sucursal'], $c['punto_emision_factura']);
-        $cli = $c['ruc_cliente_factura'].' '.$c['nombre_cliente_factura'];
+        $nroFact = !empty($c['id_factura']) ? fmtFactura($c['numero_factura'], $c['punto_emision_sucursal'], $c['punto_emision_factura']) : '-';
+        $cli = trim(($c['ruc_cliente_factura'] ?? '').' '.($c['nombre_cliente_factura'] ?? ''));
         $html .= '<tr>
             <td>'.$nro.'</td>
             <td>'.$fec.'</td>

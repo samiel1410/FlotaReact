@@ -241,17 +241,8 @@ razon_social_empresa FROM empresa WHERE 1";
     $pdf->writeHTML($html1, true, false, true, false, '');
 
     $filename = 'boleto_' . $id_boleto . '.pdf';
-    $filepath = __DIR__ . '/tmp/' . $filename;
-
-    $pdf->Output($filepath, 'F');
-
-    $array = array(
-        "ruta" => $filename,
-        "success" => true,
-        "borrar" => $filepath,
-    );
-
-    echo json_encode($array);
+    $pdf->Output($filename, 'I');
+    exit();
 
 } catch (Exception $e) {
     $array = array(

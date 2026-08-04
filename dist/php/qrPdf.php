@@ -205,19 +205,8 @@ try {
   $pdf->write2DBarcode($cadena, 'QRCODE,Q', 10, 50, 150, 150, $style, 'N');
   // $pdf->IncludeJS("print();"); // Comentado para evitar que se abra la pantalla de impresión
 
-  $tempDir = __DIR__ . '/tmp/';
-  $fileName = 'qrPdf.pdf';
-  $fullPath = $tempDir . $fileName;
-
-  $pdf->Output($fullPath, 'F');
-
-  $array = array(
-    "ruta" => $fileName,
-    "success" => true,
-    "borrar" => $fullPath,
-  );
-
-  echo json_encode($array);
+  $pdf->Output('qrPdf.pdf', 'I');
+  exit();
 
 } catch (Exception $e) {
   $array = array(

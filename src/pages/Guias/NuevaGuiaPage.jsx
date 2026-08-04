@@ -756,20 +756,14 @@ export const NuevaGuiaPage = () => {
           // Mostrar PDF usando el script PHP y enviar WhatsApp
           try {
             const idUsuario = user?.id_usuario || 0;
-            const generatorUrl = window.location.origin + `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}`;
-
-            // Llamar al PHP para generar el PDF
-            await axios.get(generatorUrl);
-
-            // Usar la ruta del archivo físico
-            const fullPdfUrl = window.location.origin + `/php/tmp/guiaImpresion_${idGuia}.pdf`;
+            const generatorUrl = `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}`;
 
             if (metodoImpresion === 'directa') {
               try {
                 if (!printerGuias) {
                   toast.error('No hay impresora de guías configurada');
                   setPdfTitle(`Guía N° ${idGuia}`);
-                  setPdfUrl(fullPdfUrl);
+                  setPdfUrl(generatorUrl);
                   setPdfModalOpen(true);
                 } else {
                   const loadQZ = () => new Promise((resolve, reject) => {
@@ -834,12 +828,12 @@ export const NuevaGuiaPage = () => {
                 console.error('[QZ] Error al imprimir:', e);
                 toast.error('Error al imprimir vía QZ Tray. Abriendo PDF manual...');
                 setPdfTitle(`Guía N° ${idGuia}`);
-                setPdfUrl(fullPdfUrl);
+                setPdfUrl(generatorUrl);
                 setPdfModalOpen(true);
               }
             } else {
               setPdfTitle(`Guía N° ${idGuia}`);
-              setPdfUrl(fullPdfUrl);
+              setPdfUrl(generatorUrl);
               setPdfModalOpen(true);
             }
 

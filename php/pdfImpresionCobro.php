@@ -163,26 +163,8 @@ $pdf->AddPage('P',array(500, 120) );
 
 $pdf->writeHTML($html, true, false, true, false, '');
 // Output PDF
-
-
-$tmp_dir = __DIR__ . DIRECTORY_SEPARATOR . 'tmp';
-if (!is_dir($tmp_dir)) {
-    mkdir($tmp_dir, 0777, true);
-}
-$pdf_file_name = 'impresionCobro.pdf';
-$pdf_path = $tmp_dir . DIRECTORY_SEPARATOR . $pdf_file_name;
-
-$pdf->Output($pdf_path, 'F');
-
-$array = array(
-    "ruta" => $pdf_file_name,
-    "success" => true,
-    "tipo" => 0,
-    "borrar" => $pdf_path,
-    
-);
-
- echo json_encode($array);
+$pdf->Output('impresionCobro.pdf', 'I');
+exit;
 
 }catch(Exception $e){
   $array = array(

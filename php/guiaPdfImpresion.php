@@ -611,16 +611,8 @@ configuracion";
   }
 
   $nombre_pdf = 'guiaImpresion_' . $id_guia . '.pdf';
-  $pdf->Output(__DIR__ . '/tmp/' . $nombre_pdf, 'F');
-
-  $array = array(
-    "ruta" => $nombre_pdf,
-    "success" => true,
-    "borrar" => __DIR__ . '/tmp/' . $nombre_pdf,
-
-  );
-
-  echo json_encode($array);
+  $pdf->Output($nombre_pdf, 'I');
+  exit();
 
 } catch (Exception $e) {
   $array = array(

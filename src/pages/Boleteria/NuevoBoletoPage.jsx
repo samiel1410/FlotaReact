@@ -978,10 +978,7 @@ export const NuevoBoletoPage = () => {
 
           if (numerosValidos.length > 0 && enviarWhatsapp) {
             try {
-              const urlGenerador = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
-              await axios.get(urlGenerador);
-
-              const fileUrl = window.location.origin + `/php/tmp/boleto_${idBoleto}.pdf`;
+              const fileUrl = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
               const mensaje = `Estimado(a) ${formData.nombres || 'pasajero'},\n\nAdjuntamos su boleto de viaje para su próximo traslado. ¡Buen viaje!`;
 
               for (const celular of numerosValidos) {
@@ -1069,12 +1066,7 @@ export const NuevoBoletoPage = () => {
 
   // Abrir impresión del boleto (ExtJS: onimpresionBoleto)
   const imprimirBoleto = async (id_boleto) => {
-    const printUrl = `/php/tmp/boleto_${id_boleto}.pdf`;
-
-    // Generar PDF asegurando el guardado en disco
-    try {
-      await axios.get(`/php/boletoFactura.php?id_boleto=${id_boleto}`);
-    } catch (e) { }
+    const printUrl = `/php/boletoFactura.php?id_boleto=${id_boleto}`;
 
     if (metodoImpresion === 'directa') {
       // Directa: QZ Tray raw print
@@ -1135,7 +1127,6 @@ export const NuevoBoletoPage = () => {
           margins: { top: 0, bottom: 0, left: 8, right: 2 }
         });
 
-        // Determinar URL completa del PDF basado en el entorno
         const fullPdfUrl = window.location.origin + printUrl;
 
         const data = [{

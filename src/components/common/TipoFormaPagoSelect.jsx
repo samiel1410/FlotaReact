@@ -1,4 +1,3 @@
-import React from 'react';
 
 const TipoFormaPagoSelect = ({ value, onChange, name = 'tipo_forma_pago', label = 'Tipo', ...props }) => {
   const tipos = [

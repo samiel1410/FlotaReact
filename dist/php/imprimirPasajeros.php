@@ -330,23 +330,8 @@ $pdf->AddPage('P', array(500, 120));
 $pdf->writeHTML($html, true, false, true, false, '');
 
 
-$tempDir = __DIR__ . '/tmp/';
-$fileName = 'pasajeros.pdf';
-$fullPath = $tempDir . $fileName;
-
-if (isset($_GET['inline']) && $_GET['inline'] == 1) {
-$pdf->Output($fileName, 'I');
-} else {
-$pdf->Output($fullPath, 'F');
-
-$array = array(
-"ruta" => $fileName,
-"success" => true,
-"borrar" => $fullPath,
-);
-
-echo json_encode($array);
-}
+$pdf->Output('pasajeros.pdf', 'I');
+exit;
 
 } catch (Exception $e) {
 $array = array(

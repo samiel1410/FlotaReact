@@ -276,15 +276,9 @@ try {
   $pdf->SetFont('helvetica', '', 8.5);
   $pdf->Cell(60, 6, $fecha_guia, 0, 0);
 
-  // ─── GUARDAR Y RESPONDER ──────────────────────────────────────────────────
-  $tempDir  = __DIR__ . '/tmp/';
-  if (!file_exists($tempDir)) mkdir($tempDir, 0777, true);
-
   $fileName = 'ticketGuia_' . $id_guia . '.pdf';
-  $fullPath = $tempDir . $fileName;
-  $pdf->Output($fullPath, 'F');
-
-  echo json_encode(["success" => true, "ruta" => $fileName, "borrar" => $fullPath]);
+  $pdf->Output($fileName, 'I');
+  exit();
 
 } catch (Exception $e) {
   echo json_encode(["success" => false, "error" => $e->getMessage()]);

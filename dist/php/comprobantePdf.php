@@ -282,19 +282,8 @@ factura.id_fksucursal_factura = sucursal.id_sucursal AND comprobante_cobro.id_fk
     $pdf->writeHTML($html, true, false, true, false, '');
     // Output PDF
 
-    $tempDir = __DIR__ . '/tmp/';
-    $fileName = 'comprobante.pdf';
-    $fullPath = $tempDir . $fileName;
-
-    $pdf->Output($fullPath, 'F');
-
-    $array = array(
-        "ruta" => $fileName,
-        "success" => true,
-        "borrar" => $fullPath,
-    );
-
-    echo json_encode($array);
+    $pdf->Output('comprobante.pdf', 'I');
+    exit;
 
 } catch (Exception $e) {
     $array = array(

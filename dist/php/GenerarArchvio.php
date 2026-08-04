@@ -71,18 +71,8 @@ try {
   $pdf->writeHTML($html, true, false, true, false, '');
 
 
-  // Output PDF
-
-  $tempDir = __DIR__ . '/tmp/';
-  $fileName = $nombre . '.pdf';
-  $fullPath = $tempDir . $fileName;
-  $pdf->Output($fullPath, 'F');
-  $array = array(
-    "ruta" => $fileName,
-    "success" => true,
-    "borrar" => $fullPath,
-  );
-  echo json_encode($array);
+  $pdf->Output($nombre . '.pdf', 'I');
+  exit;
 
 } catch (Exception $e) {
   $array = array(

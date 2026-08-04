@@ -74,13 +74,13 @@ const NewFormaPagoForm = ({ initialData, onSubmit, onCancel }) => {
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        
+
         {/* Código */}
         <div>
           <label className={labelClass}>Código <span className="text-rose-500">*</span></label>
           <input
             type="text"
-            {...register('codigo_forma_pago', { 
+            {...register('codigo_forma_pago', {
               required: 'El código es requerido',
               pattern: { value: /^[0-9]+$/, message: 'Solo números' },
               maxLength: { value: 10, message: 'Máximo 10 dígitos' }
@@ -157,9 +157,7 @@ const NewFormaPagoForm = ({ initialData, onSubmit, onCancel }) => {
               />
               <div className="w-10 h-5.5 bg-slate-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-500/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-indigo-500"></div>
             </div>
-            <span className="text-sm font-bold text-slate-700 uppercase tracking-wider group-hover:text-indigo-600 transition-colors">
-              Registra Cheques
-            </span>
+
           </label>
         </div>
 

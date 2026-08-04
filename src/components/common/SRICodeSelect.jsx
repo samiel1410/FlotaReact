@@ -1,4 +1,3 @@
-import React from 'react';
 
 const SRICodeSelect = ({ value, onChange, name = 'id_fkcodigo_pago_sri', label = 'SRI', ...props }) => {
   const sriCodes = [

@@ -205,21 +205,8 @@ $pdf->SetAutoPageBreak(true, 5);
 $pdf->writeHTML($html, true, false, true, false, '');
 $pdf->IncludeJS("print();");
 
-$tempDir = __DIR__ . '/tmp/';
-if (!is_dir($tempDir)) {
-    mkdir($tempDir, 0777, true);
-}
-
-$fileName = 'despacho.pdf';
-$fullPath = $tempDir . $fileName;
-
-$pdf->Output($fullPath, 'F');
-
-echo json_encode([
-    "ruta" => $fileName,
-    "success" => true,
-    "borrar" => $fullPath,
-]);
+$pdf->Output('despacho.pdf', 'I');
+exit;
 
 } catch (Exception $e) {
     echo json_encode([

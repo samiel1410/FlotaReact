@@ -484,16 +484,8 @@ caja_detalle WHERE id_fkcaja =$id_caja GROUP BY tipo_caja_detalle";
 
     // Output PDF
 
-    $pdf->Output(__DIR__ . '/tmp/guiaImpresion.pdf', 'I');
-
-    $array = array(
-        "ruta" => 'guiaImpresion.pdf',
-        "success" => true,
-        "borrar" => __DIR__ . '/tmp/guiaImpresion.pdf',
-
-    );
-
-    echo json_encode($array);
+    $pdf->Output('guiaImpresion.pdf', 'I');
+    exit;
 
 } catch (Exception $e) {
     $array = array(
