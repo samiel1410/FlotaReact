@@ -47,7 +47,14 @@ try {
         SELECT g.id_guia, g.numero_guia, g.total_guia, g.fecha_guia, g.estado_guia,
                g.punto_emision_guia, g.cedula_cliente_remitente, g.nombre_cliente_remitente,
                g.cedula_cliente_receptor, g.nombre_cliente_receptor,
-               s.punto_emision_sucursal
+               s.punto_emision_sucursal,
+               EXISTS (
+                   SELECT 1 FROM comprobante_cobro cc2
+                   JOIN factura f2 ON cc2.id_fkfactura_comprobante_cobro = f2.id_factura
+                   WHERE f2.id_fkguia_factura = g.id_guia
+                     AND cc2.estado_comprobante_cobro = 'COBRADA'
+                     AND cc2.monto_comprobante_cobro > 0
+               ) as cobrada
         FROM guia g
         JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal
         WHERE g.id_fkcaja_guia = $idcaja
@@ -66,7 +73,13 @@ try {
     $rsFacturas = mysqli_query($conn, "
         SELECT f.id_factura, f.numero_factura, f.total_factura, f.fecha_factura,
                f.estado_factura, f.nombre_cliente_factura, f.ruc_cliente_factura,
-               f.punto_emision_factura, s.punto_emision_sucursal
+               f.punto_emision_factura, s.punto_emision_sucursal,
+               EXISTS (
+                   SELECT 1 FROM comprobante_cobro cc2
+                   WHERE cc2.id_fkfactura_comprobante_cobro = f.id_factura
+                     AND cc2.estado_comprobante_cobro = 'COBRADA'
+                     AND cc2.monto_comprobante_cobro > 0
+               ) as cobrada
         FROM factura f
         JOIN sucursal2 s ON f.id_fksucursal_factura = s.suc_codigo_sucursal
         WHERE f.id_fkcaja_factura = $idcaja
@@ -159,11 +172,8 @@ try {
         if ($est == 0) return 'EN PROCESO';
         return 'DESCONOCIDO';
     }
-    function estadoCobro($est) {
-        $est = strtoupper(trim($est));
-        if ($est == 'COBRADA') return 'COBRADA';
-        if ($est == 'ANULADA') return 'ANULADA';
-        return 'NO COBRADA';
+    function estadoCobrada($cobrada) {
+        return $cobrada ? 'COBRADA' : 'NO COBRADA';
     }
 
     $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>COMPROBANTES CAJA</title>
@@ -222,12 +232,13 @@ try {
     // ─── LISTADO DE GUÍAS ─────────────────────────────────────────────────────
     $html .= '<div class="section-title">LISTADO DE GUÍAS</div>';
     $html .= '<table><tr>
-        <th width="22%">NRO.</th>
-        <th width="15%">FECHA EMISIÓN</th>
-        <th width="10%">TOTAL</th>
-        <th width="13%">ESTADO</th>
-        <th width="20%">REMITENTE</th>
-        <th width="20%">DESTINATARIO</th>
+        <th width="18%">NRO.</th>
+        <th width="12%">FECHA EMISIÓN</th>
+        <th width="9%">TOTAL</th>
+        <th width="12%">ESTADO</th>
+        <th width="11%">COBRADO</th>
+        <th width="19%">REMITENTE</th>
+        <th width="19%">DESTINATARIO</th>
     </tr>';
     foreach ($guias as $g) {
         $nro = fmtGuia($g['numero_guia'], $g['punto_emision_sucursal'], $g['punto_emision_guia']);
@@ -238,23 +249,25 @@ try {
             <td>'.$fec.'</td>
             <td class="right">$'.fmtNum($g['total_guia']).'</td>
             <td>'.$est.'</td>
+            <td>'.estadoCobrada($g['cobrada']).'</td>
             <td>'.$g['nombre_cliente_remitente'].' ('.$g['cedula_cliente_remitente'].')</td>
             <td>'.$g['nombre_cliente_receptor'].' ('.$g['cedula_cliente_receptor'].')</td>
         </tr>';
     }
     $html .= '<tr><td colspan="2" class="bold">TOTAL GUÍAS:</td>
         <td class="bold right"><hr>$'.fmtNum($total_guias).'</td>
-        <td colspan="3"></td></tr>';
+        <td colspan="4"></td></tr>';
     $html .= '</table><br>';
 
     // ─── LISTADO FACTURAS ─────────────────────────────────────────────────────
     $html .= '<div class="section-title">LISTADO FACTURAS</div>';
     $html .= '<table><tr>
-        <th width="22%">NRO.</th>
-        <th width="18%">FECHA EMISIÓN</th>
+        <th width="18%">NRO.</th>
+        <th width="15%">FECHA EMISIÓN</th>
         <th width="10%">TOTAL</th>
-        <th width="15%">ESTADO</th>
-        <th width="35%">CLIENTE</th>
+        <th width="12%">ESTADO</th>
+        <th width="13%">COBRADO</th>
+        <th width="32%">CLIENTE</th>
     </tr>';
     foreach ($facturas as $f) {
         $nro = fmtFactura($f['numero_factura'], $f['punto_emision_sucursal'], $f['punto_emision_factura']);
@@ -266,25 +279,25 @@ try {
             <td>'.$fec.'</td>
             <td class="right">$'.fmtNum($f['total_factura']).'</td>
             <td>'.$est.'</td>
+            <td>'.estadoCobrada($f['cobrada']).'</td>
             <td>'.$cli.'</td>
         </tr>';
     }
     $html .= '<tr><td colspan="2" class="bold">TOTAL FACTURAS:</td>
         <td class="bold right"><hr>$'.fmtNum($total_facturas).'</td>
-        <td colspan="2"></td></tr>';
+        <td colspan="3"></td></tr>';
     $html .= '</table><br>';
 
     // ─── LISTADO COMPROBANTE DE COBRO ─────────────────────────────────────────
     $html .= '<div class="section-title">LISTADO COMPROBANTE DE COBRO</div>';
     $html .= '<table><tr>
         <th width="8%">NRO.</th>
-        <th width="9%">FECHA EMI.</th>
-        <th width="16%">CONCEPTO</th>
-        <th width="11%">FORMA PAGO</th>
-        <th width="9%">TOTAL</th>
-        <th width="10%">ESTADO</th>
-        <th width="20%">CLIENTE</th>
-        <th width="17%">DETALLE</th>
+        <th width="10%">FECHA EMI.</th>
+        <th width="18%">CONCEPTO</th>
+        <th width="12%">FORMA PAGO</th>
+        <th width="10%">TOTAL</th>
+        <th width="22%">CLIENTE</th>
+        <th width="20%">DETALLE</th>
     </tr>';
     foreach ($comprobantes as $c) {
         $nro = $c['numero_comprobante_cobro'];
@@ -297,7 +310,6 @@ try {
             <td>'.$nroFact.'</td>
             <td>'.$c['nombre_forma_pago'].'</td>
             <td class="right">$'.fmtNum($c['monto_comprobante_cobro']).'</td>
-            <td class="center">'.estadoCobro($c['estado_comprobante_cobro']).'</td>
             <td>'.$cli.'</td>
             <td>'.($c['observacion_comprobante_cobro'] ?? '').'</td>
         </tr>';
