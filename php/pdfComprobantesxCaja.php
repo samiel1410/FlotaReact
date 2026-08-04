@@ -159,6 +159,12 @@ try {
         if ($est == 0) return 'EN PROCESO';
         return 'DESCONOCIDO';
     }
+    function estadoCobro($est) {
+        $est = strtoupper(trim($est));
+        if ($est == 'COBRADA') return 'COBRADA';
+        if ($est == 'ANULADA') return 'ANULADA';
+        return 'NO COBRADA';
+    }
 
     $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>COMPROBANTES CAJA</title>
     <style>
@@ -272,12 +278,13 @@ try {
     $html .= '<div class="section-title">LISTADO COMPROBANTE DE COBRO</div>';
     $html .= '<table><tr>
         <th width="8%">NRO.</th>
-        <th width="10%">FECHA EMI.</th>
-        <th width="18%">CONCEPTO</th>
-        <th width="12%">FORMA PAGO</th>
-        <th width="10%">TOTAL</th>
-        <th width="22%">CLIENTE</th>
-        <th width="20%">DETALLE</th>
+        <th width="9%">FECHA EMI.</th>
+        <th width="16%">CONCEPTO</th>
+        <th width="11%">FORMA PAGO</th>
+        <th width="9%">TOTAL</th>
+        <th width="10%">ESTADO</th>
+        <th width="20%">CLIENTE</th>
+        <th width="17%">DETALLE</th>
     </tr>';
     foreach ($comprobantes as $c) {
         $nro = $c['numero_comprobante_cobro'];
@@ -290,6 +297,7 @@ try {
             <td>'.$nroFact.'</td>
             <td>'.$c['nombre_forma_pago'].'</td>
             <td class="right">$'.fmtNum($c['monto_comprobante_cobro']).'</td>
+            <td class="center">'.estadoCobro($c['estado_comprobante_cobro']).'</td>
             <td>'.$cli.'</td>
             <td>'.($c['observacion_comprobante_cobro'] ?? '').'</td>
         </tr>';
