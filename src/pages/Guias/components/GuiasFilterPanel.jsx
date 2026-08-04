@@ -181,7 +181,7 @@ export const GuiasFilterPanel = ({ onSearch, visible = true, isNotaVenta = false
               type="text" 
               name="numero_guia" 
               placeholder="001-001-00000000" 
-              maxLength="16" 
+              maxLength="17" 
               value={formData.numero_guia} 
               onChange={handleChange} 
             />

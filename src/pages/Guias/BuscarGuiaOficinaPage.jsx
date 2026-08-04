@@ -198,7 +198,7 @@ export const BuscarGuiaOficinaPage = () => {
             onChange={handleNumeroGuiaChange}
             onKeyDown={handleKeyDown}
             placeholder="000-000-00000000"
-            maxLength="16"
+            maxLength="17"
             className="flex-1 h-9 px-3 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all"
             autoFocus
           />
