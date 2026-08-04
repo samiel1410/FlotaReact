@@ -3,6 +3,9 @@ import toast from 'react-hot-toast';
 import Modal from '../../../components/common/Modal';
 import { FacturasService } from '../services/facturas.service';
 import { PdfViewerModal } from '../../../components/PdfViewerModal';
+import { CobrarFacturaModal } from '../../Guias/components/CobrarFacturaModal';
+import { CobrosRealizadosModal } from '../../Guias/components/CobrosRealizadosModal';
+import cajaService from '../../../services/caja.service';
 import { CONFIG } from '../../../config/env';
 
 export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, onReload, id_usuario, rol_usuario }) => {
@@ -19,6 +22,16 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState(null);
   const [pdfTitle, setPdfTitle] = useState('Factura');
+
+  // Modal de Cobro
+  const [cobrarModalOpen, setCobrarModalOpen] = useState(false);
+  const [selectedGuiaCobrar, setSelectedGuiaCobrar] = useState(null);
+  const [facturaDataPreloaded, setFacturaDataPreloaded] = useState(null);
+  const [selectedCajaId, setSelectedCajaId] = useState(null);
+
+  // Modal de Cobros Realizados
+  const [cobrosModalOpen, setCobrosModalOpen] = useState(false);
+  const [selectedGuiaCobros, setSelectedGuiaCobros] = useState(null);
 
   const totalPages = Math.ceil(total / limit) || 1;
 
@@ -84,10 +97,10 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
         }
         break;
       case 'cobrar':
-        toast('Módulo de cobros en integración', { icon: 'ℹ️' });
+        handleCobrar(row);
         break;
       case 'cobros_realizados':
-        toast('Módulo de cobros realizados en integración', { icon: 'ℹ️' });
+        handleCobrosRealizados(row);
         break;
       case 'anular':
         setMotivo('');
@@ -115,6 +128,44 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
         })();
         break;
     }
+  };
+
+  const handleCobrar = async (row) => {
+    try {
+      if (!row.id_fkguia_factura) {
+        toast.error('Esta factura no tiene guía asociada para cobrar');
+        return;
+      }
+
+      // Verificar que la caja esté aperturada
+      const cajaVal = await cajaService.validarCaja();
+      if (!cajaVal || !cajaVal.success) {
+        toast.error(cajaVal?.message || 'Error al validar la caja');
+        return;
+      }
+      if (!cajaVal.id_caja) {
+        toast.error('No tiene una caja aperturada. Debe aperturar una caja primero.');
+        return;
+      }
+
+      const guia = { id_guia: row.id_fkguia_factura, numero_guia_final: row.numero_guia, numero_guia: row.numero_guia };
+      setSelectedCajaId(cajaVal.id_caja);
+      setFacturaDataPreloaded(row);
+      setSelectedGuiaCobrar(guia);
+      setCobrarModalOpen(true);
+    } catch (err) {
+      console.error('Error verificando la factura para cobrar:', err);
+      toast.error('Error verificando la factura para cobrar');
+    }
+  };
+
+  const handleCobrosRealizados = (row) => {
+    if (!row.id_fkguia_factura) {
+      toast.error('Esta factura no tiene guía asociada');
+      return;
+    }
+    setSelectedGuiaCobros({ id_guia: row.id_fkguia_factura, numero_guia_final: row.numero_guia, numero_guia: row.numero_guia });
+    setCobrosModalOpen(true);
   };
 
   const confirmarAnulacion = async () => {
@@ -491,6 +542,24 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
         url={pdfUrl}
         title={pdfTitle}
       />
+
+      {cobrarModalOpen && selectedGuiaCobrar && (
+        <CobrarFacturaModal
+          guia={selectedGuiaCobrar}
+          facturaDataPreloaded={facturaDataPreloaded}
+          cajaId={selectedCajaId}
+          onClose={() => { setCobrarModalOpen(false); setSelectedGuiaCobrar(null); setFacturaDataPreloaded(null); setSelectedCajaId(null); }}
+          onSuccess={onReload}
+        />
+      )}
+
+      {cobrosModalOpen && selectedGuiaCobros && (
+        <CobrosRealizadosModal
+          guia={selectedGuiaCobros}
+          onClose={() => { setCobrosModalOpen(false); setSelectedGuiaCobros(null); }}
+          onUpdate={onReload}
+        />
+      )}
     </div>
   );
 };
