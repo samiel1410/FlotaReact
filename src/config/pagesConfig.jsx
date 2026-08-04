@@ -1047,11 +1047,11 @@ export const PAGES_CONFIG = {
                 params.append('tipoA4', 'si');
                 params.append('tipoAux', 'no');
                 const pdfRes = await fetch('/php/GenerarArchvio.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() });
-                const pdfData = await pdfRes.json();
+                const pdfBlob = await pdfRes.blob();
+                const pdfText = await pdfBlob.text();
                 toast.dismiss('rep-toast');
-                if (pdfData.success) {
-                  const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-                  window.open(`${baseUrl}/php/tmp/${pdfData.ruta}`, '_blank');
+                if (pdfText.startsWith('%PDF')) {
+                  window.open(URL.createObjectURL(pdfBlob), '_blank');
                 } else {
                   toast.error('Error al generar el PDF');
                 }
@@ -1241,11 +1241,11 @@ export const PAGES_CONFIG = {
                 params.append('tipoA4', 'si');
                 params.append('tipoAux', 'no');
                 const pdfRes = await fetch('/php/GenerarArchvio.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() });
-                const pdfData = await pdfRes.json();
+                const pdfBlob = await pdfRes.blob();
+                const pdfText = await pdfBlob.text();
                 toast.dismiss('rep-toast-cobros');
-                if (pdfData.success) {
-                  const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-                  window.open(`${baseUrl}/php/tmp/${pdfData.ruta}`, '_blank');
+                if (pdfText.startsWith('%PDF')) {
+                  window.open(URL.createObjectURL(pdfBlob), '_blank');
                 } else {
                   toast.error('Error al generar el PDF');
                 }

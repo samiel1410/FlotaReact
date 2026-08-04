@@ -78,7 +78,7 @@ export const BuscarGuiaOficinaPage = () => {
 
   const handleNumeroGuiaChange = (e) => {
     const raw = e.target.value;
-    const digits = raw.replace(/\D/g, '').slice(0, 14);
+    const digits = raw.replace(/\D/g, '').slice(0, 15);
     let formatted = '';
     for (let i = 0; i < digits.length; i++) {
       if (i === 3 || i === 6) formatted += '-';
@@ -102,18 +102,24 @@ export const BuscarGuiaOficinaPage = () => {
 
       const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
       const res = await fetch(phpUrl);
-      
+
       toast.dismiss('pdf-guia');
-      
+
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
-      const data = await res.json();
-      
-      if (data.success && data.ruta) {
+      const blob = await res.blob();
+      const text = await blob.text();
+
+      if (text.startsWith('%PDF')) {
         setPdfTitle(`Ticket Guía ${guia.numero_guia_final || guia.id_guia}`);
-        setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}`);
+        setPdfUrl(URL.createObjectURL(blob));
         setPdfModalOpen(true);
       } else {
-        toast.error(data.error || 'No se pudo generar el ticket');
+        let mensaje = 'No se pudo generar el ticket';
+        try {
+          const data = JSON.parse(text);
+          mensaje = data.error || data.mensaje || mensaje;
+        } catch (e) { /* no es JSON */ }
+        toast.error(mensaje);
       }
     } catch (error) {
       toast.dismiss('pdf-guia');
@@ -143,12 +149,18 @@ export const BuscarGuiaOficinaPage = () => {
       toast.dismiss('reimp-guia');
 
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
-      const data = await res.json();
+      const blob = await res.blob();
+      const text = await blob.text();
 
-      if (data.success && data.ruta) {
-        window.open(`${CONFIG.PHP_URL}/tmp/${data.ruta}`, '_blank', 'width=500,height=700');
+      if (text.startsWith('%PDF')) {
+        window.open(URL.createObjectURL(blob), '_blank', 'width=500,height=700');
       } else {
-        toast.error(data.error || 'No se pudo generar la reimpresión');
+        let mensaje = 'No se pudo generar la reimpresión';
+        try {
+          const data = JSON.parse(text);
+          mensaje = data.error || data.mensaje || mensaje;
+        } catch (e) { /* no es JSON */ }
+        toast.error(mensaje);
       }
     } catch (error) {
       toast.dismiss('reimp-guia');

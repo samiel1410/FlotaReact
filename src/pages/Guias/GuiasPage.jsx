@@ -135,66 +135,58 @@ export const GuiasPage = () => {
     setPrintSelectorOpen(true);
   };
 
-  // Botón GUIA del selector → guiaPdfImpresion.php
-  const handlePrintGuia = async () => {
-    const item = selectedPrintItem;
-    setPrintSelectorOpen(false);
+  // Los PHP de impresión devuelven el PDF binario directo (no JSON con ruta).
+  // Si el PHP falla, responde JSON {success:false}; lo detectamos y mostramos el error.
+  const openPhpPdf = async (phpUrl, titulo) => {
     try {
-      const idUsuario = user?.id_usuario || 0;
-      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
       const res = await fetch(phpUrl);
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
-      const data = await res.json();
-      if (!data.success || !data.ruta) { toast.error(data.error || 'Error generando PDF'); return; }
-      setPdfTitle(`Imprimir Guía ${item.numero_guia_final || item.id_guia}`);
-      setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}`);
+      const blob = await res.blob();
+      const text = await blob.text();
+      if (!text.startsWith('%PDF')) {
+        let mensaje = 'El servidor no devolvió un PDF válido';
+        try {
+          const data = JSON.parse(text);
+          mensaje = data.error || data.mensaje || mensaje;
+        } catch (e) { /* no es JSON */ }
+        toast.error(mensaje);
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      setPdfTitle(titulo);
+      setPdfUrl(url);
       setPdfShouldShowPrint(true);
       setPdfModalOpen(true);
     } catch (err) {
-      console.error('Error imprimiendo guía:', err);
-      toast.error('No se pudo generar el PDF de guía');
+      console.error('Error generando PDF:', err);
+      toast.error('No se pudo generar el PDF');
     }
+  };
+
+  // Botón GUIA del selector → guiaPdfImpresion.php
+  const handlePrintGuia = () => {
+    const item = selectedPrintItem;
+    setPrintSelectorOpen(false);
+    const idUsuario = user?.id_usuario || 0;
+    const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
+    openPhpPdf(phpUrl, `Imprimir Guía ${item.numero_guia_final || item.id_guia}`);
   };
 
   // Botón QR del selector → qrPdf.php
-  const handlePrintQR = async () => {
+  const handlePrintQR = () => {
     const item = selectedPrintItem;
     setPrintSelectorOpen(false);
-    try {
-      const phpUrl = `${CONFIG.PHP_URL}/qrPdf.php?id_guia=${encodeURIComponent(item.id_guia)}`;
-      const res = await fetch(phpUrl);
-      if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
-      const data = await res.json();
-      if (!data.success || !data.ruta) { toast.error(data.error || 'Error generando QR'); return; }
-      setPdfTitle(`QR Guía ${item.numero_guia_final || item.id_guia}`);
-      setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}`);
-      setPdfShouldShowPrint(true);
-      setPdfModalOpen(true);
-    } catch (err) {
-      console.error('Error imprimiendo QR:', err);
-      toast.error('No se pudo generar el PDF de QR');
-    }
+    const phpUrl = `${CONFIG.PHP_URL}/qrPdf.php?id_guia=${encodeURIComponent(item.id_guia)}`;
+    openPhpPdf(phpUrl, `QR Guía ${item.numero_guia_final || item.id_guia}`);
   };
 
   // Botón TICKET del selector → ticketPdf.php
-  const handlePrintTicket = async () => {
+  const handlePrintTicket = () => {
     const item = selectedPrintItem;
     setPrintSelectorOpen(false);
-    try {
-      const idUsuario = user?.id_usuario || 0;
-      const phpUrl = `${CONFIG.PHP_URL}/ticketPdf.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
-      const res = await fetch(phpUrl);
-      if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
-      const data = await res.json();
-      if (!data.success || !data.ruta) { toast.error(data.error || 'Error generando Ticket'); return; }
-      setPdfTitle(`Ticket Guía ${item.numero_guia_final || item.id_guia}`);
-      setPdfUrl(`${CONFIG.PHP_URL}/tmp/${data.ruta}`);
-      setPdfShouldShowPrint(true);
-      setPdfModalOpen(true);
-    } catch (err) {
-      console.error('Error imprimiendo Ticket:', err);
-      toast.error('No se pudo generar el PDF de Ticket');
-    }
+    const idUsuario = user?.id_usuario || 0;
+    const phpUrl = `${CONFIG.PHP_URL}/ticketPdf.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
+    openPhpPdf(phpUrl, `Ticket Guía ${item.numero_guia_final || item.id_guia}`);
   };
 
   const handleEdit = async (item) => {
