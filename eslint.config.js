@@ -44,6 +44,7 @@ export default [
       'react-hooks/preserve-manual-memoization': 'warn',
       'react-hooks/static-components': 'warn',
       'react-hooks/incompatible-library': 'warn',
+      'react-hooks/refs': 'warn',
       'react/prop-types': 'off',
       'react/react-in-jsx-scope': 'off',
       'no-empty': ['warn', { allowEmptyCatch: true }],

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../../../config/axios';
 import { getFormasPago } from '../../../services/formapago.service';
-import { GuiaService } from '../../../services/guia.service';
 
 /**
  * Modal para cobrar una factura asociada a una guía.

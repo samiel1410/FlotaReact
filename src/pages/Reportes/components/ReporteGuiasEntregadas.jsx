@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../config/axios';
 import { reportesService } from '../../../services/reportes.service';
-import ReportProgressIndicator from '../../../components/common/ReportProgressIndicator';
 import toast from 'react-hot-toast';
 
 const ReporteGuiasEntregadas = () => {
@@ -14,8 +13,6 @@ const ReporteGuiasEntregadas = () => {
   const [datos, setDatos] = useState([]);
   const [cargando, setCargando] = useState(false);
   const [oficinas, setOficinas] = useState([]);
-  const [progress, setProgress] = useState({ percent: 0, message: '' });
-  const [showProgress, setShowProgress] = useState(false);
 
   useEffect(() => {
     cargarOficinas();
@@ -43,16 +40,10 @@ const ReporteGuiasEntregadas = () => {
         oficina: filtros.oficina
       };
 
-      setShowProgress(true);
-      setProgress({ percent: 0, message: 'Encolando reporte...' });
-
       const result = await reportesService.enqueueAndWait(
         'guias_entregadas',
-        params,
-        (percent, message) => setProgress({ percent, message })
+        params
       );
-
-      setShowProgress(false);
 
       if (result?.data && Array.isArray(result.data)) {
         setDatos(result.data);
@@ -63,16 +54,12 @@ const ReporteGuiasEntregadas = () => {
     } catch (error) {
       console.error('Error cargando reporte:', error);
       toast.error(error.message || 'Error al cargar el reporte');
-      setShowProgress(false);
     } finally {
       setCargando(false);
     }
   };
 
   const generarPDF = async () => {
-    setShowProgress(true);
-    setProgress({ percent: 0, message: 'Encolando reporte PDF...' });
-
     try {
       const params = {
         estado: filtros.estado,
@@ -83,11 +70,8 @@ const ReporteGuiasEntregadas = () => {
 
       const result = await reportesService.enqueueAndWait(
         'guias_entregadas_pdf',
-        params,
-        (percent, message) => setProgress({ percent, message })
+        params
       );
-
-      setShowProgress(false);
 
       if (result?.html) {
         // Abrir en nueva ventana para impresión
@@ -105,7 +89,6 @@ const ReporteGuiasEntregadas = () => {
     } catch (error) {
       console.error('Error generando PDF:', error);
       toast.error(error.message || 'Error al generar PDF');
-      setShowProgress(false);
     }
   };
 

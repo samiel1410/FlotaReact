@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { useListado } from '../../hooks/useListado';
 
@@ -501,7 +501,6 @@ const TabContent = ({ tab }) => {
   const [filters, setFilters] = useState({});
   const [selected, setSelected] = useState(new Set());
   const [currentPage, setCurrentPage] = useState(1);
-  const [showCancelBtns, setShowCancelBtns] = useState({});
 
   const buildCustomParams = useCallback(
     (page, size) => tab.customParams(page, size, filters),

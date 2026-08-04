@@ -22,9 +22,7 @@ const ReagendamientosPage = lazy(() => import('./pages/Boleteria/Reagendamientos
 const RecaudadoPage = lazy(() => import('./pages/Recaudado/RecaudadoPage').then(m => ({ default: m.RecaudadoPage })));
 const AsientosPage = lazy(() => import('./pages/Asientos/AsientosPage').then(m => ({ default: m.AsientosPage })));
 const MonitoreoPage = lazy(() => import('./pages/Monitoreo/MonitoreoPage').then(m => ({ default: m.MonitoreoPage })));
-const AgenciasPage = lazy(() => import('./pages/Agencias/AgenciasPage').then(m => ({ default: m.AgenciasPage })));
 const BusesPage = lazy(() => import('./pages/Buses/BusesPage').then(m => ({ default: m.BusesPage })));
-const AuditoriaRutasPage = lazy(() => import('./pages/AuditoriaRutas/AuditoriaRutasPage').then(m => ({ default: m.AuditoriaRutasPage })));
 const EstadisticasPage = lazy(() => import('./pages/Estadisticas/EstadisticasPage').then(m => ({ default: m.EstadisticasPage })));
 const ConfigRutasPage = lazy(() => import('./pages/ConfigRutas/ConfigRutasPage').then(m => ({ default: m.ConfigRutasPage })));
 const ImpresorasPage = lazy(() => import('./pages/Impresoras/ImpresorasPage').then(m => ({ default: m.ImpresorasPage })));
@@ -36,8 +34,6 @@ const CobrosPage = lazy(() => import('./pages/Cobros/CobrosPage').then(m => ({ d
 const FacturacionPage = lazy(() => import('./pages/Facturacion/FacturacionPage').then(m => ({ default: m.FacturacionPage })));
 const CajasComprobantesPage = lazy(() => import('./pages/CajasComprobantes/CajasComprobantesPage').then(m => ({ default: m.CajasComprobantesPage })));
 const AnulacionesPage = lazy(() => import('./pages/Anulaciones/AnulacionesPage').then(m => ({ default: m.AnulacionesPage })));
-const DespachoViajePage = lazy(() => import('./pages/DespachoViaje/DespachoViajePage').then(m => ({ default: m.DespachoViajePage })));
-const ReportesBoleteriaPage = lazy(() => import('./pages/ReportesBoleteria/ReportesBoleteriaPage').then(m => ({ default: m.ReportesBoleteriaPage })));
 const VerificacionesPage = lazy(() => import('./pages/Verificaciones/VerificacionesPage').then(m => ({ default: m.VerificacionesPage })));
 const AnulacionBoleteriaPage = lazy(() => import('./pages/AnulacionBoleteria/AnulacionBoleteriaPage').then(m => ({ default: m.AnulacionBoleteriaPage })));
 const BuserosPageCustom = lazy(() => import('./pages/Buseros/BuserosPage').then(m => ({ default: m.BuserosPage })));

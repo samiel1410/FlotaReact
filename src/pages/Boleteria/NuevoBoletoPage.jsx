@@ -16,8 +16,6 @@ import Swal from 'sweetalert2';
 import { BoleteriaService } from '../../services/boleteria.service';
 import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import { api, clienteApi } from '../../config/axios';
-import { CONFIG } from '../../config/env';
-import axios from 'axios';
 import { useSocket } from '../../hooks/useSocket';
 import './NuevoBoletoPage.css';
 
@@ -61,7 +59,6 @@ export const NuevoBoletoPage = () => {
   const [discoBus, setDiscoBus] = useState('');
   const [idBus, setIdBus] = useState('');
   const [idChofer, setIdChofer] = useState('');
-  const [idAuxiliar, setIdAuxiliar] = useState('');
   const [cedulaChofer, setCedulaChofer] = useState('');
   const [nombreChofer, setNombreChofer] = useState('');
   const [horaViaje, setHoraViaje] = useState('');
@@ -166,7 +163,6 @@ export const NuevoBoletoPage = () => {
     cajaCheckRef.current = true;
     const validar = async () => {
       try {
-        const user = getSessionUser();
         const res = await cajaBoleteriaService.validarCaja();
         const cajaId = res.id_caja || res.data?.id_caja;
 
@@ -241,7 +237,6 @@ export const NuevoBoletoPage = () => {
   const handleAsientoOcupadoClick = (ocupado) => {
     if (!ocupado) return;
     const destino = destinosViaje.find(d => String(d.id_sub_rutas) === String(ocupado.id_destino_boleto));
-    const isGreen = ocupado.orden_destino != null && ocupado.orden_actual != null && ocupado.orden_destino <= ocupado.orden_actual;
     Swal.fire({
       title: `Asiento ${ocupado.asiento_boleto_detalle}`,
       html: `
@@ -758,10 +753,6 @@ export const NuevoBoletoPage = () => {
       });
       return;
     }
-
-    // Obtener nombre del usuario actual para el socket
-    const currentUser = getSessionUser();
-    const nombreUsuario = currentUser?.nombre_usuario || 'Usuario';
 
     if (formData.asientosSeleccionados.includes(asientoId)) {
       // DESELECCIONAR - Liberar el bloqueo del asiento

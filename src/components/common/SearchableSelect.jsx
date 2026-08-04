@@ -120,12 +120,9 @@ export const SearchableSelect = ({
     label: opt.label ?? opt.nombre ?? '',
   }));
 
-  let selectedOption = null;
-  if (isMulti) {
-    selectedOption = formattedOptions.filter(o => Array.isArray(value) && value.includes(o.value));
-  } else {
-    selectedOption = formattedOptions.find(o => o.value === value) || null;
-  }
+  const selectedOption = isMulti
+    ? formattedOptions.filter(o => Array.isArray(value) && value.includes(o.value))
+    : formattedOptions.find(o => o.value === value) || null;
 
   return (
     <Select

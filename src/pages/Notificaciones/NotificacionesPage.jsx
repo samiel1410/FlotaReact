@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../config/axios';
-import Swal from 'sweetalert2';
 import { NotificacionModal } from './components/NotificacionModal';
 import { useAuth } from '../../hooks/useAuth';
 

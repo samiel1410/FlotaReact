@@ -11,8 +11,6 @@ import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
 import cajaService from '../../services/caja.service';
 import { GuiaService } from '../../services/guia.service';
 import { api } from '../../config/axios';
-import axios from 'axios';
-
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -69,7 +67,7 @@ export const NuevaGuiaPage = () => {
   const isEditing = !!idGuiaEdit;
 
   // ── Combos ───────────────────────────────────────────
-  const [sucursales, setSucursales] = useState([]);
+  const [, setSucursales] = useState([]);
   const [destinos, setDestinos] = useState([]);
   const [tiposEnvio, setTiposEnvio] = useState([]);
   const [selectedTipoEnvioObj, setSelectedTipoEnvioObj] = useState(null);
@@ -757,6 +755,7 @@ export const NuevaGuiaPage = () => {
           try {
             const idUsuario = user?.id_usuario || 0;
             const generatorUrl = `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}`;
+            const fullPdfUrl = `${window.location.origin}${generatorUrl}`;
 
             if (metodoImpresion === 'directa') {
               try {

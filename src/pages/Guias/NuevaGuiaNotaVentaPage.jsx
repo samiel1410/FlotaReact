@@ -11,7 +11,6 @@ import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
 import cajaNotaVentaService from '../../services/cajaNotaVenta.service';
 import { GuiaNotaVentaService as GuiaService } from '../../services/guiaNotaVenta.service';
 import { api } from '../../config/axios';
-import axios from 'axios';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -757,6 +756,7 @@ export const NuevaGuiaNotaVentaPage = () => {
           try {
             const idUsuario = user?.id_usuario || 0;
             const generatorUrl = `/php/guiaNotaVentaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}`;
+            const fullPdfUrl = `${window.location.origin}${generatorUrl}`;
 
             if (metodoImpresion === 'directa') {
               try {

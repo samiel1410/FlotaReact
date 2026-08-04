@@ -7,7 +7,7 @@ const NewProvinciaForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
   const [loading, setLoading] = useState(false);
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm({
+  const { register, handleSubmit, formState: { errors } } = useForm({
     defaultValues: {
       nombre_provincia: initialData?.nombre_provincia || initialData?.pro_nombre || '',
     }

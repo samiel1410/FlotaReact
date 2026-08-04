@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { api } from '../../../config/axios';
 import ProvinciaSelect from '../../../components/common/ProvinciaSelect';

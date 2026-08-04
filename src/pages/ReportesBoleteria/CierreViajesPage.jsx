@@ -4,12 +4,6 @@ import { reportesService } from '../../services/reportes.service';
 import toast from 'react-hot-toast';
 
 const fmt = (n) => parseFloat(n || 0).toFixed(2);
-const fmtDate = (d) => {
-  if (!d) return '-';
-  const dt = new Date(d);
-  return dt.toLocaleDateString('es-EC', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-};
-const fmtHora = (h) => (h ? h.substring(0, 5) : '-');
 
 export const CierreViajesPage = () => {
   const hoy = new Date().toISOString().split('T')[0];

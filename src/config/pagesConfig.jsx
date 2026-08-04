@@ -355,7 +355,7 @@ export const PAGES_CONFIG = {
           tooltip: 'Hoja de Vida',
           color: 'text-red-500 hover:border-red-200 hover:bg-red-50',
           modal: (row) => `/php/socio/hoja_vida_personal.php?id_personal=${row.id_personal}`,
-          handler: (row) => { }
+          handler: () => { }
         }
       ]
     },

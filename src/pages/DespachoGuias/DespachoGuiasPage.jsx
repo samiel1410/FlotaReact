@@ -235,7 +235,6 @@ export const DespachoGuiasPage = () => {
     if (!selectedDespacho) return;
     setShowBusquedaModal(false);
     // Confirm and add
-    const nombreOficina = selectedDespacho.nombre_destino || '';
     agregarGuia(guia);
   };
 

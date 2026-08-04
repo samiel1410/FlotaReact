@@ -3,7 +3,7 @@ import { despachoConvenioService } from '../../../services/despachoConvenio.serv
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
-export const BusquedaGuiaDespachoModal = memo(({ idDespachoMaestro, bus, onClose, onSelect }) => {
+export const BusquedaGuiaDespachoModal = memo(({ bus, onClose, onSelect }) => {
   const [guias, setGuias] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);

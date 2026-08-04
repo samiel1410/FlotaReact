@@ -40,11 +40,9 @@ export const ConfiguracionPage = () => {
     }
   }, []);
 
-  const { register, handleSubmit, setValue, getValues, watch, reset } = useForm({
+  const { register, handleSubmit, setValue, getValues, reset } = useForm({
     values: configData
   });
-
-  const jobAutoActivo = !!watch('ejecutar_job_sri_automatico');
 
   useEffect(() => {
     const fetchConfig = async () => {
@@ -445,6 +443,7 @@ export const ConfiguracionPage = () => {
         </div>
 
         <div className="p-6">
+          {/* eslint-disable-next-line react-hooks/refs -- falso positivo: handleSave es event handler de RHF */}
           <form onSubmit={handleSubmit(handleSave)} className="space-y-6">
             {/* ════ TAB GENERAL ════ */}
             <div className={activeTab === 'general' ? 'grid grid-cols-1 md:grid-cols-2 gap-8' : 'hidden'}>

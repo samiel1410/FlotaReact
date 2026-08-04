@@ -15,6 +15,7 @@ import cajaService from '../../services/caja.service';
 import MotivoModal from '../../components/common/MotivoModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { PrintSelectorModal } from './components/PrintSelectorModal';
+import Swal from 'sweetalert2';
 
 export const GuiasPage = () => {
   const { user, userRole } = useAuth();

@@ -22,7 +22,7 @@ const validarCajaAbierta = async () => {
   }
 };
 
-export const NuevaGuiaCompaniaForm = ({ initialData, onSubmit, onCancel }) => {
+export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');

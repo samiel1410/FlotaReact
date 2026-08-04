@@ -39,7 +39,6 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
   });
 
   // Watch for cascading combo values
-  const selectedSucursal = watch('id_fksucursal_usuario');
   const selectedProvincia = watch('id_fkprovincia_usuario');
 
   useEffect(() => {

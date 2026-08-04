@@ -1,10 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
-import Modal from '../../../components/common/Modal';
-import toast from 'react-hot-toast';
 import cajaService from '../../../services/cajaNotaVenta.service';
-import { useAuth } from '../../../hooks/useAuth';
+import toast from 'react-hot-toast';
 import { AperturaCajaForm } from '../../CajaBoleteria/components/AperturaCajaForm';
 import { CierreCajaForm } from '../../CajaBoleteria/components/CierreCajaForm';
 import InfoComprobanteModal from '../../../components/common/InfoComprobanteModal';
@@ -16,7 +14,6 @@ import ConfirmationModal from '../../../components/common/ConfirmationModal';
  * listado, apertura, cierre, comprobante, detalle, editar, arqueo, solicitudes.
  */
 export const CajaNotaVentaContent = () => {
-  const { user } = useAuth();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -29,7 +26,7 @@ export const CajaNotaVentaContent = () => {
   const [showDetalle, setShowDetalle] = useState(false);
   const [detalleData, setDetalleData] = useState([]);
   const [detalleLoading, setDetalleLoading] = useState(false);
-  const [detalleCajaId, setDetalleCajaId] = useState(null);
+  const [, setDetalleCajaId] = useState(null);
   const [detalleCajaNum, setDetalleCajaNum] = useState('');
 
   // Modales React propios

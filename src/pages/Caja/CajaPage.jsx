@@ -5,7 +5,6 @@ import 'react-datepicker/dist/react-datepicker.css';
 import cajaService from '../../services/caja.service';
 import { CajaGrid } from './CajaGrid';
 import Modal from '../../components/common/Modal';
-import { CajaForm } from './components/CajaForm';
 import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
 import { CierreCajaForm } from '../CajaBoleteria/components/CierreCajaForm';
 import InfoComprobanteModal from '../../components/common/InfoComprobanteModal';
@@ -19,7 +18,6 @@ export const CajaPage = () => {
   const [openCaja, setOpenCaja] = useState(null);
 
   // Modales React
-  const [showModal, setShowModal] = useState(false);
   const [showApertura, setShowApertura] = useState(false);
   const [showCierre, setShowCierre] = useState(false);
   const [cajaParaCierre, setCajaParaCierre] = useState(null);

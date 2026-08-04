@@ -159,7 +159,7 @@ export const EstadisticasPage = () => {
                   {data?.estadosSri?.length > 0 ? (
                     <ResponsiveContainer width="100%" height={230} minWidth={200}>
                       <PieChart>
-                        <Pie data={data.estadosSri} dataKey="cantidad" nameKey="estado" cx="50%" cy="50%" outerRadius={80} innerRadius={50} label={({ estado, percent }) => `${(percent * 100).toFixed(0)}%`}>
+                        <Pie data={data.estadosSri} dataKey="cantidad" nameKey="estado" cx="50%" cy="50%" outerRadius={80} innerRadius={50} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
                           {data.estadosSri.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                         </Pie>
                         <Tooltip />
@@ -182,7 +182,7 @@ export const EstadisticasPage = () => {
                   {data?.ventasDestino?.length > 0 ? (
                     <ResponsiveContainer width="100%" height={230} minWidth={200}>
                       <PieChart>
-                        <Pie data={data.ventasDestino} dataKey="total" nameKey="label" cx="50%" cy="50%" outerRadius={90} label={({ label, percent }) => `${(percent * 100).toFixed(0)}%`}>
+                        <Pie data={data.ventasDestino} dataKey="total" nameKey="label" cx="50%" cy="50%" outerRadius={90} label={({ percent }) => `${(percent * 100).toFixed(0)}%`}>
                           {data.ventasDestino.map((_, i) => <Cell key={i} fill={COLORS[(i + 3) % COLORS.length]} />)}
                         </Pie>
                         <Tooltip formatter={(v) => `$${parseFloat(v).toFixed(2)}`} />

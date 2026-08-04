@@ -8,61 +8,6 @@ import Modal from '../../components/common/Modal';
 import { AperturaCajaForm } from './components/AperturaCajaForm';
 import { CierreCajaForm } from './components/CierreCajaForm';
 
-const DENOMINACIONES = [
-  { key: '100', label: 'Billetes $100', field: '100' },
-  { key: '50', label: 'Billetes $50', field: '50' },
-  { key: '20', label: 'Billetes $20', field: '20' },
-  { key: '10', label: 'Billetes $10', field: '10' },
-  { key: '5', label: 'Billetes $5', field: '5' },
-  { key: '1', label: 'Billetes $1', field: '1' },
-  { key: 'moneda_1d', label: 'Monedas $1', field: 'moneda_caja' },
-  { key: 'moneda_50', label: 'Monedas $0.50', field: 'moneda_50' },
-  { key: 'moneda_25', label: 'Monedas $0.25', field: 'moneda_25' },
-  { key: 'moneda_10', label: 'Monedas $0.10', field: 'moneda_10' },
-  { key: 'moneda_5', label: 'Monedas $0.05', field: 'moneda_5' },
-  { key: 'moneda_01', label: 'Monedas $0.01', field: 'moneda_1' },
-];
-
-const multipliers = {
-  '100': 100, '50': 50, '20': 20, '10': 10, '5': 5, '1': 1,
-  'moneda_1d': 1, 'moneda_50': 0.50, 'moneda_25': 0.25,
-  'moneda_10': 0.10, 'moneda_5': 0.05, 'moneda_01': 0.01
-};
-
-const denomToHtml = (prefix) => DENOMINACIONES.map(d => `
-  <div style="flex:0 0 calc(50% - 4px)">
-    <label style="display:block;font-weight:bold;font-size:11px;margin-bottom:2px;color:#374151">${d.label}</label>
-    <input id="${prefix}-${d.key}" class="swal2-input" type="number" min="0" step="0.01" value="0"
-      style="width:100%;padding:6px 10px;font-size:13px;text-align:right" />
-  </div>`).join('');
-
-const denomPreConfirm = (prefix) => {
-  const formData = {};
-  DENOMINACIONES.forEach(d => {
-    formData[`${prefix}_${d.field}`] = parseFloat(document.getElementById(`${prefix}-${d.key}`)?.value || '0') || 0;
-  });
-  return formData;
-};
-
-const denomCalcular = (prefix) => {
-  let total = 0;
-  DENOMINACIONES.forEach(d => {
-    const el = document.getElementById(`${prefix}-${d.key}`);
-    if (el) total += (parseFloat(el.value) || 0) * (multipliers[d.key] || 1);
-  });
-  const totalEl = document.getElementById(`${prefix}-total`);
-  if (totalEl) totalEl.value = total.toFixed(2);
-};
-
-const denomDidOpen = (prefix) => {
-  const recalcular = () => denomCalcular(prefix);
-  DENOMINACIONES.forEach(d => {
-    const el = document.getElementById(`${prefix}-${d.key}`);
-    if (el) { el.addEventListener('input', recalcular); el.addEventListener('change', recalcular); }
-  });
-  recalcular();
-};
-
 export const CajaBoleteriaPage = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -75,7 +20,6 @@ export const CajaBoleteriaPage = () => {
   const [showDetalle, setShowDetalle] = useState(false);
   const [showEditar, setShowEditar] = useState(false);
   const [detalleData, setDetalleData] = useState([]);
-  const [detalleLoading, setDetalleLoading] = useState(false);
   const [detalleCajaId, setDetalleCajaId] = useState(null);
 
   const [filterFecha, setFilterFecha] = useState(new Date());

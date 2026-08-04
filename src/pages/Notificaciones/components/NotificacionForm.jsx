@@ -1,14 +1,13 @@
 import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { api } from '../../../config/axios';
-import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 
 const inputClass = "w-full pl-3 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all";
 const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2";
 
 export const NotificacionForm = ({ onSuccess, onCancel }) => {
-  const { register, handleSubmit, formState: { errors }, watch, setValue } = useForm({
+  const { register, handleSubmit, formState: { errors }, watch } = useForm({
     defaultValues: { tipo_envio: 'rol', rol: '0', id_usuario: '' }
   });
   const tipoEnvio = watch('tipo_envio');

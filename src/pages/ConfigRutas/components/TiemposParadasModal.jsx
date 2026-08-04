@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
 
-const fl = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5";
-const fw = "w-full h-10 px-3 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800 disabled:bg-slate-50 disabled:text-slate-500";
-
 export const TiemposParadasModal = ({ open, onClose, route, subrutas, catalogoCantones, sucursales, onSave, saving }) => {
   const [origenes, setOrigenes] = useState([]);
   const [tiempos, setTiempos] = useState([]);

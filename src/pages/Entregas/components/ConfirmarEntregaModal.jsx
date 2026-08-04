@@ -57,18 +57,6 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
     }
   }, [cedula]);
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        setFotoBase64(evt.target.result);
-        setFotoPreview(URL.createObjectURL(file));
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   const handleCameraCapture = (dataUrl) => {
     setFotoBase64(dataUrl);
     setFotoPreview(dataUrl);

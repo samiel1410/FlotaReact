@@ -13,7 +13,7 @@ const comprobantesService = {
     try {
       const stored = localStorage.getItem('user');
       if (stored) return JSON.parse(stored);
-    } catch (_) { /* ignore */ }
+    } catch (e) { /* ignore */ }
     return null;
   },
 

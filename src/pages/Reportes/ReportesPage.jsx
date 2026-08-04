@@ -24,17 +24,6 @@ export const ReportesPage = () => {
   const [activeTab, setActiveTab] = useState('excel');
   const [modalReporte, setModalReporte] = useState(null);
 
-  // Constantes de animación para el modal grande
-  const fadeInStyle = {
-    animation: 'modalFadeIn 0.25s ease-out forwards',
-  };
-  const fadeInKeyframes = `
-    @keyframes modalFadeIn {
-      from { opacity: 0; transform: scale(0.95) translateY(10px); }
-      to { opacity: 1; transform: scale(1) translateY(0); }
-    }
-  `;
-
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto min-h-screen space-y-6">
       

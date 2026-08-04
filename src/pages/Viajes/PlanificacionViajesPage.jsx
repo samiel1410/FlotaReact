@@ -57,20 +57,6 @@ export const PlanificacionViajesPage = () => {
 
   useEffect(() => { cargarPlanificacion(); }, [cargarPlanificacion]);
 
-  // Obtener valor para un día específico desde los datos
-  const getValor = (row, diaKey) => {
-    if (editCache[`${row.id_ruta}_${row.hora}_${diaKey}`] !== undefined) {
-      return editCache[`${row.id_ruta}_${row.hora}_${diaKey}`];
-    }
-    // Usar el campo específico de bus por día (bus_lunes, bus_martes, etc.)
-    const tieneKey = `tiene_${diaKey}`;
-    const busKey = `bus_${diaKey}`;
-    if (row[tieneKey] == 1) {
-      return row[busKey] || '✓';
-    }
-    return '';
-  };
-
   const handleChange = (row, diaKey, value) => {
     const key = `${row.id_ruta}_${row.hora}_${diaKey}`;
     setEditCache(c => ({ ...c, [key]: value }));
@@ -188,7 +174,6 @@ export const PlanificacionViajesPage = () => {
                       <td className="px-3 py-2 text-center font-black text-slate-700">{row.hora || '-'}</td>
                       <td className="px-3 py-2 font-semibold text-slate-700 text-[11px]">{row.ruta || '-'}</td>
                       {DIAS.map(dia => {
-                        const val = getValor(row, dia);
                         const isEdited = editCache[`${row.id_ruta}_${row.hora}_${dia}`] !== undefined;
                         const celKey = `${row.id_ruta}_${row.hora}_${dia}`;
                         return (

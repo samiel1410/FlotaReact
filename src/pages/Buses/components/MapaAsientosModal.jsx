@@ -43,7 +43,7 @@ const MapaAsientosModal = ({ bus, isOpen, onClose, onSaved }) => {
         const parsed = typeof bus.mapa_asientos === 'string' ? JSON.parse(bus.mapa_asientos) : bus.mapa_asientos;
         if (parsed?.pisos) {
           const nuevo = JSON.parse(JSON.stringify(parsed));
-          nuevo.pisos = nuevo.pisos.map((piso, idx) => {
+          nuevo.pisos = nuevo.pisos.map((piso) => {
             const normalizado = {};
             for (const [key, val] of Object.entries(piso)) {
               const match = key.match(/^(?:cell|mc)_(\d+)_(\d+)_(\d+)$/);

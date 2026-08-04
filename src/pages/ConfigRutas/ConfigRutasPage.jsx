@@ -86,16 +86,6 @@ export const ConfigRutasPage = () => {
     try { const r = await api.get('/sucursal/sucursalselect'); setSucursales(toArr(r.data?.data)); } catch {}
   }, []);
 
-  const fetchViajes = useCallback(async (idRuta) => {
-    if (!idRuta) { setViajes([]); return; }
-    setLoadingViajes(true);
-    try {
-      const res = await api.get(`/viajes/listado?id_ruta=${idRuta}&limit=50`);
-      setViajes(toArr(res.data?.data));
-    } catch { setViajes([]); }
-    finally { setLoadingViajes(false); }
-  }, []);
-
   useEffect(() => {
     (async () => {
       setLoading(true);

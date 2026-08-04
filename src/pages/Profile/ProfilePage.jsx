@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../config/axios';
-import toast from 'react-hot-toast';
 
 export const ProfilePage = () => {
   const { user, hasPermission, logout } = useAuth();

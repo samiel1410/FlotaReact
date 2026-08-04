@@ -17,7 +17,7 @@ import { GuiaService } from '../../../services/guia.service';
  *   un pago en la grilla con la forma de pago por defecto y el total
  * - El monto del pago automático se actualiza al cambiar el total
  */
-export const FormaPagoPanel = ({ detalles, convenio, onPagosChange, pagadoPor, onPagadoPorChange, defaultFormaPagoId, configTipoTarifa }) => {
+export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPorChange, defaultFormaPagoId }) => {
   const [formasPago, setFormasPago] = useState([]);
   const [pagos, setPagos] = useState([]);
   const autoDeletedRef = useRef(false);

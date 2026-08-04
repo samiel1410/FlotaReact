@@ -34,7 +34,7 @@ const configurarQZ = () => {
   qz.security.setSignaturePromise((toSign) => (resolve) => {
     api.get('/configuracion/sign-message', { params: { request: toSign } })
       .then(res => resolve(res.data))
-      .catch(err => resolve(null));
+      .catch(() => resolve(null));
   });
 };
 

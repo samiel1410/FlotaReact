@@ -5,7 +5,7 @@ import {
   flexRender,
 } from '@tanstack/react-table';
 
-export const CajaGrid = ({ data, loading, pagination, setPagination, totalRecords, onAction, idKey = 'id_caja', showIngresoEgreso = false }) => {
+export const CajaGrid = ({ data, loading, pagination, setPagination, totalRecords, onAction, showIngresoEgreso = false }) => {
   const columns = useMemo(() => [
     { header: '#', accessorKey: 'numero_caja', cell: info => <span className="font-semibold text-slate-800">{info.getValue() ?? '-'}</span> },
     { header: 'FECHA', accessorKey: 'fecha_caja', cell: info => {

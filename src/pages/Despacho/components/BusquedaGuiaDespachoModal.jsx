@@ -10,7 +10,6 @@ export const BusquedaGuiaDespachoModal = ({ idDespachoMaestro, bus, onClose, onS
   const [guias, setGuias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [numeroGuia, setNumeroGuia] = useState('');
-  const [selectedGuia, setSelectedGuia] = useState(null);
 
   const buscarGuias = async (page = 1) => {
     setLoading(true);

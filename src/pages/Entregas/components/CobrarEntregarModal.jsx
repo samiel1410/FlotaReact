@@ -168,9 +168,6 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
       }
       const { nombre_oficina } = userRes.data;
 
-      const numFactura = String(facturaData.numero_factura).padStart(9, '0');
-      const nombreFactura = `${facturaData.punto_emision_sucursal}-${facturaData.punto_emision_factura}-${numFactura}`;
-
       // 2. Crear comprobante de cobro
       const comprobantePayload = {
         id: '',

@@ -85,9 +85,6 @@ export const AperturaCajaForm = ({ initialData, isEditing = false, onSubmit, onC
     });
   };
 
-  const inputClass = "w-full h-10 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800 text-center font-bold";
-  const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1";
-
   const colorMap = {
     blue: 'bg-blue-50 border-blue-200 text-blue-700',
     purple: 'bg-purple-50 border-purple-200 text-purple-700',

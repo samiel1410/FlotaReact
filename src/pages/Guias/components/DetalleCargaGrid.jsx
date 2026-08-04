@@ -6,7 +6,7 @@ import { getIvaRate, desgloseItem } from '../../../utils/ivaUtils';
  * Columnas: CANT | TIPO ENVÍO | CONTENIDO | PESO | Precio Unit | Subtotal | Descuento | Tarifa | IVA | Total
  */
 
-export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlobalChange, costoEnvioPorDefecto, tiposEnvio = [], tipoEnvioId, isEditing = false, error, cobrarIvaGuia = true }) => {
+export const DetalleCargaGrid = ({ detalles, onChange, convenio, costoEnvioPorDefecto, tiposEnvio = [], tipoEnvioId, isEditing = false, error, cobrarIvaGuia = true }) => {
   const [nuevo, setNuevo] = useState({
     cantidad: 1,
     tipoEnvioId: tipoEnvioId || '',
@@ -68,18 +68,6 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, onDescuentoGlob
 
   const handleRemove = (id) => {
     onChange(detalles.filter(d => d.id !== id));
-  };
-
-  const handleUpdateField = (id, field, value) => {
-    const updated = detalles.map(d => {
-      if (d.id !== id) return d;
-      const newD = { ...d, [field]: field === 'precioUnitario' ? (parseFloat(sanitizeNum(value)) || 0) : value };
-      const rate = cobrarIvaGuia ? getIvaRate(newD.tipoEnvioId, tiposEnvio) : 0;
-      const porcDesc = convenio ? (convenio.porcentaje_descuento || convenio.descuento || 0) : 0;
-      const { subtotal, descuento, iva, total } = desgloseItem(newD.precioUnitario, newD.cantidad || 1, rate, porcDesc);
-      return { ...newD, subtotal, descuento, iva, total };
-    });
-    onChange(updated);
   };
 
   const inputClass = "w-full h-7 px-1.5 text-xs border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-indigo-400 bg-white text-slate-700 text-center";

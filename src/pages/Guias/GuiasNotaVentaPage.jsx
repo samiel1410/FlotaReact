@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { GuiasFilterPanel } from './components/GuiasFilterPanel';
 import { GuiasGrid } from './components/GuiasGrid';
 import { GuiaNotaVentaService as GuiaService } from '../../services/guiaNotaVenta.service';
@@ -14,9 +14,10 @@ import { SeguimientoGuiaModal } from './components/SeguimientoGuiaModal';
 import cajaNotaVentaService from '../../services/cajaNotaVenta.service';
 import MotivoModal from '../../components/common/MotivoModal';
 import { PrintSelectorModal } from './components/PrintSelectorModal';
+import Swal from 'sweetalert2';
 
 export const GuiasNotaVentaPage = () => {
-  const { user, userRole, hasPermission } = useAuth();
+  const { user, userRole } = useAuth();
   const [guias, setGuias] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);

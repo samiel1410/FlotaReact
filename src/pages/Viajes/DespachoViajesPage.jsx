@@ -173,7 +173,7 @@ export const DespachoViajesPage = () => {
                 qz.security.setSignaturePromise((toSign) => (resolve) => {
                   api.get('/configuracion/sign-message', { params: { request: toSign } })
                     .then(res => resolve(res.data))
-                    .catch(err => resolve(null));
+                    .catch(() => resolve(null));
                 });
               };
 
@@ -717,7 +717,7 @@ const OcupacionBar = ({ capacidad, ocupados }) => {
   return <div className="h-full rounded-full transition-all" style={{ width: pct + '%', background: color }} />;
 };
 
-const AsientosTable = ({ asientos, capacidad }) => {
+const AsientosTable = ({ asientos }) => {
   const ocupados = (asientos || []).filter((a) => a.ocupado || a.ocupado === 1 || a.pasajero);
   if (ocupados.length === 0) {
     return (

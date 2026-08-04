@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { api, clienteApi } from '../../../config/axios';
 import toast from 'react-hot-toast';
 
@@ -11,8 +11,7 @@ const TARIFAS = [
   { value: 'Gratis Cortesía', text: 'Gratis Cortesía' },
 ];
 
-export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, precioUnitario, onTotalesChange }) => {
-  const [editingField, setEditingField] = useState(null);
+export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, onTotalesChange }) => {
 
   const handleInputChange = (asiento, campo, valor) => {
     const nuevos = pasajeros.map(p => {

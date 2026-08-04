@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { GuiaService } from '../../../services/guia.service';
-import { api, clienteApi } from '../../../config/axios';
+import { clienteApi } from '../../../config/axios';
 import Modal from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
 
-export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioFound, remitenteId, onDestinatarioAutoFill, error }) => {
+export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioFound, onDestinatarioAutoFill, error }) => {
   const [busqueda, setBusqueda] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);

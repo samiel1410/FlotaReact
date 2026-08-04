@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import './BusVisualizer.css';
 
 const formatearTiempoBloqueo = (lockedAt, now) => {
@@ -17,11 +17,8 @@ export const BusVisualizer = ({
   onAsientoClick,
   onAsientoOcupadoClick,
   capacidad = 40,
-  pisos = 1,
   mapaAsientos = null,
-  discoBus = '',
   onCambiarBus,
-  totalVenta = 0,
   seatLockTimeoutMs = 15 * 60 * 1000  // 15 minutos por defecto
 }) => {
   // Timer para actualizar los tiempos de bloqueo cada segundo

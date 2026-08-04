@@ -8,7 +8,6 @@ export const MonitoreoPage = () => {
   const [activeUsers, setActiveUsers] = useState([]);
   const [loginHistory, setLoginHistory] = useState([]);
   const [lockedSeats, setLockedSeats] = useState([]);
-  const [selectedLockTab, setSelectedLockTab] = useState('users'); // 'users' o 'seats'
 
   useEffect(() => {
     if (!socket) return;

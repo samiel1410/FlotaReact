@@ -5,7 +5,7 @@ import { getIvaRate } from '../../../utils/ivaUtils';
  * Muestra: Subtotal12, Subtotal0, Subtotal, Descuento, Tarifa, IVA, Total
  * Incluye radio buttons de descuento: Normal, 50% Descuento, 100% Cortesía
  */
-export const TotalesPanel = ({ detalles, descuentoTipo, onDescuentoChange, tiposEnvio = [], cobrarIvaGuia = true }) => {
+export const TotalesPanel = ({ detalles, descuentoTipo, tiposEnvio = [], cobrarIvaGuia = true }) => {
   // Cálculos
   const subtotal12 = detalles.reduce((sum, d) => {
     const precioConIva = (d.precioUnitario || 0) * (d.cantidad || 1);

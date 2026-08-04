@@ -46,14 +46,6 @@ const colorMap = {
   slate:   'bg-slate-50   border-slate-200   text-slate-700',
 };
 
-const buildKeys = (prefix, denom) => ({
-  billetes: denom.map((d, i) => ({ ...BILLETES[i], key: `${prefix}_${[100,50,20,10,5,1][i]}_caja` })),
-  monedas:  denom.map((d, i) => ({
-    ...MONEDAS[i],
-    key: `${prefix}_moneda${['','_50','_25','_10','_5','_1'][i]}_caja`
-  })),
-});
-
 const APERTURA_BILLETES = BILLETES.map((d, i) => ({
   ...d, key: `apertura_${[100,50,20,10,5,1][i]}_caja`
 }));

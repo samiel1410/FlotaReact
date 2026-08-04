@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
-import { SeguimientoService } from '../../services/seguimiento.service';
 
 const PAGE_SIZE = 15;
 

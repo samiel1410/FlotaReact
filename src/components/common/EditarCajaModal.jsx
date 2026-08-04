@@ -11,7 +11,6 @@ export default function EditarCajaModal({
   onClose,
   onCancel,
   endpointApertura = '/caja/editarApertura',
-  endpointCierre = '/caja/editarCierre',
   endpointDetalle = '/caja/detalleCaja',
   onSuccess 
 }) {

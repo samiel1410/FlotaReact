@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../../config/axios';
-import { CONFIG } from '../../../config/env';
 import { reportesService } from '../../../services/reportes.service';
 import { GuiaService } from '../../../services/guia.service';
 import { AsientosService } from '../../../services/asientos.service';
@@ -133,11 +132,6 @@ function getRawValueGeneral(val, options, valueKey = 'id') {
   if (!val) return '';
   const found = options.find(o => String(o[valueKey] ?? o.id ?? o.value) === String(val));
   return found?.nombre || found?.label || found?.name || '';
-}
-
-/** Construye la URL base para descargas Excel */
-function getBaseUrl() {
-  return CONFIG.API_URL || api.defaults.baseURL || '';
 }
 
 // ─── COMPONENTE SELECT REUTILIZABLE ──────────────────────────────────────

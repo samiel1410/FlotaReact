@@ -2,7 +2,7 @@ import { useState } from 'react';
 import './GuiasGrid.css';
 
 export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onReload,
-  onViewPdf, onPrint, onEdit, onCharge, onCharges, onTrack, onAnular, onFacturar,
+  onViewPdf, onPrint, onCharge, onCharges, onTrack, onAnular, onFacturar,
   onNuevaGuia, onAnularSeleccionadas, onAnularPendientes
 }) => {
   const [activeMenu, setActiveMenu] = useState(null);

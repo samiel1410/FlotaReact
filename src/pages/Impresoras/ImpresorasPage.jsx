@@ -8,13 +8,11 @@ const getDailyKey = (type) => {
   return `print_count_${type}_${d}`;
 };
 
-let qzLoaded = false;
-
 const loadQZ = () => new Promise((resolve, reject) => {
-  if (window.qz) { qzLoaded = true; return resolve(); }
+  if (window.qz) return resolve();
   const s = document.createElement('script');
   s.src = '/qz.js';
-  s.onload = () => { qzLoaded = true; resolve(); };
+  s.onload = () => resolve();
   s.onerror = () => reject(new Error('No se pudo cargar qz.js'));
   document.head.appendChild(s);
 });
@@ -51,8 +49,8 @@ export const ImpresorasPage = () => {
   const [printerBoletos, setPrinterBoletos] = useState('');
   const [printerGuias, setPrinterGuias] = useState('');
   const [metodoImpresion, setMetodoImpresion] = useState('manual');
-  const [totalBoletos, setTotalBoletos] = useState(0);
-  const [totalGuias, setTotalGuias] = useState(0);
+  const [totalBoletos] = useState(0);
+  const [totalGuias] = useState(0);
   const [hoyBoletos, setHoyBoletos] = useState(0);
   const [hoyGuias, setHoyGuias] = useState(0);
   const [testing, setTesting] = useState(false);
