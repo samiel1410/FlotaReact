@@ -5,13 +5,6 @@ import { FacturasService } from '../services/facturas.service';
 import { PdfViewerModal } from '../../../components/PdfViewerModal';
 import { CONFIG } from '../../../config/env';
 
-const ESTADO_MAP = {
-  1: { label: 'En Proceso', class: 'bg-amber-50 text-amber-700 border-amber-200' },
-  2: { label: 'Anulado', class: 'bg-rose-50 text-rose-700 border-rose-200' },
-  3: { label: 'Pendiente', class: 'bg-slate-50 text-slate-600 border-slate-200' },
-  4: { label: 'Autorizado', class: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-};
-
 export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, onReload, id_usuario, rol_usuario }) => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [menuOpen, setMenuOpen] = useState(null);
@@ -277,7 +270,6 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
               </tr>
             ) : (
               data.map((row, idx) => {
-                const est = ESTADO_MAP[row.estado_factura] || ESTADO_MAP[3];
                 const rowClass = row.estado_factura == 2 ? 'bg-rose-50/40' :
                   row.estado_factura == 3 ? 'bg-amber-50/30' :
                   row.estado_factura == 4 ? 'bg-emerald-50/20' : '';
@@ -315,10 +307,7 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
                       ${parseFloat(row.por_cobrar || 0).toFixed(2)}
                     </td>
                     <td className={tdClass}>
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${est.class}`}>
-                        {est.label}
-                      </span>
-                      <div className="text-[10px] text-slate-400 mt-0.5">
+                      <div className="text-[10px] text-slate-400">
                         {row.estado_cobro === 'COBRADA'
                           ? <span className="text-emerald-600 font-bold">✓ COBRADA</span>
                           : <span className="text-rose-600 font-bold">✗ NO COBRADA</span>
