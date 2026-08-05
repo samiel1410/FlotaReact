@@ -287,7 +287,7 @@ export const CajaNotaVentaContent = () => {
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 sticky top-0 z-[1] border-b border-slate-200">
               <tr>
-                <th className="py-2 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest w-10 text-center">#</th>
+                <th className="py-2 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest w-10 text-center">ITEM</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">N° CAJA</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">FECHA</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">FECHA CIERRE</th>
