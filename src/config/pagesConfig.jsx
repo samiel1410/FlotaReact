@@ -82,7 +82,14 @@ export const PAGES_CONFIG = {
           { value: '0', label: 'Inactivo' }
         ]
       },
-    ]
+    ],
+    customParams: (page, pageSize, filters) => ({
+      codigo_busqueda: filters.codigo_busqueda || '',
+      anio_busqueda: filters.anio_busqueda || '',
+      estado_busqueda: filters.estado_busqueda || '',
+      page: page + 1,
+      limit: pageSize,
+    }),
   },
 
   usuarios: {
@@ -179,7 +186,13 @@ export const PAGES_CONFIG = {
           { value: '0', label: 'Inactivo' }
         ]
       },
-    ]
+    ],
+    customParams: (page, pageSize, filters) => ({
+      nombre_busqueda: filters.nombre_busqueda || '',
+      estado_busqueda: filters.estado_busqueda || '',
+      page: page + 1,
+      limit: pageSize,
+    }),
   },
 
   sucursales: {
