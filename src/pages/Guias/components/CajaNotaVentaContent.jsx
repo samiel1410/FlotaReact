@@ -338,14 +338,13 @@ export const CajaNotaVentaContent = () => {
                       <div className="flex items-center justify-center gap-1">
                         {[
                           {a:() => handleInfoComprobante(row), i:'fa-vote-yea', c:'text-indigo-500 hover:bg-indigo-50', t:'Info Comprobante'},
-                          {a:() => handleVerDetalle(row), i:'fa-list', c:'text-blue-500 hover:bg-blue-50', t:'Ver Detalle Movimientos'},
-                          {a:() => handleImpresionRapida(row), i:'fa-print', c:'text-slate-600 hover:bg-slate-100', t:'Impresión Rápida'},
                           {a:() => handleArqueo(row), i:'fa-file-pdf', c:'text-red-500 hover:bg-red-50', t:'Arqueo PDF'},
                           {a:() => handleComprobantes(row), i:'fa-file-invoice', c:'text-red-500 hover:bg-red-50', t:'Reporte Comprobantes'},
                           {a:() => handleEditar(row), i:'fa-edit', c:'text-amber-500 hover:bg-amber-50', t:'Editar Caja'},
                           row.estado_caja === 'APERTURADA' ? {a:() => openCierreModal(row), i:'fa-sign-out-alt', c:'text-rose-500 hover:bg-rose-50', t:'Cerrar Caja'} : null,
                           row.estado_caja === 'CERRADA' && row.estado_solicitud != 1 ? {a:() => handleSolicitudEdicion(row), i:'fa-share-square', c:'text-purple-500 hover:bg-purple-50', t:'Solicitud Edición'} : null,
                           row.estado_solicitud == 1 || row.estado_solicitud === 'PENDIENTE' ? {a:() => handleAprobarSolicitud(row), i:'fa-check-circle', c:'text-emerald-600 hover:bg-emerald-50', t:'Aprobar Solicitud'} : null,
+                          {a:() => handleImpresionRapida(row), i:'fa-print', c:'text-slate-600 hover:bg-slate-100', t:'Impresión Rápida'},
                         ].filter(Boolean).map((b, idx) => (
                           <button key={idx} onClick={b.a} title={b.t}
                             className={`w-7 h-7 rounded ${b.c} flex items-center justify-center transition-colors`}>
