@@ -3,6 +3,7 @@ import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import cajaService from '../../../services/cajaNotaVenta.service';
 import toast from 'react-hot-toast';
+import { CajaGrid } from '../../Caja/CajaGrid';
 import { AperturaCajaForm } from '../../CajaBoleteria/components/AperturaCajaForm';
 import { CierreCajaForm } from '../../CajaBoleteria/components/CierreCajaForm';
 import InfoComprobanteModal from '../../../components/common/InfoComprobanteModal';
@@ -281,116 +282,29 @@ export const CajaNotaVentaContent = () => {
           </button>
       </div>
 
-      {/* ── GRID ─────────────────────────────────────────────────────────── */}
+      {/* ── GRID UNIFICADO ─────────────────────────────────────────────────── */}
       <div className="flex-1 bg-white flex flex-col overflow-hidden min-h-0">
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 sticky top-0 z-[1] border-b border-slate-200">
-              <tr>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">N° CAJA</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">FECHA</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">FECHA CIERRE</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">SUCURSAL</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">USUARIO</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">ESTADO</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">($)APERTURA</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">($)CIERRE</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-right">($)MONTO A TENER</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">CUADRE</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">SOLICITUD</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">COMPROBANTE</th>
-                <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">BANCO</th>
-                <th className="py-2 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest text-center">ACCIONES</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {loading ? (
-                Array(8).fill(0).map((_, i) => (
-                  <tr key={i}>
-                    {Array(14).fill(0).map((_, j) => <td key={j} className="py-2 px-3"><Skeleton height={12} /></td>)}
-                  </tr>
-                ))
-              ) : (Array.isArray(data) && data.length > 0) ? (
-                data.map((row, i) => (
-                  <tr key={row.id_caja || i} className="group hover:bg-indigo-50/30 transition-all">
-                    <td className="py-2 px-3 text-blue-600 font-bold text-[11px] font-mono">{row.numero_caja || '-'}</td>
-                    <td className="py-2 px-3 text-slate-600 text-[10px]">{row.fecha_caja ? row.fecha_caja.split(' ')[0] : '-'}</td>
-                    <td className="py-2 px-3 text-slate-600 text-[10px]">
-                      {row.estado_caja === 'CERRADA' && row.fecha_hora_cierre ? row.fecha_hora_cierre.split(' ')[0] : '-'}
-                    </td>
-                    <td className="py-2 px-3 text-slate-600 text-[10px]">{row.nombre_sucursal || '-'}</td>
-                    <td className="py-2 px-3 text-slate-600 text-[10px]">{row.usuario || '-'}</td>
-                    <td className="py-2 px-3 text-center">{renderEstado(row.estado_caja)}</td>
-                    <td className="py-2 px-3 text-right font-mono font-semibold text-[11px] text-slate-800">
-                      ${parseFloat(row.apertura_total_caja || 0).toFixed(2)}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono font-semibold text-[11px] text-slate-800">
-                      {row.cierre_total_caja ? `$${parseFloat(row.cierre_total_caja).toFixed(2)}` : '-'}
-                    </td>
-                    <td className="py-2 px-3 text-right font-mono font-bold text-[11px] text-emerald-600">
-                      ${parseFloat(row.monto_a_tener ?? row.apertura_total_caja ?? 0).toFixed(2)}
-                    </td>
-                    <td className="py-2 px-3">{renderCuadre(row.cuadre_caja)}</td>
-                    <td className="py-2 px-3 text-center">{renderSolicitud(row.estado_solicitud)}</td>
-                    <td className="py-2 px-3 text-slate-600 text-[10px]">{row.numero_comprobante_cierre || '-'}</td>
-                    <td className="py-2 px-3 text-slate-600 text-[10px]">{row.banco_cierre || '-'}</td>
-                    <td className="py-2 px-4 text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {[
-                          {a:() => handleInfoComprobante(row), i:'fa-vote-yea', c:'text-indigo-500 hover:bg-indigo-50', t:'Info Comprobante'},
-                          {a:() => handleArqueo(row), i:'fa-file-pdf', c:'text-red-500 hover:bg-red-50', t:'Arqueo PDF'},
-                          {a:() => handleComprobantes(row), i:'fa-file-invoice', c:'text-red-500 hover:bg-red-50', t:'Reporte Comprobantes'},
-                          {a:() => handleEditar(row), i:'fa-edit', c:'text-amber-500 hover:bg-amber-50', t:'Editar Caja'},
-                          row.estado_caja === 'APERTURADA' ? {a:() => openCierreModal(row), i:'fa-sign-out-alt', c:'text-rose-500 hover:bg-rose-50', t:'Cerrar Caja'} : null,
-                          row.estado_caja === 'CERRADA' && row.estado_solicitud != 1 ? {a:() => handleSolicitudEdicion(row), i:'fa-share-square', c:'text-purple-500 hover:bg-purple-50', t:'Solicitud Edición'} : null,
-                          row.estado_solicitud == 1 || row.estado_solicitud === 'PENDIENTE' ? {a:() => handleAprobarSolicitud(row), i:'fa-check-circle', c:'text-emerald-600 hover:bg-emerald-50', t:'Aprobar Solicitud'} : null,
-                          {a:() => handleImpresionRapida(row), i:'fa-print', c:'text-slate-600 hover:bg-slate-100', t:'Impresión Rápida'},
-                        ].filter(Boolean).map((b, idx) => (
-                          <button key={idx} onClick={b.a} title={b.t}
-                            className={`w-7 h-7 rounded ${b.c} flex items-center justify-center transition-colors`}>
-                            <i className={`fas ${b.i} text-[10px]`}></i>
-                          </button>
-                        ))}
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={14} className="py-12 text-center">
-                    <div className="flex flex-col items-center gap-2">
-                      <i className="fas fa-folder-open text-xl text-slate-200"></i>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sin registros de cajas</p>
-                    </div>
-                  </td>
-                </tr>
-
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Paginador */}
-        <div className="border-t border-slate-200 bg-slate-50 px-4 py-2 flex items-center justify-between shrink-0">
-          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-            {totalRecords > 0
-              ? `${pagination.pageIndex * pagination.pageSize + 1}–${Math.min((pagination.pageIndex + 1) * pagination.pageSize, totalRecords)} DE ${totalRecords}`
-              : '0 REGISTROS'}
-          </span>
-          <div className="flex items-center gap-1">
-            <button onClick={handlePrev} disabled={!canPrev || loading}
-              className="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-30 transition-all active:scale-90">
-              <i className="fas fa-chevron-left text-[8px]"></i>
-            </button>
-            <div className="px-3 h-7 flex items-center justify-center bg-white rounded-lg border border-slate-200 text-[9px] font-black text-slate-700 min-w-[80px] uppercase tracking-tighter">
-              PÁG {pagination.pageIndex + 1} / {totalPages || 1}
-            </div>
-            <button onClick={handleNext} disabled={!canNext || loading}
-              className="w-7 h-7 rounded-lg flex items-center justify-center border border-slate-200 text-slate-600 hover:bg-white disabled:opacity-30 transition-all active:scale-90">
-              <i className="fas fa-chevron-right text-[8px]"></i>
-            </button>
-          </div>
-        </div>
+        <CajaGrid
+          data={data}
+          loading={loading}
+          pagination={pagination}
+          setPagination={setPagination}
+          totalRecords={totalRecords}
+          onAction={async (action, row) => {
+            switch (action) {
+              case 'info-comprobante': handleInfoComprobante(row); break;
+              case 'arqueo': handleArqueo(row); break;
+              case 'comprobantes': handleComprobantes(row); break;
+              case 'editar': handleEditar(row); break;
+              case 'cerrar': openCierreModal(row); break;
+              case 'solicitud':
+                if (row.estado_caja === 'CERRADA' && row.estado_solicitud != 1) handleSolicitudEdicion(row);
+                else if (row.estado_solicitud == 1 || row.estado_solicitud === 'PENDIENTE') handleAprobarSolicitud(row);
+                break;
+              case 'impresion-rapida': handleImpresionRapida(row); break;
+            }
+          }}
+        />
       </div>
 
       {/* ── MODAL: Apertura de Caja ──────────────────────────────── */}
