@@ -287,7 +287,6 @@ export const CajaNotaVentaContent = () => {
           <table className="w-full text-left border-collapse">
             <thead className="bg-slate-50 sticky top-0 z-[1] border-b border-slate-200">
               <tr>
-                <th className="py-2 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest w-10 text-center">ITEM</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">N° CAJA</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">FECHA</th>
                 <th className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest">FECHA CIERRE</th>
@@ -308,16 +307,17 @@ export const CajaNotaVentaContent = () => {
               {loading ? (
                 Array(8).fill(0).map((_, i) => (
                   <tr key={i}>
-                    {Array(15).fill(0).map((_, j) => <td key={j} className="py-2 px-3"><Skeleton height={12} /></td>)}
+                    {Array(14).fill(0).map((_, j) => <td key={j} className="py-2 px-3"><Skeleton height={12} /></td>)}
                   </tr>
                 ))
               ) : (Array.isArray(data) && data.length > 0) ? (
                 data.map((row, i) => (
                   <tr key={row.id_caja || i} className="group hover:bg-indigo-50/30 transition-all">
-                    <td className="py-2 px-4 text-slate-400 font-mono text-[9px] text-center">{pagination.pageIndex * pagination.pageSize + i + 1}</td>
                     <td className="py-2 px-3 text-blue-600 font-bold text-[11px] font-mono">{row.numero_caja || '-'}</td>
                     <td className="py-2 px-3 text-slate-600 text-[10px]">{row.fecha_caja ? row.fecha_caja.split(' ')[0] : '-'}</td>
-                    <td className="py-2 px-3 text-slate-600 text-[10px]">{row.fecha_hora_cierre ? row.fecha_hora_cierre.split(' ')[0] : '-'}</td>
+                    <td className="py-2 px-3 text-slate-600 text-[10px]">
+                      {row.estado_caja === 'CERRADA' && row.fecha_hora_cierre ? row.fecha_hora_cierre.split(' ')[0] : '-'}
+                    </td>
                     <td className="py-2 px-3 text-slate-600 text-[10px]">{row.nombre_sucursal || '-'}</td>
                     <td className="py-2 px-3 text-slate-600 text-[10px]">{row.usuario || '-'}</td>
                     <td className="py-2 px-3 text-center">{renderEstado(row.estado_caja)}</td>
