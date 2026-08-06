@@ -230,37 +230,35 @@ class meotodoXml
                 $sumIvaByCode[$cPorcentaje]   += $valIvaL;
             }
 
-            // Base gravada tarifa 15% (codigoPorcentaje = 4)
-            if (isset($sumBasesByCode['4']) || (float)$subtotal15Factura > 0) {
-                $base15Out = isset($sumBasesByCode['4']) && $sumBasesByCode['4'] > 0 ? $sumBasesByCode['4'] : (float)$subtotal15Factura;
-                $iva15Out  = isset($sumIvaByCode['4']) && $sumIvaByCode['4'] > 0 ? $sumIvaByCode['4'] : (float)$iva15Factura;
-                $t = $totalConImpuestos->addChild('totalImpuesto');
-                $t->addChild('codigo',              '2');
-                $t->addChild('codigoPorcentaje',    '4');
-                $t->addChild('descuentoAdicional',  '0.00');
-                $t->addChild('baseImponible',       number_format($base15Out, 2, '.', ''));
-                $t->addChild('valor',               number_format($iva15Out, 2, '.', ''));
-            }
-
-            // Base gravada tarifa 0% (codigoPorcentaje = 0)
-            if (isset($sumBasesByCode['0']) || ((float)$subtotal0Factura > 0 && !isset($sumBasesByCode['4']))) {
-                $base0Out = isset($sumBasesByCode['0']) ? $sumBasesByCode['0'] : (float)$subtotal0Factura;
-                $t = $totalConImpuestos->addChild('totalImpuesto');
-                $t->addChild('codigo',              '2');
-                $t->addChild('codigoPorcentaje',    '0');
-                $t->addChild('descuentoAdicional',  '0.00');
-                $t->addChild('baseImponible',       number_format($base0Out, 2, '.', ''));
-                $t->addChild('valor',               '0.00');
-            }
-
-            // Si no se añadió ningún totalImpuesto
-            if (empty($sumBasesByCode) && (float)$subtotal0Factura == 0 && (float)$subtotal15Factura == 0) {
-                $t = $totalConImpuestos->addChild('totalImpuesto');
-                $t->addChild('codigo',              '2');
-                $t->addChild('codigoPorcentaje',    '0');
-                $t->addChild('descuentoAdicional',  '0.00');
-                $t->addChild('baseImponible',       '0.00');
-                $t->addChild('valor',               '0.00');
+            // Generar totalConImpuestos de forma estricta según los impuestos presentes en el detalle
+            if (!empty($sumBasesByCode)) {
+                foreach ($sumBasesByCode as $cPorcentaje => $baseVal) {
+                    $valIva = round($sumIvaByCode[$cPorcentaje], 2);
+                    $t = $totalConImpuestos->addChild('totalImpuesto');
+                    $t->addChild('codigo',              '2');
+                    $t->addChild('codigoPorcentaje',    (string)$cPorcentaje);
+                    $t->addChild('descuentoAdicional',  '0.00');
+                    $t->addChild('baseImponible',       number_format($baseVal, 2, '.', ''));
+                    $t->addChild('valor',               number_format($valIva, 2, '.', ''));
+                }
+            } else {
+                // Fallback si la factura carece de líneas de detalle
+                if ((float)$subtotal15Factura > 0) {
+                    $t = $totalConImpuestos->addChild('totalImpuesto');
+                    $t->addChild('codigo',              '2');
+                    $t->addChild('codigoPorcentaje',    '4');
+                    $t->addChild('descuentoAdicional',  '0.00');
+                    $t->addChild('baseImponible',       number_format((float)$subtotal15Factura, 2, '.', ''));
+                    $t->addChild('valor',               number_format((float)$iva15Factura, 2, '.', ''));
+                }
+                if ((float)$subtotal0Factura > 0 || (float)$subtotal15Factura == 0) {
+                    $t = $totalConImpuestos->addChild('totalImpuesto');
+                    $t->addChild('codigo',              '2');
+                    $t->addChild('codigoPorcentaje',    '0');
+                    $t->addChild('descuentoAdicional',  '0.00');
+                    $t->addChild('baseImponible',       number_format((float)$subtotal0Factura, 2, '.', ''));
+                    $t->addChild('valor',               '0.00');
+                }
             }
 
             // propina obligatorio en v1.1.0
@@ -439,19 +437,24 @@ class meotodoXml
         while ($vals = $result->fetch_assoc()) {
             $totalOriginal  = (float)$vals['total_factura_detalle'];
             $costoOriginal  = (float)$vals['precio_factura_detalle'];
-            $tipoImpuesto   = (int)$vals['tipo_impuesto'];
-            $ivaProductoVal = (float)$vals['iva_producto'];
+            // Determinar tipoImpuesto contemplando todas las tarifas SRI de TipoEnvioForm (0%, 12%, 13%, 14%, 15%):
+            if ($ivaProductoVal == 15 || $ivaProductoVal == 4) {
+                $tipoImpuesto = 4; // 15%
+            } elseif ($ivaProductoVal == 14) {
+                $tipoImpuesto = 3; // 14%
+            } elseif ($ivaProductoVal == 13 || $ivaProductoVal == 10) {
+                $tipoImpuesto = 2; // 13%
+            } elseif ($ivaProductoVal == 12 || $ivaProductoVal == 2 || $ivaProductoVal == 1) {
+                $tipoImpuesto = 1; // 12%
+            } else {
+                $tipoImpuesto = (int)$vals['tipo_impuesto'];
+            }
 
-            // Inferir tipoImpuesto si la relación con tipo_envio devolvió 0
-            if ($tipoImpuesto === 0) {
-                if ($ivaProductoVal == 15 || $ivaProductoVal == 4) {
-                    $tipoImpuesto = 4;
-                } else if ($ivaProductoVal == 12 || $ivaProductoVal == 2 || $ivaProductoVal == 1) {
-                    $tipoImpuesto = 1;
-                } else if ($sub15Header > 0 && $ivaHeader > 0 && $sub0Header == 0) {
-                    // La factura globalmente se emitió con IVA 15%
-                    $tipoImpuesto = 4;
-                }
+            // Validar si la cabecera histórica define tarifa única en caso de discrepancias
+            if ($sub15Header > 0 && $ivaHeader > 0 && $sub0Header == 0 && $tipoImpuesto === 0) {
+                $tipoImpuesto = 4; // IVA vigente 15%
+            } elseif ($sub0Header > 0 && $ivaHeader == 0 && $sub15Header == 0) {
+                $tipoImpuesto = 0; // Tarifa 0%
             }
 
             switch ($tipoImpuesto) {
