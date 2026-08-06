@@ -116,16 +116,27 @@ export const FacturasService = {
 
     const resultFirma = await responseFirma.json();
 
+    // Extraer todos los mensajes posibles
+    const msgsList = [];
+    if (Array.isArray(resultFirma.detalles?.mensajes)) msgsList.push(...resultFirma.detalles.mensajes);
+    if (Array.isArray(resultFirma.infoRecepcion?.mensajes)) msgsList.push(...resultFirma.infoRecepcion.mensajes);
+    if (resultFirma.autorizacion?.mensaje) {
+      const aMsg = resultFirma.autorizacion.mensaje;
+      if (typeof aMsg === 'string') msgsList.push(aMsg);
+      else if (Array.isArray(aMsg)) {
+        aMsg.forEach(m => msgsList.push(typeof m === 'string' ? m : `${m.mensaje || ''}${m.informacionAdicional ? ' - ' + m.informacionAdicional : ''}`));
+      }
+    }
+    const msgsTextFull = msgsList.filter(Boolean).join(' | ');
+
     // 3. Determinar estado y registrar en la BD
     let estadoSRI = 'RECHAZADO';
-    let mensajeRes = resultFirma.message || resultFirma.mensaje || (typeof resultFirma === 'string' ? resultFirma : 'Error en proceso SRI');
+    let mensajeRes = msgsTextFull || resultFirma.message || resultFirma.mensaje || (typeof resultFirma === 'string' ? resultFirma : 'Error en proceso SRI');
     const fullText = JSON.stringify(resultFirma || {});
 
     if (/LIMITE DE INTENTOS/i.test(fullText)) {
       estadoSRI = 'RECHAZADO';
-      const msgs = resultFirma.infoRecepcion?.mensajes || resultFirma.detalles?.mensajes;
-      const msgsText = Array.isArray(msgs) ? msgs.join(' | ') : (resultFirma.mensaje || resultFirma.message || '');
-      mensajeRes = msgsText || 'LIMITE DE INTENTOS NO AUTORIZADOS POR DIA';
+      mensajeRes = msgsTextFull || 'LIMITE DE INTENTOS NO AUTORIZADOS POR DIA';
     } else if (/Invalid password|PKCS#12 MAC could not be verified|serial\/tipo del certificado/i.test(fullText)) {
       estadoSRI = 'RECHAZADO';
       mensajeRes = 'La contraseña de la firma (.p12) no es correcta. Por favor configure bien la clave de la firma en la empresa.';
@@ -137,10 +148,8 @@ export const FacturasService = {
         estadoSRI = 'RECIBIDA';
         mensajeRes = resultFirma.message || resultFirma.mensaje || 'Comprobante recibido, pendiente de autorización';
       } else if (resultFirma.estado === 'DEVUELTA') {
-        const msgs = resultFirma.infoRecepcion?.mensajes || resultFirma.detalles?.mensajes;
-        const msgsText = Array.isArray(msgs) ? msgs.join(' | ') : (resultFirma.mensaje || resultFirma.message || '');
         estadoSRI = 'DEVUELTA';
-        mensajeRes = msgsText || 'DEVUELTA por el SRI';
+        mensajeRes = msgsTextFull || 'DEVUELTA por el SRI';
       } else {
         estadoSRI = 'AUTORIZADO';
         mensajeRes = 'Comprobante autorizado por el SRI';
@@ -148,7 +157,7 @@ export const FacturasService = {
     } else {
       if (resultFirma.autorizacion) {
         estadoSRI = resultFirma.autorizacion.estado || 'RECHAZADO';
-        mensajeRes = resultFirma.autorizacion.mensaje || resultFirma.autorizacion.infoAdicional || resultFirma.message || resultFirma.mensaje;
+        mensajeRes = msgsTextFull || resultFirma.autorizacion.mensaje || resultFirma.autorizacion.infoAdicional || resultFirma.message || resultFirma.mensaje;
       }
     }
 

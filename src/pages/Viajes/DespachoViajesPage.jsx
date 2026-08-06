@@ -259,7 +259,17 @@ export const DespachoViajesPage = () => {
               clave: xmlData.p12_password || '',
             });
             const estado = (firmaRes.data?.estado || 'RECIBIDA').toUpperCase();
-            const mensaje = firmaRes.data?.message || firmaRes.data?.mensaje || 'Procesado';
+            const msgsList = [];
+            if (Array.isArray(firmaRes.data?.detalles?.mensajes)) msgsList.push(...firmaRes.data.detalles.mensajes);
+            if (Array.isArray(firmaRes.data?.infoRecepcion?.mensajes)) msgsList.push(...firmaRes.data.infoRecepcion.mensajes);
+            if (firmaRes.data?.autorizacion?.mensaje) {
+              const aMsg = firmaRes.data.autorizacion.mensaje;
+              if (typeof aMsg === 'string') msgsList.push(aMsg);
+              else if (Array.isArray(aMsg)) {
+                aMsg.forEach(m => msgsList.push(typeof m === 'string' ? m : `${m.mensaje || ''}${m.informacionAdicional ? ' - ' + m.informacionAdicional : ''}`));
+              }
+            }
+            const mensaje = msgsList.filter(Boolean).join(' | ') || firmaRes.data?.message || firmaRes.data?.mensaje || 'Procesado';
 
             if (estado === 'AUTORIZADO' || estado === 'RECIBIDA') {
               exitosos++;

@@ -316,15 +316,27 @@ export const FacturacionBoletoSriPage = () => {
             });
             const firmaData = await firmaRes.json();
 
+            const msgsList = [];
+            if (Array.isArray(firmaData.detalles?.mensajes)) msgsList.push(...firmaData.detalles.mensajes);
+            if (Array.isArray(firmaData.infoRecepcion?.mensajes)) msgsList.push(...firmaData.infoRecepcion.mensajes);
+            if (firmaData.autorizacion?.mensaje) {
+              const aMsg = firmaData.autorizacion.mensaje;
+              if (typeof aMsg === 'string') msgsList.push(aMsg);
+              else if (Array.isArray(aMsg)) {
+                aMsg.forEach(m => msgsList.push(typeof m === 'string' ? m : `${m.mensaje || ''}${m.informacionAdicional ? ' - ' + m.informacionAdicional : ''}`));
+              }
+            }
+            const errorMsgFull = msgsList.filter(Boolean).join(' | ') || firmaData.message || firmaData.mensaje || '';
+
             if (firmaData.success) {
               addLog(`✅ SRI: ${firmaData.estado || 'AUTORIZADO'}`);
-              addLog(`Mensaje: ${firmaData.message || firmaData.mensaje || 'Sin detalles'}`);
+              addLog(`Mensaje: ${errorMsgFull || firmaData.message || firmaData.mensaje || 'Sin detalles'}`);
 
               // Registrar autorización
               await api.post('/boleto/registrarAutorizacion', {
                 id_boleto: idBoleto,
                 estado: firmaData.estado || 'AUTORIZADO',
-                mensaje: firmaData.message || firmaData.mensaje || ''
+                mensaje: errorMsgFull || firmaData.message || firmaData.mensaje || ''
               });
 
               if (firmaData.estado === 'AUTORIZADO' || firmaData.estado === 'AUTORIZADA') {
@@ -332,10 +344,10 @@ export const FacturacionBoletoSriPage = () => {
                 Swal.fire('Éxito', 'El comprobante ha sido autorizado por el SRI.', 'success');
               } else {
                 addLog(`⚠️ Estado SRI: ${firmaData.estado}`);
-                Swal.fire('Aviso', `Estado: ${firmaData.estado} - ${firmaData.message || ''}`, 'info');
+                Swal.fire('Aviso', `Estado: ${firmaData.estado} - ${errorMsgFull || firmaData.message || ''}`, 'info');
               }
             } else {
-              const errorMsg = firmaData.message || firmaData.mensaje || 'Error en firma';
+              const errorMsg = errorMsgFull || firmaData.message || firmaData.mensaje || 'Error en firma';
               addLog(`❌ Error al firmar: ${errorMsg}`);
               await api.post('/boleto/registrarAutorizacion', {
                 id_boleto: idBoleto,

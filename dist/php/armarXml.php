@@ -213,34 +213,54 @@ class meotodoXml
             // totalConImpuestos
             $totalConImpuestos = $infoFactura->addChild('totalConImpuestos');
 
-            // Si no hay ningún subtotal, declarar base 0 con IVA 0
-            if ((float)$subtotal0Factura == 0 && (float)$subtotal15Factura == 0) {
+            // Calcular las bases netas por cada código de impuesto a partir de los detalles
+            $sumBasesByCode = [];
+            $sumIvaByCode   = [];
+
+            foreach ($detalleFactura as $item) {
+                $cPorcentaje = (string)$item['iva_producto'];
+                $baseL       = (float)$item['total_factura_detalle'];
+                $valIvaL     = round($baseL * (float)$item['equivalencia_iva'], 2);
+
+                if (!isset($sumBasesByCode[$cPorcentaje])) {
+                    $sumBasesByCode[$cPorcentaje] = 0.0;
+                    $sumIvaByCode[$cPorcentaje]   = 0.0;
+                }
+                $sumBasesByCode[$cPorcentaje] += $baseL;
+                $sumIvaByCode[$cPorcentaje]   += $valIvaL;
+            }
+
+            // Base gravada tarifa 15% (codigoPorcentaje = 4)
+            if (isset($sumBasesByCode['4']) || (float)$subtotal15Factura > 0) {
+                $base15Out = isset($sumBasesByCode['4']) && $sumBasesByCode['4'] > 0 ? $sumBasesByCode['4'] : (float)$subtotal15Factura;
+                $iva15Out  = isset($sumIvaByCode['4']) && $sumIvaByCode['4'] > 0 ? $sumIvaByCode['4'] : (float)$iva15Factura;
+                $t = $totalConImpuestos->addChild('totalImpuesto');
+                $t->addChild('codigo',              '2');
+                $t->addChild('codigoPorcentaje',    '4');
+                $t->addChild('descuentoAdicional',  '0.00');
+                $t->addChild('baseImponible',       number_format($base15Out, 2, '.', ''));
+                $t->addChild('valor',               number_format($iva15Out, 2, '.', ''));
+            }
+
+            // Base gravada tarifa 0% (codigoPorcentaje = 0)
+            if (isset($sumBasesByCode['0']) || ((float)$subtotal0Factura > 0 && !isset($sumBasesByCode['4']))) {
+                $base0Out = isset($sumBasesByCode['0']) ? $sumBasesByCode['0'] : (float)$subtotal0Factura;
+                $t = $totalConImpuestos->addChild('totalImpuesto');
+                $t->addChild('codigo',              '2');
+                $t->addChild('codigoPorcentaje',    '0');
+                $t->addChild('descuentoAdicional',  '0.00');
+                $t->addChild('baseImponible',       number_format($base0Out, 2, '.', ''));
+                $t->addChild('valor',               '0.00');
+            }
+
+            // Si no se añadió ningún totalImpuesto
+            if (empty($sumBasesByCode) && (float)$subtotal0Factura == 0 && (float)$subtotal15Factura == 0) {
                 $t = $totalConImpuestos->addChild('totalImpuesto');
                 $t->addChild('codigo',              '2');
                 $t->addChild('codigoPorcentaje',    '0');
                 $t->addChild('descuentoAdicional',  '0.00');
                 $t->addChild('baseImponible',       '0.00');
                 $t->addChild('valor',               '0.00');
-            }
-
-            // Base gravada tarifa 0%
-            if ((float)$subtotal0Factura > 0) {
-                $t = $totalConImpuestos->addChild('totalImpuesto');
-                $t->addChild('codigo',              '2');
-                $t->addChild('codigoPorcentaje',    '0');
-                $t->addChild('descuentoAdicional',  '0.00');
-                $t->addChild('baseImponible',       number_format((float)$subtotal0Factura, 2, '.', ''));
-                $t->addChild('valor',               '0.00');
-            }
-
-            // Base gravada tarifa 15% (codigoPorcentaje = 4 según tabla SRI vigente)
-            if ((float)$subtotal15Factura > 0) {
-                $t = $totalConImpuestos->addChild('totalImpuesto');
-                $t->addChild('codigo',              '2');
-                $t->addChild('codigoPorcentaje',    '4');
-                $t->addChild('descuentoAdicional',  '0.00');
-                $t->addChild('baseImponible',       number_format((float)$subtotal15Factura, 2, '.', ''));
-                $t->addChild('valor',               number_format((float)$iva15Factura, 2, '.', ''));
             }
 
             // propina obligatorio en v1.1.0
@@ -372,6 +392,23 @@ class meotodoXml
     {
         $conn = conexion();
 
+        // Consultar cabecera de la factura para conocer el IVA general registrado
+        $sub15Header = 0.0;
+        $ivaHeader   = 0.0;
+        $sub0Header  = 0.0;
+        $stmtFac = $conn->prepare("SELECT subtotal_12_factura, iva_factura, subtotal_0_factura FROM factura WHERE id_factura = ?");
+        if ($stmtFac) {
+            $stmtFac->bind_param('i', $id_factura);
+            $stmtFac->execute();
+            $resFac = $stmtFac->get_result();
+            if ($rowFac = $resFac->fetch_assoc()) {
+                $sub15Header = (float)$rowFac['subtotal_12_factura'];
+                $ivaHeader   = (float)$rowFac['iva_factura'];
+                $sub0Header  = (float)$rowFac['subtotal_0_factura'];
+            }
+            $stmtFac->close();
+        }
+
         $sql = "SELECT
                     COALESCE(dg.id_fktipo_envio_detalle_guia, 0) AS codigo_producto,
                     dg.cantidad_detalle_guia                      AS cantidad_factura_detalle,
@@ -392,8 +429,6 @@ class meotodoXml
                 )
                 GROUP BY dg.id_detalle_guia";
 
-
-
         $stmt = $conn->prepare($sql);
         $stmt->bind_param('i', $id_factura);
         $stmt->execute();
@@ -402,11 +437,24 @@ class meotodoXml
         $data = [];
         $i    = 0;
         while ($vals = $result->fetch_assoc()) {
-            $totalOriginal = (float)$vals['total_factura_detalle'];
-            $costoOriginal = (float)$vals['precio_factura_detalle'];
+            $totalOriginal  = (float)$vals['total_factura_detalle'];
+            $costoOriginal  = (float)$vals['precio_factura_detalle'];
+            $tipoImpuesto   = (int)$vals['tipo_impuesto'];
+            $ivaProductoVal = (float)$vals['iva_producto'];
 
-            // CORRECCIÓN 2: dividir desde el valor original de BD, no del ya dividido
-            switch ((int)$vals['tipo_impuesto']) {
+            // Inferir tipoImpuesto si la relación con tipo_envio devolvió 0
+            if ($tipoImpuesto === 0) {
+                if ($ivaProductoVal == 15 || $ivaProductoVal == 4) {
+                    $tipoImpuesto = 4;
+                } else if ($ivaProductoVal == 12 || $ivaProductoVal == 2 || $ivaProductoVal == 1) {
+                    $tipoImpuesto = 1;
+                } else if ($sub15Header > 0 && $ivaHeader > 0 && $sub0Header == 0) {
+                    // La factura globalmente se emitió con IVA 15%
+                    $tipoImpuesto = 4;
+                }
+            }
+
+            switch ($tipoImpuesto) {
                 case 0: // 0%
                     $porcentaje   = 0;
                     $equivalencia = 0;

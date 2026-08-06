@@ -210,11 +210,20 @@ export const BoleteriaPage = () => {
       const firmaData = await directRes.json();
       console.log('[SRI Reenviar] Respuesta servicio de firma:', firmaData);
 
-      const msgs = firmaData.infoRecepcion?.mensajes || firmaData.detalles?.mensajes;
-      const msgsText = Array.isArray(msgs) ? msgs.join(' | ') : (firmaData.message || firmaData.mensaje || JSON.stringify(firmaData));
+      const msgsList = [];
+      if (Array.isArray(firmaData.detalles?.mensajes)) msgsList.push(...firmaData.detalles.mensajes);
+      if (Array.isArray(firmaData.infoRecepcion?.mensajes)) msgsList.push(...firmaData.infoRecepcion.mensajes);
+      if (firmaData.autorizacion?.mensaje) {
+        const aMsg = firmaData.autorizacion.mensaje;
+        if (typeof aMsg === 'string') msgsList.push(aMsg);
+        else if (Array.isArray(aMsg)) {
+          aMsg.forEach(m => msgsList.push(typeof m === 'string' ? m : `${m.mensaje || ''}${m.informacionAdicional ? ' - ' + m.informacionAdicional : ''}`));
+        }
+      }
+      const msgsText = msgsList.filter(Boolean).join(' | ') || firmaData.message || firmaData.mensaje || JSON.stringify(firmaData);
 
       let estadoSri = (firmaData.estado || (firmaData.success ? 'AUTORIZADO' : 'RECHAZADO')).toUpperCase();
-      let mensajeSri = firmaData.message || firmaData.mensaje || '';
+      let mensajeSri = msgsText || firmaData.message || firmaData.mensaje || '';
 
       if (/Invalid password|PKCS#12 MAC could not be verified|serial\/tipo del certificado/i.test(msgsText)) {
         estadoSri = 'RECHAZADO';
@@ -222,8 +231,8 @@ export const BoleteriaPage = () => {
       } else if (/ERROR SECUENCIAL REGISTRADO|CLAVE ACCESO REGISTRADA|identificador.*(43|45)/i.test(msgsText)) {
         estadoSri = 'AUTORIZADO';
         mensajeSri = 'Comprobante autorizado por el SRI (Clave de acceso/secuencial ya registrado previamente)';
-      } else if (estadoSri === 'DEVUELTA') {
-        mensajeSri = msgsText || 'DEVUELTA por el SRI';
+      } else if (estadoSri === 'DEVUELTA' || estadoSri === 'RECHAZADO') {
+        mensajeSri = msgsText || `${estadoSri} por el SRI`;
       }
 
       // 4. Registrar estado de autorización en Backend
