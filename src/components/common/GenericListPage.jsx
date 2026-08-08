@@ -306,7 +306,7 @@ export const GenericListPage = ({ config }) => {
       {/* ── CUERPO: GRID DE DATOS ─────────────────────────────────────────────── */}
       <div className="flex-1 bg-white flex flex-col overflow-hidden min-h-0 relative">
         <div className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-slate-200">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-max">
             <thead className="bg-slate-50 sticky top-0 z-[1] border-b border-slate-200">
               <tr>
                 <th className="py-2 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest w-10 text-center">#</th>

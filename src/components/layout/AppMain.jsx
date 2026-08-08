@@ -9,12 +9,12 @@ export const AppMain = () => {
       <Sidebar />
 
       {/* Contenedor Principal (Header + Contenido) */}
-      <div className="flex flex-col flex-1">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         {/* Header Superior */}
         <GlobalHeader />
 
         {/* Área de Contenido Dinámico */}
-        <main className="flex-1 overflow-auto p-3 md:p-4 bg-slate-50 relative">
+        <main className="flex-1 overflow-auto p-3 md:p-4 bg-slate-50 relative min-w-0">
           <div className="w-full">
             <Outlet />
           </div>
