@@ -102,6 +102,98 @@ export const PAGES_CONFIG = {
       create: true, edit: true, delete: true,
       custom: [
         {
+          id: 'copy-credentials',
+          icon: 'fas fa-copy',
+          tooltip: 'Copiar Usuario y Contraseña',
+          color: 'text-violet-600 hover:bg-violet-50',
+          showIf: (row) => {
+            // Solo visible para el Super Admin logueado (rol_usuario === 5)
+            try {
+              const userData = JSON.parse(sessionStorage.getItem('user_data') || '{}');
+              const myRole = parseInt(userData.rol_usuario || userData.rol || 0);
+              return myRole === 5;
+            } catch {
+              return false;
+            }
+          },
+          handler: async (row) => {
+            const username = row.username_usuario || '';
+            const nombre = `${row.nombre_usuario || ''} ${row.apellido_usuario || ''}`.trim();
+
+            const { value: password, isConfirmed } = await Swal.fire({
+              title: '<span style="font-size:15px;font-weight:900;color:#1e1b4b">📋 Copiar Credenciales</span>',
+              html: `
+                <div style="text-align:left;padding:4px 0">
+                  <p style="font-size:11px;color:#64748b;margin-bottom:12px;font-weight:600">
+                    <i class="fas fa-user-circle" style="color:#7c3aed;margin-right:4px"></i>
+                    ${nombre || username}
+                  </p>
+                  <div style="margin-bottom:12px">
+                    <label style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">
+                      <i class="fas fa-user" style="margin-right:4px;color:#7c3aed"></i>Usuario
+                    </label>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <input id="swal-username" readonly value="${username}"
+                        style="flex:1;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;font-family:monospace;outline:none"/>
+                      <button type="button" onclick="navigator.clipboard.writeText('${username}').then(()=>{this.innerHTML='<i class=\\'fas fa-check\\'></i>';this.style.color='#10b981';setTimeout(()=>{this.innerHTML='<i class=\\'fas fa-copy\\'></i>';this.style.color='#7c3aed';},1500)})"
+                        style="width:32px;height:32px;border-radius:8px;border:1px solid #e2e8f0;background:white;cursor:pointer;color:#7c3aed;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                        <i class="fas fa-copy"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <label style="font-size:10px;font-weight:900;color:#475569;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:4px">
+                      <i class="fas fa-lock" style="margin-right:4px;color:#7c3aed"></i>Contraseña
+                    </label>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <input id="swal-password" type="password" placeholder="Ingresa la contraseña a copiar..."
+                        style="flex:1;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:700;color:#1e293b;background:#f8fafc;font-family:monospace;outline:none"/>
+                      <button type="button"
+                        onclick="const inp=document.getElementById('swal-password');inp.type=inp.type==='password'?'text':'password';this.innerHTML=inp.type==='password'?'<i class=\\'fas fa-eye\\'></i>':'<i class=\\'fas fa-eye-slash\\'></i>'"
+                        style="width:32px;height:32px;border-radius:8px;border:1px solid #e2e8f0;background:white;cursor:pointer;color:#64748b;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                        <i class="fas fa-eye"></i>
+                      </button>
+                      <button type="button"
+                        onclick="const v=document.getElementById('swal-password').value;if(v){navigator.clipboard.writeText(v).then(()=>{this.innerHTML='<i class=\\'fas fa-check\\'></i>';this.style.color='#10b981';setTimeout(()=>{this.innerHTML='<i class=\\'fas fa-copy\\'></i>';this.style.color='#7c3aed';},1500)})}else{this.style.color='#ef4444';setTimeout(()=>{this.style.color='#7c3aed'},1000)}"
+                        style="width:32px;height:32px;border-radius:8px;border:1px solid #e2e8f0;background:white;cursor:pointer;color:#7c3aed;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                        <i class="fas fa-copy"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              `,
+              showCancelButton: true,
+              confirmButtonText: '<i class="fas fa-clipboard-check"></i> Copiar Todo',
+              cancelButtonText: 'Cerrar',
+              confirmButtonColor: '#7c3aed',
+              cancelButtonColor: '#64748b',
+              customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-xl', cancelButton: 'rounded-xl' },
+              preConfirm: () => {
+                return document.getElementById('swal-password')?.value || '';
+              }
+            });
+
+            if (isConfirmed) {
+              const pwd = password || '';
+              const textToCopy = pwd
+                ? `Usuario: ${username}\nContraseña: ${pwd}`
+                : `Usuario: ${username}`;
+              try {
+                await navigator.clipboard.writeText(textToCopy);
+                toast.success(
+                  pwd ? '✅ Usuario y contraseña copiados al portapapeles' : '✅ Usuario copiado al portapapeles',
+                  {
+                    duration: 3000,
+                    style: { borderRadius: '10px', background: '#1e1b4b', color: '#fff', fontSize: '12px', fontWeight: '700' }
+                  }
+                );
+              } catch {
+                toast.error('No se pudo acceder al portapapeles');
+              }
+            }
+          }
+        },
+        {
           id: 'login-as',
           icon: 'fas fa-key',
           tooltip: 'Ingresar como este usuario',
