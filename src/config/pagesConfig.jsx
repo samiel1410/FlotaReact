@@ -770,8 +770,7 @@ export const PAGES_CONFIG = {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
           handler: async (row) => {
-            const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            window.open(`${baseUrl}/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`, '_blank');
+            window.open(`/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`, '_blank');
           }
         },
         {
@@ -856,15 +855,13 @@ export const PAGES_CONFIG = {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
-            const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            window.open(`${baseUrl}/php/pdfArqueoCaja.php?id_caja=${row.id_caja}`, '_blank');
+            window.open(`/php/pdfArqueoCaja.php?id_caja=${row.id_caja}`, '_blank');
           }
         }, {
-          id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes',
+          id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
-            const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            window.open(`${baseUrl}/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja}`, '_blank');
+            window.open(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja}`, '_blank');
           }
         },
         createCerrarAction('id_caja', '/caja/cerrarCaja'),
@@ -977,8 +974,7 @@ export const PAGES_CONFIG = {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
           handler: async (row) => {
-            const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            window.open(`${baseUrl}/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja_boleteria}`, '_blank');
+            window.open(`/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja_boleteria}`, '_blank');
           }
         },
         {
@@ -1043,40 +1039,13 @@ export const PAGES_CONFIG = {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
-            const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            window.open(`${baseUrl}/php/pdfArqueoCajaBoleteria.php?id_caja=${row.id_caja_boleteria}`, '_blank');
+            window.open(`/php/pdfArqueoCajaBoleteria.php?id_caja=${row.id_caja_boleteria}`, '_blank');
           }
         }, {
-          id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes',
+          id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
-            try {
-              toast.loading('Generando reporte...', { id: 'rep-toast' });
-              const res = await api.get('/caja_boleteria/reportecomprobantefacturasxcaja', { params: { idcaja: row.id_caja_boleteria } });
-              if (res.data?.success && res.data?.nombre) {
-                const params = new URLSearchParams();
-                params.append('contenido', res.data.nombre);
-                params.append('nombre', 'ResumenCaja');
-                params.append('tipoA4', 'si');
-                params.append('tipoAux', 'no');
-                const pdfRes = await fetch('/php/GenerarArchvio.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() });
-                const pdfBlob = await pdfRes.blob();
-                const pdfText = await pdfBlob.text();
-                toast.dismiss('rep-toast');
-                if (pdfText.startsWith('%PDF')) {
-                  window.open(URL.createObjectURL(pdfBlob), '_blank');
-                } else {
-                  toast.error('Error al generar el PDF');
-                }
-              } else {
-                toast.dismiss('rep-toast');
-                toast.error(res.data?.message || 'No se encontraron datos');
-              }
-            } catch (e) {
-              console.error('Error reporte comprobantes:', e);
-              toast.dismiss('rep-toast');
-              toast.error('Error al generar el reporte de comprobantes');
-            }
+            window.open(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja_boleteria}`, '_blank');
           }
         },
         createCerrarAction('id_caja_boleteria', '/caja_boleteria/cerrarCaja'),
@@ -1171,8 +1140,7 @@ export const PAGES_CONFIG = {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
           handler: async (row) => {
-            const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            window.open(`${baseUrl}/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`, '_blank');
+            window.open(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`, '_blank');
           }
         },
         {
@@ -1237,40 +1205,13 @@ export const PAGES_CONFIG = {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
-            const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            window.open(`${baseUrl}/php/pdfArqueoCajaRetenciones.php?id_caja=${row.id_caja_retenciones}`, '_blank');
+            window.open(`/php/pdfArqueoCajaRetenciones.php?id_caja=${row.id_caja_retenciones}`, '_blank');
           }
         }, {
-          id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes',
+          id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
-            try {
-              toast.loading('Generando reporte...', { id: 'rep-toast-cobros' });
-              const res = await api.get('/cajaretenciones/reportecomprobantefacturasxcaja', { params: { idcaja: row.id_caja_retenciones } });
-              if (res.data?.success && res.data?.nombre) {
-                const params = new URLSearchParams();
-                params.append('contenido', res.data.nombre);
-                params.append('nombre', 'ResumenCaja');
-                params.append('tipoA4', 'si');
-                params.append('tipoAux', 'no');
-                const pdfRes = await fetch('/php/GenerarArchvio.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: params.toString() });
-                const pdfBlob = await pdfRes.blob();
-                const pdfText = await pdfBlob.text();
-                toast.dismiss('rep-toast-cobros');
-                if (pdfText.startsWith('%PDF')) {
-                  window.open(URL.createObjectURL(pdfBlob), '_blank');
-                } else {
-                  toast.error('Error al generar el PDF');
-                }
-              } else {
-                toast.dismiss('rep-toast-cobros');
-                toast.error(res.data?.message || 'No se encontraron datos');
-              }
-            } catch (e) {
-              console.error('Error reporte comprobantes:', e);
-              toast.dismiss('rep-toast-cobros');
-              toast.error('Error al generar el reporte de comprobantes');
-            }
+            window.open(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja_retenciones}`, '_blank');
           }
         },
         createCerrarAction('id_caja_retenciones', '/cajaretenciones/cerrarCaja'),
@@ -1289,6 +1230,211 @@ export const PAGES_CONFIG = {
               }
             } catch {
               toast.error('Error al enviar solicitud');
+            }
+          }
+        },
+      ]
+    },
+  },
+
+  "caja-nota-venta": {
+    title: 'Cajas Notas de Venta', subtitle: 'Listado de cajas del módulo de notas de venta (encomiendas)',
+    icon: 'fas fa-cash-register', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600',
+    endpoint: '/caja_nota_venta/listadoCaja',
+    idField: 'id_caja',
+    columns: [
+      { key: 'numero_caja', label: '#' },
+      { key: 'fecha_caja', label: 'Fecha', render: v => v ? v.split('T')[0] || v.split(' ')[0] : '-' },
+      { key: 'fecha_hora_cierre', label: 'Fecha Cierre', render: v => v ? (v.split('T')[0] || v.split(' ')[0]) : '-' },
+      { key: 'nombre_sucursal', label: 'Sucursal' },
+      { key: 'usuario', label: 'Usuario' },
+      { key: 'apertura_total_caja', label: '($)Apertura', render: v => `$${parseFloat(v || 0).toFixed(2)}` },
+      { key: 'cierre_total_caja', label: '($)Cierre', render: v => v ? `$${parseFloat(v).toFixed(2)}` : '-' },
+      {
+        key: 'monto_a_tener', label: '($)Monto a Tener',
+        render: (v, row) => {
+          const val = row.monto_a_tener ?? (row.cierre_total_caja && parseFloat(row.cierre_total_caja) > 0 ? row.cierre_total_caja : row.apertura_total_caja);
+          return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
+        }
+      },
+      { key: 'cuadre_caja', label: 'Cuadre', render: v => v || '-' },
+      {
+        key: 'estado_caja', label: 'Estado',
+        render: v => {
+          const isApert = v === 'APERTURADA';
+          return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${isApert ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+            <i className="fas fa-circle text-[6px]"></i>{v || '-'}
+          </span>;
+        }
+      },
+      {
+        key: 'estado_solicitud', label: 'Solicitud',
+        render: v => {
+          if (v == 0 || v == null) return <span title="Sin solicitud"><i className="fas fa-info-circle text-slate-400"></i></span>;
+          if (v == 1) return <span title="Solicitud Enviada"><i className="fas fa-info-circle text-amber-500"></i></span>;
+          if (v == 2) return <span title="Solicitud Aprobada"><i className="fas fa-info-circle text-emerald-500"></i></span>;
+          return '-';
+        }
+      },
+    ],
+    filters: [
+      { key: 'desde', label: 'Desde', type: 'date' },
+      { key: 'hasta', label: 'Hasta', type: 'date' },
+      {
+        key: 'estado', label: 'Estado', type: 'select', options: [
+          { value: '', label: 'TODOS' },
+          { value: 'APERTURADA', label: 'APERTURADA' },
+          { value: 'CERRADA', label: 'CERRADA' },
+        ], defaultValue: ''
+      },
+    ],
+    customParams: (page, pageSize, filters) => ({
+      desde: filters.desde || '',
+      hasta: filters.hasta || '',
+      estado: filters.estado || '',
+      apertura: filters.apertura || '',
+      page: page + 1,
+      limit: pageSize,
+    }),
+    actions: {
+      bulkActions: [
+        createAperturaAction('/caja_nota_venta/insertarAperturaCaja'),
+        createBuscarCajaAction()
+      ],
+      custom: [
+        {
+          id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
+          color: 'text-slate-600 hover:bg-slate-50',
+          handler: async (row) => {
+            window.open(`/php/pdfCajaNotaVentaImpresion.php?id_caja=${row.id_caja}`, '_blank');
+          }
+        },
+        {
+          id: 'info-comprobante', icon: 'fas fa-vote-yea', tooltip: 'Información Comprobante',
+          color: 'text-indigo-600 hover:bg-indigo-50',
+          handler: async (row, ctx) => {
+            if (ctx && ctx.openCustomModal) {
+              const { InfoComprobanteForm } = await import('../components/common/InfoComprobanteModal');
+              ctx.openCustomModal(
+                InfoComprobanteForm,
+                {
+                  initialNumero: row.numero_comprobante || '',
+                  initialBanco: row.banco || '',
+                  onConfirm: async (formValues) => {
+                    try {
+                      const res = await api.post('/caja_nota_venta/guardarInfoComprobante', { id_caja: row.id_caja, ...formValues });
+                      if (res.data?.success) {
+                        toast.success('Comprobante guardado');
+                        ctx.closeCustomModal();
+                        if (ctx.refreshList) ctx.refreshList();
+                      } else {
+                        toast.error(res.data?.message || 'Error al guardar');
+                      }
+                    } catch (e) {
+                      toast.error('Error al guardar comprobante');
+                    }
+                  }
+                },
+                'Información Comprobante'
+              );
+            }
+          }
+        },
+        {
+          id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Caja',
+          color: 'text-amber-500 hover:bg-amber-50',
+          handler: async (row, ctx) => {
+            const solicitudAprobada = row.estado_solicitud == 2 || row.estado_solicitud === 'APROBADA';
+            if (row.estado_caja === 'CERRADA' && !solicitudAprobada) {
+              toast.error('No se puede editar una caja cerrada sin solicitud aprobada');
+              return;
+            }
+            if (ctx && ctx.openCustomModal) {
+              const { default: EditarCajaVista } = await import('../components/common/EditarCajaVista');
+              ctx.openCustomModal(
+                EditarCajaVista,
+                {
+                  caja: row,
+                  endpointEditar: '/caja_nota_venta/editarCaja',
+                  endpointDetalle: '/caja_nota_venta/detalleCaja',
+                  onSuccess: () => {
+                    if (ctx.refreshList) ctx.refreshList();
+                  }
+                },
+                null,
+                'w-full max-w-full h-full max-h-full m-0 p-0 rounded-none'
+              );
+            }
+          }
+        },
+        {
+          id: 'ver-movimientos', icon: 'fas fa-eye', tooltip: 'Ver Ingresos y Egresos',
+          color: 'text-indigo-600 hover:bg-indigo-50',
+          handler: async (row, ctx) => {
+            if (ctx && ctx.openCustomModal) {
+              const { default: EditarCajaVista } = await import('../components/common/EditarCajaVista');
+              ctx.openCustomModal(
+                EditarCajaVista,
+                {
+                  caja: row,
+                  endpointEditar: '/caja_nota_venta/editarCaja',
+                  endpointDetalle: '/caja_nota_venta/detalleCaja',
+                  readOnly: true
+                },
+                null,
+                'w-full max-w-full h-full max-h-full m-0 p-0 rounded-none'
+              );
+            }
+          }
+        },
+        {
+          id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
+          color: 'text-red-600 hover:bg-red-50',
+          handler: async (row) => {
+            window.open(`/php/pdfArqueoCajaNotaVenta.php?id_caja=${row.id_caja}`, '_blank');
+          }
+        },
+        {
+          id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
+          color: 'text-indigo-600 hover:bg-indigo-50',
+          handler: async (row) => {
+            window.open(`/php/pdfComprobantesxCajaNotaVenta.php?idcaja=${row.id_caja}`, '_blank');
+          }
+        },
+        createCerrarAction('id_caja', '/caja_nota_venta/cerrarCaja'),
+        {
+          id: 'solicitud', icon: 'fas fa-share-square', tooltip: 'Solicitar Edición',
+          color: 'text-sky-600 hover:bg-sky-50',
+          showIf: (row) => row.estado_caja === 'CERRADA' && row.estado_solicitud != 1,
+          handler: async (row, ctx) => {
+            try {
+              const res = await api.get('/caja_nota_venta/enviarSolicituEdicion', { params: { id_caja: row.id_caja } });
+              if (res.data?.success) {
+                toast.success('Solicitud enviada correctamente');
+                if (ctx && ctx.refreshList) ctx.refreshList();
+              } else {
+                toast.error(res.data?.message || 'No se pudo enviar la solicitud');
+              }
+            } catch {
+              toast.error('Error al enviar solicitud');
+            }
+          }
+        },
+        {
+          id: 'aprobar_solicitud', icon: 'fas fa-check-circle', tooltip: 'Aprobar Solicitud',
+          color: 'text-emerald-600 hover:bg-emerald-50',
+          showIf: (row) => row.estado_solicitud == 1 || row.estado_solicitud === 'PENDIENTE',
+          handler: async (row, ctx) => {
+            try {
+              const res = await api.post('/caja_nota_venta/aprobarSolicitud', { id_caja: row.id_caja });
+              if (res.data?.success) {
+                toast.success('Solicitud aprobada correctamente');
+                if (ctx && ctx.refreshList) ctx.refreshList();
+              } else {
+                toast.error(res.data?.message || 'Error al aprobar solicitud');
+              }
+            } catch {
+              toast.error('Error al aprobar solicitud');
             }
           }
         },

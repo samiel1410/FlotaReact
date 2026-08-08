@@ -65,16 +65,20 @@ export const CajaGrid = ({ data, loading, pagination, setPagination, totalRecord
       header: 'ACCIONES', id: 'actions',
       cell: ({ row }) => {
         const r = row.original;
+        const solicitudEnviada = r.estado_solicitud == 1 || r.estado_solicitud === 'PENDIENTE';
         const buttons = [
-          { action: 'info-comprobante', icon: 'fa-vote-yea', cls: 'text-indigo-500 hover:bg-indigo-50', title: 'Info Comprobante' },
-          { action: 'arqueo', icon: 'fa-file-pdf', cls: 'text-red-500 hover:bg-red-50', title: 'Arqueo PDF' },
-          { action: 'comprobantes', icon: 'fa-file-invoice', cls: 'text-red-500 hover:bg-red-50', title: 'Comprobantes' },
-          { action: 'editar', icon: 'fa-edit', cls: 'text-amber-500 hover:bg-amber-50', title: 'Editar / Detalle' },
+          { action: 'impresion-rapida', icon: 'fa-print', cls: 'text-slate-600 hover:bg-slate-50', title: 'Impresión Rápida' },
+          { action: 'info-comprobante', icon: 'fa-vote-yea', cls: 'text-indigo-600 hover:bg-indigo-50', title: 'Información Comprobante' },
+          { action: 'editar', icon: 'fa-edit', cls: 'text-amber-500 hover:bg-amber-50', title: 'Editar Caja' },
+          { action: 'ver-movimientos', icon: 'fa-eye', cls: 'text-indigo-600 hover:bg-indigo-50', title: 'Ver Ingresos y Egresos' },
+          { action: 'arqueo', icon: 'fa-file-pdf', cls: 'text-red-600 hover:bg-red-50', title: 'Arqueo PDF' },
+          { action: 'comprobantes', icon: 'fa-receipt', cls: 'text-indigo-600 hover:bg-indigo-50', title: 'Reporte Comprobantes2' },
           ...(showIngresoEgreso ? [{ action: 'ingreso-egreso', icon: 'fa-exchange-alt', cls: 'text-emerald-500 hover:bg-emerald-50', title: 'Ingreso/Egreso' }] : []),
-          { action: 'cerrar', icon: 'fa-sign-out-alt', cls: 'text-blue-500 hover:bg-blue-50', title: 'Cerrar Caja' },
-          { action: 'solicitud', icon: 'fa-share-square', cls: 'text-purple-500 hover:bg-purple-50', title: 'Solicitud' },
-          { action: 'impresion-rapida', icon: 'fa-print', cls: 'text-slate-500 hover:bg-slate-50', title: 'Impresión Rápida' },
-        ];
+          { action: 'cerrar', icon: 'fa-sign-out-alt', cls: 'text-rose-600 hover:bg-rose-50', title: 'Cerrar Caja', showIf: r.estado_caja === 'APERTURADA' },
+          { action: 'solicitud', icon: 'fa-share-square', cls: 'text-sky-600 hover:bg-sky-50', title: 'Solicitar Edición', showIf: r.estado_caja === 'CERRADA' && !solicitudEnviada },
+          { action: 'aprobar_solicitud', icon: 'fa-check-circle', cls: 'text-emerald-600 hover:bg-emerald-50', title: 'Aprobar Solicitud', showIf: solicitudEnviada },
+        ].filter(b => b.showIf === undefined || b.showIf);
+
         return (
           <div className="flex gap-1">
             {buttons.map(b => (

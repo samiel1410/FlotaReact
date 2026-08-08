@@ -296,11 +296,10 @@ export const CajaNotaVentaContent = () => {
               case 'arqueo': handleArqueo(row); break;
               case 'comprobantes': handleComprobantes(row); break;
               case 'editar': handleEditar(row); break;
+              case 'ver-movimientos': handleVerDetalle(row); break;
               case 'cerrar': openCierreModal(row); break;
-              case 'solicitud':
-                if (row.estado_caja === 'CERRADA' && row.estado_solicitud != 1) handleSolicitudEdicion(row);
-                else if (row.estado_solicitud == 1 || row.estado_solicitud === 'PENDIENTE') handleAprobarSolicitud(row);
-                break;
+              case 'solicitud': handleSolicitudEdicion(row); break;
+              case 'aprobar_solicitud': handleAprobarSolicitud(row); break;
               case 'impresion-rapida': handleImpresionRapida(row); break;
             }
           }}
