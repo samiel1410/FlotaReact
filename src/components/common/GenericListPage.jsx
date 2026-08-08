@@ -306,17 +306,17 @@ export const GenericListPage = ({ config }) => {
       {/* ── CUERPO: GRID DE DATOS ─────────────────────────────────────────────── */}
       <div className="flex-1 bg-white flex flex-col overflow-hidden min-h-0 relative">
         <div className="flex-1 overflow-auto relative scrollbar-thin scrollbar-thumb-slate-200">
-          <table className="w-full text-left border-collapse min-w-max">
+          <table className="w-full text-left border-collapse table-auto">
             <thead className="bg-slate-50 sticky top-0 z-[1] border-b border-slate-200">
               <tr>
-                <th className="py-2 px-4 text-[9px] font-black text-slate-400 uppercase tracking-widest w-10 text-center">#</th>
+                <th className="py-2 px-1 text-[9px] font-black text-slate-400 uppercase tracking-widest w-6 text-center">#</th>
                 {columns.map(col => (
-                  <th key={col.key} className="py-2 px-3 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap">
+                  <th key={col.key} className="py-2 px-1 text-[9px] font-black text-slate-500 uppercase tracking-tight whitespace-nowrap">
                     {col.label}
                   </th>
                 ))}
                 {(actions.edit || actions.delete || (actions.custom && actions.custom.length > 0)) && (
-                  <th className="py-2 px-4 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">
+                  <th className="py-2 px-2 text-[9px] font-black text-slate-500 uppercase tracking-widest whitespace-nowrap text-right">
                     ACCIONES
                   </th>
                 )}
@@ -326,11 +326,11 @@ export const GenericListPage = ({ config }) => {
               {loading ? (
                 Array(15).fill(0).map((_, i) => (
                   <tr key={i}>
-                    <td className="py-2 px-4"><Skeleton height={12} /></td>
+                    <td className="py-1.5 px-1"><Skeleton height={12} /></td>
                     {columns.map(col => (
-                      <td key={col.key} className="py-2 px-3"><Skeleton height={12} /></td>
+                      <td key={col.key} className="py-1.5 px-1"><Skeleton height={12} /></td>
                     ))}
-                    <td className="py-2 px-4"><Skeleton height={12} /></td>
+                    <td className="py-1.5 px-2"><Skeleton height={12} /></td>
                   </tr>
                 ))
               ) : data.length > 0 ? (
@@ -338,17 +338,17 @@ export const GenericListPage = ({ config }) => {
                   const rowId = row.id || row.id_buses || row.id_rutas || row.id_viajes || row.id_usuario || row.id_caja || row.id_sucursal || row.id_rol || row.id_personal || row.id_boleto || row.id_destino || row.id_canton || row.id_provincia || row.id_lugar || row.id_sub_rutas || row.id_cliente || row.id_convenio || row.id_inventario || row.id_forma_pago || row.id_tipo_cobro || row.id_comprobante || row.id_reserva || row.id_anulacion || row.id_banco || `row-${i}`;
                   return (
                     <tr key={rowId} className="group hover:bg-indigo-50/30 transition-all duration-75">
-                    <td className="py-2 px-4 text-slate-400 font-mono text-[9px] text-center group-hover:text-indigo-500 transition-colors">
+                    <td className="py-1.5 px-1 text-slate-400 font-mono text-[9px] text-center group-hover:text-indigo-500 transition-colors">
                       {page * PAGE_SIZE + i + 1}
                     </td>
                     {columns.map(col => (
-                      <td key={col.key} className="py-2 px-3 text-slate-700 font-bold text-[11px] uppercase tracking-tight">
+                      <td key={col.key} className="py-1.5 px-1 text-slate-700 font-bold text-[10px] uppercase tracking-tight">
                         {renderCell(col, row)}
                       </td>
                     ))}
                     {(actions.edit || actions.delete || (actions.custom && actions.custom.length > 0)) && (
-                      <td className="py-2 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
+                      <td className="py-1.5 px-2 text-right">
+                        <div className="flex items-center justify-end gap-0.5 opacity-70 group-hover:opacity-100 transition-opacity">
                           {actions.custom && actions.custom.filter(action => !action.showIf || action.showIf(row)).map(action => (
                             <button
                               key={action.id}
