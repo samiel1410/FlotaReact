@@ -130,7 +130,7 @@ function obtenerCredencialesDb($isLocal)
 
     $db_host = $isLocal
         ? (getenv('DB_HOST') ?: getenv('MYSQL_HOST') ?: 'localhost')
-        : (getenv('PROD_DB_HOST') ?: getenv('DB_HOST') ?: getenv('MYSQL_HOST') ?: 'localhost');
+        : (getenv('PROD_DB_HOST') ?: getenv('DB_HOST') ?: getenv('MYSQL_HOST') ?: '');
 
     $db_user = $isLocal
         ? (getenv('DB_USER') ?: getenv('DB_USERNAME') ?: getenv('MYSQL_USER') ?: 'root')
@@ -143,6 +143,43 @@ function obtenerCredencialesDb($isLocal)
     $db_name = $isLocal
         ? (getenv('DB_NAME') ?: getenv('MYSQL_DATABASE') ?: 'flotapelileo_produccion')
         : (getenv('PROD_DB_NAME') ?: getenv('DB_NAME') ?: getenv('MYSQL_DATABASE') ?: '');
+
+    // Si en producción no hay usuario/db definidos en variables de entorno, obtener por defecto las del Tenant #1 desde AuthService
+    if (!$isLocal && (empty($db_user) || empty($db_name))) {
+        $authUrl = 'https://usuarioeasys.easysplus.com';
+        $endpoint = "{$authUrl}/auth/tenant-db/1";
+        $json = null;
+
+        if (function_exists('curl_init')) {
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $endpoint);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+            $json = curl_exec($ch);
+            curl_close($ch);
+        }
+
+        if (!$json) {
+            $ctx = stream_context_create([
+                "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
+                "http" => ["timeout" => 5]
+            ]);
+            $json = @file_get_contents($endpoint, false, $ctx);
+        }
+
+        if ($json) {
+            $data = json_decode($json, true);
+            if (isset($data['success']) && $data['success'] && isset($data['tenant'])) {
+                $t = $data['tenant'];
+                $db_host = !empty($t['db_host']) ? decrypt_db_data($t['db_host']) : ($db_host ?: 'localhost');
+                $db_user = !empty($t['db_user']) ? decrypt_db_data($t['db_user']) : $db_user;
+                $db_pass = !empty($t['db_pass']) ? decrypt_db_data($t['db_pass']) : $db_pass;
+                $db_name = !empty($t['db_name']) ? decrypt_db_data($t['db_name']) : $db_name;
+            }
+        }
+    }
 
     return [$db_host, $db_user, $db_pass, $db_name];
 }
