@@ -17,7 +17,12 @@ export const CONFIG = {
 
   // Backend URL dinámica (asignada tras el login y guardada en sessionStorage)
   get API_URL() {
-    return sessionStorage.getItem('backend_url') || '';
+    const url = sessionStorage.getItem('backend_url') || '';
+    if (isLocal) {
+      // Si estamos en entorno local, forzar el uso del servidor backend local (http://localhost:3000)
+      return 'http://localhost:3000';
+    }
+    return url;
   },
 
   get REDIRECT_URL() {

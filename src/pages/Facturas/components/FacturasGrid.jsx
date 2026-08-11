@@ -241,20 +241,21 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
 
   const formatFechaBonita = (f) => {
     if (!f) return '-';
-
+    if (typeof f === 'string') {
+      const datePart = f.includes('T') ? f.split('T')[0] : f.split(' ')[0];
+      const parts = datePart.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    }
     const fecha = new Date(f);
     if (!Number.isNaN(fecha.getTime())) {
-      return new Intl.DateTimeFormat('es-EC', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        timeZone: 'America/Guayaquil',
-      }).format(fecha);
+      const dia = String(fecha.getUTCDate()).padStart(2, '0');
+      const mes = String(fecha.getUTCMonth() + 1).padStart(2, '0');
+      const anio = fecha.getUTCFullYear();
+      return `${dia}/${mes}/${anio}`;
     }
-
-    const str = String(f);
-    const datePart = str.includes('T') ? str.split('T')[0] : str.split(' ')[0];
-    return datePart || '-';
+    return String(f) || '-';
   };
 
   const tdClass = "px-3 py-2.5 text-xs border-b border-slate-100";
