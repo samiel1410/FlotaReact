@@ -70,8 +70,8 @@ export const GuiaNotaVentaService = {
    * Generar PDF de guía — solo PHP (como ExtJS)
    * Abre guiaPdfImpresion.php en nueva pestaña
    */
-  generarPdf: async (idGuia, reimpresoPor = null) => {
-    const phpUrl = `${CONFIG.PHP_URL}/guiaNotaVentaPdfImpresion.php?id_guia=${encodeURIComponent(idGuia)}${reimpresoPor ? `&reimpreso_por=${encodeURIComponent(reimpresoPor)}` : ''}`;
+  generarPdf: async (idGuia, reimpresoPor = null, tenantId = 1) => {
+    const phpUrl = `${CONFIG.PHP_URL}/guiaNotaVentaPdfImpresion.php?id_guia=${encodeURIComponent(idGuia)}&tenantId=${encodeURIComponent(tenantId)}${reimpresoPor ? `&reimpreso_por=${encodeURIComponent(reimpresoPor)}` : ''}`;
     window.open(phpUrl, '_blank');
     return { url: phpUrl };
   },
@@ -80,8 +80,8 @@ export const GuiaNotaVentaService = {
    * Descargar/ver PDF de guía A4 — solo PHP
    * Abre guiaPdf.php en nueva pestaña
    */
-  descargarGuiaPDF: async (idGuia) => {
-    const phpUrl = `${CONFIG.PHP_URL}/guiaPdf.php?id_guia=${encodeURIComponent(idGuia)}`;
+  descargarGuiaPDF: async (idGuia, tenantId = 1) => {
+    const phpUrl = `${CONFIG.PHP_URL}/guiaPdf.php?id_guia=${encodeURIComponent(idGuia)}&tenantId=${encodeURIComponent(tenantId)}`;
     window.open(phpUrl, '_blank');
     return phpUrl;
   },

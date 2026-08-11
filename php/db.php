@@ -195,8 +195,9 @@ function conexion()
 
     if (!$conn) {
         $err = mysqli_connect_error();
-        error_log("DB Connection Error: " . $err);
-        die("Error de Conexión a Base de Datos");
+        $errNo = mysqli_connect_errno();
+        error_log("DB Connection Error ({$errNo}): " . $err);
+        die("Error generando PDF: " . $err . " | Host: '{$db_host}', User: '{$db_user}', DB: '{$db_name}'");
     }
 
     mysqli_set_charset($conn, "utf8");

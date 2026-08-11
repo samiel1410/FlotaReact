@@ -110,7 +110,8 @@ export const GuiasNotaVentaPage = () => {
 
   // Action handlers for grid row actions
   const handleViewPdf = (item) => {
-    const url = `${CONFIG.PHP_URL}/guiaNotaVentaPdf.php?id_guia=${encodeURIComponent(item.id_guia)}`;
+    const tenantId = user?.tenant_id || user?.id_tenant || 1;
+    const url = `${CONFIG.PHP_URL}/guiaNotaVentaPdf.php?id_guia=${encodeURIComponent(item.id_guia)}&tenantId=${encodeURIComponent(tenantId)}`;
     setPdfTitle(`Guía ${item.numero_guia_final || item.id_guia}`);
     setPdfUrl(url);
     setPdfShouldShowPrint(false);
@@ -154,14 +155,16 @@ export const GuiasNotaVentaPage = () => {
     const item = selectedPrintItem;
     setPrintSelectorOpen(false);
     const idUsuario = user?.id_usuario || 0;
-    const phpUrl = `${CONFIG.PHP_URL}/guiaNotaVentaPdfImpresion.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
+    const tenantId = user?.tenant_id || user?.id_tenant || 1;
+    const phpUrl = `${CONFIG.PHP_URL}/guiaNotaVentaPdfImpresion.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&tenantId=${encodeURIComponent(tenantId)}`;
     openPhpPdf(phpUrl, `Imprimir Guía ${item.numero_guia_final || item.id_guia}`);
   };
 
   const handlePrintQR = () => {
     const item = selectedPrintItem;
     setPrintSelectorOpen(false);
-    const phpUrl = `${CONFIG.PHP_URL}/qrNotaVentaPdf.php?id_guia=${encodeURIComponent(item.id_guia)}`;
+    const tenantId = user?.tenant_id || user?.id_tenant || 1;
+    const phpUrl = `${CONFIG.PHP_URL}/qrNotaVentaPdf.php?id_guia=${encodeURIComponent(item.id_guia)}&tenantId=${encodeURIComponent(tenantId)}`;
     openPhpPdf(phpUrl, `QR Guía ${item.numero_guia_final || item.id_guia}`);
   };
 
