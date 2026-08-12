@@ -47,7 +47,9 @@ function decrypt_db_data($data) {
 
 function obtenerCredencialesDb($isLocal)
 {
+    $tenantIntentado = false;
     if (isset($_GET['tenantId']) || isset($_POST['tenantId'])) {
+        $tenantIntentado = true;
         $tId = isset($_GET['tenantId']) ? $_GET['tenantId'] : $_POST['tenantId'];
         $authUrl = $isLocal ? 'http://localhost:4000' : 'https://usuarioeasys.easysplus.com';
         $endpoint = "{$authUrl}/auth/tenant-db/{$tId}";
@@ -86,7 +88,8 @@ function obtenerCredencialesDb($isLocal)
                     $dbHost ?: 'localhost',
                     $dbUser ?: ($isLocal ? 'root' : ''),
                     $dbPass ?: '',
-                    $dbName
+                    $dbName,
+                    'AuthService tenantId=' . $tId
                 ];
             } else {
                 error_log("[TenantDB Error] Respuesta no válida: " . $json);
@@ -106,7 +109,8 @@ function obtenerCredencialesDb($isLocal)
             $sessionDbHost ?: 'localhost',
             $sessionDbUser ?: ($isLocal ? 'root' : ''),
             $sessionDbPass ?: '',
-            $sessionDbName
+            $sessionDbName,
+            'sesión ($_SESSION)'
         ];
     }
 
@@ -115,7 +119,8 @@ function obtenerCredencialesDb($isLocal)
             isset($_GET['db_host']) ? $_GET['db_host'] : 'localhost',
             isset($_GET['db_user']) ? $_GET['db_user'] : ($isLocal ? 'root' : ''),
             isset($_GET['db_pass']) ? $_GET['db_pass'] : '',
-            $_GET['db_name']
+            $_GET['db_name'],
+            'GET (?db_name)'
         ];
     }
 
@@ -124,7 +129,8 @@ function obtenerCredencialesDb($isLocal)
             isset($_POST['db_host']) ? $_POST['db_host'] : 'localhost',
             isset($_POST['db_user']) ? $_POST['db_user'] : ($isLocal ? 'root' : ''),
             isset($_POST['db_pass']) ? $_POST['db_pass'] : '',
-            $_POST['db_name']
+            $_POST['db_name'],
+            'POST (db_name)'
         ];
     }
 
@@ -143,6 +149,8 @@ function obtenerCredencialesDb($isLocal)
     $db_name = $isLocal
         ? (getenv('DB_NAME') ?: getenv('MYSQL_DATABASE') ?: 'flotapelileo_produccion')
         : (getenv('PROD_DB_NAME') ?: getenv('DB_NAME') ?: getenv('MYSQL_DATABASE') ?: '');
+
+    $origen = 'variables de entorno';
 
     // Si en producción no hay usuario/db definidos en variables de entorno, obtener por defecto las del Tenant #1 desde AuthService
     if (!$isLocal && (empty($db_user) || empty($db_name))) {
@@ -177,11 +185,16 @@ function obtenerCredencialesDb($isLocal)
                 $db_user = !empty($t['db_user']) ? decrypt_db_data($t['db_user']) : $db_user;
                 $db_pass = !empty($t['db_pass']) ? decrypt_db_data($t['db_pass']) : $db_pass;
                 $db_name = !empty($t['db_name']) ? decrypt_db_data($t['db_name']) : $db_name;
+                $origen = 'variables de entorno + tenant #1 (AuthService)';
             }
         }
     }
 
-    return [$db_host, $db_user, $db_pass, $db_name];
+    if ($tenantIntentado) {
+        $origen = 'tenantId falló la API → ' . $origen;
+    }
+
+    return [$db_host, $db_user, $db_pass, $db_name, $origen];
 }
 
 function conexion()
@@ -189,7 +202,11 @@ function conexion()
     $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
     $isLocal = ($host == 'localhost' || $host == '127.0.0.1');
 
-    list($db_host, $db_user, $db_pass, $db_name) = obtenerCredencialesDb($isLocal);
+    list($db_host, $db_user, $db_pass, $db_name, $origen) = obtenerCredencialesDb($isLocal);
+
+    // ============ DEBUG: imprimir datos de la conexión ============
+    $db_pass_mostrar = $db_pass !== '' ? $db_pass : '(vacío)';
+    // ==============================================================
 
     $conn = mysqli_connect($db_host, $db_user, $db_pass, $db_name);
 
