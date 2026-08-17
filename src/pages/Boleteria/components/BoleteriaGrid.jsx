@@ -51,9 +51,8 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
               <th># BOLETO</th>
               <th>CLIENTE</th>
               <th>RUTA / DESTINO</th>
-              <th className="text-center">BUS</th>
+              <th className="text-center">BUS / ASIENTOS</th>
               <th>FECHA / HORA</th>
-              <th className="text-center">ASIENTOS</th>
               <th className="text-right">TOTAL</th>
               <th className="text-center">ESTADO</th>
               <th className="text-center">SRI</th>
@@ -63,12 +62,18 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
           <tbody>
             {data.map(item => {
               const est = formatEstado(item.estado_boleto);
+              const origenNombre = item.nombre_origen_res || item.nombre_origen || item.origen_boleto || 'Origen';
+              const destinoNombre = item.nombre_destino_res || item.nombre_sub_rutas || item.nombre_destino || item.destino_boleto || 'Destino';
+              const asientosStr = item.detalles && item.detalles.length > 0
+                ? item.detalles.map(d => d.asiento_boleto_detalle).join(', ')
+                : item.total_asiento > 0 ? `${item.total_asiento} asns` : '-';
+
               return (
               <tr key={item.id_boleto} className={
                 Number(item.estado_boleto) === 3 ? 'row-anulado' : 
                 item.estado_autorizacion === 'AUTORIZADO' ? 'row-autorizado' : 'row-no-autorizado'
               }>
-                <td className="font-mono" style={{fontWeight: 600, color: '#2c3e50', fontSize: '12px'}}>
+                <td className="font-mono" style={{fontWeight: 700, color: '#1a252f', fontSize: '14px', letterSpacing: '0.3px'}}>
                   {formatNumero(item)}
                 </td>
 
@@ -88,14 +93,20 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                   </div>
                   <div style={{color: '#7f8c8d', fontSize: '11px', marginTop: '2px'}}>
                     <i className="fas fa-map-marker-alt" style={{color: '#e74c3c', marginRight: '4px'}}></i>
-                    {item.nombre_origen || item.origen_boleto || 'Origen'} ➔ <strong style={{color: '#e67e22'}}>{item.nombre_destino || item.destino_boleto || 'Destino'}</strong>
+                    {origenNombre} ➔ <strong style={{color: '#e67e22'}}>{destinoNombre}</strong>
                   </div>
                 </td>
 
-                <td className="text-center">
-                  <span style={{background: '#ecf0f1', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px'}}>
-                    {item.disco_buses || '-'}
-                  </span>
+                {/* Bus + Asientos Combinados */}
+                <td className="text-center" style={{fontSize: '12px'}}>
+                  <div style={{display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '2px'}}>
+                    <span style={{background: '#34495e', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px'}}>
+                      Bus {item.disco_buses || '-'}
+                    </span>
+                    <span style={{color: '#e67e22', fontWeight: 'bold', fontSize: '11px', fontFamily: 'monospace'}}>
+                      Asn: {asientosStr}
+                    </span>
+                  </div>
                 </td>
 
                 <td style={{fontSize: '12px'}}>
@@ -107,13 +118,7 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                   )}
                 </td>
 
-                <td className="text-center font-mono font-bold" style={{fontSize: '12px'}}>
-                  {item.detalles && item.detalles.length > 0
-                    ? item.detalles.map(d => d.asiento_boleto_detalle).join(', ')
-                    : item.total_asiento > 0 ? `${item.total_asiento} asientos` : '-'}
-                </td>
-
-                <td className="font-mono text-right font-bold" style={{color: '#27ae60', fontSize: '14px'}}>
+                <td className="font-mono text-right font-bold" style={{color: '#27ae60', fontSize: '12px'}}>
                   ${parseFloat(item.total_boleto || 0).toFixed(2)}
                 </td>
 
