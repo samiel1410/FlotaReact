@@ -75,6 +75,11 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                 <td className="cell-client">
                   <strong style={{fontSize: '12px'}}>{item.identificacion_boleto}</strong><br/>
                   <span style={{color: '#34495e', fontSize: '12px'}}>{item.nombres_boleto}</span>
+                  {item.nombre_usuario && (
+                    <div style={{fontSize: '10px', color: '#95a5a6', marginTop: '2px'}}>
+                      <i className="far fa-user" style={{marginRight: '3px'}}></i>Vend: {item.nombre_usuario}
+                    </div>
+                  )}
                 </td>
 
                 <td style={{fontSize: '12px'}}>
@@ -96,8 +101,8 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                 <td style={{fontSize: '12px'}}>
                   <div>{item.fecha_creacion_boleto ? item.fecha_creacion_boleto.split('T')[0] : item.fecha_boleto || '-'}</div>
                   {item.hora_viaje && (
-                    <div style={{fontSize: '11px', color: '#7f8c8d', fontWeight: '500'}}>
-                      <i className="far fa-clock" style={{marginRight: '3px', color: '#3498db'}}></i>{item.hora_viaje}
+                    <div style={{fontSize: '11px', color: '#3498db', fontWeight: '600', marginTop: '1px'}}>
+                      <i className="far fa-clock" style={{marginRight: '3px'}}></i>{item.hora_viaje}
                     </div>
                   )}
                 </td>
