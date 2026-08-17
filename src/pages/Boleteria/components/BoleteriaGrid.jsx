@@ -50,8 +50,9 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
             <tr>
               <th># BOLETO</th>
               <th>CLIENTE</th>
+              <th>RUTA / DESTINO</th>
               <th className="text-center">BUS</th>
-              <th>FECHA</th>
+              <th>FECHA / HORA</th>
               <th className="text-center">ASIENTOS</th>
               <th className="text-right">TOTAL</th>
               <th className="text-center">ESTADO</th>
@@ -76,6 +77,16 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                   <span style={{color: '#34495e', fontSize: '12px'}}>{item.nombres_boleto}</span>
                 </td>
 
+                <td style={{fontSize: '12px'}}>
+                  <div style={{fontWeight: '600', color: '#2c3e50'}}>
+                    {item.nombre_rutas || 'Ruta sin especificar'}
+                  </div>
+                  <div style={{color: '#7f8c8d', fontSize: '11px', marginTop: '2px'}}>
+                    <i className="fas fa-map-marker-alt" style={{color: '#e74c3c', marginRight: '4px'}}></i>
+                    {item.nombre_origen || item.origen_boleto || 'Origen'} ➔ <strong style={{color: '#e67e22'}}>{item.nombre_destino || item.destino_boleto || 'Destino'}</strong>
+                  </div>
+                </td>
+
                 <td className="text-center">
                   <span style={{background: '#ecf0f1', padding: '2px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '11px'}}>
                     {item.disco_buses || '-'}
@@ -83,7 +94,12 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                 </td>
 
                 <td style={{fontSize: '12px'}}>
-                  {item.fecha_creacion_boleto ? item.fecha_creacion_boleto.split('T')[0] : item.fecha_boleto || '-'}
+                  <div>{item.fecha_creacion_boleto ? item.fecha_creacion_boleto.split('T')[0] : item.fecha_boleto || '-'}</div>
+                  {item.hora_viaje && (
+                    <div style={{fontSize: '11px', color: '#7f8c8d', fontWeight: '500'}}>
+                      <i className="far fa-clock" style={{marginRight: '3px', color: '#3498db'}}></i>{item.hora_viaje}
+                    </div>
+                  )}
                 </td>
 
                 <td className="text-center font-mono font-bold" style={{fontSize: '12px'}}>

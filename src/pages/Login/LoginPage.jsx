@@ -53,10 +53,7 @@ export const LoginPage = () => {
 
         {/* Contenido Decorativo */}
         <div className="relative z-10 max-w-xl p-12 text-white animate-fade-up">
-          <div className="inline-flex items-center gap-2 px-4 py-2 mb-8 bg-blue-500/20 rounded-full border border-blue-400/30 backdrop-blur-sm">
-            <i className="fas fa-bus text-blue-400"></i>
-            <span className="text-sm font-semibold tracking-wider text-blue-100 uppercase">SistemaFlota</span>
-          </div>
+
 
           <h1 className="text-5xl font-bold leading-tight mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-200">
             SISTEMA de<br />
