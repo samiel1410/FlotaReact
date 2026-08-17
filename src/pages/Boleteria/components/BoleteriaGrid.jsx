@@ -91,9 +91,9 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                   <div style={{fontWeight: '600', color: '#2c3e50'}}>
                     {item.nombre_rutas || 'Ruta sin especificar'}
                   </div>
-                  <div style={{color: '#7f8c8d', fontSize: '11px', marginTop: '2px'}}>
+                  <div style={{color: '#e67e22', fontWeight: 'bold', fontSize: '11px', marginTop: '2px'}}>
                     <i className="fas fa-map-marker-alt" style={{color: '#e74c3c', marginRight: '4px'}}></i>
-                    {origenNombre} ➔ <strong style={{color: '#e67e22'}}>{destinoNombre}</strong>
+                    {item.destino_nombre_combo || item.nombre_sub_rutas || item.nombre_destino || item.destino_boleto || 'Destino'}
                   </div>
                 </td>
 
