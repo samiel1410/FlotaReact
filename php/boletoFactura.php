@@ -195,9 +195,11 @@ razon_social_empresa FROM empresa WHERE 1";
         $nombrePasajero = strtoupper($detalle['nombre_cliente_boleto_detalle']);
         $fechaSalidaFormateada = formatearFechaEspanol($fechaSalida); 
         
+        $destinoMostrar = !empty($destinoBoleto) ? strtoupper($destinoBoleto) : strtoupper($rutaPasajero);
+        
         $html1 .= '<table style="margin-top:1px">
             <tr><td class="bold" style="font-size:7pt">' . $nombrePasajero . '</td><td class="bold" style="font-size:10pt" align="right">Asiento ' . str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) . '</td></tr>
-            <tr><td colspan="2" class="bold" style="font-size:7pt" align="right">' . strtoupper($rutaPasajero) . '</td></tr>
+            <tr><td colspan="2" class="bold" style="font-size:7.5pt" align="right">DESTINO: ' . $destinoMostrar . '</td></tr>
             <tr><td colspan="2" align="right" class="bold" style="font-size:9pt">Valor $' . number_format($detalle['total_boleto_detalle'], 2, ',', '.') . '</td></tr>
             <tr><td colspan="2" style="font-size:6pt">Tarifa: ' . $detalle['tarifa_boleto_detalle'] . '</td></tr>
         </table>';
