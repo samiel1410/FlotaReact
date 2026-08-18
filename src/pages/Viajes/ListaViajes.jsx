@@ -323,18 +323,19 @@ export const ListaViajes = () => {
                   <th className="px-3 py-3 text-left">RUTA</th>
                   <th className="px-3 py-3 text-center w-20">PASAJ</th>
                   <th className="px-3 py-3 text-center w-24">ESTADO</th>
+                  <th className="px-3 py-3 text-left">DATOS DESPACHO</th>
                   <th className="px-3 py-3 text-right w-24">TOTAL</th>
-                  <th className="px-3 py-3 text-center w-24">FECHA</th>
+                  <th className="px-3 py-3 text-center w-28">FECHA / HORA</th>
                   <th className="px-3 py-3 text-center w-10"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan="10" className="text-center py-12 text-slate-400">
+                  <tr><td colSpan="11" className="text-center py-12 text-slate-400">
                     <i className="fas fa-spinner fa-spin mr-2"></i>Cargando viajes...
                   </td></tr>
                 ) : trips.length === 0 ? (
-                  <tr><td colSpan="10" className="text-center py-12 text-slate-400 font-bold">No hay viajes para mostrar</td></tr>
+                  <tr><td colSpan="11" className="text-center py-12 text-slate-400 font-bold">No hay viajes para mostrar</td></tr>
                 ) : trips.map((t, idx) => (
                   <tr key={t.id_viajes || idx} className="hover:bg-slate-50 transition-colors">
                     <td className="px-3 py-2.5 text-center font-bold text-slate-700">{t.id_viajes}</td>
@@ -358,10 +359,34 @@ export const ListaViajes = () => {
                       </span>
                     </td>
                     <td className="px-3 py-2.5 text-center">{renderEstado(t.estado_viajes)}</td>
+                    <td className="px-3 py-2.5">
+                      {t.estado_viajes == 2 || t.hora_despacho ? (
+                        <div className="text-[10px] leading-tight">
+                          <div className="font-bold text-amber-700 flex items-center gap-1">
+                            <i className="far fa-clock text-amber-500"></i> Desp: {t.hora_despacho ? String(t.hora_despacho).substring(0, 5) : (t.fecha_despacho ? t.fecha_despacho.split(' ')[1]?.substring(0, 5) : '-')}
+                          </div>
+                          <div className="text-slate-500 font-medium mt-0.5">
+                            <i className="far fa-user mr-1 text-slate-400"></i>{t.usuario_despacho || 'Sistema'}
+                          </div>
+                          {t.motivo_despacho && (
+                            <div className="text-[9px] text-slate-400 italic">({t.motivo_despacho})</div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 italic">Sin despacho</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2.5 text-right font-bold text-slate-700">
                       ${parseFloat(t.total_recaudado || 0).toFixed(2)}
                     </td>
-                    <td className="px-3 py-2.5 text-center text-slate-600">{t.fecha_viaje || '-'}</td>
+                    <td className="px-3 py-2.5 text-center text-slate-600">
+                      <div className="font-bold text-slate-700">{t.fecha_viaje || '-'}</div>
+                      {t.hora_salida && (
+                        <div className="text-[11px] font-extrabold text-indigo-600 flex items-center justify-center gap-1 mt-0.5">
+                          <i className="far fa-clock"></i> {t.hora_salida}
+                        </div>
+                      )}
+                    </td>
                     <td className="px-3 py-2.5 text-center relative">
                       <button onClick={(e) => {
                         e.stopPropagation();
