@@ -84,6 +84,14 @@ function obtenerCredencialesDb($isLocal)
                 $dbPass = !empty($t['db_pass']) ? decrypt_db_data($t['db_pass']) : '';
                 $dbName = !empty($t['db_name']) ? decrypt_db_data($t['db_name']) : '';
 
+                // Guardar en la sesión de PHP para subsiguientes peticiones del mismo usuario
+                if ($dbName) {
+                    $_SESSION['db_host'] = $dbHost;
+                    $_SESSION['db_user'] = $dbUser;
+                    $_SESSION['db_pass'] = $dbPass;
+                    $_SESSION['db_name'] = $dbName;
+                }
+
                 return [
                     $dbHost ?: 'localhost',
                     $dbUser ?: ($isLocal ? 'root' : ''),
@@ -115,21 +123,29 @@ function obtenerCredencialesDb($isLocal)
     }
 
     if (isset($_GET['db_name']) && !empty($_GET['db_name'])) {
+        $_SESSION['db_host'] = isset($_GET['db_host']) ? $_GET['db_host'] : 'localhost';
+        $_SESSION['db_user'] = isset($_GET['db_user']) ? $_GET['db_user'] : ($isLocal ? 'root' : '');
+        $_SESSION['db_pass'] = isset($_GET['db_pass']) ? $_GET['db_pass'] : '';
+        $_SESSION['db_name'] = $_GET['db_name'];
         return [
-            isset($_GET['db_host']) ? $_GET['db_host'] : 'localhost',
-            isset($_GET['db_user']) ? $_GET['db_user'] : ($isLocal ? 'root' : ''),
-            isset($_GET['db_pass']) ? $_GET['db_pass'] : '',
-            $_GET['db_name'],
+            $_SESSION['db_host'],
+            $_SESSION['db_user'],
+            $_SESSION['db_pass'],
+            $_SESSION['db_name'],
             'GET (?db_name)'
         ];
     }
 
     if (isset($_POST['db_name']) && !empty($_POST['db_name'])) {
+        $_SESSION['db_host'] = isset($_POST['db_host']) ? $_POST['db_host'] : 'localhost';
+        $_SESSION['db_user'] = isset($_POST['db_user']) ? $_POST['db_user'] : ($isLocal ? 'root' : '');
+        $_SESSION['db_pass'] = isset($_POST['db_pass']) ? $_POST['db_pass'] : '';
+        $_SESSION['db_name'] = $_POST['db_name'];
         return [
-            isset($_POST['db_host']) ? $_POST['db_host'] : 'localhost',
-            isset($_POST['db_user']) ? $_POST['db_user'] : ($isLocal ? 'root' : ''),
-            isset($_POST['db_pass']) ? $_POST['db_pass'] : '',
-            $_POST['db_name'],
+            $_SESSION['db_host'],
+            $_SESSION['db_user'],
+            $_SESSION['db_pass'],
+            $_SESSION['db_name'],
             'POST (db_name)'
         ];
     }
@@ -192,6 +208,13 @@ function obtenerCredencialesDb($isLocal)
 
     if ($tenantIntentado) {
         $origen = 'tenantId falló la API → ' . $origen;
+    }
+
+    if ($db_name) {
+        $_SESSION['db_host'] = $db_host;
+        $_SESSION['db_user'] = $db_user;
+        $_SESSION['db_pass'] = $db_pass;
+        $_SESSION['db_name'] = $db_name;
     }
 
     return [$db_host, $db_user, $db_pass, $db_name, $origen];
