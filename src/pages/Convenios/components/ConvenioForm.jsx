@@ -16,24 +16,24 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
       telefono: '',
       celular: '',
       correo: '',
-      estado: '1',
+      estado: true,
       observacion: '',
     }
   });
 
   useEffect(() => {
     if (initialData) {
-      console.log('ConvenioForm received initialData:', initialData); // Debugging line
+      console.log('ConvenioForm received initialData:', initialData);
       reset({
         nombre: initialData.nombre_compania_asociada || '',
         ruc: initialData.ruc_compania_asociada || '',
-        porcentaje_comision: initialData.porcentaje_comision || '',
+        porcentaje_comision: initialData.porcentaje_comision ?? '',
         direccion: initialData.direccion_compania_asociada || '',
         telefono: initialData.telefono_compania_asociada || '',
         celular: initialData.celular_compania_asociada || '',
         correo: initialData.correo_compania_asociada || '',
         estado: initialData.estado_compania_asociada == 1 || initialData.estado_compania_asociada === '1',
-        observacion: initialData.observacion_compania_asociada || '',
+        observacion: initialData.observacion_compania_asociada || initialData.observacion_compania_asoc || '',
       });
     } else {
       reset({
@@ -53,7 +53,18 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
   const onFormSubmit = async (data) => {
     setLoading(true);
     try {
-      const payload = { ...data, estado: data.estado ? '1' : '0' };
+      const payload = {
+        nombre: data.nombre ? data.nombre.trim() : '',
+        ruc: data.ruc ? data.ruc.trim() : '',
+        porcentaje_comision: data.porcentaje_comision !== '' ? parseFloat(data.porcentaje_comision) : 0,
+        direccion: data.direccion ? data.direccion.trim() : '',
+        telefono: data.telefono ? data.telefono.trim() : '',
+        celular: data.celular ? data.celular.trim() : '',
+        correo: data.correo ? data.correo.trim() : '',
+        estado: data.estado ? '1' : '0',
+        observacion: data.observacion ? data.observacion.trim() : '',
+      };
+
       if (isEditing) {
         await api.post('/companiaasociada/companiaasociadainsertarActualizar', { ...payload, id: initialData.id_compania_asociada });
       } else {
@@ -82,7 +93,10 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
           <label className={labelClass}>Nombre <span className="text-rose-500">*</span></label>
           <input
             type="text"
-            {...register('nombre', { required: 'El nombre es requerido' })}
+            {...register('nombre', {
+              required: 'El nombre es requerido',
+              minLength: { value: 3, message: 'El nombre debe tener al menos 3 caracteres' }
+            })}
             className={inputClass}
             placeholder="Nombre de la compañía"
           />
@@ -91,16 +105,22 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
 
         {/* RUC */}
         <div>
-          <label className={labelClass}>RUC <span className="text-rose-500">*</span></label>
+          <label className={labelClass}>RUC / Cédula <span className="text-rose-500">*</span></label>
           <input
             type="text"
+            maxLength={13}
             {...register('ruc', {
-              required: 'El RUC es requerido',
-              pattern: { value: /^[0-9]+$/, message: 'Solo números permitidos' },
-              minLength: { value: 10, message: 'Mínimo 10 dígitos' }
+              required: 'El RUC o Cédula es requerido',
+              pattern: { value: /^[0-9]+$/, message: 'Solo se permiten números' },
+              minLength: { value: 10, message: 'Mínimo 10 dígitos' },
+              maxLength: { value: 13, message: 'Máximo 13 dígitos' }
             })}
             className={inputClass}
             placeholder="Ej: 1790012345001"
+            onChange={e => {
+              const val = e.target.value.replace(/\D/g, '');
+              e.target.value = val;
+            }}
           />
           {errors.ruc && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.ruc.message}</p>}
         </div>
@@ -113,7 +133,11 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
             step="0.01"
             min="0"
             max="100"
-            {...register('porcentaje_comision', { required: 'El porcentaje es requerido' })}
+            {...register('porcentaje_comision', {
+              required: 'El porcentaje es requerido',
+              min: { value: 0, message: 'El porcentaje no puede ser negativo' },
+              max: { value: 100, message: 'El porcentaje no puede ser mayor a 100%' }
+            })}
             className={inputClass}
             placeholder="Ej: 10.50"
           />
@@ -122,13 +146,17 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
 
         {/* Dirección */}
         <div>
-          <label className={labelClass}>Dirección</label>
+          <label className={labelClass}>Dirección <span className="text-rose-500">*</span></label>
           <input
             type="text"
-            {...register('direccion')}
+            {...register('direccion', {
+              required: 'La dirección es requerida',
+              minLength: { value: 3, message: 'La dirección debe tener al menos 3 caracteres' }
+            })}
             className={inputClass}
             placeholder="Dirección de la compañía"
           />
+          {errors.direccion && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.direccion.message}</p>}
         </div>
 
         {/* Teléfono */}
@@ -138,7 +166,8 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
             type="text"
             maxLength={10}
             {...register('telefono', {
-              pattern: { value: /^[0-9]*$/, message: 'Solo números permitidos' }
+              pattern: { value: /^[0-9]*$/, message: 'Solo se permiten números' },
+              minLength: { value: 7, message: 'El teléfono debe tener al menos 7 dígitos' }
             })}
             className={inputClass}
             placeholder="Ej: 022345678"
@@ -157,7 +186,8 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
             type="text"
             maxLength={10}
             {...register('celular', {
-              pattern: { value: /^[0-9]*$/, message: 'Solo números permitidos' }
+              pattern: { value: /^[0-9]*$/, message: 'Solo se permiten números' },
+              minLength: { value: 10, message: 'El celular debe tener 10 dígitos' }
             })}
             className={inputClass}
             placeholder="Ej: 0998765432"
@@ -171,11 +201,11 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
 
         {/* Correo */}
         <div>
-          <label className={labelClass}>Correo</label>
+          <label className={labelClass}>Correo Electrónico</label>
           <input
             type="email"
             {...register('correo', {
-              pattern: { value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, message: 'Formato inválido' }
+              pattern: { value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, message: 'Formato de correo electrónico inválido' }
             })}
             className={inputClass}
             placeholder="correo@ejemplo.com"
