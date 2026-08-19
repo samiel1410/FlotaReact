@@ -83,11 +83,14 @@ export const AsientosFilterPanel = ({ onSearch }) => {
             <label className={labelCls}>Socio</label>
             <select name="id_personal" value={formData.id_personal} onChange={handleChange} className={inputCls}>
               <option value="">Todos</option>
-              {personal.map(p => (
-                <option key={p.id_personal} value={p.id_personal}>
-                  {p.per_nombres_persona || p.nombres_personal || p.per_nombres || ''}
-                </option>
-              ))}
+              {personal.map(p => {
+                const nombreCompleto = [p.per_apellidos_personal, p.per_nombres_persona || p.nombres_personal].filter(Boolean).join(' ') || p.nombre || `Socio #${p.id_personal || p.per_codigo}`;
+                return (
+                  <option key={p.id_personal || p.per_codigo} value={p.id_personal || p.per_codigo}>
+                    {nombreCompleto}
+                  </option>
+                );
+              })}
             </select>
           </div>
 

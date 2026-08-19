@@ -126,6 +126,22 @@ export const BuserosPage = () => {
     setTotales({ cantidad_boletos: 0, vendido: 0, retenido: 0 });
   };
 
+  const handleExportPdf = (format = 'a4') => {
+    const params = new URLSearchParams({
+      per_codigo: filters.id_personal || '',
+      bus_codigo: filters.id_bus_busqueda || '',
+      ruta_codigo: filters.id_ruta_busqueda || '',
+      per_nombre: filters.personal_busqueda || '',
+      bus_placa: filters.bus_busqueda || '',
+      ruta_nombre: filters.rutas_busqueda || '',
+      fecha: filters.buscarPorFechaDesde || '',
+      mes: filters.comboMes || '0',
+      anio: filters.comboAnioFactura || '0',
+      format: format,
+    });
+    window.open(`/php/pdfReporteBuseros.php?${params.toString()}`, '_blank');
+  };
+
   const updateFilter = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
@@ -244,6 +260,16 @@ export const BuserosPage = () => {
             <button onClick={handleSearch}
               className="flex items-center gap-1 px-4 py-1.5 bg-blue-600 text-white text-[10px] font-bold rounded-lg hover:bg-blue-700 transition-colors">
               <i className="fas fa-search"></i> Buscar
+            </button>
+            <button onClick={() => handleExportPdf('a4')}
+              className="flex items-center gap-1 px-3 py-1.5 bg-rose-600 text-white text-[10px] font-bold rounded-lg hover:bg-rose-700 transition-colors shadow-xs"
+              title="Generar Reporte PDF A4">
+              <i className="fas fa-file-pdf"></i> PDF A4
+            </button>
+            <button onClick={() => handleExportPdf('80mm')}
+              className="flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white text-[10px] font-bold rounded-lg hover:bg-amber-700 transition-colors shadow-xs"
+              title="Generar Ticket de Impresión Rápida 80mm">
+              <i className="fas fa-print"></i> Ticket 80mm
             </button>
             <button onClick={handleClear}
               className="flex items-center gap-1 px-4 py-1.5 bg-red-500 text-white text-[10px] font-bold rounded-lg hover:bg-red-600 transition-colors">

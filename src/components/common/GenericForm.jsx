@@ -32,13 +32,15 @@ export const GenericForm = ({
     if (initialData) {
       const formData = {};
       fields.forEach(f => {
-        formData[f.name] = initialData[f.name] ?? f.defaultValue ?? '';
+        const val = initialData[f.name] ?? f.defaultValue ?? '';
+        formData[f.name] = (val !== null && val !== undefined) ? String(val) : '';
       });
       reset(formData);
     } else {
       const defaults = {};
       fields.forEach(f => {
-        defaults[f.name] = f.defaultValue ?? '';
+        const val = f.defaultValue ?? '';
+        defaults[f.name] = (val !== null && val !== undefined) ? String(val) : '';
       });
       reset(defaults);
     }
