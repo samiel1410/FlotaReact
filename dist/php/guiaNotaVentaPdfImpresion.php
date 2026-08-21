@@ -196,6 +196,7 @@ configuracion";
   $leyenda_nota_venta = $vals_configuracion["leyenda_nota_venta"];
   $mostrar_leyenda_nota_venta = $vals_configuracion["mostrar_leyenda_nota_venta"];
   $imprimir_boucher_guia = isset($vals_configuracion["imprimir_boucher_guia"]) ? (int)$vals_configuracion["imprimir_boucher_guia"] : 1;
+  $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 110);
 
   $validar_leyenda = $mostrar_leyenda_nota_venta;
   $mensaje = $leyenda_nota_venta;
@@ -433,12 +434,12 @@ configuracion";
   $pdf->SetMargins(0, 0, 0, true);
   $pdf->SetAutoPageBreak(FALSE, 0); // Disable auto page break
   // add a page
-  $pdf->AddPage('P', array(110, 800)); // Make height very large
+  $pdf->AddPage('P', array($ancho_impresion, 800)); // Dynamic print width from config
 
   $pdf->SetLineStyle(array('width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => 3, 'color' => array(0, 0, 0)));
 
   // Dibujar un rectángulo con borde punteado
-  $pdf->Rect(5, 30, 100, 25, 'D');
+  $pdf->Rect(5, 30, max(10, $ancho_impresion - 10), 25, 'D');
 
   // Write HTML content
 
@@ -471,7 +472,7 @@ configuracion";
   $pdf->SetXY(5, $y_actual + 5);
   // Codigo de barras
   if (!empty($clave_acceso)) {
-    $pdf->write1DBarcode($clave_acceso, 'C128', '', '', '100', 18, 0.4, $style, 'N');
+    $pdf->write1DBarcode($clave_acceso, 'C128', '', '', max(10, $ancho_impresion - 10), 18, 0.4, $style, 'N');
   }
   $pdf->Ln();
 
@@ -485,11 +486,11 @@ configuracion";
 
   foreach ($items_detalle as $item) {
 
-    // Pagina slip: 110mm x 200mm para mejor uso del espacio
-    $pdf->AddPage('P', array(110, 200));
+    // Pagina slip: formato configurable x 200mm para mejor uso del espacio
+    $pdf->AddPage('P', array($ancho_impresion, 200));
     $pdf->SetMargins(5, 5, 5, true);
     $pdf->SetAutoPageBreak(FALSE, 0);
-    $lw = 100;
+    $lw = max(10, $ancho_impresion - 10);
 
     // ── LOGO ──
     if ($rutaLogo) {
@@ -513,9 +514,9 @@ configuracion";
     $y0 = $pdf->GetY();
     $pdf->SetDrawColor(0,0,0);
     $pdf->SetLineWidth(0.6);
-    $pdf->Line(5, $y0, 105, $y0);
+    $pdf->Line(5, $y0, $ancho_impresion - 5, $y0);
     $pdf->SetLineWidth(0.2);
-    $pdf->Line(5, $y0 + 1.5, 105, $y0 + 1.5);
+    $pdf->Line(5, $y0 + 1.5, $ancho_impresion - 5, $y0 + 1.5);
     $pdf->SetY($y0 + 4);
 
     // ── FECHA ──

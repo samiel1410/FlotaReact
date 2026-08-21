@@ -229,7 +229,8 @@ try {
 ';
 
     $pdf->SetFont('helvetica', '', 10);
-    $pdf->AddPage('P', array(500, 120));
+    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 120);
+    $pdf->AddPage('P', array(500, $ancho_impresion));
     $pdf->SetLineStyle(array('width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => 3, 'color' => array(0, 0, 0)));
     $pdf->Rect(10, 17, 100, 25, 'D');
 

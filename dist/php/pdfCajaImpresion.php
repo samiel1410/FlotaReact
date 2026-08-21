@@ -463,9 +463,10 @@ caja_detalle WHERE id_fkcaja =$id_caja GROUP BY tipo_caja_detalle";
     // ---------------------------------------------------------
 
     $pdf->SetFont('helvetica', '', 10);
+    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 120);
 
     // add a page
-    $pdf->AddPage('P', array(500, 120));
+    $pdf->AddPage('P', array(500, $ancho_impresion));
 
     $pdf->SetLineStyle(array('width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => 3, 'color' => array(0, 0, 0)));
 

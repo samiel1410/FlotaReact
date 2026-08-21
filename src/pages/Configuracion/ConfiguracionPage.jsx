@@ -17,6 +17,7 @@ export const ConfiguracionPage = () => {
   const [loading, setLoading] = useState(true);
   const [configData, setConfigData] = useState({});
   const [formasPago, setFormasPago] = useState([]);
+  const [formatosImpresion, setFormatosImpresion] = useState([]);
   const [sistemaModo, setSistemaModo] = useState('prueba');
   const [savingModo, setSavingModo] = useState(false);
   const [logoPreview, setLogoPreview] = useState(null);
@@ -49,6 +50,15 @@ export const ConfiguracionPage = () => {
       try {
         const fpRes = await api.get('/formapago/formapagoSeleccionPaginadoCombo');
         setFormasPago(fpRes.data?.data || []);
+
+        try {
+          const fiRes = await api.get('/configuracion/formatoImpresionSeleccion');
+          if (fiRes.data?.data) {
+            setFormatosImpresion(fiRes.data.data);
+          }
+        } catch (fiErr) {
+          console.warn('Error cargando formatos de impresión:', fiErr);
+        }
 
         const response = await api.get('/configuracion/configuracionSeleccion');
         if (response.data && response.data.data && response.data.data.length > 0) {
@@ -91,6 +101,7 @@ export const ConfiguracionPage = () => {
             enviar_whatsapp: conf.enviar_whatsapp === 1 || conf.enviar_whatsapp === true,
             cobrar_iva_guia: conf.cobrar_iva_guia === 1 || conf.cobrar_iva_guia === true,
             imprimir_boucher_guia: conf.imprimir_boucher_guia === 1 || conf.imprimir_boucher_guia === true,
+            formato_impresion: conf.formato_impresion || '80mm',
           };
           setConfigData(newConf);
           reset(newConf);
@@ -946,6 +957,56 @@ export const ConfiguracionPage = () => {
                         <input type="checkbox" {...register('imprimir_boucher_guia')} className="sr-only peer" />
                         <div className="w-14 h-7 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-purple-500"></div>
                       </label>
+                    </div>
+                  </div>
+
+                  {/* Formato de Impresión Térmica */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex items-start gap-4">
+                      <div className="p-3 bg-purple-50 text-purple-600 rounded-full">
+                        <i className="fas fa-receipt text-2xl"></i>
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-base font-bold text-slate-800 mb-1">
+                          Formato de Impresión Térmica
+                        </h3>
+                        <p className="text-sm text-slate-500 max-w-md leading-relaxed mb-4">
+                          Define el ancho de papel (en mm) utilizado por tus impresoras térmicas de tickets, guías y reportes.
+                        </p>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className={labelClass}>Seleccionar Ancho de Papel (mm)</label>
+                            <select
+                              {...register('formato_impresion')}
+                              className={inputClass + ' font-medium text-slate-700 bg-white border-slate-300'}
+                            >
+                              {formatosImpresion.length > 0 ? (
+                                formatosImpresion.map((f) => (
+                                  <option key={f.id_formato_impresion} value={f.codigo_formato}>
+                                    {f.nombre_formato}
+                                  </option>
+                                ))
+                              ) : (
+                                <>
+                                  <option value="80mm">🖨️ 80 mm — Estándar Térmico (Recomendado)</option>
+                                  <option value="72mm">📏 72 mm — Área útil 80mm</option>
+                                  <option value="58mm">📜 58 mm — Térmica Compacta (Ticket POS)</option>
+                                  <option value="56mm">📐 56 mm — Ancho angosto</option>
+                                  <option value="48mm">🎟️ 48 mm — Mini Ticket</option>
+                                </>
+                              )}
+                            </select>
+                          </div>
+
+                          <div className="p-3 bg-purple-50/50 border border-purple-100 rounded-lg flex items-center justify-between text-xs font-semibold text-purple-700">
+                            <span className="flex items-center gap-1.5">
+                              <i className="fas fa-check-circle text-purple-500"></i>
+                              Se aplicará a guías, notas de venta, boletos y reportes térmicos.
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

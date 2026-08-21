@@ -239,7 +239,8 @@ razon_social_empresa FROM empresa WHERE 1";
     $pdf->SetFont('helvetica', '', 6.5);
     $pdf->SetMargins(5, 3, 5, true);
     $pdf->SetAutoPageBreak(true, 2);
-    $pdf->AddPage('P', array(80, 200));
+    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 80);
+    $pdf->AddPage('P', array($ancho_impresion, 200));
     $pdf->writeHTML($html1, true, false, true, false, '');
 
     $filename = 'boleto_' . $id_boleto . '.pdf';

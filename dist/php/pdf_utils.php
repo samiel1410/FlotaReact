@@ -85,4 +85,27 @@ function limpiarLogosTemporales()
         }
     }
 }
+
+/**
+ * Obtiene el ancho de papel en milímetros configurado en la base de datos (ej. 80mm, 72mm, 58mm).
+ * 
+ * @param mysqli $conn Conexión a la base de datos
+ * @param float $defaultAncho Ancho por defecto en mm (ej. 80 o 110)
+ * @return float Ancho en mm
+ */
+function obtenerAnchoFormatoImpresion($conn, $defaultAncho = 80)
+{
+    $query = "SELECT formato_impresion FROM configuracion LIMIT 1";
+    $result = @mysqli_query($conn, $query);
+    if ($result && $row = mysqli_fetch_assoc($result)) {
+        if (!empty($row['formato_impresion'])) {
+            $raw = trim($row['formato_impresion']);
+            $val = floatval(preg_replace('/[^0-9.]/', '', $raw));
+            if ($val >= 35 && $val <= 220) {
+                return $val;
+            }
+        }
+    }
+    return $defaultAncho;
+}
 ?>
