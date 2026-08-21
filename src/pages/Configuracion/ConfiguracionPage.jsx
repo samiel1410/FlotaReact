@@ -392,6 +392,60 @@ export const ConfiguracionPage = () => {
     }
   }, [setValue, getValues]);
 
+  const handleFormatoImpresionChange = async (e) => {
+    const val = e.target.value;
+    if (val === '__AGREGAR__') {
+      const currentVal = getValues('formato_impresion') || '80mm';
+      setValue('formato_impresion', currentVal);
+
+      const { value: formValues } = await Swal.fire({
+        title: 'Agregar Nuevo Formato de Impresión',
+        html: `
+          <div style="text-align: left; font-size: 13px;">
+            <label style="display: block; font-weight: bold; margin-bottom: 4px; color: #475569;">Ancho en Milímetros (mm) *</label>
+            <input id="swal-val-mm" type="number" class="swal2-input" placeholder="Ej: 60" style="margin-bottom: 12px; width: 100%; box-sizing: border-box;">
+            
+            <label style="display: block; font-weight: bold; margin-bottom: 4px; color: #475569;">Nombre / Descripción del Formato</label>
+            <input id="swal-nombre" type="text" class="swal2-input" placeholder="Ej: 60 mm — Impresora Personalizada" style="width: 100%; box-sizing: border-box;">
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: '<i class="fas fa-plus"></i> Agregar Formato',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#9333ea',
+        preConfirm: () => {
+          const valor_mm = document.getElementById('swal-val-mm')?.value;
+          const nombre_formato = document.getElementById('swal-nombre')?.value;
+          if (!valor_mm || isNaN(valor_mm) || Number(valor_mm) <= 0) {
+            Swal.showValidationMessage('Ingrese un ancho en mm válido (mayor a 0)');
+            return false;
+          }
+          return { valor_mm: parseInt(valor_mm), nombre_formato };
+        }
+      });
+
+      if (formValues) {
+        try {
+          const res = await api.post('/configuracion/formatoImpresionInsertar', formValues);
+          if (res.data?.success) {
+            toast.success(res.data.message || 'Formato agregado correctamente');
+            const nuevoCodigo = res.data.data?.codigo_formato || `${formValues.valor_mm}mm`;
+            const fiRes = await api.get('/configuracion/formatoImpresionSeleccion');
+            if (fiRes.data?.data) {
+              setFormatosImpresion(fiRes.data.data);
+            }
+            setValue('formato_impresion', nuevoCodigo);
+          } else {
+            toast.error(res.data?.message || 'Error al agregar formato');
+          }
+        } catch (err) {
+          toast.error('Error de conexión al agregar formato');
+        }
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-slate-50">
@@ -978,7 +1032,9 @@ export const ConfiguracionPage = () => {
                           <div>
                             <label className={labelClass}>Seleccionar Ancho de Papel (mm)</label>
                             <select
-                              {...register('formato_impresion')}
+                              {...register('formato_impresion', {
+                                onChange: (e) => handleFormatoImpresionChange(e)
+                              })}
                               className={inputClass + ' font-medium text-slate-700 bg-white border-slate-300'}
                             >
                               {formatosImpresion.length > 0 ? (
@@ -989,13 +1045,16 @@ export const ConfiguracionPage = () => {
                                 ))
                               ) : (
                                 <>
-                                  <option value="80mm">🖨️ 80 mm — Estándar Térmico (Recomendado)</option>
-                                  <option value="72mm">📏 72 mm — Área útil 80mm</option>
-                                  <option value="58mm">📜 58 mm — Térmica Compacta (Ticket POS)</option>
-                                  <option value="56mm">📐 56 mm — Ancho angosto</option>
-                                  <option value="48mm">🎟️ 48 mm — Mini Ticket</option>
+                                  <option value="80mm">80 mm — Estándar Térmico (Recomendado)</option>
+                                  <option value="72mm">72 mm — Área útil 80mm</option>
+                                  <option value="58mm">58 mm — Térmica Compacta (Ticket POS)</option>
+                                  <option value="56mm">56 mm — Ancho angosto</option>
+                                  <option value="48mm">48 mm — Mini Ticket</option>
                                 </>
                               )}
+                              <option value="__AGREGAR__" className="font-bold text-purple-700 bg-purple-50">
+                                ➕ Agregar Nuevo Formato...
+                              </option>
                             </select>
                           </div>
 

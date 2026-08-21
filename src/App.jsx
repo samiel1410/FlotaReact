@@ -6,6 +6,7 @@ import { useIdle } from './hooks/useIdle';
 import { useSocket } from './hooks/useSocket';
 import { DynamicPage } from './pages/Common/DynamicPage';
 import { ToastContainer } from './components/common/Toast';
+import { NovedadesSistemaModal } from './components/NovedadesSistemaModal';
 import './App.css';
 
 // Lazy loading de páginas para mejorar rendimiento
@@ -84,7 +85,12 @@ const ProtectedLayout = () => {
   useIdle(); // Monitor de inactividad
   useSocket(); // Conexión a Socket.IO
   
-  return <AppMain />;
+  return (
+    <>
+      <AppMain />
+      <NovedadesSistemaModal />
+    </>
+  );
 };
 
 // Página de suplantación (Login As)
