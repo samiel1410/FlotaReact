@@ -51,15 +51,33 @@ const SUBGROUPS_ADMIN = [
 const ALL_PERMISSIONS = {
   // Se mantiene 'administracion' como clave única en BD (compatibilidad con sidebar)
   administracion: {
-    label: '⚙️ Administración',
+    label: 'Administración',
     icon: 'fas fa-cogs',
     isSubGrouped: true,
     subGroups: SUBGROUPS_ADMIN,
     // Unión de todos los permisos de los subgrupos (para el toggle general y conteo)
     permisos: Object.assign({}, ...SUBGROUPS_ADMIN.map(sg => sg.permisos)),
-    // Conservamos permisos que no están en subgrupos pero estaban en el original
     hiddenPermisos: {
       configuracion_sistema: 'Configuración del Sistema',
+    }
+  },
+  aprobaciones: {
+    label: 'Aprobaciones',
+    icon: 'fas fa-check-circle',
+    permisos: {
+      listado_aprobaciones: 'Listado de Aprobaciones'
+    }
+  },
+  viajes: {
+    label: 'Viajes',
+    icon: 'fas fa-road',
+    permisos: {
+      listado_viajes: 'Listado de Viajes',
+      crear_viaje: 'Crear Viaje',
+      planificacion_viajes: 'Planificación de Viajes',
+      despacho_viaje: 'Despacho de Viaje',
+      cierre_viajes: 'Cierre de Viajes',
+      config_itinerarios: 'Configuración de Itinerarios'
     }
   },
   guias: {
@@ -88,20 +106,6 @@ const ALL_PERMISSIONS = {
       entrega_notas_venta: 'Entrega de Notas de Venta'
     }
   },
-  boletos: {
-    label: 'Boletos',
-    icon: 'fas fa-ticket-alt',
-    permisos: {
-      nuevo_boleto: 'Nuevo Boleto',
-      listado_boletos: 'Listado de Boletos',
-      caja_boleteria: 'Caja de Boletería',
-      despachos: 'Despachos',
-      reportes_boleteria: 'Reportes de Boletería',
-      reservaciones: 'Reservaciones',
-      pasajeros: 'Pasajeros',
-      facturacion_boletos: 'Facturación de Boletos'
-    }
-  },
   cajas: {
     label: 'Cajas',
     icon: 'fas fa-cash-register',
@@ -112,62 +116,6 @@ const ALL_PERMISSIONS = {
       caja_notas_venta: 'Cajas de Notas de Venta',
       solicitar_edicion_caja: 'Solicitar Edición de Caja',
       aprobar_edicion_caja: 'Aprobar Edición de Caja'
-    }
-  },
-  anulaciones: {
-    label: 'Anulaciones',
-    icon: 'fas fa-ban',
-    permisos: {
-      listado_anulaciones: 'Listado de Anulaciones',
-      anulacion_boleteria: 'Anulación de Boletería',
-      verificacion_boleteria: 'Verificación Boletería/Encomiendas'
-    }
-  },
-  aprobaciones: {
-    label: 'Aprobaciones',
-    icon: 'fas fa-check-circle',
-    permisos: {
-      listado_aprobaciones: 'Listado de Aprobaciones'
-    }
-  },
-  buseros: {
-    label: 'Buseros',
-    icon: 'fas fa-bus',
-    permisos: {
-      gestion_buseros: 'Gestión de Buseros',
-      gestion_asientos: 'Gestión de Asientos'
-    }
-  },
-  notificaciones: {
-    label: 'Notificaciones',
-    icon: 'fas fa-bell',
-    permisos: {
-      notificaciones: 'Acceso a Notificaciones'
-    }
-  },
-  reportes: {
-    label: 'Reportes',
-    icon: 'fas fa-file-alt',
-    permisos: {
-      reportes: 'Acceso a Reportes',
-      ranking_ventas: 'Ranking de Ventas'
-    }
-  },
-  facturas: {
-    label: 'Facturas',
-    icon: 'fas fa-file-invoice',
-    permisos: {
-      listado_facturas: 'Listado de Facturas'
-    }
-  },
-  viajes: {
-    label: 'Viajes',
-    icon: 'fas fa-road',
-    permisos: {
-      listado_viajes: 'Listado de Viajes',
-      crear_viaje: 'Crear Viaje',
-      despacho_viaje: 'Despacho de Viaje',
-      config_itinerarios: 'Configuración de Itinerarios'
     }
   },
   cobros: {
@@ -183,6 +131,61 @@ const ALL_PERMISSIONS = {
       bonos: 'Bonos',
       cuota_admin: 'Cuota Admin.',
       cierre_cobros: 'Cierre x Concepto'
+    }
+  },
+  boletos: {
+    label: 'Boletos',
+    icon: 'fas fa-ticket-alt',
+    permisos: {
+      nuevo_boleto: 'Nuevo Boleto',
+      listado_boletos: 'Listado de Boletos',
+      reagendamientos: 'Reagendamientos',
+      caja_boleteria: 'Caja de Boletería',
+      despachos: 'Despachos',
+      reportes_boleteria: 'Reportes de Boletería',
+      reservaciones: 'Reservaciones',
+      pasajeros: 'Pasajeros',
+      facturacion_boletos: 'Facturación de Boletos'
+    }
+  },
+  anulaciones: {
+    label: 'Anulaciones',
+    icon: 'fas fa-ban',
+    permisos: {
+      listado_anulaciones: 'Listado de Anulaciones',
+      anulacion_boleteria: 'Anulación de Boletería',
+      verificacion_boleteria: 'Verificación Boletería/Encomiendas'
+    }
+  },
+  facturas: {
+    label: 'Facturas',
+    icon: 'fas fa-file-invoice',
+    permisos: {
+      listado_facturas: 'Listado de Facturas'
+    }
+  },
+  buseros: {
+    label: 'Buseros / Socios',
+    icon: 'fas fa-id-card',
+    permisos: {
+      gestion_buseros: 'Gestión de Buseros',
+      gestion_asientos: 'Gestión de Asientos',
+      recaudado: 'Recaudado'
+    }
+  },
+  notificaciones: {
+    label: 'Notificaciones',
+    icon: 'fas fa-bell',
+    permisos: {
+      notificaciones: 'Acceso a Notificaciones'
+    }
+  },
+  reportes: {
+    label: 'Reportes',
+    icon: 'fas fa-chart-bar',
+    permisos: {
+      reportes: 'Acceso a Reportes',
+      ranking_ventas: 'Ranking de Ventas'
     }
   }
 };

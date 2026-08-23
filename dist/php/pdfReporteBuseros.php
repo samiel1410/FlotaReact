@@ -90,19 +90,25 @@ try {
         v.fecha_cierre,
         IFNULL(TIME_FORMAT(v.hora_origen_salida, '%H:%i'), '') as hora_salida,
         COALESCE(SUM(c.monto_cobros), 0) as retenido,
+        COALESCE(SUM(CASE WHEN c.tipo_cobro = 1 THEN c.monto_cobros ELSE 0 END), 0) as cuota_admin,
+        COALESCE(SUM(CASE WHEN c.tipo_cobro = 2 THEN c.monto_cobros ELSE 0 END), 0) as multas,
+        COALESCE(SUM(CASE WHEN c.tipo_cobro = 3 THEN c.monto_cobros ELSE 0 END), 0) as cuota_despacho,
         COALESCE(SUM(b.total_boleto), 0) as venta,
         COUNT(DISTINCT b.id_boleto) as facturas,
+        COALESCE(SUM(DISTINCT bn.valor), 0) as bonos,
         COALESCE(bu.disco_buses, '-') as bus_disco,
         p.id_personal as per_codigo
       FROM viajes v
-        LEFT JOIN cobros c ON c.id_fkviajes_cobros = v.id_viajes
+        LEFT JOIN cobros c ON c.id_fkviajes_cobros = v.id_viajes AND c.estado_cobros != 0
         LEFT JOIN boletos b ON b.id_fkviaje_boleto = v.id_viajes AND b.estado_boleto != 3
         LEFT JOIN personal p ON v.id_fkchofer_viajes = p.id_personal
         LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
         LEFT JOIN buses bu ON v.id_fkbus_viajes = bu.id_buses
+        LEFT JOIN bonos bn ON (bn.id_bus = v.id_fkbus_viajes OR bn.id_socio = bu.id_fksocio_buses OR bn.id_socio = p.id_personal) 
+                           AND bn.fecha = DATE(v.fecha_cierre) AND bn.estado = 'activo'
       $where
       GROUP BY v.id_viajes, r.nombre_rutas, p.per_nombres_persona, p.per_apellidos_personal, v.fecha_cierre, v.hora_origen_salida, bu.disco_buses, p.id_personal
-      HAVING (COUNT(DISTINCT b.id_boleto) > 0 OR COALESCE(SUM(c.monto_cobros), 0) > 0)
+      HAVING (COUNT(DISTINCT b.id_boleto) > 0 OR COALESCE(SUM(c.monto_cobros), 0) > 0 OR COALESCE(SUM(DISTINCT bn.valor), 0) > 0)
       ORDER BY socio ASC, bus_disco ASC, v.fecha_cierre ASC
     ";
 
@@ -132,8 +138,11 @@ try {
     // Organizar datos por Socio
     $sociosGrouped = [];
     $totalGeneralFacturas = 0;
-    $totalGeneralVenta = 0.0;
-    $totalFilasViajes = 0;
+    $totalGeneralVenta    = 0.0;
+    $totalGeneralRetenido = 0.0;
+    $totalGeneralBonos    = 0.0;
+    $totalGeneralNeto     = 0.0;
+    $totalFilasViajes     = 0;
 
     while ($row = mysqli_fetch_assoc($rs)) {
         $socioName = !empty($row['socio']) ? strtoupper($row['socio']) : 'SIN SOCIO ASIGNADO';
@@ -146,12 +155,20 @@ try {
                 'disco' => $disco,
                 'viajes' => [],
                 'total_facturas' => 0,
-                'total_venta' => 0.0
+                'total_venta'    => 0.0,
+                'total_retenido' => 0.0,
+                'total_bonos'    => 0.0,
+                'total_neto'     => 0.0,
             ];
         }
 
-        $facturasCount = intval($row['facturas']);
-        $ventaAmount   = floatval($row['venta']);
+        $facturasCount  = intval($row['facturas']);
+        $ventaAmount    = floatval($row['venta']);
+        $retenidoAmount = floatval($row['retenido']);
+        $bonosAmount    = floatval($row['bonos']);
+        $cuotaAdmin     = floatval($row['cuota_admin']);
+        $multasAmount   = floatval($row['multas']);
+        $netoAmount     = $ventaAmount - $retenidoAmount + $bonosAmount;
 
         $sociosGrouped[$key]['viajes'][] = [
             'viaje' => $row['viaje'],
@@ -162,13 +179,24 @@ try {
             'disco' => $disco,
             'facturas' => $facturasCount,
             'venta' => $ventaAmount,
+            'retenido' => $retenidoAmount,
+            'bonos' => $bonosAmount,
+            'cuota_admin' => $cuotaAdmin,
+            'multas' => $multasAmount,
+            'neto' => $netoAmount,
         ];
 
         $sociosGrouped[$key]['total_facturas'] += $facturasCount;
         $sociosGrouped[$key]['total_venta']    += $ventaAmount;
+        $sociosGrouped[$key]['total_retenido'] += $retenidoAmount;
+        $sociosGrouped[$key]['total_bonos']    += $bonosAmount;
+        $sociosGrouped[$key]['total_neto']     += $netoAmount;
 
         $totalGeneralFacturas += $facturasCount;
         $totalGeneralVenta    += $ventaAmount;
+        $totalGeneralRetenido += $retenidoAmount;
+        $totalGeneralBonos    += $bonosAmount;
+        $totalGeneralNeto     += $netoAmount;
         $totalFilasViajes++;
     }
 
@@ -249,15 +277,16 @@ try {
             </tr>
         </table><br/>';
 
-        // Encabezado de Columnas
+        // Encabezado de Columnas 80mm
         $html80 .= '<table class="table-head">
             <tr>
-                <td style="width:18%;"># Viaje</td>
-                <td style="width:20%;">F. Viaje</td>
-                <td style="width:14%;">Hora</td>
-                <td style="width:12%; text-align:center;">Disco</td>
-                <td style="width:12%; text-align:right;">Cant</td>
-                <td style="width:24%; text-align:right;">Total</td>
+                <td style="width:16%;"># Viaje</td>
+                <td style="width:18%;">F. Viaje</td>
+                <td style="width:12%;">Hora</td>
+                <td style="width:10%; text-align:center;">Disco</td>
+                <td style="width:8%; text-align:right;">Cant</td>
+                <td style="width:18%; text-align:right;">Venta</td>
+                <td style="width:18%; text-align:right;">Neto</td>
             </tr>
         </table>';
 
@@ -277,12 +306,13 @@ try {
                 foreach ($sg['viajes'] as $v) {
                     $fViaje = !empty($v['fecha_raw']) ? date('j/n/Y', strtotime($v['fecha_raw'])) : $v['fecha'];
                     $html80 .= '<tr>
-                        <td style="width:18%;">' . htmlspecialchars($v['viaje']) . '</td>
-                        <td style="width:20%;">' . htmlspecialchars($fViaje) . '</td>
-                        <td style="width:14%;">' . htmlspecialchars($v['hora']) . '</td>
-                        <td style="width:12%; text-align:center;">' . htmlspecialchars($v['disco']) . '</td>
-                        <td style="width:12%; text-align:right;">' . $v['facturas'] . '</td>
-                        <td style="width:24%; text-align:right;">' . fmtMoney($v['venta']) . '</td>
+                        <td style="width:16%;">' . htmlspecialchars($v['viaje']) . '</td>
+                        <td style="width:18%;">' . htmlspecialchars($fViaje) . '</td>
+                        <td style="width:12%;">' . htmlspecialchars($v['hora']) . '</td>
+                        <td style="width:10%; text-align:center;">' . htmlspecialchars($v['disco']) . '</td>
+                        <td style="width:8%; text-align:right;">' . $v['facturas'] . '</td>
+                        <td style="width:18%; text-align:right;">' . fmtMoney($v['venta']) . '</td>
+                        <td style="width:18%; text-align:right;">' . fmtMoney($v['neto']) . '</td>
                     </tr>';
                 }
                 $html80 .= '</table>';
@@ -290,20 +320,36 @@ try {
                 // Subtotal del socio
                 $html80 .= '<div style="border-bottom:1px solid #000; margin-top:2px;"></div>';
                 $html80 .= '<div style="text-align:right; font-size:8.5pt; font-weight:bold; font-family:courier; margin-bottom:5px;">
-                    ' . fmtMoney($sg['total_venta']) . '
+                    Neto: ' . fmtMoney($sg['total_neto']) . '
                 </div>';
             }
 
             // Total General
             $html80 .= '<div style="text-align:right; font-size:11pt; font-weight:bold; font-family:courier, monospace; margin-top:8px; margin-bottom:10px;">
-                TOTAL ' . fmtMoney($totalGeneralVenta) . '
+                TOTAL NETO ' . fmtMoney($totalGeneralNeto) . '
             </div>';
         }
 
+        // Icono Easysplus
+        $pathsIcono = [
+          __DIR__ . '/../public/images/transpaeasy_icon.png',
+          dirname(__DIR__) . '/images/transpaeasy_icon.png',
+          __DIR__ . '/images/transpaeasy_icon.png',
+          $_SERVER['DOCUMENT_ROOT'] . '/images/transpaeasy_icon.png',
+          $_SERVER['DOCUMENT_ROOT'] . '/public/images/transpaeasy_icon.png'
+        ];
+        $rutaIcono = '';
+        foreach ($pathsIcono as $pathCandidate) {
+          if (file_exists($pathCandidate)) {
+            $rutaIcono = $pathCandidate;
+            break;
+          }
+        }
+
         // Pie de ticket
-        $html80 .= '<div style="font-size:7pt; line-height:1.3; border-top:1px dashed #000; padding-top:4px;">
-            Impreso por ' . htmlspecialchars($usuario_impresion) . '<br/>
-            Impresión ' . date('j/n/Y') . '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;' . date('H:i:s') . '
+        $html80 .= '<div style="font-size:7pt; line-height:1.3; border-top:1px dashed #000; padding-top:4px; text-align:center;">
+            Impreso por ' . htmlspecialchars($usuario_impresion) . ' | ' . date('j/n/Y H:i:s') . '<br/>
+            ' . (!empty($rutaIcono) ? '<img src="' . $rutaIcono . '" width="10" height="10"> ' : '') . '<b>Easysplus</b> - Sistema de facturación electrónica
         </div></body></html>';
 
         // ─── PDF TCPDF 80MM (CÁLCULO DINÁMICO DE ALTURA) ─────────────────────
@@ -378,19 +424,20 @@ try {
     $html .= '<table class="data-table">
         <thead>
             <tr>
-                <th width="24%">SOCIO</th>
-                <th width="8%">DISCO</th>
-                <th width="10%">VIAJE</th>
-                <th width="28%">RUTA</th>
-                <th width="12%">FECHA</th>
-                <th width="8%">Facturas</th>
+                <th width="22%">SOCIO / DISCO</th>
+                <th width="8%">VIAJE</th>
+                <th width="24%">RUTA / FECHA Y HORA</th>
+                <th width="6%">Cant</th>
                 <th width="10%">Venta</th>
+                <th width="10%">Retenciones</th>
+                <th width="10%">Bonos</th>
+                <th width="10%">Total Neto</th>
             </tr>
         </thead>
         <tbody>';
 
     if (empty($sociosGrouped)) {
-        $html .= '<tr><td colspan="7" class="text-center" style="padding: 15px; color: #94a3b8;">No se encontraron registros para la búsqueda.</td></tr>';
+        $html .= '<tr><td colspan="8" class="text-center" style="padding: 15px; color: #94a3b8;">No se encontraron registros para la búsqueda.</td></tr>';
     } else {
         foreach ($sociosGrouped as $sg) {
             $rowSpan = count($sg['viajes']);
@@ -399,31 +446,44 @@ try {
             foreach ($sg['viajes'] as $v) {
                 $html .= '<tr>';
                 if ($first) {
-                    $html .= '<td width="24%" rowspan="' . $rowSpan . '" class="socio-cell">' . htmlspecialchars($sg['socio']) . '</td>';
-                    $html .= '<td width="8%" rowspan="' . $rowSpan . '" class="disco-cell">' . htmlspecialchars($sg['disco']) . '</td>';
+                    $html .= '<td width="22%" rowspan="' . $rowSpan . '" class="socio-cell">'
+                        . htmlspecialchars($sg['socio'])
+                        . '<br/><span style="font-size:7pt; color:#475569; font-weight:normal;">DISCO: <b>' . htmlspecialchars($sg['disco']) . '</b></span>'
+                        . '</td>';
                 }
-                $html .= '<td width="10%" class="text-center font-mono">' . htmlspecialchars($v['viaje']) . '</td>';
-                $html .= '<td width="28%">' . htmlspecialchars($v['ruta']) . '</td>';
-                $html .= '<td width="12%" class="text-center">' . htmlspecialchars($v['fecha']) . '</td>';
-                $html .= '<td width="8%" class="text-right font-mono">' . $v['facturas'] . '</td>';
+                $html .= '<td width="8%" class="text-center font-mono">' . htmlspecialchars($v['viaje']) . '</td>';
+                $html .= '<td width="24%">'
+                    . htmlspecialchars($v['ruta'])
+                    . '<br/><span style="font-size:7pt; color:#475569;">F. Viaje: ' . htmlspecialchars($v['fecha']) . ' &nbsp;|&nbsp; Hora: ' . htmlspecialchars($v['hora']) . '</span>'
+                    . '</td>';
+                $html .= '<td width="6%" class="text-right font-mono">' . $v['facturas'] . '</td>';
                 $html .= '<td width="10%" class="text-right font-mono">' . fmtMoney($v['venta']) . '</td>';
+                $html .= '<td width="10%" class="text-right font-mono">' . fmtMoney($v['retenido']) . '</td>';
+                $html .= '<td width="10%" class="text-right font-mono">' . fmtMoney($v['bonos']) . '</td>';
+                $html .= '<td width="10%" class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($v['neto']) . '</td>';
                 $html .= '</tr>';
                 $first = false;
             }
 
             // Fila de Subtotal por Socio
             $html .= '<tr class="subtotal-row">
-                <td colspan="5" class="text-right">Total ' . htmlspecialchars($sg['socio']) . '</td>
+                <td colspan="3" class="text-right">Total ' . htmlspecialchars($sg['socio']) . '</td>
                 <td class="text-right font-mono">' . number_format($sg['total_facturas']) . '</td>
                 <td class="text-right font-mono">' . fmtMoney($sg['total_venta']) . '</td>
+                <td class="text-right font-mono">' . fmtMoney($sg['total_retenido']) . '</td>
+                <td class="text-right font-mono">' . fmtMoney($sg['total_bonos']) . '</td>
+                <td class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($sg['total_neto']) . '</td>
             </tr>';
         }
 
         // Fila de Total General
         $html .= '<tr class="total-general-row">
-            <td colspan="5" class="text-right">Total general</td>
+            <td colspan="3" class="text-right">Total general</td>
             <td class="text-right font-mono">' . number_format($totalGeneralFacturas) . '</td>
             <td class="text-right font-mono">' . fmtMoney($totalGeneralVenta) . '</td>
+            <td class="text-right font-mono">' . fmtMoney($totalGeneralRetenido) . '</td>
+            <td class="text-right font-mono">' . fmtMoney($totalGeneralBonos) . '</td>
+            <td class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($totalGeneralNeto) . '</td>
         </tr>';
     }
 
@@ -437,10 +497,44 @@ try {
     $pdf->setPrintHeader(false);
     $pdf->setPrintFooter(false);
     $pdf->SetMargins(8, 8, 8);
-    $pdf->SetAutoPageBreak(true, 10);
+    $pdf->SetAutoPageBreak(true, 15);
     $pdf->SetFont('helvetica', '', 8);
     $pdf->AddPage();
     $pdf->writeHTML($html, true, false, true, false, '');
+
+    // Footer Easysplus igual que en la factura
+    $pathsIcono = [
+      __DIR__ . '/../public/images/transpaeasy_icon.png',
+      dirname(__DIR__) . '/images/transpaeasy_icon.png',
+      __DIR__ . '/images/transpaeasy_icon.png',
+      $_SERVER['DOCUMENT_ROOT'] . '/images/transpaeasy_icon.png',
+      $_SERVER['DOCUMENT_ROOT'] . '/public/images/transpaeasy_icon.png'
+    ];
+    $rutaIcono = '';
+    foreach ($pathsIcono as $pathCandidate) {
+      if (file_exists($pathCandidate)) {
+        $rutaIcono = $pathCandidate;
+        break;
+      }
+    }
+
+    $fechaImpresionStr = date('d/m/Y H:i:s');
+    $html_footer_cell = '<table style="width:100%; border-top:1px solid #cbd5e1; padding-top:4px;">
+      <tr>
+        <td style="text-align:left; font-size:7.5pt; color:#475569; width:35%;">
+          Impreso por: <b>' . htmlspecialchars($usuario_impresion) . '</b>
+        </td>
+        <td style="text-align:center; font-size:7.5pt; color:#475569; width:35%;">
+          ' . (!empty($rutaIcono) ? '<img src="' . $rutaIcono . '" width="11" height="11"> ' : '') . '
+          <b>Easysplus</b> - Sistema de facturación electrónica
+        </td>
+        <td style="text-align:right; font-size:7.5pt; color:#475569; width:30%;">
+          F. Impresión: <b>' . $fechaImpresionStr . '</b>
+        </td>
+      </tr>
+    </table>';
+
+    $pdf->writeHTMLCell(194, 10, 8, 280, $html_footer_cell, 0, 0, false, true, 'C', true);
 
     $pdf->Output('Reporte_Ventas_Buseros.pdf', 'I');
 

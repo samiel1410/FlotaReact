@@ -92,8 +92,14 @@ function obtenerCredencialesDb($isLocal)
                     $_SESSION['db_name'] = $dbName;
                 }
 
+                $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
+                $finalHost = $dbHost ?: 'localhost';
+                if ($isLocal && ($finalHost === 'localhost' || $finalHost === '127.0.0.1') && !empty($dbUser) && $dbUser !== 'root') {
+                    $finalHost = $remoteHost;
+                }
+
                 return [
-                    $dbHost ?: 'localhost',
+                    $finalHost,
                     $dbUser ?: ($isLocal ? 'root' : ''),
                     $dbPass ?: '',
                     $dbName,
@@ -113,8 +119,13 @@ function obtenerCredencialesDb($isLocal)
     $sessionDbPass = isset($_SESSION['db_pass']) && !empty($_SESSION['db_pass']) ? decrypt_db_data($_SESSION['db_pass']) : null;
 
     if (!empty($sessionDbName)) {
+        $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
+        $finalHost = $sessionDbHost ?: 'localhost';
+        if ($isLocal && ($finalHost === 'localhost' || $finalHost === '127.0.0.1') && !empty($sessionDbUser) && $sessionDbUser !== 'root') {
+            $finalHost = $remoteHost;
+        }
         return [
-            $sessionDbHost ?: 'localhost',
+            $finalHost,
             $sessionDbUser ?: ($isLocal ? 'root' : ''),
             $sessionDbPass ?: '',
             $sessionDbName,
@@ -127,8 +138,13 @@ function obtenerCredencialesDb($isLocal)
         $_SESSION['db_user'] = isset($_GET['db_user']) ? $_GET['db_user'] : ($isLocal ? 'root' : '');
         $_SESSION['db_pass'] = isset($_GET['db_pass']) ? $_GET['db_pass'] : '';
         $_SESSION['db_name'] = $_GET['db_name'];
+        $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
+        $finalHost = $_SESSION['db_host'];
+        if ($isLocal && ($finalHost === 'localhost' || $finalHost === '127.0.0.1') && !empty($_SESSION['db_user']) && $_SESSION['db_user'] !== 'root') {
+            $finalHost = $remoteHost;
+        }
         return [
-            $_SESSION['db_host'],
+            $finalHost,
             $_SESSION['db_user'],
             $_SESSION['db_pass'],
             $_SESSION['db_name'],
@@ -141,8 +157,13 @@ function obtenerCredencialesDb($isLocal)
         $_SESSION['db_user'] = isset($_POST['db_user']) ? $_POST['db_user'] : ($isLocal ? 'root' : '');
         $_SESSION['db_pass'] = isset($_POST['db_pass']) ? $_POST['db_pass'] : '';
         $_SESSION['db_name'] = $_POST['db_name'];
+        $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
+        $finalHost = $_SESSION['db_host'];
+        if ($isLocal && ($finalHost === 'localhost' || $finalHost === '127.0.0.1') && !empty($_SESSION['db_user']) && $_SESSION['db_user'] !== 'root') {
+            $finalHost = $remoteHost;
+        }
         return [
-            $_SESSION['db_host'],
+            $finalHost,
             $_SESSION['db_user'],
             $_SESSION['db_pass'],
             $_SESSION['db_name'],
@@ -217,21 +238,40 @@ function obtenerCredencialesDb($isLocal)
         $_SESSION['db_name'] = $db_name;
     }
 
+    $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
+    if ($isLocal && ($db_host === 'localhost' || $db_host === '127.0.0.1') && !empty($db_user) && $db_user !== 'root') {
+        $db_host = $remoteHost;
+    }
+
     return [$db_host, $db_user, $db_pass, $db_name, $origen];
 }
 
 function conexion()
 {
-    $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
-    $isLocal = ($host == 'localhost' || $host == '127.0.0.1');
+    $rawHost = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'localhost');
+    $hostOnly = strtolower(trim(explode(':', $rawHost)[0]));
+    $isLocal = ($hostOnly === 'localhost' || $hostOnly === '127.0.0.1' || $hostOnly === '::1' || substr($hostOnly, -5) === '.test' || substr($hostOnly, -6) === '.local');
 
     list($db_host, $db_user, $db_pass, $db_name, $origen) = obtenerCredencialesDb($isLocal);
 
-    // ============ DEBUG: imprimir datos de la conexión ============
-    $db_pass_mostrar = $db_pass !== '' ? $db_pass : '(vacío)';
-    // ==============================================================
+    $conn = @mysqli_connect($db_host, $db_user, $db_pass, $db_name);
 
-    $conn = mysqli_connect($db_host, $db_user, $db_pass, $db_name);
+    if (!$conn && $isLocal && ($db_host === 'localhost' || $db_host === '127.0.0.1') && !empty($db_user) && $db_user !== 'root') {
+        $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
+        $conn = @mysqli_connect($remoteHost, $db_user, $db_pass, $db_name);
+        if ($conn) {
+            $db_host = $remoteHost;
+        }
+    }
+
+    if (!$conn) {
+        // Si la conexión falló con credenciales guardadas en la sesión (por ejemplo patate_user guardado previamente por error), limpiar la sesión y reintentar
+        if (!empty($_SESSION['db_name']) || !empty($_SESSION['db_user'])) {
+            unset($_SESSION['db_host'], $_SESSION['db_user'], $_SESSION['db_pass'], $_SESSION['db_name']);
+            list($db_host, $db_user, $db_pass, $db_name, $origen) = obtenerCredencialesDb($isLocal);
+            $conn = @mysqli_connect($db_host, $db_user, $db_pass, $db_name);
+        }
+    }
 
     if (!$conn) {
         $err = mysqli_connect_error();

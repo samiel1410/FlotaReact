@@ -46,6 +46,7 @@ const MENU = [
       { to: '/rutas', icon: 'fas fa-route', label: 'Rutas', permission: 'administracion.config_rutas' },
       { to: '/sub-rutas', icon: 'fas fa-code-branch', label: 'Sub-Rutas', permission: 'administracion.config_rutas' },
       { to: '/config-rutas', icon: 'fas fa-cogs', label: 'Config. Rutas', permission: 'administracion.config_rutas' },
+      { to: '/auditoria-rutas', icon: 'fas fa-history', label: 'Auditoría Rutas', permission: 'administracion.auditoria_rutas' },
       { to: '/alimentos', icon: 'fas fa-utensils', label: 'Alimentos', permission: 'administracion.gestion_alimentos' },
       { to: '/inventario', icon: 'fas fa-boxes', label: 'Inventario', permission: 'administracion.gestion_inventario' },
       { to: '/impresoras', icon: 'fas fa-print', label: 'Impresoras', permission: 'administracion.gestion_impresoras' },
@@ -66,9 +67,9 @@ const MENU = [
     items: [
       { to: '/viajes', icon: 'fas fa-list', label: 'Listado Viajes', permission: 'viajes.listado_viajes' },
       { to: '/creacion-viajes', icon: 'fas fa-plus-square', label: 'Creación Viajes', permission: 'viajes.crear_viaje' },
-      { to: '/planificacion-viajes', icon: 'fas fa-calendar-alt', label: 'Planificación', permission: 'viajes.crear_viaje' },
+      { to: '/planificacion-viajes', icon: 'fas fa-calendar-alt', label: 'Planificación', permission: 'viajes.planificacion_viajes' },
       { to: '/despacho-viajes', icon: 'fas fa-shipping-fast', label: 'Despacho Viajes', permission: 'viajes.despacho_viaje' },
-      { to: '/cierre-viajes', icon: 'fas fa-file-invoice', label: 'Cierre Viajes', permission: 'viajes.listado_viajes' },
+      { to: '/cierre-viajes', icon: 'fas fa-file-invoice', label: 'Cierre Viajes', permission: 'viajes.cierre_viajes' },
     ]
   },
   {
@@ -125,7 +126,7 @@ const MENU = [
     items: [
       { to: '/boleteria', icon: 'fas fa-list', label: 'Listado Boletos', permission: 'boletos.listado_boletos' },
       { to: '/boleteria/nuevo', icon: 'fas fa-plus-circle', label: 'Nuevo Boleto', permission: 'boletos.nuevo_boleto' },
-      { to: '/boleteria/reagendados', icon: 'fas fa-exchange-alt', label: 'Reagendamientos', permission: 'boletos.listado_boletos' },
+      { to: '/boleteria/reagendados', icon: 'fas fa-exchange-alt', label: 'Reagendamientos', permission: 'boletos.reagendamientos' },
       { to: '/facturacion', icon: 'fas fa-file-invoice-dollar', label: 'Facturación', permission: 'boletos.facturacion_boletos' },
       { to: '/caja-boleteria', icon: 'fas fa-cash-register', label: 'Caja Boletería', permission: 'boletos.caja_boleteria' },
       { to: '/reportes-boleteria', icon: 'fas fa-chart-bar', label: 'Reportes Boletería', permission: 'boletos.reportes_boleteria' },
@@ -158,7 +159,7 @@ const MENU = [
     items: [
       { to: '/buseros', icon: 'fas fa-bus', label: 'Listado Buseros', permission: 'buseros.gestion_buseros' },
       { to: '/asientos', icon: 'fas fa-chair', label: 'Asientos', permission: 'buseros.gestion_asientos' },
-      { to: '/recaudado', icon: 'fas fa-coins', label: 'Recaudado', permission: 'buseros.gestion_buseros' },
+      { to: '/recaudado', icon: 'fas fa-coins', label: 'Recaudado', permission: 'buseros.recaudado' },
     ]
   },
   {
