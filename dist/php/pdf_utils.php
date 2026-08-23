@@ -108,4 +108,77 @@ function obtenerAnchoFormatoImpresion($conn, $defaultAncho = 80)
     }
     return $defaultAncho;
 }
+
+/**
+ * Calcula tipografía, márgenes, dimensiones de logo y estilos adaptativos según el ancho de papel en mm.
+ * 
+ * @param float $ancho Ancho de papel en mm (ej. 48, 56, 58, 72, 80, 110, 120)
+ * @param float $baseAncho Ancho base de referencia para el cálculo proporcional (por defecto 110mm)
+ * @return array Métricas y propiedades CSS/TCPDF adaptadas
+ */
+function obtenerMetricasImpresion($ancho, $baseAncho = 110)
+{
+    $ancho = floatval($ancho);
+    if ($ancho < 35) $ancho = 80;
+    if ($ancho > 220) $ancho = 220;
+
+    // Factor amortiguado para evitar fuentes microscópicas en anchos pequeños o gigantes en anchos grandes
+    $factor = 1 + (($ancho - $baseAncho) / $baseAncho) * 0.65;
+    $factor = max(0.60, min(1.30, $factor));
+
+    // Márgenes dinámicos
+    if ($ancho <= 58) {
+        $margen_mm = 2;
+    } elseif ($ancho <= 80) {
+        $margen_mm = 3;
+    } else {
+        $margen_mm = 5;
+    }
+
+    // Dimensiones proporcionales (píxeles / puntos para CSS)
+    $font_base_px    = round(10.5 * $factor, 1);
+    $font_titulo_px  = round(12.5 * $factor, 1);
+    $font_formas_px  = round(13.0 * $factor, 1);
+    $font_pequeno_px = round(8.5 * $factor, 1);
+    $font_micro_px   = round(7.0 * $factor, 1);
+
+    // Medidas para boletos u hojas en pt
+    $font_boleto_base_pt   = round(6.5 * $factor, 1);
+    $font_boleto_tit_pt    = round(7.5 * $factor, 1);
+    $font_boleto_dest_pt   = round(9.0 * $factor, 1);
+    $font_boleto_total_pt  = round(10.0 * $factor, 1);
+
+    $logo_width_px   = round(64 * $factor);
+    if ($logo_width_px < 32) $logo_width_px = 32;
+    if ($logo_width_px > 80) $logo_width_px = 80;
+
+    $alto_barcode_mm = $ancho <= 58 ? 12 : ($ancho <= 80 ? 15 : 18);
+    $ancho_util_mm   = max(10, $ancho - ($margen_mm * 2));
+
+    // Tipografías para TCPDF directo (pt)
+    $font_tcpdf_base = round(8.0 * $factor, 1);
+    $font_tcpdf_bold = round(10.5 * $factor, 1);
+    $font_tcpdf_sub  = round(7.0 * $factor, 1);
+
+    return [
+        'ancho'                 => $ancho,
+        'factor'                => $factor,
+        'margen_mm'             => $margen_mm,
+        'ancho_util_mm'         => $ancho_util_mm,
+        'logo_width_px'         => $logo_width_px,
+        'font_base_px'          => $font_base_px,
+        'font_titulo_px'        => $font_titulo_px,
+        'font_formas_px'        => $font_formas_px,
+        'font_pequeno_px'       => $font_pequeno_px,
+        'font_micro_px'         => $font_micro_px,
+        'font_boleto_base_pt'   => $font_boleto_base_pt,
+        'font_boleto_tit_pt'    => $font_boleto_tit_pt,
+        'font_boleto_dest_pt'   => $font_boleto_dest_pt,
+        'font_boleto_total_pt'  => $font_boleto_total_pt,
+        'font_tcpdf_base'       => $font_tcpdf_base,
+        'font_tcpdf_bold'       => $font_tcpdf_bold,
+        'font_tcpdf_sub'        => $font_tcpdf_sub,
+        'alto_barcode_mm'       => $alto_barcode_mm,
+    ];
+}
 ?>

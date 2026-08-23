@@ -131,7 +131,10 @@ razon_social_empresa FROM empresa WHERE 1";
     $leyenda_viaje = ($vals_config && $vals_config['mostrar_leyenda_boleteria'] == 1) ? $vals_config['leyenda_boleteria'] :
         'GRACIAS POR SU PREFERENCIA';
 
-    $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(80, 380), true, 'UTF-8', false);
+    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 80);
+    $metricas = obtenerMetricasImpresion($ancho_impresion, 80);
+
+    $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array($ancho_impresion, 380), true, 'UTF-8', false);
     $pdf->setPrintHeader(false);
     $pdf->setPrintFooter(false);
     $pdf->SetCreator(PDF_CREATOR);
@@ -159,22 +162,22 @@ razon_social_empresa FROM empresa WHERE 1";
     $pisoMostrar = !empty($boleto['piso_sub_rutas']) && $boleto['piso_sub_rutas'] != 0 ? $boleto['piso_sub_rutas'] : (!empty($boleto['piso_rutas']) && $boleto['piso_rutas'] != 0 ? $boleto['piso_rutas'] : '1');
 
     $html1 = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-        body{font-family:Helvetica,Arial,sans-serif;font-size:6.5pt;color:#000;margin:0;padding:0;line-height:1}
+        body{font-family:Helvetica,Arial,sans-serif;font-size:' . $metricas['font_boleto_base_pt'] . 'pt;color:#000;margin:0;padding:0;line-height:1}
         .center{text-align:center}.left{text-align:left}.bold{font-weight:bold}
         .sep{border-top:1.5px solid #000;margin:1px 0}
         .sep-light{border-top:1px solid #000;margin:1px 0}
-        table{width:100%;border-collapse:collapse}td{padding:0;vertical-align:middle;font-size:6.5pt}
+        table{width:100%;border-collapse:collapse}td{padding:0;vertical-align:middle;font-size:' . $metricas['font_boleto_base_pt'] . 'pt}
     </style></head><body><div class="center">';
 
     $rutaLogo = obtenerRutaLogoEmpresa($conn);
     if ($rutaLogo) {
-        $html1 .= '<img src="' . $rutaLogo . '" width="30" style="margin-bottom:0;"><br>';
+        $html1 .= '<img src="' . $rutaLogo . '" width="' . max(24, round(30 * $metricas['factor'])) . '" style="margin-bottom:0;"><br>';
     }
 
-    $html1 .= '<div class="bold" style="font-size:7.5pt;line-height:1">' . strtoupper($vals_empresa["razon_social_empresa"]) . '</div>
-        <div style="font-size:6.5pt;line-height:1">RUC: ' . $vals_empresa["ruc_empresa"] . '</div>
-        <div style="font-size:6.5pt;line-height:1;text-transform:uppercase">' . strtoupper($vals_empresa["direccion_empresa"]) . '</div>
-        <div style="font-size:6.5pt;line-height:1">Oficina ' . $boleto['nombre_sucursal'] . '</div>
+    $html1 .= '<div class="bold" style="font-size:' . $metricas['font_boleto_tit_pt'] . 'pt;line-height:1">' . strtoupper($vals_empresa["razon_social_empresa"]) . '</div>
+        <div style="font-size:' . $metricas['font_boleto_base_pt'] . 'pt;line-height:1">RUC: ' . $vals_empresa["ruc_empresa"] . '</div>
+        <div style="font-size:' . $metricas['font_boleto_base_pt'] . 'pt;line-height:1;text-transform:uppercase">' . strtoupper($vals_empresa["direccion_empresa"]) . '</div>
+        <div style="font-size:' . $metricas['font_boleto_base_pt'] . 'pt;line-height:1">Oficina ' . $boleto['nombre_sucursal'] . '</div>
     </div>
     <div class="sep"></div>
     <table>
@@ -184,10 +187,10 @@ razon_social_empresa FROM empresa WHERE 1";
     </table>
     <table>
         <tr><td width="26%">Viaje ' . $boleto['id_fkviaje_boleto'] . '</td><td width="74%" class="bold">' . strtoupper($viajeMostrar) . '</td></tr>
-        <tr><td class="bold" style="font-size:8pt">Bus ' . $busMostrar . '</td><td class="bold" style="font-size:8pt">Sale Origen ' . $fechaSalida . ' ' . $horaSalida . '</td></tr>
+        <tr><td class="bold" style="font-size:' . round($metricas['font_boleto_base_pt'] * 1.2, 1) . 'pt">Bus ' . $busMostrar . '</td><td class="bold" style="font-size:' . round($metricas['font_boleto_base_pt'] * 1.2, 1) . 'pt">Sale Origen ' . $fechaSalida . ' ' . $horaSalida . '</td></tr>
     </table>
     <table>
-        <tr><td width="60%" class="bold" style="font-size:7pt;text-decoration:underline">INFORMACIÓN DEL VIAJE</td><td width="20%" class="bold">Piso ' . $pisoMostrar . '</td><td width="20%" class="bold">Andén ' . $andMostrar . '</td></tr>
+        <tr><td width="60%" class="bold" style="font-size:' . round($metricas['font_boleto_base_pt'] * 1.1, 1) . 'pt;text-decoration:underline">INFORMACIÓN DEL VIAJE</td><td width="20%" class="bold">Piso ' . $pisoMostrar . '</td><td width="20%" class="bold">Andén ' . $andMostrar . '</td></tr>
     </table>
     <div class="sep"></div>';
 
@@ -198,17 +201,17 @@ razon_social_empresa FROM empresa WHERE 1";
         $destinoMostrar = !empty($destinoBoleto) ? strtoupper($destinoBoleto) : strtoupper($rutaPasajero);
         
         $html1 .= '<table style="margin-top:1px">
-            <tr><td class="bold" style="font-size:7pt">' . $nombrePasajero . '</td><td class="bold" style="font-size:10pt" align="right">Asiento ' . str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) . '</td></tr>
-            <tr><td colspan="2" class="bold" style="font-size:7.5pt" align="right">DESTINO: ' . $destinoMostrar . '</td></tr>
-            <tr><td colspan="2" align="right" class="bold" style="font-size:9pt">Valor $' . number_format($detalle['total_boleto_detalle'], 2, ',', '.') . '</td></tr>
-            <tr><td colspan="2" style="font-size:6pt">Tarifa: ' . $detalle['tarifa_boleto_detalle'] . '</td></tr>
+            <tr><td class="bold" style="font-size:' . round($metricas['font_boleto_base_pt'] * 1.1, 1) . 'pt">' . $nombrePasajero . '</td><td class="bold" style="font-size:' . $metricas['font_boleto_total_pt'] . 'pt" align="right">Asiento ' . str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) . '</td></tr>
+            <tr><td colspan="2" class="bold" style="font-size:' . $metricas['font_boleto_tit_pt'] . 'pt" align="right">DESTINO: ' . $destinoMostrar . '</td></tr>
+            <tr><td colspan="2" align="right" class="bold" style="font-size:' . $metricas['font_boleto_dest_pt'] . 'pt">Valor $' . number_format($detalle['total_boleto_detalle'], 2, ',', '.') . '</td></tr>
+            <tr><td colspan="2" style="font-size:' . round($metricas['font_boleto_base_pt'] * 0.9, 1) . 'pt">Tarifa: ' . $detalle['tarifa_boleto_detalle'] . '</td></tr>
         </table>';
     }
 
     $html1 .= '<table style="margin-top:3px">
-        <tr><td width="35%" class="bold" style="font-size:10pt">TOTAL</td><td width="65%" class="bold" style="font-size:10pt" align="right">$' . number_format($boleto['total_boleto'], 2, ',', '.') . '</td></tr>
+        <tr><td width="35%" class="bold" style="font-size:' . $metricas['font_boleto_total_pt'] . 'pt">TOTAL</td><td width="65%" class="bold" style="font-size:' . $metricas['font_boleto_total_pt'] . 'pt" align="right">$' . number_format($boleto['total_boleto'], 2, ',', '.') . '</td></tr>
     </table>
-    <div style="font-size:6pt;line-height:1">
+    <div style="font-size:' . round($metricas['font_boleto_base_pt'] * 0.9, 1) . 'pt;line-height:1">
         <div>Caducidad ' . $fechaSalida . ' ' . $horaSalida . '</div>
         <div>F. Emisión ' . ($boleto['fecha_creacion_boleto'] ? date('d/m/Y H:i:s', strtotime($boleto['fecha_creacion_boleto'])) : date('d/m/Y H:i:s')) . '</div>';
         
@@ -221,7 +224,7 @@ razon_social_empresa FROM empresa WHERE 1";
 
     $html1 .= '</div>
     <div class="sep-light"></div>
-    <div class="center" style="font-size:6pt;line-height:1">
+    <div class="center" style="font-size:' . round($metricas['font_boleto_base_pt'] * 0.9, 1) . 'pt;line-height:1">
         <div>' . strtoupper($vals_empresa["razon_social_empresa"]) . '</div>
         <div>Dir. Matriz ' . $vals_empresa["direccion_empresa"] . '</div>
         <div>Oficina ' . $boleto['nombre_sucursal'] . '</div>
@@ -231,15 +234,14 @@ razon_social_empresa FROM empresa WHERE 1";
         </table>
     </div>
   
-    <div class="center bold" style="font-size:6.5pt">Vendido por: ' . $boleto['nombre_usuario'] . '</div>
+    <div class="center bold" style="font-size:' . $metricas['font_boleto_base_pt'] . 'pt">Vendido por: ' . $boleto['nombre_usuario'] . '</div>
     <div class="sep-light" style="margin:3px 0"></div>
-    <div class="center" style="font-size:6pt;line-height:1.2">' . $leyenda_viaje . '</div>
+    <div class="center" style="font-size:' . round($metricas['font_boleto_base_pt'] * 0.9, 1) . 'pt;line-height:1.2">' . $leyenda_viaje . '</div>
 </body></html>';
 
-    $pdf->SetFont('helvetica', '', 6.5);
-    $pdf->SetMargins(5, 3, 5, true);
+    $pdf->SetFont('helvetica', '', $metricas['font_boleto_base_pt']);
+    $pdf->SetMargins($metricas['margen_mm'], 3, $metricas['margen_mm'], true);
     $pdf->SetAutoPageBreak(true, 2);
-    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 80);
     $pdf->AddPage('P', array($ancho_impresion, 200));
     $pdf->writeHTML($html1, true, false, true, false, '');
 

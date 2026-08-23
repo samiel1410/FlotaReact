@@ -137,6 +137,9 @@ try {
         if ($extra) mysqli_free_result($extra);
     }
 
+    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 120);
+    $metricas = obtenerMetricasImpresion($ancho_impresion, 120);
+
     $html = '
 <!DOCTYPE html>
 <html lang="es">
@@ -147,14 +150,15 @@ try {
 </head>
 <style>
     .center { text-align: center; }
-    .titulo_inicio { font-size: 12px; }
+    .titulo_inicio { font-size: ' . $metricas['font_titulo_px'] . 'px; font-weight: bold; }
     .linea { border-top: 1px dotted #000; }
+    body { font-size: ' . $metricas['font_base_px'] . 'px; margin: 0; padding: 0; }
 </style>
 
 <body>
 
     <p class="center">
-        ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn)) ? '<img width="64px" class="center" src="' . $rutaLogo . '" /><br>' : '') . '
+        ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn)) ? '<img width="' . $metricas['logo_width_px'] . 'px" class="center" src="' . $rutaLogo . '" /><br>' : '') . '
         <span class="titulo_inicio">' . $razon_social_empresa . '</span> <br>
         <span class="titulo_inicio">RUC:' . $ruc_empresa . '</span> <br>
         <span class="titulo_inicio">CAJA BOLETERIA</span> <br>
@@ -228,11 +232,13 @@ try {
 </html>
 ';
 
-    $pdf->SetFont('helvetica', '', 10);
-    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 120);
-    $pdf->AddPage('P', array(500, $ancho_impresion));
+    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
+    $pdf->SetMargins($metricas['margen_mm'], 0, $metricas['margen_mm'], true);
+    $pdf->SetAutoPageBreak(FALSE, 0);
+
+    $pdf->AddPage('P', array($ancho_impresion, 800));
     $pdf->SetLineStyle(array('width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => 3, 'color' => array(0, 0, 0)));
-    $pdf->Rect(10, 17, 100, 25, 'D');
+    $pdf->Rect($metricas['margen_mm'], 17, $metricas['ancho_util_mm'], 25, 'D');
 
     $pdf->writeHTML($html, true, false, true, false, '');
     $pdf->Output('cajaBoleteriaImpresion.pdf', 'I');

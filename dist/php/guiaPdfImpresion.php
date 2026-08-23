@@ -240,6 +240,7 @@ configuracion";
   $mensajeleyenda_configuracion = $vals_configuracion["mensajeleyenda_configuracion"];
   $imprimir_boucher_guia = isset($vals_configuracion["imprimir_boucher_guia"]) ? (int)$vals_configuracion["imprimir_boucher_guia"] : 1;
   $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 110);
+  $metricas = obtenerMetricasImpresion($ancho_impresion, 110);
 
   $validar_leyenda = $mensajeleyenda_configuracion;
   $mensaje = $leyendamensaje_configuracion;
@@ -263,7 +264,7 @@ configuracion";
 
   .formas {
     font-weight: bold;
-    font-size: 13px;
+    font-size: ' . $metricas['font_formas_px'] . 'px;
   }
 
   .borde_punto {
@@ -285,24 +286,16 @@ configuracion";
     display: block;
   }
 
-
   .factura {
-    font-size: 10px;
+    font-size: ' . $metricas['font_pequeno_px'] . 'px;
     font-weight: bold;
     color: gray
   }
 
-  .center {
-
-    text-align: center;
-
-  }
-
   .titulo_inicio {
-    font-size: 12px;
-
+    font-size: ' . $metricas['font_titulo_px'] . 'px;
+    font-weight: bold;
   }
-
 
   .linea {
     border-top: 1px dotted #000;
@@ -310,7 +303,9 @@ configuracion";
   }
 
   body {
-    font-size: 11px;
+    font-size: ' . $metricas['font_base_px'] . 'px;
+    margin: 0;
+    padding: 0;
   }
 </style>
 
@@ -321,7 +316,7 @@ configuracion";
   <p class="center">
     ';
   if ($rutaLogo) {
-    $html .= '<img width="64px" class="center" src="' . $rutaLogo . '" /><br>';
+    $html .= '<img width="' . $metricas['logo_width_px'] . 'px" class="center" src="' . $rutaLogo . '" /><br>';
   }
   $html .= '
     <span class="titulo_inicio">' . $razon_social_empresa . '</span> <br>
@@ -458,7 +453,7 @@ configuracion";
 ';
 
   $pdf->SetFont('helvetica', '', 5);
-  $pdf->SetMargins(0, 0, 0, true);
+  $pdf->SetMargins($metricas['margen_mm'], 0, $metricas['margen_mm'], true);
   $pdf->SetAutoPageBreak(FALSE, 0); // Disable auto page break
   // add a page
   $pdf->AddPage('P', array($ancho_impresion, 800)); // Dynamic print width from config
@@ -466,7 +461,7 @@ configuracion";
   $pdf->SetLineStyle(array('width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => 3, 'color' => array(0, 0, 0)));
 
   // Dibujar un rectángulo con borde punteado
-  $pdf->Rect(5, 30, max(10, $ancho_impresion - 10), 25, 'D');
+  $pdf->Rect($metricas['margen_mm'], 30, $metricas['ancho_util_mm'], 25, 'D');
 
   // Write HTML content
 
@@ -489,17 +484,17 @@ configuracion";
     'bgcolor' => false, // array(255,255,255),
     'text' => true,
     'font' => 'helvetica',
-    'fontsize' => 8,
+    'fontsize' => $metricas['font_tcpdf_sub'],
     'stretchtext' => 4
   );
   // $pdf->SetXY(112, 65);
 
   // Obtener la posicion Y actual despues del contenido HTML
   $y_actual = $pdf->GetY();
-  $pdf->SetXY(5, $y_actual + 5);
+  $pdf->SetXY($metricas['margen_mm'], $y_actual + 5);
   // Codigo de barras
   if (!empty($clave_acceso)) {
-    $pdf->write1DBarcode($clave_acceso, 'C128', '', '', max(10, $ancho_impresion - 10), 18, 0.4, $style, 'N');
+    $pdf->write1DBarcode($clave_acceso, 'C128', '', '', $metricas['ancho_util_mm'], $metricas['alto_barcode_mm'], 0.4, $style, 'N');
   }
   $pdf->Ln();
 
@@ -507,108 +502,108 @@ configuracion";
   // El numero de pagina SOLO va en los slips, no en la hoja de factura principal
   if ($imprimir_boucher_guia === 1) {
     $pagina_actual = 1;
-  $total_paginas = $total_copias_extra; // numeracion interna de los slips
-  $fecha_slip = date('d/m/Y H:i');
-  $sep_doble = str_repeat('=', 38);
+    $total_paginas = $total_copias_extra; // numeracion interna de los slips
+    $fecha_slip = date('d/m/Y H:i');
+    $sep_doble = str_repeat('=', 38);
 
-  foreach ($items_detalle as $item) {
+    foreach ($items_detalle as $item) {
 
-    // Pagina slip: formato configurable x 200mm para mejor uso del espacio
-    $pdf->AddPage('P', array($ancho_impresion, 200));
-    $pdf->SetMargins(5, 5, 5, true);
-    $pdf->SetAutoPageBreak(FALSE, 0);
-    $lw = max(10, $ancho_impresion - 10);
+      // Pagina slip: formato configurable x 200mm para mejor uso del espacio
+      $pdf->AddPage('P', array($ancho_impresion, 200));
+      $pdf->SetMargins($metricas['margen_mm'], 5, $metricas['margen_mm'], true);
+      $pdf->SetAutoPageBreak(FALSE, 0);
+      $lw = $metricas['ancho_util_mm'];
 
-    // ── LOGO ──
-    if ($rutaLogo) {
-      $pdf->Image($rutaLogo, 42, 4, 18, 0, '', '', 'T', false, 300, 'C');
-      $pdf->SetY(23);
-    } else {
-      $pdf->SetY(5);
+      // ── LOGO ──
+      if ($rutaLogo) {
+        $pdf->Image($rutaLogo, ($ancho_impresion / 2) - 9, 4, 18, 0, '', '', 'T', false, 300, 'C');
+        $pdf->SetY(23);
+      } else {
+        $pdf->SetY(5);
+      }
+
+      // ── EMPRESA ──
+      $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
+      $pdf->Cell($lw, 6, strtoupper($razon_social_empresa), 0, 1, 'C');
+
+      $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
+      $pdf->Cell($lw, 4, $numero_guia, 0, 1, 'C');
+      if (!empty($numero_manual_guia)) {
+        $pdf->Cell($lw, 4, 'MANUAL: ' . $numero_manual_guia, 0, 1, 'C');
+      }
+
+      // ── LINEA DOBLE ──
+      $pdf->Ln(2);
+      $y0 = $pdf->GetY();
+      $pdf->SetDrawColor(0,0,0);
+      $pdf->SetLineWidth(0.6);
+      $pdf->Line($metricas['margen_mm'], $y0, $ancho_impresion - $metricas['margen_mm'], $y0);
+      $pdf->SetLineWidth(0.2);
+      $pdf->Line($metricas['margen_mm'], $y0 + 1.5, $ancho_impresion - $metricas['margen_mm'], $y0 + 1.5);
+      $pdf->SetY($y0 + 4);
+
+      // ── FECHA ──
+      $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
+      $pdf->Cell($lw, 5, $fecha_slip, 0, 1, 'C');
+      $pdf->Ln(1);
+
+      // ── REMITENTE ──
+      $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+      $pdf->Cell($lw, 4, 'Remitente', 0, 1, 'C');
+      $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
+      $pdf->MultiCell($lw, 6, $nombre_cliente_remitente, 0, 'C', false, 1);
+      $pdf->Ln(1);
+
+      // ── DESTINATARIO ──
+      $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+      $pdf->Cell($lw, 4, 'Destinatario', 0, 1, 'C');
+      $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
+      $pdf->MultiCell($lw, 6, $nombre_cliente_receptor, 0, 'C', false, 1);
+      $pdf->Ln(1);
+
+      // ── DESTINO ──
+      $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+      $pdf->Cell($lw, 4, 'Destino', 0, 1, 'C');
+      $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.15, 1));
+      $pdf->Cell($lw, 7, strtoupper($destino_guia), 0, 1, 'C');
+      $pdf->Ln(1);
+
+      // ── TELEFONO ──
+      $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
+      $pdf->Cell($lw, 5, 'Fono: ' . $telefono_cliente_receptor, 0, 1, 'C');
+      $pdf->Ln(1);
+
+      // ── CONTENIDO ──
+      $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
+      $desc = strtoupper($item['nombre_envio']) . ': ' . strtoupper($item['contenido']);
+      $pdf->MultiCell($lw, 6, $desc, 0, 'C', false, 1);
+      $pdf->Ln(2);
+
+      // ── LINEA DOBLE ──
+      $y1 = $pdf->GetY();
+      $pdf->SetLineWidth(0.6);
+      $pdf->Line($metricas['margen_mm'], $y1, $ancho_impresion - $metricas['margen_mm'], $y1);
+      $pdf->SetLineWidth(0.2);
+      $pdf->Line($metricas['margen_mm'], $y1 + 1.5, $ancho_impresion - $metricas['margen_mm'], $y1 + 1.5);
+      $pdf->SetY($y1 + 5);
+
+      // ── EMPRESA DESTINO ──
+      if (!empty($nombre_compania)) {
+        $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
+        $pdf->Cell($lw, 5, strtoupper($nombre_compania), 0, 1, 'C');
+      }
+      if (!empty($origen_guia)) {
+        $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+        $pdf->Cell($lw, 4, strtoupper($origen_guia), 0, 1, 'C');
+      }
+      $pdf->Ln(3);
+
+      // ── NUMERO DE PAGINA ──
+      $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
+      $pdf->Cell($lw, 5, $pagina_actual . ' / ' . $total_paginas, 0, 1, 'C');
+
+      $pagina_actual++;
     }
-
-    // ── EMPRESA ──
-    $pdf->SetFont('helvetica', 'B', 11);
-    $pdf->Cell($lw, 6, strtoupper($razon_social_empresa), 0, 1, 'C');
-
-    $pdf->SetFont('helvetica', '', 8);
-    $pdf->Cell($lw, 4, $numero_guia, 0, 1, 'C');
-    if (!empty($numero_manual_guia)) {
-      $pdf->Cell($lw, 4, 'MANUAL: ' . $numero_manual_guia, 0, 1, 'C');
-    }
-
-    // ── LINEA DOBLE ──
-    $pdf->Ln(2);
-    $y0 = $pdf->GetY();
-    $pdf->SetDrawColor(0,0,0);
-    $pdf->SetLineWidth(0.6);
-    $pdf->Line(5, $y0, $ancho_impresion - 5, $y0);
-    $pdf->SetLineWidth(0.2);
-    $pdf->Line(5, $y0 + 1.5, $ancho_impresion - 5, $y0 + 1.5);
-    $pdf->SetY($y0 + 4);
-
-    // ── FECHA ──
-    $pdf->SetFont('helvetica', '', 9);
-    $pdf->Cell($lw, 5, $fecha_slip, 0, 1, 'C');
-    $pdf->Ln(1);
-
-    // ── REMITENTE ──
-    $pdf->SetFont('helvetica', '', 8);
-    $pdf->Cell($lw, 4, 'Remitente', 0, 1, 'C');
-    $pdf->SetFont('helvetica', 'B', 11);
-    $pdf->MultiCell($lw, 6, $nombre_cliente_remitente, 0, 'C', false, 1);
-    $pdf->Ln(1);
-
-    // ── DESTINATARIO ──
-    $pdf->SetFont('helvetica', '', 8);
-    $pdf->Cell($lw, 4, 'Destinatario', 0, 1, 'C');
-    $pdf->SetFont('helvetica', 'B', 11);
-    $pdf->MultiCell($lw, 6, $nombre_cliente_receptor, 0, 'C', false, 1);
-    $pdf->Ln(1);
-
-    // ── DESTINO ──
-    $pdf->SetFont('helvetica', '', 8);
-    $pdf->Cell($lw, 4, 'Destino', 0, 1, 'C');
-    $pdf->SetFont('helvetica', 'B', 13);
-    $pdf->Cell($lw, 7, strtoupper($destino_guia), 0, 1, 'C');
-    $pdf->Ln(1);
-
-    // ── TELEFONO ──
-    $pdf->SetFont('helvetica', '', 9);
-    $pdf->Cell($lw, 5, 'Fono: ' . $telefono_cliente_receptor, 0, 1, 'C');
-    $pdf->Ln(1);
-
-    // ── CONTENIDO ──
-    $pdf->SetFont('helvetica', 'B', 10);
-    $desc = strtoupper($item['nombre_envio']) . ': ' . strtoupper($item['contenido']);
-    $pdf->MultiCell($lw, 6, $desc, 0, 'C', false, 1);
-    $pdf->Ln(2);
-
-    // ── LINEA DOBLE ──
-    $y1 = $pdf->GetY();
-    $pdf->SetLineWidth(0.6);
-    $pdf->Line(5, $y1, 105, $y1);
-    $pdf->SetLineWidth(0.2);
-    $pdf->Line(5, $y1 + 1.5, 105, $y1 + 1.5);
-    $pdf->SetY($y1 + 5);
-
-    // ── EMPRESA DESTINO ──
-    if (!empty($nombre_compania)) {
-      $pdf->SetFont('helvetica', 'B', 9);
-      $pdf->Cell($lw, 5, strtoupper($nombre_compania), 0, 1, 'C');
-    }
-    if (!empty($origen_guia)) {
-      $pdf->SetFont('helvetica', '', 8);
-      $pdf->Cell($lw, 4, strtoupper($origen_guia), 0, 1, 'C');
-    }
-    $pdf->Ln(3);
-
-    // ── NUMERO DE PAGINA ──
-    $pdf->SetFont('helvetica', 'B', 9);
-    $pdf->Cell($lw, 5, $pagina_actual . ' / ' . $total_paginas, 0, 1, 'C');
-
-    $pagina_actual++;
-  }
   }
 
   $nombre_pdf = 'guiaImpresion_' . $id_guia . '.pdf';

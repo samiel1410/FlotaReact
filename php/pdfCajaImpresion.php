@@ -255,6 +255,9 @@ caja_detalle WHERE id_fkcaja =$id_caja GROUP BY tipo_caja_detalle";
         if ($extra) mysqli_free_result($extra);
     }
 
+    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 120);
+    $metricas = obtenerMetricasImpresion($ancho_impresion, 120);
+
     $html = '
 <!DOCTYPE html>
 <html lang="en">
@@ -280,29 +283,33 @@ caja_detalle WHERE id_fkcaja =$id_caja GROUP BY tipo_caja_detalle";
         /* Añade relleno para que el contenido no se pegue al borde */
     }
 
-
     .factura {
-        font-size: 10px;
+        font-size: ' . $metricas['font_pequeno_px'] . 'px;
         font-weight: bold;
         color: gray
     }
 
     .titulo_inicio {
-        font-size: 12px;
-
+        font-size: ' . $metricas['font_titulo_px'] . 'px;
+        font-weight: bold;
     }
-
 
     .linea {
         border-top: 1px dotted #000;
         /* 1px de ancho y puntos negros */
+    }
+
+    body {
+        font-size: ' . $metricas['font_base_px'] . 'px;
+        margin: 0;
+        padding: 0;
     }
 </style>
 
 <body>
 
     <p class="center">
-        ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn)) ? '<img width="64px" class="center"
+        ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn)) ? '<img width="' . $metricas['logo_width_px'] . 'px" class="center"
             src="' . $rutaLogo . '" /><br>' : '') . '
         <span class="titulo_inicio">' . $razon_social_empresa . '</span> <br>
         <span class="titulo_inicio">RUC:' . $ruc_empresa . '</span> <br>
@@ -460,20 +467,17 @@ caja_detalle WHERE id_fkcaja =$id_caja GROUP BY tipo_caja_detalle";
 
     // set some language-dependent strings (optional)
 
-    // ---------------------------------------------------------
-
-    $pdf->SetFont('helvetica', '', 10);
-    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 120);
+    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
+    $pdf->SetMargins($metricas['margen_mm'], 0, $metricas['margen_mm'], true);
+    $pdf->SetAutoPageBreak(FALSE, 0);
 
     // add a page
-    $pdf->AddPage('P', array(500, $ancho_impresion));
+    $pdf->AddPage('P', array($ancho_impresion, 800));
 
     $pdf->SetLineStyle(array('width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => 3, 'color' => array(0, 0, 0)));
 
     // Dibujar un rectángulo con borde punteado
-    $pdf->Rect(10, 17, 100, 25, 'D');
-
-    // Add a page
+    $pdf->Rect($metricas['margen_mm'], 17, $metricas['ancho_util_mm'], 25, 'D');
 
     // Write HTML content
 
