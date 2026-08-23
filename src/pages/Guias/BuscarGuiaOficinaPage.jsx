@@ -99,8 +99,9 @@ export const BuscarGuiaOficinaPage = () => {
       
       const userResp = await api.get('/buscarUsuario');
       const idUsuario = userResp.data?.data?.id_usuario || 0;
+      const tenantId = userResp.data?.data?.tenant_id || userResp.data?.data?.id_tenant || 1;
 
-      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
+      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&tenantId=${encodeURIComponent(tenantId)}`;
       const res = await fetch(phpUrl);
 
       toast.dismiss('pdf-guia');
@@ -142,8 +143,9 @@ export const BuscarGuiaOficinaPage = () => {
       const userResp = await api.get('/buscarUsuario');
       const idUsuario = userResp.data?.data?.id_usuario || 0;
       const nombreUsuario = userResp.data?.data?.nombre_usuario || '';
+      const tenantId = userResp.data?.data?.tenant_id || userResp.data?.data?.id_tenant || 1;
 
-      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&reimpreso_por=${encodeURIComponent(nombreUsuario)}`;
+      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&reimpreso_por=${encodeURIComponent(nombreUsuario)}&tenantId=${encodeURIComponent(tenantId)}`;
       const res = await fetch(phpUrl);
 
       toast.dismiss('reimp-guia');

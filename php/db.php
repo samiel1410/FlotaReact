@@ -48,9 +48,46 @@ function decrypt_db_data($data) {
 function obtenerCredencialesDb($isLocal)
 {
     $tenantIntentado = false;
+    $cacheDir = __DIR__ . '/tmp/tenants/';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0777, true);
+    }
+
     if (isset($_GET['tenantId']) || isset($_POST['tenantId'])) {
         $tenantIntentado = true;
         $tId = isset($_GET['tenantId']) ? $_GET['tenantId'] : $_POST['tenantId'];
+        $cacheFile = $cacheDir . 'tenant_' . md5($tId) . '.json';
+
+        // 1. Revisar caché en disco (válido por 1 hora)
+        if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 3600)) {
+            $cached = @json_decode(file_get_contents($cacheFile), true);
+            if ($cached && !empty($cached['db_name'])) {
+                $dbHost = $cached['db_host'];
+                $dbUser = $cached['db_user'];
+                $dbPass = $cached['db_pass'];
+                $dbName = $cached['db_name'];
+
+                $_SESSION['db_host'] = $dbHost;
+                $_SESSION['db_user'] = $dbUser;
+                $_SESSION['db_pass'] = $dbPass;
+                $_SESSION['db_name'] = $dbName;
+
+                $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
+                $finalHost = $dbHost ?: 'localhost';
+                if ($isLocal && ($finalHost === 'localhost' || $finalHost === '127.0.0.1') && !empty($dbUser) && $dbUser !== 'root') {
+                    $finalHost = $remoteHost;
+                }
+
+                return [
+                    $finalHost,
+                    $dbUser ?: ($isLocal ? 'root' : ''),
+                    $dbPass ?: '',
+                    $dbName,
+                    'AuthService tenantId=' . $tId . ' (Caché Disco)'
+                ];
+            }
+        }
+
         $authUrl = $isLocal ? 'http://localhost:4000' : 'https://usuarioeasys.easysplus.com';
         $endpoint = "{$authUrl}/auth/tenant-db/{$tId}";
         
@@ -60,7 +97,8 @@ function obtenerCredencialesDb($isLocal)
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $endpoint);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
             curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
             curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
             $json = curl_exec($ch);
@@ -70,7 +108,7 @@ function obtenerCredencialesDb($isLocal)
         if (!$json) {
             $ctx = stream_context_create([
                 "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
-                "http" => ["timeout" => 5]
+                "http" => ["timeout" => 1.5]
             ]);
             $json = @file_get_contents($endpoint, false, $ctx);
         }
@@ -84,8 +122,15 @@ function obtenerCredencialesDb($isLocal)
                 $dbPass = !empty($t['db_pass']) ? decrypt_db_data($t['db_pass']) : '';
                 $dbName = !empty($t['db_name']) ? decrypt_db_data($t['db_name']) : '';
 
-                // Guardar en la sesión de PHP para subsiguientes peticiones del mismo usuario
+                // Guardar en caché disco y sesión
                 if ($dbName) {
+                    @file_put_contents($cacheFile, json_encode([
+                        'db_host' => $dbHost,
+                        'db_user' => $dbUser,
+                        'db_pass' => $dbPass,
+                        'db_name' => $dbName
+                    ]));
+
                     $_SESSION['db_host'] = $dbHost;
                     $_SESSION['db_user'] = $dbUser;
                     $_SESSION['db_pass'] = $dbPass;
@@ -191,38 +236,60 @@ function obtenerCredencialesDb($isLocal)
 
     // Si en producción no hay usuario/db definidos en variables de entorno, obtener por defecto las del Tenant #1 desde AuthService
     if (!$isLocal && (empty($db_user) || empty($db_name))) {
-        $authUrl = 'https://usuarioeasys.easysplus.com';
-        $endpoint = "{$authUrl}/auth/tenant-db/1";
-        $json = null;
+        $defaultCacheFile = $cacheDir . 'tenant_default.json';
+        if (file_exists($defaultCacheFile) && (time() - filemtime($defaultCacheFile) < 3600)) {
+            $cachedDefault = @json_decode(file_get_contents($defaultCacheFile), true);
+            if ($cachedDefault && !empty($cachedDefault['db_name'])) {
+                $db_host = $cachedDefault['db_host'] ?: ($db_host ?: 'localhost');
+                $db_user = $cachedDefault['db_user'] ?: $db_user;
+                $db_pass = $cachedDefault['db_pass'] ?: $db_pass;
+                $db_name = $cachedDefault['db_name'] ?: $db_name;
+                $origen = 'variables de entorno + tenant #1 (Caché Disco)';
+            }
+        } else {
+            $authUrl = 'https://usuarioeasys.easysplus.com';
+            $endpoint = "{$authUrl}/auth/tenant-db/1";
+            $json = null;
 
-        if (function_exists('curl_init')) {
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $endpoint);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-            $json = curl_exec($ch);
-            curl_close($ch);
-        }
+            if (function_exists('curl_init')) {
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $endpoint);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 2);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+                $json = curl_exec($ch);
+                curl_close($ch);
+            }
 
-        if (!$json) {
-            $ctx = stream_context_create([
-                "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
-                "http" => ["timeout" => 5]
-            ]);
-            $json = @file_get_contents($endpoint, false, $ctx);
-        }
+            if (!$json) {
+                $ctx = stream_context_create([
+                    "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
+                    "http" => ["timeout" => 1.5]
+                ]);
+                $json = @file_get_contents($endpoint, false, $ctx);
+            }
 
-        if ($json) {
-            $data = json_decode($json, true);
-            if (isset($data['success']) && $data['success'] && isset($data['tenant'])) {
-                $t = $data['tenant'];
-                $db_host = !empty($t['db_host']) ? decrypt_db_data($t['db_host']) : ($db_host ?: 'localhost');
-                $db_user = !empty($t['db_user']) ? decrypt_db_data($t['db_user']) : $db_user;
-                $db_pass = !empty($t['db_pass']) ? decrypt_db_data($t['db_pass']) : $db_pass;
-                $db_name = !empty($t['db_name']) ? decrypt_db_data($t['db_name']) : $db_name;
-                $origen = 'variables de entorno + tenant #1 (AuthService)';
+            if ($json) {
+                $data = json_decode($json, true);
+                if (isset($data['success']) && $data['success'] && isset($data['tenant'])) {
+                    $t = $data['tenant'];
+                    $db_host = !empty($t['db_host']) ? decrypt_db_data($t['db_host']) : ($db_host ?: 'localhost');
+                    $db_user = !empty($t['db_user']) ? decrypt_db_data($t['db_user']) : $db_user;
+                    $db_pass = !empty($t['db_pass']) ? decrypt_db_data($t['db_pass']) : $db_pass;
+                    $db_name = !empty($t['db_name']) ? decrypt_db_data($t['db_name']) : $db_name;
+                    $origen = 'variables de entorno + tenant #1 (AuthService)';
+
+                    if ($db_name) {
+                        @file_put_contents($defaultCacheFile, json_encode([
+                            'db_host' => $db_host,
+                            'db_user' => $db_user,
+                            'db_pass' => $db_pass,
+                            'db_name' => $db_name
+                        ]));
+                    }
+                }
             }
         }
     }

@@ -135,6 +135,7 @@ razon_social_empresa FROM empresa WHERE 1";
     $metricas = obtenerMetricasImpresion($ancho_impresion, 80);
 
     $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array($ancho_impresion, 380), true, 'UTF-8', false);
+    $pdf->setFontSubsetting(false);
     $pdf->setPrintHeader(false);
     $pdf->setPrintFooter(false);
     $pdf->SetCreator(PDF_CREATOR);

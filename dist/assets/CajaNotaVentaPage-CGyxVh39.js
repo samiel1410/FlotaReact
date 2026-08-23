@@ -1,0 +1,1 @@
+import"./rolldown-runtime-aKtaBQYM.js";import{g as e,t}from"./vendor-react-u0C46EVf.js";import{t as n}from"./index-0d1oma9e.js";e();var r=t(),i=()=>(0,r.jsx)(n,{configKey:`caja-nota-venta`});export{i as CajaNotaVentaPage};

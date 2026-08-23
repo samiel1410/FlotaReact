@@ -10,6 +10,9 @@ try {
 
     // create new PDF document
     $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(500, 200), true, 'UTF-8', false);
+    $pdf->setFontSubsetting(false);
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
 
     $conn = conexion();
     $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa WHERE 1";

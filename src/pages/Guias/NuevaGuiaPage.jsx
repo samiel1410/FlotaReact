@@ -754,7 +754,8 @@ export const NuevaGuiaPage = () => {
           // Mostrar PDF usando el script PHP y enviar WhatsApp
           try {
             const idUsuario = user?.id_usuario || 0;
-            const generatorUrl = `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}`;
+            const tenantId = user?.tenant_id || user?.id_tenant || 1;
+            const generatorUrl = `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}&tenantId=${tenantId}`;
             const fullPdfUrl = `${window.location.origin}${generatorUrl}`;
 
             if (metodoImpresion === 'directa') {

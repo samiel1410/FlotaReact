@@ -11,6 +11,9 @@ try {
 
     // create new PDF document
     $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(500, 200), true, 'UTF-8', false);
+    $pdf->setFontSubsetting(false);
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
 
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
