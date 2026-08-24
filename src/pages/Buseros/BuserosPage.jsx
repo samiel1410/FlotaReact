@@ -125,8 +125,13 @@ export const BuserosPage = () => {
     setTotal(0);
     setTotales({ cantidad_boletos: 0, vendido: 0, retenido: 0 });
   };
+  const hasSocio = Boolean(filters.id_personal || (filters.personal_busqueda && filters.personal_busqueda.trim()));
 
   const handleExportPdf = (format = 'a4') => {
+    if (!hasSocio) {
+      toast.error('Debe seleccionar o filtrar un socio para generar el reporte');
+      return;
+    }
     const params = new URLSearchParams({
       per_codigo: filters.id_personal || '',
       bus_codigo: filters.id_bus_busqueda || '',
@@ -262,13 +267,23 @@ export const BuserosPage = () => {
               <i className="fas fa-search"></i> Buscar
             </button>
             <button onClick={() => handleExportPdf('a4')}
-              className="flex items-center gap-1 px-3 py-1.5 bg-rose-600 text-white text-[10px] font-bold rounded-lg hover:bg-rose-700 transition-colors shadow-xs"
-              title="Generar Reporte PDF A4">
+              disabled={!hasSocio}
+              className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${
+                hasSocio 
+                  ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-xs cursor-pointer' 
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-70'
+              }`}
+              title={hasSocio ? "Generar Reporte PDF A4" : "Filtre o seleccione un socio para habilitar"}>
               <i className="fas fa-file-pdf"></i> PDF A4
             </button>
             <button onClick={() => handleExportPdf('80mm')}
-              className="flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white text-[10px] font-bold rounded-lg hover:bg-amber-700 transition-colors shadow-xs"
-              title="Generar Ticket de Impresión Rápida 80mm">
+              disabled={!hasSocio}
+              className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${
+                hasSocio 
+                  ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-xs cursor-pointer' 
+                  : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-70'
+              }`}
+              title={hasSocio ? "Generar Ticket de Impresión Rápida 80mm" : "Filtre o seleccione un socio para habilitar"}>
               <i className="fas fa-print"></i> Ticket 80mm
             </button>
             <button onClick={handleClear}

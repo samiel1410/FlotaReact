@@ -90,9 +90,11 @@ try {
         v.fecha_cierre,
         IFNULL(TIME_FORMAT(v.hora_origen_salida, '%H:%i'), '') as hora_salida,
         COALESCE(SUM(c.monto_cobros), 0) as retenido,
-        COALESCE(SUM(CASE WHEN c.tipo_cobro = 1 THEN c.monto_cobros ELSE 0 END), 0) as cuota_admin,
-        COALESCE(SUM(CASE WHEN c.tipo_cobro = 2 THEN c.monto_cobros ELSE 0 END), 0) as multas,
-        COALESCE(SUM(CASE WHEN c.tipo_cobro = 3 THEN c.monto_cobros ELSE 0 END), 0) as cuota_despacho,
+        COALESCE(SUM(CASE WHEN c.tipo_cobro = 1 OR tc.nombre_tipo_cobros LIKE '%admin%' OR tc.nombre_tipo_cobros LIKE '%cuota%' THEN c.monto_cobros ELSE 0 END), 0) as cuota_admin,
+        COALESCE(SUM(CASE WHEN c.tipo_cobro = 2 OR tc.nombre_tipo_cobros LIKE '%multa%' THEN c.monto_cobros ELSE 0 END), 0) as multas,
+        COALESCE(SUM(CASE WHEN tc.nombre_tipo_cobros LIKE '%refrig%' OR tc.nombre_tipo_cobros LIKE '%alim%' OR c.tipo_cobro = 4 THEN c.monto_cobros ELSE 0 END), 0) as refrigerio,
+        COALESCE(SUM(CASE WHEN tc.nombre_tipo_cobros LIKE '%accid%' OR c.tipo_cobro = 5 THEN c.monto_cobros ELSE 0 END), 0) as accidentes,
+        COALESCE(SUM(CASE WHEN (c.tipo_cobro NOT IN (1,2,4,5) AND tc.nombre_tipo_cobros NOT LIKE '%admin%' AND tc.nombre_tipo_cobros NOT LIKE '%cuota%' AND tc.nombre_tipo_cobros NOT LIKE '%multa%' AND tc.nombre_tipo_cobros NOT LIKE '%refrig%' AND tc.nombre_tipo_cobros NOT LIKE '%alim%' AND tc.nombre_tipo_cobros NOT LIKE '%accid%') THEN c.monto_cobros ELSE 0 END), 0) as otros_desc,
         COALESCE(SUM(b.total_boleto), 0) as venta,
         COUNT(DISTINCT b.id_boleto) as facturas,
         COALESCE(SUM(DISTINCT bn.valor), 0) as bonos,
@@ -100,6 +102,7 @@ try {
         p.id_personal as per_codigo
       FROM viajes v
         LEFT JOIN cobros c ON c.id_fkviajes_cobros = v.id_viajes AND c.estado_cobros != 0
+        LEFT JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
         LEFT JOIN boletos b ON b.id_fkviaje_boleto = v.id_viajes AND b.estado_boleto != 3
         LEFT JOIN personal p ON v.id_fkchofer_viajes = p.id_personal
         LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
@@ -137,12 +140,17 @@ try {
 
     // Organizar datos por Socio
     $sociosGrouped = [];
-    $totalGeneralFacturas = 0;
-    $totalGeneralVenta    = 0.0;
-    $totalGeneralRetenido = 0.0;
-    $totalGeneralBonos    = 0.0;
-    $totalGeneralNeto     = 0.0;
-    $totalFilasViajes     = 0;
+    $totalGeneralFacturas   = 0;
+    $totalGeneralVenta      = 0.0;
+    $totalGeneralCuotaAdmin = 0.0;
+    $totalGeneralMultas     = 0.0;
+    $totalGeneralRefrigerio = 0.0;
+    $totalGeneralAccidentes = 0.0;
+    $totalGeneralOtrosDesc  = 0.0;
+    $totalGeneralRetenido   = 0.0;
+    $totalGeneralBonos      = 0.0;
+    $totalGeneralNeto       = 0.0;
+    $totalFilasViajes       = 0;
 
     while ($row = mysqli_fetch_assoc($rs)) {
         $socioName = !empty($row['socio']) ? strtoupper($row['socio']) : 'SIN SOCIO ASIGNADO';
@@ -154,21 +162,29 @@ try {
                 'socio' => $socioName,
                 'disco' => $disco,
                 'viajes' => [],
-                'total_facturas' => 0,
-                'total_venta'    => 0.0,
-                'total_retenido' => 0.0,
-                'total_bonos'    => 0.0,
-                'total_neto'     => 0.0,
+                'total_facturas'   => 0,
+                'total_venta'      => 0.0,
+                'total_cuota_admin'=> 0.0,
+                'total_multas'     => 0.0,
+                'total_refrigerio' => 0.0,
+                'total_accidentes' => 0.0,
+                'total_otros_desc' => 0.0,
+                'total_retenido'   => 0.0,
+                'total_bonos'      => 0.0,
+                'total_neto'       => 0.0,
             ];
         }
 
-        $facturasCount  = intval($row['facturas']);
-        $ventaAmount    = floatval($row['venta']);
-        $retenidoAmount = floatval($row['retenido']);
-        $bonosAmount    = floatval($row['bonos']);
-        $cuotaAdmin     = floatval($row['cuota_admin']);
-        $multasAmount   = floatval($row['multas']);
-        $netoAmount     = $ventaAmount - $retenidoAmount + $bonosAmount;
+        $facturasCount   = intval($row['facturas']);
+        $ventaAmount     = floatval($row['venta']);
+        $cuotaAdmin      = floatval($row['cuota_admin']);
+        $multasAmount    = floatval($row['multas']);
+        $refrigerioAmount= floatval($row['refrigerio']);
+        $accidentesAmount= floatval($row['accidentes']);
+        $otrosDescAmount = floatval($row['otros_desc']);
+        $retenidoAmount  = floatval($row['retenido']);
+        $bonosAmount     = floatval($row['bonos']);
+        $netoAmount      = $ventaAmount - $retenidoAmount + $bonosAmount;
 
         $sociosGrouped[$key]['viajes'][] = [
             'viaje' => $row['viaje'],
@@ -179,29 +195,55 @@ try {
             'disco' => $disco,
             'facturas' => $facturasCount,
             'venta' => $ventaAmount,
-            'retenido' => $retenidoAmount,
-            'bonos' => $bonosAmount,
             'cuota_admin' => $cuotaAdmin,
             'multas' => $multasAmount,
+            'refrigerio' => $refrigerioAmount,
+            'accidentes' => $accidentesAmount,
+            'otros_desc' => $otrosDescAmount,
+            'retenido' => $retenidoAmount,
+            'bonos' => $bonosAmount,
             'neto' => $netoAmount,
         ];
 
-        $sociosGrouped[$key]['total_facturas'] += $facturasCount;
-        $sociosGrouped[$key]['total_venta']    += $ventaAmount;
-        $sociosGrouped[$key]['total_retenido'] += $retenidoAmount;
-        $sociosGrouped[$key]['total_bonos']    += $bonosAmount;
-        $sociosGrouped[$key]['total_neto']     += $netoAmount;
+        $sociosGrouped[$key]['total_facturas']   += $facturasCount;
+        $sociosGrouped[$key]['total_venta']      += $ventaAmount;
+        $sociosGrouped[$key]['total_cuota_admin']+= $cuotaAdmin;
+        $sociosGrouped[$key]['total_multas']     += $multasAmount;
+        $sociosGrouped[$key]['total_refrigerio'] += $refrigerioAmount;
+        $sociosGrouped[$key]['total_accidentes'] += $accidentesAmount;
+        $sociosGrouped[$key]['total_otros_desc'] += $otrosDescAmount;
+        $sociosGrouped[$key]['total_retenido']   += $retenidoAmount;
+        $sociosGrouped[$key]['total_bonos']      += $bonosAmount;
+        $sociosGrouped[$key]['total_neto']       += $netoAmount;
 
-        $totalGeneralFacturas += $facturasCount;
-        $totalGeneralVenta    += $ventaAmount;
-        $totalGeneralRetenido += $retenidoAmount;
-        $totalGeneralBonos    += $bonosAmount;
-        $totalGeneralNeto     += $netoAmount;
+        $totalGeneralFacturas   += $facturasCount;
+        $totalGeneralVenta      += $ventaAmount;
+        $totalGeneralCuotaAdmin += $cuotaAdmin;
+        $totalGeneralMultas     += $multasAmount;
+        $totalGeneralRefrigerio += $refrigerioAmount;
+        $totalGeneralAccidentes += $accidentesAmount;
+        $totalGeneralOtrosDesc  += $otrosDescAmount;
+        $totalGeneralRetenido   += $retenidoAmount;
+        $totalGeneralBonos      += $bonosAmount;
+        $totalGeneralNeto       += $netoAmount;
         $totalFilasViajes++;
     }
 
     $mesLabel = ($mes !== '0' && isset($nombreMeses[$mes])) ? $nombreMeses[$mes] : ($mes !== '0' ? $mes : 'Todos');
     $anioLabel = ($anio !== '0') ? $anio : 'Todos';
+
+    // Obtener nombre del socio para el encabezado
+    $nombreSocioReporte = '';
+    if (!empty($sociosGrouped)) {
+        $primerItem = reset($sociosGrouped);
+        $nombreSocioReporte = $primerItem['socio'] ?? '';
+    }
+    if (empty($nombreSocioReporte) && !empty($per_nombre)) {
+        $nombreSocioReporte = strtoupper($per_nombre);
+    }
+    if (empty($nombreSocioReporte)) {
+        $nombreSocioReporte = 'TODOS';
+    }
 
     // ─────────────────────────────────────────────────────────────────────────
     // FORMATO 80MM (TICKET TÉRMICO)
@@ -244,7 +286,7 @@ try {
                     ' . ($logo ? '<img src="' . $logo . '" height="28"/>' : ($razon_social ? '<b style="font-size:10pt;">' . htmlspecialchars($razon_social) . '</b>' : '')) . '
                 </td>
                 <td style="width:62%; vertical-align:middle;">
-                    <div class="box-title">REPORTE VENTAS<br/>DIARIAS AGENCIA</div>
+                    <div class="box-title">REPORTE VENTAS<br/>POR SOCIO</div>
                 </td>
             </tr>
         </table>';
@@ -263,12 +305,15 @@ try {
             $html80 .= htmlspecialchars($direccion) . '<br/>';
         }
         if (!empty($nombre_sucursal)) {
-            $html80 .= '<br/>Agencia ' . htmlspecialchars($nombre_sucursal);
+            $html80 .= 'Agencia ' . htmlspecialchars($nombre_sucursal) . '<br/>';
         }
-        $html80 .= '</div><br/>';
+        $html80 .= '</div>';
 
-        // Fecha / Hora Consulta
-        $html80 .= '<table style="width:100%; font-size:7.5pt; line-height:1.3;">
+        // Información de Socio y Consulta
+        $html80 .= '<table style="width:100%; font-size:7.5pt; line-height:1.3; margin-top:2px;">
+            <tr>
+                <td>Socio: <b>' . htmlspecialchars($nombreSocioReporte) . '</b></td>
+            </tr>
             <tr>
                 <td>F. Consulta: <b>' . $fechaConsultaStr . '</b></td>
             </tr>
@@ -290,19 +335,16 @@ try {
             </tr>
         </table>';
 
-        // Datos por Socio / Oficinista
+        // Datos por Viaje
         if (empty($sociosGrouped)) {
             $html80 .= '<div style="text-align:center; padding:12px; font-size:7pt; color:#666;">Sin datos para mostrar</div>';
         } else {
-            foreach ($sociosGrouped as $sg) {
-                $html80 .= '<div style="font-size:7.5pt; font-weight:bold; margin-top:5px; margin-bottom:1px;">
-                    Oficinista / Socio: ' . htmlspecialchars($sg['socio']) . '
-                </div>';
-                $html80 .= '<div style="font-size:6.5pt; font-weight:bold; margin-left:8px; margin-bottom:2px; color:#333;">
-                    &nbsp;&nbsp;A. BOLETOS DIA
-                </div>';
+            $html80 .= '<div style="font-size:7pt; font-weight:bold; margin-top:4px; margin-bottom:2px; color:#333;">
+                &nbsp;&nbsp;DETALLE DE BOLETOS Y VIAJES
+            </div>';
 
-                $html80 .= '<table class="table-data">';
+            $html80 .= '<table class="table-data">';
+            foreach ($sociosGrouped as $sg) {
                 foreach ($sg['viajes'] as $v) {
                     $fViaje = !empty($v['fecha_raw']) ? date('j/n/Y', strtotime($v['fecha_raw'])) : $v['fecha'];
                     $html80 .= '<tr>
@@ -315,18 +357,13 @@ try {
                         <td style="width:18%; text-align:right;">' . fmtMoney($v['neto']) . '</td>
                     </tr>';
                 }
-                $html80 .= '</table>';
-
-                // Subtotal del socio
-                $html80 .= '<div style="border-bottom:1px solid #000; margin-top:2px;"></div>';
-                $html80 .= '<div style="text-align:right; font-size:8.5pt; font-weight:bold; font-family:courier; margin-bottom:5px;">
-                    Neto: ' . fmtMoney($sg['total_neto']) . '
-                </div>';
             }
+            $html80 .= '</table>';
 
             // Total General
-            $html80 .= '<div style="text-align:right; font-size:11pt; font-weight:bold; font-family:courier, monospace; margin-top:8px; margin-bottom:10px;">
-                TOTAL NETO ' . fmtMoney($totalGeneralNeto) . '
+            $html80 .= '<div style="border-bottom:1px solid #000; margin-top:4px;"></div>';
+            $html80 .= '<div style="text-align:right; font-size:10pt; font-weight:bold; font-family:courier, monospace; margin-top:5px; margin-bottom:8px;">
+                TOTAL NETO: ' . fmtMoney($totalGeneralNeto) . '
             </div>';
         }
 
@@ -370,26 +407,24 @@ try {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // FORMATO ESTÁNDAR A4
+    // FORMATO ESTÁNDAR A4 HORIZONTAL (LANDSCAPE)
     // ─────────────────────────────────────────────────────────────────────────
     $html = '<html><head><style>
-        body { font-family: helvetica, sans-serif; font-size: 8pt; color: #1e293b; }
-        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        .title { font-size: 14pt; font-weight: bold; color: #1e3a8a; }
-        .subtitle { font-size: 9pt; color: #64748b; font-weight: bold; }
+        body { font-family: helvetica, sans-serif; font-size: 7.5pt; color: #1e293b; }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+        .title { font-size: 13pt; font-weight: bold; color: #1e3a8a; }
+        .subtitle { font-size: 8.5pt; color: #64748b; font-weight: bold; }
         
-        .filter-box { width: 38%; border: 1px solid #cbd5e1; background-color: #f8fafc; padding: 4px; margin-bottom: 12px; border-radius: 4px; }
-        .filter-box td { font-size: 8pt; padding: 2.5px 5px; font-weight: bold; }
+        .filter-box { width: 100%; border: 1px solid #cbd5e1; background-color: #f8fafc; padding: 4px; margin-bottom: 8px; border-radius: 4px; }
+        .filter-box td { font-size: 7.5pt; padding: 2px 4px; }
         
-        .data-table { width: 100%; border-collapse: collapse; margin-top: 5px; }
-        .data-table th { background-color: #3b82f6; color: #ffffff; font-weight: bold; text-align: center; border: 1px solid #2563eb; padding: 5px 3px; font-size: 8pt; }
-        .data-table td { border: 1px solid #cbd5e1; padding: 4px 5px; font-size: 7.5pt; vertical-align: middle; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+        .data-table th { background-color: #2563eb; color: #ffffff; font-weight: bold; text-align: center; border: 1px solid #1d4ed8; padding: 4px 2px; font-size: 7pt; }
+        .data-table td { border: 1px solid #cbd5e1; padding: 3px 2px; font-size: 7pt; vertical-align: middle; }
         
-        .socio-cell { background-color: #f1f5f9; font-weight: bold; text-align: left; vertical-align: middle; color: #0f172a; }
-        .disco-cell { background-color: #ffffff; font-weight: bold; text-align: center; vertical-align: middle; font-size: 9pt; color: #1e293b; }
+        .disco-cell { font-weight: bold; text-align: center; vertical-align: middle; color: #1e3a8a; }
         
-        .subtotal-row td { background-color: #e2e8f0; font-weight: bold; color: #0f172a; border-top: 1.5px solid #64748b; border-bottom: 1.5px solid #64748b; }
-        .total-general-row td { background-color: #0f172a; color: #ffffff; font-weight: bold; font-size: 8.5pt; border: 1px solid #0f172a; }
+        .total-general-row td { background-color: #0f172a; color: #ffffff; font-weight: bold; font-size: 7.5pt; border: 1px solid #0f172a; padding: 4px 2px; }
         
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -400,88 +435,89 @@ try {
     // Encabezado
     $html .= '<table class="header-table">
         <tr>
-            <td width="15%">' . ($logo ? '<img src="' . $logo . '" height="42"/>' : '') . '</td>
-            <td width="85%" class="text-left">
+            <td width="12%">' . ($logo ? '<img src="' . $logo . '" height="36"/>' : '') . '</td>
+            <td width="88%" class="text-left">
                 <div class="title">' . htmlspecialchars($razon_social) . '</div>
-                <div class="subtitle">REPORTE DE VENTAS POR BUSERO / SOCIO</div>
+                <div class="subtitle">REPORTE DETALLADO DE VENTAS Y DESCUENTOS POR SOCIO</div>
             </td>
         </tr>
     </table>';
 
-    // Cuadro de Filtros
+    // Cuadro de Información del Socio y Filtros
     $html .= '<table class="filter-box">
         <tr>
-            <td width="30%" style="color:#64748b;">AÑO:</td>
-            <td width="70%">' . htmlspecialchars($anioLabel) . '</td>
+            <td width="10%" style="color:#64748b; font-weight:bold;">SOCIO:</td>
+            <td width="45%" style="font-size:9pt; color:#0f172a;"><b>' . htmlspecialchars($nombreSocioReporte) . '</b></td>
+            <td width="8%" style="color:#64748b; font-weight:bold;">AÑO:</td>
+            <td width="15%"><b>' . htmlspecialchars($anioLabel) . '</b></td>
+            <td width="8%" style="color:#64748b; font-weight:bold;">MES:</td>
+            <td width="14%"><b>' . htmlspecialchars($mesLabel) . '</b></td>
         </tr>
         <tr>
-            <td width="30%" style="color:#64748b;">MES:</td>
-            <td width="70%">' . htmlspecialchars($mesLabel) . '</td>
+            <td width="10%" style="color:#64748b; font-weight:bold;">BUS / PLACA:</td>
+            <td width="45%"><b>' . htmlspecialchars($bus_placa ?: 'Todos') . '</b></td>
+            <td width="8%" style="color:#64748b; font-weight:bold;">FECHA:</td>
+            <td colspan="3"><b>' . htmlspecialchars((!empty($fecha) && $fecha !== 'null') ? $fecha : 'Todas') . '</b></td>
         </tr>
     </table>';
 
-    // Tabla de Datos
+    // Tabla de Datos en Formato Horizontal
     $html .= '<table class="data-table">
         <thead>
             <tr>
-                <th width="22%">SOCIO / DISCO</th>
-                <th width="8%">VIAJE</th>
-                <th width="24%">RUTA / FECHA Y HORA</th>
-                <th width="6%">Cant</th>
-                <th width="10%">Venta</th>
-                <th width="10%">Retenciones</th>
-                <th width="10%">Bonos</th>
-                <th width="10%">Total Neto</th>
+                <th width="5%">DISCO</th>
+                <th width="5%">VIAJE</th>
+                <th width="15%">RUTA</th>
+                <th width="11%">FECHA Y HORA</th>
+                <th width="4%">CANT</th>
+                <th width="8%">VENTA</th>
+                <th width="7%">CUOTA ADM</th>
+                <th width="6%">MULTAS</th>
+                <th width="7%">REFRIG.</th>
+                <th width="7%">ACCID.</th>
+                <th width="7%">OTROS</th>
+                <th width="8%">RETENIDO</th>
+                <th width="6%">BONOS</th>
+                <th width="9%">TOTAL NETO</th>
             </tr>
         </thead>
         <tbody>';
 
     if (empty($sociosGrouped)) {
-        $html .= '<tr><td colspan="8" class="text-center" style="padding: 15px; color: #94a3b8;">No se encontraron registros para la búsqueda.</td></tr>';
+        $html .= '<tr><td colspan="14" class="text-center" style="padding: 15px; color: #94a3b8;">No se encontraron registros para la búsqueda.</td></tr>';
     } else {
         foreach ($sociosGrouped as $sg) {
-            $rowSpan = count($sg['viajes']);
-            $first = true;
-
             foreach ($sg['viajes'] as $v) {
-                $html .= '<tr>';
-                if ($first) {
-                    $html .= '<td width="22%" rowspan="' . $rowSpan . '" class="socio-cell">'
-                        . htmlspecialchars($sg['socio'])
-                        . '<br/><span style="font-size:7pt; color:#475569; font-weight:normal;">DISCO: <b>' . htmlspecialchars($sg['disco']) . '</b></span>'
-                        . '</td>';
-                }
-                $html .= '<td width="8%" class="text-center font-mono">' . htmlspecialchars($v['viaje']) . '</td>';
-                $html .= '<td width="24%">'
-                    . htmlspecialchars($v['ruta'])
-                    . '<br/><span style="font-size:7pt; color:#475569;">F. Viaje: ' . htmlspecialchars($v['fecha']) . ' &nbsp;|&nbsp; Hora: ' . htmlspecialchars($v['hora']) . '</span>'
-                    . '</td>';
-                $html .= '<td width="6%" class="text-right font-mono">' . $v['facturas'] . '</td>';
-                $html .= '<td width="10%" class="text-right font-mono">' . fmtMoney($v['venta']) . '</td>';
-                $html .= '<td width="10%" class="text-right font-mono">' . fmtMoney($v['retenido']) . '</td>';
-                $html .= '<td width="10%" class="text-right font-mono">' . fmtMoney($v['bonos']) . '</td>';
-                $html .= '<td width="10%" class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($v['neto']) . '</td>';
-                $html .= '</tr>';
-                $first = false;
+                $html .= '<tr>
+                    <td width="5%" class="text-center font-mono disco-cell">' . htmlspecialchars($v['disco']) . '</td>
+                    <td width="5%" class="text-center font-mono">#' . htmlspecialchars($v['viaje']) . '</td>
+                    <td width="15%">' . htmlspecialchars($v['ruta']) . '</td>
+                    <td width="11%" class="text-center" style="font-size:6.5pt; color:#475569;">' . htmlspecialchars($v['fecha']) . ' ' . htmlspecialchars($v['hora']) . '</td>
+                    <td width="4%" class="text-right font-mono">' . $v['facturas'] . '</td>
+                    <td width="8%" class="text-right font-mono">' . fmtMoney($v['venta']) . '</td>
+                    <td width="7%" class="text-right font-mono">' . fmtMoney($v['cuota_admin']) . '</td>
+                    <td width="6%" class="text-right font-mono">' . fmtMoney($v['multas']) . '</td>
+                    <td width="7%" class="text-right font-mono">' . fmtMoney($v['refrigerio']) . '</td>
+                    <td width="7%" class="text-right font-mono">' . fmtMoney($v['accidentes']) . '</td>
+                    <td width="7%" class="text-right font-mono">' . fmtMoney($v['otros_desc']) . '</td>
+                    <td width="8%" class="text-right font-mono" style="font-weight:bold; color:#dc2626;">' . fmtMoney($v['retenido']) . '</td>
+                    <td width="6%" class="text-right font-mono">' . fmtMoney($v['bonos']) . '</td>
+                    <td width="9%" class="text-right font-mono" style="font-weight:bold; color:#15803d;">' . fmtMoney($v['neto']) . '</td>
+                </tr>';
             }
-
-            // Fila de Subtotal por Socio
-            $html .= '<tr class="subtotal-row">
-                <td colspan="3" class="text-right">Total ' . htmlspecialchars($sg['socio']) . '</td>
-                <td class="text-right font-mono">' . number_format($sg['total_facturas']) . '</td>
-                <td class="text-right font-mono">' . fmtMoney($sg['total_venta']) . '</td>
-                <td class="text-right font-mono">' . fmtMoney($sg['total_retenido']) . '</td>
-                <td class="text-right font-mono">' . fmtMoney($sg['total_bonos']) . '</td>
-                <td class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($sg['total_neto']) . '</td>
-            </tr>';
         }
 
         // Fila de Total General
         $html .= '<tr class="total-general-row">
-            <td colspan="3" class="text-right">Total general</td>
+            <td colspan="4" class="text-right">TOTAL GENERAL:</td>
             <td class="text-right font-mono">' . number_format($totalGeneralFacturas) . '</td>
             <td class="text-right font-mono">' . fmtMoney($totalGeneralVenta) . '</td>
-            <td class="text-right font-mono">' . fmtMoney($totalGeneralRetenido) . '</td>
+            <td class="text-right font-mono">' . fmtMoney($totalGeneralCuotaAdmin) . '</td>
+            <td class="text-right font-mono">' . fmtMoney($totalGeneralMultas) . '</td>
+            <td class="text-right font-mono">' . fmtMoney($totalGeneralRefrigerio) . '</td>
+            <td class="text-right font-mono">' . fmtMoney($totalGeneralAccidentes) . '</td>
+            <td class="text-right font-mono">' . fmtMoney($totalGeneralOtrosDesc) . '</td>
+            <td class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($totalGeneralRetenido) . '</td>
             <td class="text-right font-mono">' . fmtMoney($totalGeneralBonos) . '</td>
             <td class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($totalGeneralNeto) . '</td>
         </tr>';
@@ -489,20 +525,7 @@ try {
 
     $html .= '</tbody></table></body></html>';
 
-    // ─── CREAR PDF CON TCPDF (A4) ──────────────────────────────────────────────
-    $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
-    $pdf->SetCreator('SistemaFlota');
-    $pdf->SetAuthor($razon_social ?: 'SistemaFlota');
-    $pdf->SetTitle('Reporte_Ventas_Buseros');
-    $pdf->setPrintHeader(false);
-    $pdf->setPrintFooter(false);
-    $pdf->SetMargins(8, 8, 8);
-    $pdf->SetAutoPageBreak(true, 15);
-    $pdf->SetFont('helvetica', '', 8);
-    $pdf->AddPage();
-    $pdf->writeHTML($html, true, false, true, false, '');
-
-    // Footer Easysplus igual que en la factura
+    // Rutas del Icono Easysplus
     $pathsIcono = [
       __DIR__ . '/../public/images/transpaeasy_icon.png',
       dirname(__DIR__) . '/images/transpaeasy_icon.png',
@@ -518,23 +541,49 @@ try {
       }
     }
 
-    $fechaImpresionStr = date('d/m/Y H:i:s');
-    $html_footer_cell = '<table style="width:100%; border-top:1px solid #cbd5e1; padding-top:4px;">
-      <tr>
-        <td style="text-align:left; font-size:7.5pt; color:#475569; width:35%;">
-          Impreso por: <b>' . htmlspecialchars($usuario_impresion) . '</b>
-        </td>
-        <td style="text-align:center; font-size:7.5pt; color:#475569; width:35%;">
-          ' . (!empty($rutaIcono) ? '<img src="' . $rutaIcono . '" width="11" height="11"> ' : '') . '
-          <b>Easysplus</b> - Sistema de facturación electrónica
-        </td>
-        <td style="text-align:right; font-size:7.5pt; color:#475569; width:30%;">
-          F. Impresión: <b>' . $fechaImpresionStr . '</b>
-        </td>
-      </tr>
-    </table>';
+    // ─── CLASE PERSONALIZADA PARA PIE DE PÁGINA NATIVO ─────────────────────────
+    if (!class_exists('ReporteBuserosPDF')) {
+        class ReporteBuserosPDF extends TCPDF {
+            public $usuario_impresion = '';
+            public $rutaIcono = '';
 
-    $pdf->writeHTMLCell(194, 10, 8, 280, $html_footer_cell, 0, 0, false, true, 'C', true);
+            public function Footer() {
+                $this->SetY(-8);
+                $fechaImpresionStr = date('d/m/Y H:i:s');
+                $html_footer = '<table style="width:100%; border-top:1px solid #cbd5e1; padding-top:2px; font-size:7pt; color:#475569;">
+                  <tr>
+                    <td style="text-align:left; width:35%;">
+                      Impreso por: <b>' . htmlspecialchars($this->usuario_impresion) . '</b>
+                    </td>
+                    <td style="text-align:center; width:35%;">
+                      ' . (!empty($this->rutaIcono) ? '<img src="' . $this->rutaIcono . '" width="10" height="10"> ' : '') . '
+                      <b>Easysplus</b> - Sistema de facturación electrónica
+                    </td>
+                    <td style="text-align:right; width:30%;">
+                      F. Impresión: <b>' . $fechaImpresionStr . '</b> &nbsp;|&nbsp; Pág. ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages() . '
+                    </td>
+                  </tr>
+                </table>';
+                $this->writeHTML($html_footer, true, false, false, false, '');
+            }
+        }
+    }
+
+    // ─── CREAR PDF CON TCPDF (A4 HORIZONTAL / LANDSCAPE) ───────────────────────
+    $pdf = new ReporteBuserosPDF('L', 'mm', 'A4', true, 'UTF-8', false);
+    $pdf->usuario_impresion = $usuario_impresion;
+    $pdf->rutaIcono = $rutaIcono;
+    $pdf->SetCreator('SistemaFlota');
+    $pdf->SetAuthor($razon_social ?: 'SistemaFlota');
+    $pdf->SetTitle('Reporte_Ventas_Buseros_Landscape');
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(true);
+    $pdf->setFooterMargin(8);
+    $pdf->SetMargins(8, 8, 8);
+    $pdf->SetAutoPageBreak(true, 12);
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->AddPage();
+    $pdf->writeHTML($html, true, false, true, false, '');
 
     $pdf->Output('Reporte_Ventas_Buseros.pdf', 'I');
 
