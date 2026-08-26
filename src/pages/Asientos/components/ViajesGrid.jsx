@@ -21,17 +21,42 @@ export const ViajesGrid = ({ data, loading, page, limit, total, onPageChange, on
             ) : (
               data.map((item, idx) => {
                 const isSelected = (item.via_codigo || item.id_viaje) === viajeSeleccionadoId;
+                const viajeNum = item.via_codigo || item.id_viaje || '-';
+                const fechaStr = item.fecha_salida || (item.via_orgesti ? item.via_orgesti.split(' ')[0] : '-');
+                const horaStr = item.hora_salida || (item.via_orgesti && item.via_orgesti.split(' ')[1] ? item.via_orgesti.split(' ')[1] : '-');
+
+                const capacidad = parseInt(item.capacidad_buses) || 40;
+                const ocupados = parseInt(item.asientos_ocupados) || 0;
+                const libres = Math.max(0, capacidad - ocupados);
+
                 return (
                   <tr key={item.via_codigo || item.id_viaje || idx}
                     className={`border-b border-slate-100 transition-colors ${isSelected ? 'bg-amber-50' : 'hover:bg-slate-50'}`}>
                     <td className="px-4 py-3">
-                      <div className="font-bold text-sm text-slate-800">{item.rut_nombre || 'Ruta Desconocida'}</div>
-                      <div className="text-[11px] text-slate-500 mt-1 space-x-3">
-                        <span><b>DISCO:</b> <span className="text-blue-600 font-bold">{item.bus_disco || '-'}</span></span>
-                        <span><b>CHOFER:</b> {item.per_chofer || '-'}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-700 font-black rounded text-[11px] border border-indigo-200 shadow-xs">
+                          VIAJE #{viajeNum}
+                        </span>
+                        <span className="font-bold text-sm text-slate-800">{item.rut_nombre || 'Ruta Desconocida'}</span>
                       </div>
-                      <div className="text-[11px] text-slate-500 mt-0.5">
-                        <b>FECHA SALIDA:</b> <span className="text-orange-600 font-bold">{item.via_orgesti || '-'}</span>
+                      <div className="text-[11px] text-slate-500 mt-1.5 space-x-3">
+                        <span><b>DISCO:</b> <span className="text-blue-600 font-bold">{item.bus_disco || '-'}</span></span>
+                        <span><b>CHOFER:</b> <span className="text-slate-700">{item.per_chofer || '-'}</span></span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-1 flex items-center gap-4 flex-wrap">
+                        <span><b>FECHA:</b> <span className="text-slate-700 font-semibold">{fechaStr}</span></span>
+                        <span><b>HORA SALIDA:</b> <span className="text-orange-600 font-bold">{horaStr}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <i className="fas fa-chair text-emerald-500 text-[9px]"></i> Libres: {libres}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                          <i className="fas fa-user text-rose-500 text-[9px]"></i> Ocupados: {ocupados}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                          Total: {capacidad}
+                        </span>
                       </div>
                     </td>
                     <td className="text-center align-middle">

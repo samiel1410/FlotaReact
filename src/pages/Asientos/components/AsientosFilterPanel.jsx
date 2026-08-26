@@ -13,7 +13,14 @@ const MESES = [
 
 const ANIOS = [2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026];
 
+const getTodayString = () => {
+  const localDate = new Date();
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+  return localDate.toISOString().split('T')[0];
+};
+
 export const AsientosFilterPanel = ({ onSearch }) => {
+  const today = getTodayString();
   const [personal, setPersonal] = useState([]);
   const [rutas, setRutas] = useState([]);
   const [buses, setBuses] = useState([]);
@@ -24,7 +31,7 @@ export const AsientosFilterPanel = ({ onSearch }) => {
     id_bus_busqueda: '',
     comboMes: new Date().getMonth() + 1,
     comboAnioFactura: new Date().getFullYear(),
-    buscarPorFechaDesde: ''
+    buscarPorFechaDesde: today
   });
 
   useEffect(() => {

@@ -411,20 +411,20 @@ try {
     // ─────────────────────────────────────────────────────────────────────────
     $html = '<html><head><style>
         body { font-family: helvetica, sans-serif; font-size: 7.5pt; color: #1e293b; }
-        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+        .header-table { width: 100%; border-collapse: collapse; margin-bottom: 5px; }
         .title { font-size: 13pt; font-weight: bold; color: #1e3a8a; }
         .subtitle { font-size: 8.5pt; color: #64748b; font-weight: bold; }
         
-        .filter-box { width: 100%; border: 1px solid #cbd5e1; background-color: #f8fafc; padding: 4px; margin-bottom: 8px; border-radius: 4px; }
+        .filter-box { width: 100%; border: 1px solid #cbd5e1; background-color: #f8fafc; margin-bottom: 6px; }
         .filter-box td { font-size: 7.5pt; padding: 2px 4px; }
         
-        .data-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
-        .data-table th { background-color: #2563eb; color: #ffffff; font-weight: bold; text-align: center; border: 1px solid #1d4ed8; padding: 4px 2px; font-size: 7pt; }
-        .data-table td { border: 1px solid #cbd5e1; padding: 3px 2px; font-size: 7pt; vertical-align: middle; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 3px; }
+        .data-table th { background-color: #2563eb; color: #ffffff; font-weight: bold; text-align: center; border: 1px solid #1d4ed8; padding: 3px 1px; font-size: 6.5pt; }
+        .data-table td { border: 1px solid #cbd5e1; padding: 2.5px 1px; font-size: 6.5pt; vertical-align: middle; }
         
         .disco-cell { font-weight: bold; text-align: center; vertical-align: middle; color: #1e3a8a; }
         
-        .total-general-row td { background-color: #0f172a; color: #ffffff; font-weight: bold; font-size: 7.5pt; border: 1px solid #0f172a; padding: 4px 2px; }
+        .total-general-row td { background-color: #0f172a; color: #ffffff; font-weight: bold; font-size: 7pt; border: 1px solid #0f172a; padding: 3px 1px; }
         
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -433,51 +433,51 @@ try {
     </style></head><body>';
 
     // Encabezado
-    $html .= '<table class="header-table">
+    $html .= '<table cellpadding="0" cellspacing="0" class="header-table">
         <tr>
-            <td width="12%">' . ($logo ? '<img src="' . $logo . '" height="36"/>' : '') . '</td>
-            <td width="88%" class="text-left">
+            <td width="10%">' . ($logo ? '<img src="' . $logo . '" height="32"/>' : '') . '</td>
+            <td width="90%" class="text-left">
                 <div class="title">' . htmlspecialchars($razon_social) . '</div>
                 <div class="subtitle">REPORTE DETALLADO DE VENTAS Y DESCUENTOS POR SOCIO</div>
             </td>
         </tr>
     </table>';
 
-    // Cuadro de Información del Socio y Filtros
-    $html .= '<table class="filter-box">
+    // Cuadro de Información del Socio y Filtros (Exactamente 100% en cada fila)
+    $html .= '<table cellpadding="3" cellspacing="0" class="filter-box">
         <tr>
             <td width="10%" style="color:#64748b; font-weight:bold;">SOCIO:</td>
-            <td width="45%" style="font-size:9pt; color:#0f172a;"><b>' . htmlspecialchars($nombreSocioReporte) . '</b></td>
+            <td width="46%" style="font-size:8.5pt; color:#0f172a;"><b>' . htmlspecialchars($nombreSocioReporte) . '</b></td>
             <td width="8%" style="color:#64748b; font-weight:bold;">AÑO:</td>
-            <td width="15%"><b>' . htmlspecialchars($anioLabel) . '</b></td>
+            <td width="14%"><b>' . htmlspecialchars($anioLabel) . '</b></td>
             <td width="8%" style="color:#64748b; font-weight:bold;">MES:</td>
             <td width="14%"><b>' . htmlspecialchars($mesLabel) . '</b></td>
         </tr>
         <tr>
             <td width="10%" style="color:#64748b; font-weight:bold;">BUS / PLACA:</td>
-            <td width="45%"><b>' . htmlspecialchars($bus_placa ?: 'Todos') . '</b></td>
+            <td width="46%"><b>' . htmlspecialchars($bus_placa ?: 'Todos') . '</b></td>
             <td width="8%" style="color:#64748b; font-weight:bold;">FECHA:</td>
-            <td colspan="3"><b>' . htmlspecialchars((!empty($fecha) && $fecha !== 'null') ? $fecha : 'Todas') . '</b></td>
+            <td width="36%"><b>' . htmlspecialchars((!empty($fecha) && $fecha !== 'null') ? $fecha : 'Todas') . '</b></td>
         </tr>
     </table>';
 
-    // Tabla de Datos en Formato Horizontal
-    $html .= '<table class="data-table">
+    // Tabla de Datos en Formato Horizontal (Porcentajes suman exactamente 100%)
+    $html .= '<table cellpadding="2" cellspacing="0" class="data-table">
         <thead>
             <tr>
-                <th width="5%">DISCO</th>
+                <th width="4%">DISCO</th>
                 <th width="5%">VIAJE</th>
                 <th width="15%">RUTA</th>
-                <th width="11%">FECHA Y HORA</th>
+                <th width="10%">FECHA Y HORA</th>
                 <th width="4%">CANT</th>
-                <th width="8%">VENTA</th>
+                <th width="7%">VENTA</th>
                 <th width="7%">CUOTA ADM</th>
                 <th width="6%">MULTAS</th>
-                <th width="7%">REFRIG.</th>
-                <th width="7%">ACCID.</th>
-                <th width="7%">OTROS</th>
+                <th width="6%">REFRIG.</th>
+                <th width="6%">ACCID.</th>
+                <th width="6%">OTROS</th>
                 <th width="8%">RETENIDO</th>
-                <th width="6%">BONOS</th>
+                <th width="7%">BONOS</th>
                 <th width="9%">TOTAL NETO</th>
             </tr>
         </thead>
@@ -489,19 +489,19 @@ try {
         foreach ($sociosGrouped as $sg) {
             foreach ($sg['viajes'] as $v) {
                 $html .= '<tr>
-                    <td width="5%" class="text-center font-mono disco-cell">' . htmlspecialchars($v['disco']) . '</td>
+                    <td width="4%" class="text-center font-mono disco-cell">' . htmlspecialchars($v['disco']) . '</td>
                     <td width="5%" class="text-center font-mono">#' . htmlspecialchars($v['viaje']) . '</td>
                     <td width="15%">' . htmlspecialchars($v['ruta']) . '</td>
-                    <td width="11%" class="text-center" style="font-size:6.5pt; color:#475569;">' . htmlspecialchars($v['fecha']) . ' ' . htmlspecialchars($v['hora']) . '</td>
+                    <td width="10%" class="text-center" style="font-size:6pt; color:#475569;">' . htmlspecialchars($v['fecha']) . '<br/>' . htmlspecialchars($v['hora']) . '</td>
                     <td width="4%" class="text-right font-mono">' . $v['facturas'] . '</td>
-                    <td width="8%" class="text-right font-mono">' . fmtMoney($v['venta']) . '</td>
+                    <td width="7%" class="text-right font-mono">' . fmtMoney($v['venta']) . '</td>
                     <td width="7%" class="text-right font-mono">' . fmtMoney($v['cuota_admin']) . '</td>
                     <td width="6%" class="text-right font-mono">' . fmtMoney($v['multas']) . '</td>
-                    <td width="7%" class="text-right font-mono">' . fmtMoney($v['refrigerio']) . '</td>
-                    <td width="7%" class="text-right font-mono">' . fmtMoney($v['accidentes']) . '</td>
-                    <td width="7%" class="text-right font-mono">' . fmtMoney($v['otros_desc']) . '</td>
+                    <td width="6%" class="text-right font-mono">' . fmtMoney($v['refrigerio']) . '</td>
+                    <td width="6%" class="text-right font-mono">' . fmtMoney($v['accidentes']) . '</td>
+                    <td width="6%" class="text-right font-mono">' . fmtMoney($v['otros_desc']) . '</td>
                     <td width="8%" class="text-right font-mono" style="font-weight:bold; color:#dc2626;">' . fmtMoney($v['retenido']) . '</td>
-                    <td width="6%" class="text-right font-mono">' . fmtMoney($v['bonos']) . '</td>
+                    <td width="7%" class="text-right font-mono">' . fmtMoney($v['bonos']) . '</td>
                     <td width="9%" class="text-right font-mono" style="font-weight:bold; color:#15803d;">' . fmtMoney($v['neto']) . '</td>
                 </tr>';
             }
@@ -509,17 +509,17 @@ try {
 
         // Fila de Total General
         $html .= '<tr class="total-general-row">
-            <td colspan="4" class="text-right">TOTAL GENERAL:</td>
-            <td class="text-right font-mono">' . number_format($totalGeneralFacturas) . '</td>
-            <td class="text-right font-mono">' . fmtMoney($totalGeneralVenta) . '</td>
-            <td class="text-right font-mono">' . fmtMoney($totalGeneralCuotaAdmin) . '</td>
-            <td class="text-right font-mono">' . fmtMoney($totalGeneralMultas) . '</td>
-            <td class="text-right font-mono">' . fmtMoney($totalGeneralRefrigerio) . '</td>
-            <td class="text-right font-mono">' . fmtMoney($totalGeneralAccidentes) . '</td>
-            <td class="text-right font-mono">' . fmtMoney($totalGeneralOtrosDesc) . '</td>
-            <td class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($totalGeneralRetenido) . '</td>
-            <td class="text-right font-mono">' . fmtMoney($totalGeneralBonos) . '</td>
-            <td class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($totalGeneralNeto) . '</td>
+            <td width="34%" class="text-right">TOTAL GENERAL:</td>
+            <td width="4%" class="text-right font-mono">' . number_format($totalGeneralFacturas) . '</td>
+            <td width="7%" class="text-right font-mono">' . fmtMoney($totalGeneralVenta) . '</td>
+            <td width="7%" class="text-right font-mono">' . fmtMoney($totalGeneralCuotaAdmin) . '</td>
+            <td width="6%" class="text-right font-mono">' . fmtMoney($totalGeneralMultas) . '</td>
+            <td width="6%" class="text-right font-mono">' . fmtMoney($totalGeneralRefrigerio) . '</td>
+            <td width="6%" class="text-right font-mono">' . fmtMoney($totalGeneralAccidentes) . '</td>
+            <td width="6%" class="text-right font-mono">' . fmtMoney($totalGeneralOtrosDesc) . '</td>
+            <td width="8%" class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($totalGeneralRetenido) . '</td>
+            <td width="7%" class="text-right font-mono">' . fmtMoney($totalGeneralBonos) . '</td>
+            <td width="9%" class="text-right font-mono" style="font-weight:bold;">' . fmtMoney($totalGeneralNeto) . '</td>
         </tr>';
     }
 
@@ -550,16 +550,16 @@ try {
             public function Footer() {
                 $this->SetY(-8);
                 $fechaImpresionStr = date('d/m/Y H:i:s');
-                $html_footer = '<table style="width:100%; border-top:1px solid #cbd5e1; padding-top:2px; font-size:7pt; color:#475569;">
+                $html_footer = '<table cellpadding="0" cellspacing="0" style="width:100%; border-top:1px solid #cbd5e1; padding-top:2px; font-size:7pt; color:#475569;">
                   <tr>
-                    <td style="text-align:left; width:35%;">
+                    <td width="35%" style="text-align:left;">
                       Impreso por: <b>' . htmlspecialchars($this->usuario_impresion) . '</b>
                     </td>
-                    <td style="text-align:center; width:35%;">
+                    <td width="35%" style="text-align:center;">
                       ' . (!empty($this->rutaIcono) ? '<img src="' . $this->rutaIcono . '" width="10" height="10"> ' : '') . '
                       <b>Easysplus</b> - Sistema de facturación electrónica
                     </td>
-                    <td style="text-align:right; width:30%;">
+                    <td width="30%" style="text-align:right;">
                       F. Impresión: <b>' . $fechaImpresionStr . '</b> &nbsp;|&nbsp; Pág. ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages() . '
                     </td>
                   </tr>
@@ -579,7 +579,7 @@ try {
     $pdf->setPrintHeader(false);
     $pdf->setPrintFooter(true);
     $pdf->setFooterMargin(8);
-    $pdf->SetMargins(8, 8, 8);
+    $pdf->SetMargins(6, 6, 6);
     $pdf->SetAutoPageBreak(true, 12);
     $pdf->SetFont('helvetica', '', 7.5);
     $pdf->AddPage();

@@ -6,7 +6,14 @@ import { AsientosService } from '../../services/asientos.service';
 import toast from 'react-hot-toast';
 import './AsientosPage.css';
 
+const getTodayString = () => {
+  const localDate = new Date();
+  localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
+  return localDate.toISOString().split('T')[0];
+};
+
 export const AsientosPage = () => {
+  const today = getTodayString();
   const [viajes, setViajes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -16,17 +23,22 @@ export const AsientosPage = () => {
   const [viajeSeleccionado, setViajeSeleccionado] = useState(null);
   const [modoDetalle, setModoDetalle] = useState(null);
   const [datosDetalle, setDatosDetalle] = useState([]);
+  const [pasajerosDetalle, setPasajerosDetalle] = useState([]);
+  const [resumenDetalle, setResumenDetalle] = useState(null);
   const [loadingDetalle, setLoadingDetalle] = useState(false);
 
   const [filtros, setFiltros] = useState({
     comboMes: new Date().getMonth() + 1,
-    comboAnioFactura: new Date().getFullYear()
+    comboAnioFactura: new Date().getFullYear(),
+    buscarPorFechaDesde: today
   });
 
   const loadViajes = async (currentFiltros, currentPage) => {
     setLoading(true);
     setViajeSeleccionado(null);
     setModoDetalle(null);
+    setResumenDetalle(null);
+    setPasajerosDetalle([]);
     try {
       const params = {
         ...currentFiltros,
@@ -60,6 +72,8 @@ export const AsientosPage = () => {
     try {
       const response = await AsientosService.getAsientosViaje(viaje.via_codigo || viaje.id_viaje);
       setDatosDetalle(response.data || []);
+      setPasajerosDetalle(response.pasajeros || []);
+      setResumenDetalle(response.resumen || null);
     } catch (error) {
       console.error('Error cargando detalle:', error);
       toast.error('No se pudo obtener la información de los asientos.');
@@ -71,6 +85,8 @@ export const AsientosPage = () => {
   const handleCerrarDetalle = () => {
     setViajeSeleccionado(null);
     setModoDetalle(null);
+    setResumenDetalle(null);
+    setPasajerosDetalle([]);
   };
 
   return (
@@ -111,6 +127,8 @@ export const AsientosPage = () => {
                 viaje={viajeSeleccionado}
                 modo={modoDetalle}
                 datos={datosDetalle}
+                pasajeros={pasajerosDetalle}
+                resumen={resumenDetalle}
                 loading={loadingDetalle}
                 onClose={handleCerrarDetalle}
               />
