@@ -810,7 +810,9 @@ export const NuevaGuiaPage = () => {
                   configurarQZ();
                   await conectarQZ();
 
+                  const copiasGuias = parseInt(localStorage.getItem('copias_guias')) || 1;
                   const config = window.qz.configs.create(printerGuias, {
+                    copies: copiasGuias,
                     scaleContent: true,
                     units: 'mm',
                     margins: { top: 0, bottom: 0, left: 8, right: 2 }

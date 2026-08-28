@@ -126,10 +126,12 @@ export const BuserosPage = () => {
     setTotales({ cantidad_boletos: 0, vendido: 0, retenido: 0 });
   };
   const hasSocio = Boolean(filters.id_personal || (filters.personal_busqueda && filters.personal_busqueda.trim()));
+  const hasBus = Boolean(filters.id_bus_busqueda || (filters.bus_busqueda && filters.bus_busqueda.trim()));
+  const canExportPdf = hasSocio || hasBus;
 
   const handleExportPdf = (format = 'a4') => {
-    if (!hasSocio) {
-      toast.error('Debe seleccionar o filtrar un socio para generar el reporte');
+    if (!canExportPdf) {
+      toast.error('Debe seleccionar o filtrar un socio o un bus para generar el reporte');
       return;
     }
     const params = new URLSearchParams({
@@ -162,8 +164,8 @@ export const BuserosPage = () => {
           <i className="fas fa-id-card text-indigo-600 text-lg"></i>
         </div>
         <div>
-          <h1 className="text-lg font-black text-slate-800">Buseros</h1>
-          <p className="text-[11px] text-slate-500">Reporte de ventas y retenido por busero</p>
+          <h1 className="text-lg font-black text-slate-800">Socios</h1>
+          <p className="text-[11px] text-slate-500">Reporte de ventas y retenido por socio</p>
         </div>
       </div>
 
@@ -267,23 +269,21 @@ export const BuserosPage = () => {
               <i className="fas fa-search"></i> Buscar
             </button>
             <button onClick={() => handleExportPdf('a4')}
-              disabled={!hasSocio}
-              className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${
-                hasSocio 
-                  ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-xs cursor-pointer' 
+              disabled={!canExportPdf}
+              className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${canExportPdf
+                  ? 'bg-rose-600 text-white hover:bg-rose-700 shadow-xs cursor-pointer'
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-70'
-              }`}
-              title={hasSocio ? "Generar Reporte PDF A4" : "Filtre o seleccione un socio para habilitar"}>
+                }`}
+              title={canExportPdf ? "Generar Reporte PDF A4" : "Filtre o seleccione un socio o un bus para habilitar"}>
               <i className="fas fa-file-pdf"></i> PDF A4
             </button>
             <button onClick={() => handleExportPdf('80mm')}
-              disabled={!hasSocio}
-              className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${
-                hasSocio 
-                  ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-xs cursor-pointer' 
+              disabled={!canExportPdf}
+              className={`flex items-center gap-1 px-3 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${canExportPdf
+                  ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-xs cursor-pointer'
                   : 'bg-slate-200 text-slate-400 cursor-not-allowed opacity-70'
-              }`}
-              title={hasSocio ? "Generar Ticket de Impresión Rápida 80mm" : "Filtre o seleccione un socio para habilitar"}>
+                }`}
+              title={canExportPdf ? "Generar Ticket de Impresión Rápida 80mm" : "Filtre o seleccione un socio o un bus para habilitar"}>
               <i className="fas fa-print"></i> Ticket 80mm
             </button>
             <button onClick={handleClear}

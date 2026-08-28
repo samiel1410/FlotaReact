@@ -1781,7 +1781,7 @@ export const PAGES_CONFIG = {
 
   buseros: {
     isSpecialPage: true,
-    title: 'Buseros', subtitle: 'Reporte de ventas y retenido por busero',
+    title: 'Socios', subtitle: 'Reporte de ventas y retenido por busero',
     icon: 'fas fa-id-card', iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600',
   },
 

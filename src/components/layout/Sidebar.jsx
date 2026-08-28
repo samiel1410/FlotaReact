@@ -157,7 +157,7 @@ const MENU = [
     title: 'Buseros / Socios',
     icon: 'fas fa-id-card',
     items: [
-      { to: '/buseros', icon: 'fas fa-bus', label: 'Listado Buseros', permission: 'buseros.gestion_buseros' },
+      { to: '/buseros', icon: 'fas fa-bus', label: 'Facturacion Socio', permission: 'buseros.gestion_buseros' },
       { to: '/asientos', icon: 'fas fa-chair', label: 'Asientos', permission: 'buseros.gestion_asientos' },
       { to: '/recaudado', icon: 'fas fa-coins', label: 'Recaudado', permission: 'buseros.recaudado' },
     ]
@@ -214,7 +214,7 @@ export const Sidebar = () => {
     let activeCategoryId = null;
 
     for (const cat of filteredMenu) {
-      const isActive = cat.items.some(item => 
+      const isActive = cat.items.some(item =>
         item.to !== '/' && (currentPath === item.to || currentPath.startsWith(`${item.to}/`))
       );
       if (isActive) {

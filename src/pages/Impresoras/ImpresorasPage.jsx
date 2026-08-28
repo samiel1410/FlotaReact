@@ -48,6 +48,8 @@ export const ImpresorasPage = () => {
   const [printers, setPrinters] = useState([]);
   const [printerBoletos, setPrinterBoletos] = useState('');
   const [printerGuias, setPrinterGuias] = useState('');
+  const [copiasBoletos, setCopiasBoletos] = useState(1);
+  const [copiasGuias, setCopiasGuias] = useState(1);
   const [metodoImpresion, setMetodoImpresion] = useState('manual');
   const [totalBoletos] = useState(0);
   const [totalGuias] = useState(0);
@@ -68,6 +70,13 @@ export const ImpresorasPage = () => {
         setPrinterBoletos(c.printer_boletos || '');
         setPrinterGuias(c.printer_guias || '');
         setMetodoImpresion(c.metodo_impresion || 'manual');
+        setCopiasBoletos(c.copias_boletos || 1);
+        setCopiasGuias(c.copias_guias || 1);
+        localStorage.setItem('printer_boletos', c.printer_boletos || '');
+        localStorage.setItem('printer_guias', c.printer_guias || '');
+        localStorage.setItem('metodo_impresion', c.metodo_impresion || 'manual');
+        localStorage.setItem('copias_boletos', c.copias_boletos || 1);
+        localStorage.setItem('copias_guias', c.copias_guias || 1);
       }
     }).catch(e => console.warn('[Impresoras] Error loading config:', e));
     return () => { cancelled = true; };
@@ -89,8 +98,8 @@ export const ImpresorasPage = () => {
           const list = details.filter(p => p.name).map(p => ({ nombre: p.name }));
           setPrinters(list);
         }).catch(e => console.warn('Silent scan error', e));
-      }).catch(() => {});
-    }).catch(() => {}).finally(() => setLoadingQZ(false));
+      }).catch(() => { });
+    }).catch(() => { }).finally(() => setLoadingQZ(false));
   }, []);
 
   const scanPrinters = async (manual = false) => {
@@ -129,13 +138,14 @@ export const ImpresorasPage = () => {
       return;
     }
     try {
+      localStorage.setItem(type, value);
       const res = await api.post('/usuario/guardarConfiguracionImpresora', {
         id_usuario: uid,
         tipo: type,
         impresora: value
       });
       if (res.data?.success) {
-        toast.success(`Configuración de impresión guardada`);
+        toast.success(`Configuración guardada`);
         if (type === 'metodo_impresion') {
           window.dispatchEvent(new CustomEvent('metodo_impresion_changed', { detail: value }));
         }
@@ -148,57 +158,79 @@ export const ImpresorasPage = () => {
   };
 
   const testPrint = async (printer, text) => {
-    if (!printer) { toast.error('Seleccione una impresora primero'); return; }
+    if (!printer) {
+      toast.error('Seleccione una impresora');
+      return;
+    }
     setTesting(true);
     try {
+      await loadQZ();
+      configurarQZ();
       await conectarQZ();
-      const config = window.qz.configs.create(printer);
+
+      const config = window.qz.configs.create(printer, {
+        scaleContent: true,
+        units: 'mm',
+        margins: { top: 0, bottom: 0, left: 8, right: 2 }
+      });
       const data = [{
-        type: 'raw', format: 'plain',
-        data: `\n\n   ${text}\n   SISTEMA FLOTA\n   -------------------\n   Usuario: ${user?.nombre_usuario || 'Desconocido'}\n   Prueba Exitosa\n   \n\n\n`
+        type: 'html',
+        format: 'plain',
+        data: `
+          <div style="font-family: monospace; padding: 10px; text-align: center; width: 250px;">
+            <h3>${text}</h3>
+            <p>Impresora: ${printer}</p>
+            <p>Fecha: ${new Date().toLocaleString()}</p>
+            <hr/>
+            <p>Sistema de Gestión de Flota</p>
+          </div>
+        `
       }];
       await window.qz.print(config, data);
-
-      const key = getDailyKey(text === 'TICKET DE PRUEBA' ? 'boletos' : 'guias');
-      const current = parseInt(localStorage.getItem(key)) || 0;
-      localStorage.setItem(key, current + 1);
-      if (text === 'TICKET DE PRUEBA') setHoyBoletos(current + 1);
-      else setHoyGuias(current + 1);
-
-      toast.success(`Prueba enviada a: ${printer}`);
+      toast.success('Impresión de prueba enviada');
     } catch (err) {
-      toast.error(err?.toString() || 'Error al imprimir');
+      console.error('[Impresoras] Error prueba:', err);
+      toast.error('Error al imprimir prueba');
     } finally {
       setTesting(false);
     }
   };
 
-  const selectClass = "w-full h-10 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800";
-  const labelClass = "block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5";
-  const statLabelClass = "text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5";
-  const statValueClass = "text-lg font-extrabold text-slate-800";
+  const selectClass = "w-full border border-slate-200 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all disabled:bg-slate-50 disabled:cursor-not-allowed";
+  const labelClass = "block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2";
+  const statLabelClass = "text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1";
+  const statValueClass = "text-xl font-extrabold text-slate-800";
 
   return (
-    <div className="absolute inset-0 overflow-y-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto space-y-6 pb-32">
-        {/* MÉTODO DE IMPRESIÓN - AHORA EN LA PARTE SUPERIOR */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center text-purple-600">
-                <i className="fas fa-print text-lg" />
+    <div className="min-h-screen bg-slate-50 p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-2xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+            <i className="fas fa-print text-blue-600" />
+            Configuraci&oacute;n de Impresoras
+          </h1>
+          <p className="text-sm text-slate-500 mt-1 font-medium">
+            Gestione las impresoras t&eacute;rmicas para boletos, facturas y gu&iacute;as de encomiendas
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+          <div className="p-8 border-b border-slate-100 bg-linear-to-r from-slate-50 to-white">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-extrabold text-slate-700 uppercase tracking-wider mb-1">
+                  M&eacute;todo de Impresi&oacute;n del Sistema
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Seleccione c&oacute;mo desea imprimir los boletos y gu&iacute;as en el sistema.
+                </p>
               </div>
-              <h2 className="text-lg font-extrabold text-slate-800 tracking-tight">M&eacute;todo de Impresi&oacute;n</h2>
             </div>
-            <p className="text-sm text-slate-500 mb-5 leading-relaxed">
-              Seleccione c&oacute;mo desea imprimir los boletos y gu&iacute;as en el sistema.
-            </p>
-            <div className="flex gap-6">
-              <label className={`flex items-center gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all flex-1 ${
-                metodoImpresion === 'manual'
+            <div className="flex gap-6 mt-4">
+              <label className={`flex items-center gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all flex-1 ${metodoImpresion === 'manual'
                   ? 'border-blue-500 bg-blue-50 shadow-md transform -translate-y-0.5'
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-              }`}>
+                }`}>
                 <input
                   type="radio"
                   name="metodo_impresion"
@@ -208,18 +240,17 @@ export const ImpresorasPage = () => {
                     setMetodoImpresion('manual');
                     saveConfig('metodo_impresion', 'manual');
                   }}
-                  className="accent-blue-600 w-5 h-5"
+                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                 />
                 <div>
-                  <div className="font-bold text-base text-slate-800">Manual</div>
+                  <div className="text-sm font-bold text-slate-800">Manual / Visor PDF (Predeterminado)</div>
                   <div className="text-xs text-slate-500 mt-1">Abre el ticket en un visor PDF para imprimir con el navegador</div>
                 </div>
               </label>
-              <label className={`flex items-center gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all flex-1 ${
-                metodoImpresion === 'directa'
+              <label className={`flex items-center gap-4 p-5 rounded-xl border-2 cursor-pointer transition-all flex-1 ${metodoImpresion === 'directa'
                   ? 'border-amber-500 bg-amber-50 shadow-md transform -translate-y-0.5'
                   : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-              }`}>
+                }`}>
                 <input
                   type="radio"
                   name="metodo_impresion"
@@ -229,54 +260,48 @@ export const ImpresorasPage = () => {
                     setMetodoImpresion('directa');
                     saveConfig('metodo_impresion', 'directa');
                   }}
-                  className="accent-amber-500 w-5 h-5"
+                  className="w-4 h-4 text-amber-600 focus:ring-amber-500"
                 />
                 <div>
-                  <div className="font-bold text-base text-slate-800">Directa (Automática)</div>
-                  <div className="text-xs text-slate-500 mt-1">Imprime directamente en la impresora t&eacute;rmica configurada (requiere QZ Tray)</div>
+                  <div className="text-sm font-bold text-slate-800">Impresi&oacute;n Directa (QZ Tray)</div>
+                  <div className="text-xs text-slate-500 mt-1">Env&iacute;a el documento autom&aacute;ticamente a la impresora t&eacute;rmica configurada</div>
                 </div>
               </label>
             </div>
           </div>
-        </div>
 
-        {/* CONFIGURACIÓN DE IMPRESORAS TÉRMICAS */}
-        <div className={`bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden transition-all duration-300 ${metodoImpresion === 'manual' ? 'opacity-40 pointer-events-none grayscale-[30%]' : ''}`}>
-          <div className="flex items-center gap-5 px-8 py-5 border-b border-slate-100 bg-slate-50/50">
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${connected ? 'bg-emerald-100 text-emerald-600 shadow-inner' : 'bg-red-100 text-red-500 shadow-inner'}`}>
-              <i className={`fas ${connected ? 'fa-check-circle' : 'fa-times-circle'}`} />
-            </div>
-            <div className="flex-1">
-              <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">Configuraci&oacute;n de Impresoras T&eacute;rmicas</h1>
-              <p className={`text-sm font-bold mt-0.5 ${connected ? 'text-emerald-600' : 'text-red-500'}`}>
-                {connected ? 'SERVICIO QZ TRAY CONECTADO' : 'SERVICIO QZ TRAY DESCONECTADO'}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <button onClick={() => scanPrinters(true)} disabled={scanning || loadingQZ || metodoImpresion === 'manual'}
-                className="px-5 h-9 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-sm">
-                <i className={`fas fa-sync ${scanning ? 'fa-spin' : ''}`} />
-                {loadingQZ ? 'Cargando...' : scanning ? 'Buscando...' : 'Buscar Impresoras'}
-              </button>
-              <div className="flex gap-2">
-                <a href="/qz-tray-2.2.5-x86_64.exe"
-                  className="px-3 h-8 border border-slate-200 bg-white text-slate-600 rounded-lg text-[10px] font-bold hover:bg-slate-50 transition-all flex items-center gap-2 flex-1 justify-center"
-                  style={{ pointerEvents: metodoImpresion === 'manual' ? 'none' : 'auto' }}>
-                  <i className="fas fa-download" />
-                  Controlador
-                </a>
+          <div className="p-8 border-b border-slate-100 bg-slate-50/50">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className={`w-3 h-3 rounded-full ${connected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800">
+                    Estado del Servicio QZ Tray: {loadingQZ ? 'Verificando...' : (connected ? 'Conectado' : 'Desconectado')}
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {connected
+                      ? `${printers.length} impresoras detectadas en su equipo local`
+                      : 'Inicie QZ Tray en su computadora para habilitar la impresión directa'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={() => scanPrinters(true)} disabled={scanning || metodoImpresion === 'manual'}
+                  className="px-4 h-8 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 shadow-xs disabled:opacity-50">
+                  <i className={`fas fa-sync-alt ${scanning ? 'fa-spin' : ''}`} />
+                  Detectar Impresoras
+                </button>
                 <button onClick={() => {
                   const link = document.createElement('a');
-                  link.href = 'digital-certificate.crt';
+                  link.href = '/digital-certificate.crt';
                   link.download = 'digital-certificate.crt';
                   document.body.appendChild(link);
                   link.click();
                   document.body.removeChild(link);
                 }}
-                  disabled={metodoImpresion === 'manual'}
-                  className="px-3 h-8 border border-emerald-200 bg-white text-emerald-700 rounded-lg text-[10px] font-bold hover:bg-emerald-50 transition-all flex items-center gap-2 flex-1 justify-center disabled:opacity-50">
+                  className="px-4 h-8 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-lg text-[10px] font-bold transition-all flex items-center gap-2 shadow-xs">
                   <i className="fas fa-certificate" />
-                  Certificado
+                  Descargar Certificado
                 </button>
               </div>
             </div>
@@ -288,10 +313,10 @@ export const ImpresorasPage = () => {
                 <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center text-indigo-600">
                   <i className="fas fa-ticket-alt text-sm" />
                 </div>
-                <h2 className="text-sm font-extrabold text-slate-700 uppercase tracking-wider">Facturaci&oacute;n y Boletos</h2>
+                <h2 className="text-sm font-extrabold text-slate-700 uppercase tracking-wider">Boleteria</h2>
               </div>
               <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-                Seleccione la impresora t&eacute;rmica para emitir boletos de viaje y facturas electr&oacute;nicas.
+                Seleccione la impresora t&eacute;rmica y el n&uacute;mero de copias para boletos y facturas.
               </p>
               <div className="flex gap-4 mb-5">
                 <div className="flex-1 bg-slate-50 rounded-lg p-3 text-center">
@@ -304,14 +329,30 @@ export const ImpresorasPage = () => {
                 </div>
               </div>
               <div className="mb-4">
-                <label className={labelClass}>Impresora T&eacute;rmica Boletos</label>
-                <select value={printerBoletos} onChange={e => { setPrinterBoletos(e.target.value); saveConfig('boletos', e.target.value); }}
+                <label className={labelClass}>Impresora T&eacute;rmica</label>
+                <select value={printerBoletos} onChange={e => { setPrinterBoletos(e.target.value); saveConfig('printer_boletos', e.target.value); }}
                   className={selectClass} disabled={metodoImpresion === 'manual'}>
-                  <option value="">Seleccione dispositivo...</option>
+                  <option value="">Seleccione impresora...</option>
                   {printers.map(p => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
-                  {printerBoletos && !printers.some(p => p.nombre === printerBoletos) && (
-                    <option key={printerBoletos} value={printerBoletos}>{printerBoletos}</option>
-                  )}
+                </select>
+              </div>
+              <div className="mb-5">
+                <label className={labelClass}>N&uacute;mero de Copias por Emisi&oacute;n</label>
+                <select
+                  value={copiasBoletos}
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 1;
+                    setCopiasBoletos(val);
+                    saveConfig('copias_boletos', val);
+                  }}
+                  className={selectClass}
+                  disabled={metodoImpresion === 'manual'}
+                >
+                  <option value={1}>1 Copia (Original)</option>
+                  <option value={2}>2 Copias (Original + Copia)</option>
+                  <option value={3}>3 Copias</option>
+                  <option value={4}>4 Copias</option>
+                  <option value={5}>5 Copias</option>
                 </select>
               </div>
               <button onClick={() => testPrint(printerBoletos, 'TICKET DE PRUEBA')} disabled={testing || !printerBoletos || metodoImpresion === 'manual'}
@@ -325,10 +366,10 @@ export const ImpresorasPage = () => {
                 <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
                   <i className="fas fa-box-open text-sm" />
                 </div>
-                <h2 className="text-sm font-extrabold text-slate-700 uppercase tracking-wider">Gu&iacute;as y Encomiendas</h2>
+                <h2 className="text-sm font-extrabold text-slate-700 uppercase tracking-wider">Gu&iacute;as</h2>
               </div>
               <p className="text-xs text-slate-500 mb-5 leading-relaxed">
-                Seleccione la impresora para etiquetas de encomiendas y gu&iacute;as de remisi&oacute;n.
+                Seleccione la impresora y el n&uacute;mero de copias para encomiendas y gu&iacute;as.
               </p>
               <div className="flex gap-4 mb-5">
                 <div className="flex-1 bg-slate-50 rounded-lg p-3 text-center">
@@ -342,13 +383,29 @@ export const ImpresorasPage = () => {
               </div>
               <div className="mb-4">
                 <label className={labelClass}>Impresora Etiquetas/Gu&iacute;as</label>
-                <select value={printerGuias} onChange={e => { setPrinterGuias(e.target.value); saveConfig('guias', e.target.value); }}
+                <select value={printerGuias} onChange={e => { setPrinterGuias(e.target.value); saveConfig('printer_guias', e.target.value); }}
                   className={selectClass} disabled={metodoImpresion === 'manual'}>
-                  <option value="">Seleccione dispositivo...</option>
+                  <option value="">Seleccione impresora...</option>
                   {printers.map(p => <option key={p.nombre} value={p.nombre}>{p.nombre}</option>)}
-                  {printerGuias && !printers.some(p => p.nombre === printerGuias) && (
-                    <option key={printerGuias} value={printerGuias}>{printerGuias}</option>
-                  )}
+                </select>
+              </div>
+              <div className="mb-5">
+                <label className={labelClass}>N&uacute;mero de Copias por Emisi&oacute;n</label>
+                <select
+                  value={copiasGuias}
+                  onChange={e => {
+                    const val = parseInt(e.target.value) || 1;
+                    setCopiasGuias(val);
+                    saveConfig('copias_guias', val);
+                  }}
+                  className={selectClass}
+                  disabled={metodoImpresion === 'manual'}
+                >
+                  <option value={1}>1 Copia (Original)</option>
+                  <option value={2}>2 Copias (Remitente + Destinatario / Oficina)</option>
+                  <option value={3}>3 Copias (Remitente + Destinatario + Transportista)</option>
+                  <option value={4}>4 Copias</option>
+                  <option value={5}>5 Copias</option>
                 </select>
               </div>
               <button onClick={() => testPrint(printerGuias, 'GUIA DE PRUEBA')} disabled={testing || !printerGuias || metodoImpresion === 'manual'}
@@ -362,5 +419,3 @@ export const ImpresorasPage = () => {
     </div>
   );
 };
-
-

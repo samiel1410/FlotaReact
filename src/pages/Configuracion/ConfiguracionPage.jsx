@@ -102,6 +102,7 @@ export const ConfiguracionPage = () => {
             cobrar_iva_guia: conf.cobrar_iva_guia === 1 || conf.cobrar_iva_guia === true,
             imprimir_boucher_guia: conf.imprimir_boucher_guia === 1 || conf.imprimir_boucher_guia === true,
             formato_impresion: conf.formato_impresion || '80mm',
+            descuento_global_boleto: conf.descuento_global_boleto === 1 || conf.descuento_global_boleto === true,
           };
           setConfigData(newConf);
           reset(newConf);
@@ -261,7 +262,7 @@ export const ConfiguracionPage = () => {
         if (CAMPOS_ESPECIALES.includes(key)) return acc; // se agregan abajo si aplican
         if (value === undefined || value === null) return acc;
 
-        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp') {
+        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto') {
           acc[key] = +!!value;
         } else if (key === 'cobrar_iva_guia' || key === 'imprimir_boucher_guia') {
           acc[key] = value ? 1 : 0;
@@ -572,6 +573,28 @@ export const ConfiguracionPage = () => {
                         }`}></span>
                         {sistemaModo === 'prueba' ? 'Los datos son de prueba' : 'Irreversible — No se puede regresar a pruebas'}
                       </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 mt-2">
+                    <h3 className="text-sm font-bold text-slate-800 mb-3">
+                      <i className="fas fa-ticket-alt text-blue-600 mr-2"></i>Boletería
+                    </h3>
+                    <div className="flex items-start gap-3 p-3 bg-blue-50/60 border border-blue-200 rounded-xl">
+                      <input
+                        type="checkbox"
+                        {...register('descuento_global_boleto')}
+                        id="descuento_global_boleto"
+                        className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 mt-0.5 cursor-pointer"
+                      />
+                      <div>
+                        <label htmlFor="descuento_global_boleto" className="text-sm font-bold text-slate-800 cursor-pointer">
+                          Habilitar Descuentos Globales en Boletos
+                        </label>
+                        <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+                          Al activar esta opción, cuando se seleccione una tarifa con descuento (ej: 50% 3ra Edad), se mantendrá activa para todos los asientos seleccionados y los que se sigan agregando. Al desactivarla, el descuento se aplica solo al primer asiento y vuelve automáticamente a tarifa Normal.
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

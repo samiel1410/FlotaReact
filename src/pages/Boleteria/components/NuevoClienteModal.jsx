@@ -105,8 +105,10 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteIni
     console.log('[NuevoClienteModal] Guardar cliente:', { tipoIdentificacion, identificacion, nombres, direccion, celular, correo, fechaNacimiento });
     if (!identificacion) { console.log('[NuevoClienteModal] ⛔ Validación: falta identificación'); toast.error('Ingrese la identificación'); return; }
     if (!nombres) { console.log('[NuevoClienteModal] ⛔ Validación: falta nombre'); toast.error('Ingrese los nombres'); return; }
-    if (!celular) { console.log('[NuevoClienteModal] ⛔ Validación: falta celular'); toast.error('Ingrese el celular/teléfono'); return; }
-    if (!correo) { console.log('[NuevoClienteModal] ⛔ Validación: falta correo'); toast.error('Ingrese el correo electrónico'); return; }
+    if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
+      toast.error('Ingrese un correo electrónico válido');
+      return;
+    }
     console.log('[NuevoClienteModal] ✅ Validación pasó, enviando petición...');
 
     setSaving(true);

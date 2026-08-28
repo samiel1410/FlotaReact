@@ -92,15 +92,20 @@ export const CobrarFacturaModal = ({ guia, onClose, onSuccess, isNotaVenta = fal
           }
           
           if (fData) {
-            
             // Obtener suma ya cobrada
-            const sumRes = await api.get(`/factura/facturaidguicobradasuma?id_guia=${guia.id_guia}`);
-            const cobrado = (sumRes && sumRes.success && sumRes.data) ? parseFloat(sumRes.data) : 0;
+            let cobrado = 0;
+            try {
+              const sumRes = await api.get(`/factura/facturaidguicobradasuma?id_guia=${guia.id_guia}`);
+              const sumData = sumRes?.data?.data !== undefined ? sumRes.data.data : (sumRes?.data !== undefined ? sumRes.data : sumRes);
+              cobrado = parseFloat(sumData?.total_factura || sumData || 0) || 0;
+            } catch (e) {
+              console.warn('[CobrarFacturaModal] Error obteniendo cobrado:', e);
+            }
             
             const totalAFacturar = parseFloat(fData.total_factura || 0);
-            const restante = totalAFacturar - cobrado;
+            const restante = Math.max(0, totalAFacturar - cobrado);
 
-            if (restante <= 0) {
+            if (restante <= 0.001) {
               toast.success('La guía ya se encuentra cobrada en su totalidad');
               onClose();
               return;
