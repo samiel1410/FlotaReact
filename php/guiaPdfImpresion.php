@@ -133,7 +133,7 @@ try {
       ca.nombre_compania_asociada, 
       d.nombre_destino AS direccion_compania_asociada, 
       d.direccion_exacta, 
-      ca.numero_contacto 
+      d.numero_contacto 
     FROM compania_asociada ca
     LEFT JOIN destino d ON d.lugar_destino = '$destino_escaped'
     WHERE ca.id_compania_asociada = $id_fkcompania_asociada 
