@@ -11,58 +11,50 @@
  * @param mysqli $conn Conexión a la base de datos
  * @return string|null Ruta al archivo de imagen o null si no hay imagen
  */
-function obtenerRutaLogoEmpresa($conn)
+function obtenerRutaLogoEmpresa($conn, $imageData = null)
 {
-    $query = "SELECT imagen_empresa FROM empresa LIMIT 1";
-    $result = mysqli_query($conn, $query);
-    if ($result && $row = mysqli_fetch_assoc($result)) {
-        if (!empty($row['imagen_empresa'])) {
+    if (empty($imageData) && $conn) {
+        $query = "SELECT imagen_empresa FROM empresa LIMIT 1";
+        $result = mysqli_query($conn, $query);
+        if ($result && $row = mysqli_fetch_assoc($result)) {
             $imageData = $row['imagen_empresa'];
+        }
+    }
 
-            // Directorio temporal
-            $tempDir = __DIR__ . '/tmp/logos/';
-            if (!is_dir($tempDir)) {
-                mkdir($tempDir, 0777, true);
-            }
+    if (!empty($imageData)) {
+        // Directorio temporal
+        $tempDir = __DIR__ . '/tmp/logos/';
+        if (!is_dir($tempDir)) {
+            @mkdir($tempDir, 0777, true);
+        }
 
-            // Nombre de archivo basado en el contenido para evitar recrearlo innecesariamente
-            $hash = md5($imageData);
-            $tempPath = $tempDir . 'logo_' . $hash . '.png';
+        // Nombre de archivo basado en el contenido para evitar recrearlo innecesariamente
+        $hash = md5($imageData);
+        $tempPath = $tempDir . 'logo_' . $hash . '.png';
 
+        if (!file_exists($tempPath)) {
             // Si los datos tienen el prefijo data:image, lo extraemos
             if (is_string($imageData) && strpos($imageData, 'data:image') === 0) {
                 $parts = explode(',', $imageData);
                 if (count($parts) > 1) {
                     $imageData = base64_decode($parts[1]);
                 }
-            } else if (is_string($imageData) && strpos($imageData, 'iVBOR') === 0) {
+            } else if (is_string($imageData) && (strpos($imageData, 'iVBOR') === 0 || strpos($imageData, '/9j/') === 0 || strpos($imageData, 'R0lG') === 0)) {
                 $imageData = base64_decode($imageData);
             }
 
-            if (!file_exists($tempPath)) {
-                // Limpiar prefijo data:image si existe
-                if (is_string($imageData) && strpos($imageData, 'data:image') === 0) {
-                    $parts = explode(',', $imageData);
-                    if (count($parts) > 1) {
-                        $imageData = base64_decode($parts[1]);
-                    }
-                } else if (is_string($imageData) && (strpos($imageData, 'iVBOR') === 0 || strpos($imageData, '/9j/') === 0 || strpos($imageData, 'R0lG') === 0)) {
-                    $imageData = base64_decode($imageData);
-                }
-
-                // Intentar crear la imagen con GD para asegurar que es un PNG válido
-                $im = @imagecreatefromstring($imageData);
-                if ($im !== false) {
-                    imagepng($im, $tempPath);
-                    imagedestroy($im);
-                } else {
-                    // Fallback por si acaso es binario puro pero GD no pudo leerlo
-                    file_put_contents($tempPath, $imageData);
-                }
+            // Intentar crear la imagen con GD para asegurar que es un PNG válido
+            $im = @imagecreatefromstring($imageData);
+            if ($im !== false) {
+                imagepng($im, $tempPath);
+                imagedestroy($im);
+            } else {
+                // Fallback por si acaso es binario puro pero GD no pudo leerlo
+                file_put_contents($tempPath, $imageData);
             }
-
-            return $tempPath;
         }
+
+        return $tempPath;
     }
     return null;
 }
@@ -91,18 +83,30 @@ function limpiarLogosTemporales()
  * 
  * @param mysqli $conn Conexión a la base de datos
  * @param float $defaultAncho Ancho por defecto en mm (ej. 80 o 110)
+ * @param string|null $formatoRaw Formato ya consultado previamente (evita query adicional)
  * @return float Ancho en mm
  */
-function obtenerAnchoFormatoImpresion($conn, $defaultAncho = 80)
+function obtenerAnchoFormatoImpresion($conn, $defaultAncho = 80, $formatoRaw = null)
 {
-    $query = "SELECT formato_impresion FROM configuracion LIMIT 1";
-    $result = @mysqli_query($conn, $query);
-    if ($result && $row = mysqli_fetch_assoc($result)) {
-        if (!empty($row['formato_impresion'])) {
-            $raw = trim($row['formato_impresion']);
-            $val = floatval(preg_replace('/[^0-9.]/', '', $raw));
-            if ($val >= 35 && $val <= 220) {
-                return $val;
+    if ($formatoRaw !== null && $formatoRaw !== '') {
+        $raw = trim($formatoRaw);
+        $val = floatval(preg_replace('/[^0-9.]/', '', $raw));
+        if ($val >= 35 && $val <= 220) {
+            return $val;
+        }
+        return $defaultAncho;
+    }
+
+    if ($conn) {
+        $query = "SELECT formato_impresion FROM configuracion LIMIT 1";
+        $result = @mysqli_query($conn, $query);
+        if ($result && $row = mysqli_fetch_assoc($result)) {
+            if (!empty($row['formato_impresion'])) {
+                $raw = trim($row['formato_impresion']);
+                $val = floatval(preg_replace('/[^0-9.]/', '', $raw));
+                if ($val >= 35 && $val <= 220) {
+                    return $val;
+                }
             }
         }
     }
