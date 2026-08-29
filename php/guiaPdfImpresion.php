@@ -69,7 +69,7 @@ try {
     g.id_fkcompania_asociada,
     g.id_fkusuario_guia,
     UPPER(g.nombre_cliente_remitente) AS nombre_cliente_remitente,
-    g.punto_emision_usuario,
+    u.punto_emision_usuario,
     UPPER(g.nombre_cliente_receptor) AS nombre_cliente_receptor,
     g.cedula_cliente_remitente,
     g.cedula_cliente_receptor,
