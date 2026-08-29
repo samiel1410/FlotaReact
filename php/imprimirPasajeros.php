@@ -173,12 +173,13 @@ $tabla .= '
 }
 
 // Consulta de empresa
-$query = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM
-empresa WHERE 1";
+$query = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM
+empresa LIMIT 1";
 $recuperar = mysqli_query($conn, $query) or die(mysqli_error($conn));
 $vals = mysqli_fetch_array($recuperar);
 
 $id_empresa = $vals["id_empresa"];
+$imagen_empresa = $vals["imagen_empresa"] ?? null;
 $telefono_empresa = $vals["telefono_empresa"];
 $correo_empresa = $vals["correo_empresa"];
 $ruc_empresa = $vals["ruc_empresa"];
@@ -281,7 +282,7 @@ $html = '
 </head>
 
 <body>
-    ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn)) ? '<div style="text-align:center;"><img src="' . $rutaLogo . '" width="40"></div>' : '') . '
+    ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn, $imagen_empresa)) ? '<div style="text-align:center;"><img src="' . $rutaLogo . '" width="40"></div>' : '') . '
     <div class="empresa">' . $razon_social_empresa . '</div>
     <div class="empresa-datos">
         RUC: ' . $ruc_empresa . ' | Tel: ' . $telefono_empresa . ' | Email: ' . $correo_empresa . '<br>

@@ -17,196 +17,214 @@ require_once("pdf_utils.php");
 date_default_timezone_set('America/Guayaquil');
 try {
   $fecha_actual = date('Y-m-d H:i:s');
-  $id_usuario_global = (int) $_GET['id_usuario_global']; //1
-  $id_guia = (int) $_GET['id_guia']; //76
+  $id_usuario_global = isset($_GET['id_usuario_global']) ? (int) $_GET['id_usuario_global'] : 0;
+  $id_guia = isset($_GET['id_guia']) ? (int) $_GET['id_guia'] : 0;
   $reimpreso_por = isset($_GET['reimpreso_por']) ? $_GET['reimpreso_por'] : null;
 
-
-  // create new PDF document
-  $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(), true, 'UTF-8', false);
-  $pdf->setFontSubsetting(false);
-  $pdf->setPrintHeader(false);
-  $pdf->setPrintFooter(false);
+  if ($id_guia <= 0) {
+    die("ID de guía no válido");
+  }
 
   $conn = conexion();
-  $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa,
-razon_social_empresa FROM empresa WHERE 1";
+
+  // 1. EMPRESA (1 sola consulta rápida)
+  $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
   $recuperar_empresa = mysqli_query($conn, $query_empresa) or die(mysqli_error($conn));
-  $vals_empresa = mysqli_fetch_array($recuperar_empresa);
+  $vals_empresa = mysqli_fetch_assoc($recuperar_empresa);
 
+  $id_empresa = isset($vals_empresa["id_empresa"]) ? $vals_empresa["id_empresa"] : 0;
+  $imagen_empresa = isset($vals_empresa["imagen_empresa"]) ? $vals_empresa["imagen_empresa"] : null;
+  $telefono_empresa = isset($vals_empresa["telefono_empresa"]) ? $vals_empresa["telefono_empresa"] : '';
+  $correo_empresa = isset($vals_empresa["correo_empresa"]) ? $vals_empresa["correo_empresa"] : '';
+  $ruc_empresa = isset($vals_empresa["ruc_empresa"]) ? $vals_empresa["ruc_empresa"] : '';
+  $direccion_empresa = isset($vals_empresa["direccion_empresa"]) ? $vals_empresa["direccion_empresa"] : '';
+  $razon_social_empresa = isset($vals_empresa["razon_social_empresa"]) ? $vals_empresa["razon_social_empresa"] : '';
 
+  // 2. CONFIGURACIÓN (1 sola consulta trayendo leyenda, formato de impresión y opciones)
+  $sql_configuracion = "SELECT leyenda_nota_venta, mostrar_leyenda_nota_venta, imprimir_boucher_guia, formato_impresion FROM configuracion LIMIT 1";
+  $recuperar_configuracion = mysqli_query($conn, $sql_configuracion) or die(mysqli_error($conn));
+  $vals_configuracion = mysqli_fetch_assoc($recuperar_configuracion);
 
-  $id_empresa = $vals_empresa["id_empresa"];
-  $imagen_empresa = $vals_empresa["imagen_empresa"];
-  $telefono_empresa = $vals_empresa["telefono_empresa"];
-  $correo_empresa = $vals_empresa["correo_empresa"];
-  $ruc_empresa = $vals_empresa["ruc_empresa"];
-  $direccion_empresa = $vals_empresa["direccion_empresa"];
-  $razon_social_empresa = $vals_empresa["razon_social_empresa"];
+  $leyenda_nota_venta = isset($vals_configuracion["leyenda_nota_venta"]) ? $vals_configuracion["leyenda_nota_venta"] : '';
+  $mostrar_leyenda_nota_venta = isset($vals_configuracion["mostrar_leyenda_nota_venta"]) ? $vals_configuracion["mostrar_leyenda_nota_venta"] : '';
+  $imprimir_boucher_guia = isset($vals_configuracion["imprimir_boucher_guia"]) ? (int)$vals_configuracion["imprimir_boucher_guia"] : 1;
+  $formato_impresion_db = isset($vals_configuracion["formato_impresion"]) ? $vals_configuracion["formato_impresion"] : null;
 
-  $query_datos = "SELECT id_usuario, nombre_usuario, apellido_usuario FROM usuario, sucursal2 WHERE id_usuario =
-$id_usuario_global AND id_fksucursal_usuario=suc_codigo_sucursal";
-  $recuperar_datos = mysqli_query($conn, $query_datos) or die(mysqli_error($conn));
-  $vals_datos = mysqli_fetch_array($recuperar_datos);
+  $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 110, $formato_impresion_db);
+  $metricas = obtenerMetricasImpresion($ancho_impresion, 110);
+  $validar_leyenda = $mostrar_leyenda_nota_venta;
+  $mensaje = $leyenda_nota_venta;
+  $leyenda = $mensaje;
+  $rutaLogo = obtenerRutaLogoEmpresa($conn, $imagen_empresa);
 
-  $id_usuario = $vals_datos["id_usuario"];
+  // 3. CONSULTA PRINCIPAL DE GUIA NOTA VENTA (Unificada con JOINs explícitos e incluye destino de usuario)
+  $query_guia = "SELECT 
+    g.origen_guia, 
+    s.nombre_sucursal,
+    g.destino_guia,
+    g.numero_guia,
+    g.numero_manual_guia,
+    s.punto_emision_sucursal,
+    g.observacion_guia,
+    g.id_fkcompania_asociada,
+    g.id_fkusuario_guia,
+    UPPER(g.nombre_cliente_remitente) AS nombre_cliente_remitente,
+    u.punto_emision_usuario,
+    UPPER(g.nombre_cliente_receptor) AS nombre_cliente_receptor,
+    g.cedula_cliente_remitente,
+    g.cedula_cliente_receptor,
+    g.telefono_cliente_emisor,
+    g.telefono_cliente_receptor,
+    g.subtotal_12_guia,
+    g.subtotal_0_guia,
+    g.subtotal_guia,
+    g.total_guia,
+    g.descuento_guia,
+    g.valor_tarifa_adicional_guia,
+    g.impuesto_iva_guia,
+    CONCAT(u.nombre_usuario, ' ', u.apellido_usuario) AS usuario,
+    du.lugar_destino AS ubicacion_usuario
+  FROM guia_nota_venta g
+  LEFT JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal
+  LEFT JOIN usuario u ON g.id_fkusuario_guia = u.id_usuario
+  LEFT JOIN destino du ON u.id_fkdestino_usuario = du.id_destino
+  WHERE g.id_guia = $id_guia
+  LIMIT 1";
 
-
-
-  $query_guia = "SELECT origen_guia, sucursal2.nombre_sucursal,
-destino_guia,numero_guia,numero_manual_guia,punto_emision_sucursal,observacion_guia,id_fkcompania_asociada,id_fkusuario_guia,UPPER(nombre_cliente_remitente)
-as nombre_cliente_remitente,punto_emision_usuario,UPPER(nombre_cliente_receptor) as
-nombre_cliente_receptor,cedula_cliente_remitente,cedula_cliente_receptor,telefono_cliente_emisor,telefono_cliente_receptor,subtotal_12_guia,subtotal_0_guia,subtotal_guia,total_guia,descuento_guia,valor_tarifa_adicional_guia,impuesto_iva_guia
-,CONCAT(usuario.nombre_usuario,' ',usuario.apellido_usuario) as usuario FROM guia_nota_venta,sucursal2,usuario WHERE id_guia =
-$id_guia AND sucursal_guia=suc_codigo_sucursal AND id_fkusuario_guia=id_usuario";
   $recuperar_guia = mysqli_query($conn, $query_guia) or die(mysqli_error($conn));
-  $vals_guia = mysqli_fetch_array($recuperar_guia);
+  $vals_guia = mysqli_fetch_assoc($recuperar_guia);
 
-  $origen_guia = $vals_guia["origen_guia"];
-  $observacion_guia = $vals_guia["observacion_guia"];
+  if (!$vals_guia) {
+    die("Guía no encontrada");
+  }
 
-  $destino_guia = $vals_guia["destino_guia"];
-  $id_usuario_guia = $vals_guia["id_fkusuario_guia"];
-  $nombre_cliente_remitente = $vals_guia["nombre_cliente_remitente"];
-  $nombre_cliente_receptor = $vals_guia["nombre_cliente_receptor"];
-  $cedula_cliente_remitente = $vals_guia["cedula_cliente_remitente"];
-  $cedula_cliente_receptor = $vals_guia["cedula_cliente_receptor"];
-  $telefono_cliente_emisor = $vals_guia["telefono_cliente_emisor"];
-  $telefono_cliente_receptor = $vals_guia["telefono_cliente_receptor"];
-  $subtotal_12_guia = $vals_guia["subtotal_12_guia"];
-  $subtotal_0_guia = number_format((float) $vals_guia["subtotal_0_guia"]);
-  $subtotal_guia = number_format($vals_guia["subtotal_guia"], 2);
-  $total_guia = $vals_guia["total_guia"];
-  $descuento_guia = $vals_guia["descuento_guia"];
-  $valor_tarifa_adicional_guia = $vals_guia["valor_tarifa_adicional_guia"];
-  $impuesto_iva_guia = $vals_guia["impuesto_iva_guia"];
-  $punto_emision_sucursal_guia = $vals_guia["punto_emision_sucursal"];
-  $punto_emision_guia = $vals_guia["punto_emision_usuario"];
-  $id_fkcompania_asociada = $vals_guia["id_fkcompania_asociada"];
-  $usuario = $vals_guia["usuario"];
-  $numero_manual_guia = $vals_guia["numero_manual_guia"];
+  $origen_guia = isset($vals_guia["origen_guia"]) ? $vals_guia["origen_guia"] : '';
+  $observacion_guia = isset($vals_guia["observacion_guia"]) ? $vals_guia["observacion_guia"] : '';
+  $destino_guia = isset($vals_guia["destino_guia"]) ? $vals_guia["destino_guia"] : '';
+  $id_usuario_guia = isset($vals_guia["id_fkusuario_guia"]) ? $vals_guia["id_fkusuario_guia"] : 0;
+  $nombre_cliente_remitente = isset($vals_guia["nombre_cliente_remitente"]) ? $vals_guia["nombre_cliente_remitente"] : '';
+  $nombre_cliente_receptor = isset($vals_guia["nombre_cliente_receptor"]) ? $vals_guia["nombre_cliente_receptor"] : '';
+  $cedula_cliente_remitente = isset($vals_guia["cedula_cliente_remitente"]) ? $vals_guia["cedula_cliente_remitente"] : '';
+  $cedula_cliente_receptor = isset($vals_guia["cedula_cliente_receptor"]) ? $vals_guia["cedula_cliente_receptor"] : '';
+  $telefono_cliente_emisor = isset($vals_guia["telefono_cliente_emisor"]) ? $vals_guia["telefono_cliente_emisor"] : '';
+  $telefono_cliente_receptor = isset($vals_guia["telefono_cliente_receptor"]) ? $vals_guia["telefono_cliente_receptor"] : '';
+  $subtotal_12_guia = isset($vals_guia["subtotal_12_guia"]) ? $vals_guia["subtotal_12_guia"] : 0;
+  $subtotal_0_guia = number_format((float) (isset($vals_guia["subtotal_0_guia"]) ? $vals_guia["subtotal_0_guia"] : 0));
+  $subtotal_guia = number_format((float) (isset($vals_guia["subtotal_guia"]) ? $vals_guia["subtotal_guia"] : 0), 2);
+  $total_guia = (float) (isset($vals_guia["total_guia"]) ? $vals_guia["total_guia"] : 0);
+  $descuento_guia = isset($vals_guia["descuento_guia"]) ? $vals_guia["descuento_guia"] : 0;
+  $valor_tarifa_adicional_guia = isset($vals_guia["valor_tarifa_adicional_guia"]) ? $vals_guia["valor_tarifa_adicional_guia"] : 0;
+  $impuesto_iva_guia = isset($vals_guia["impuesto_iva_guia"]) ? $vals_guia["impuesto_iva_guia"] : 0;
+  $punto_emision_sucursal_guia = isset($vals_guia["punto_emision_sucursal"]) ? $vals_guia["punto_emision_sucursal"] : '';
+  $punto_emision_guia = isset($vals_guia["punto_emision_usuario"]) ? $vals_guia["punto_emision_usuario"] : '';
+  $id_fkcompania_asociada = (int) (isset($vals_guia["id_fkcompania_asociada"]) ? $vals_guia["id_fkcompania_asociada"] : 0);
+  $usuario = isset($vals_guia["usuario"]) ? $vals_guia["usuario"] : '';
+  $numero_manual_guia = isset($vals_guia["numero_manual_guia"]) ? $vals_guia["numero_manual_guia"] : '';
+  $ubicacion_usuaurio = isset($vals_guia["ubicacion_usuario"]) ? $vals_guia["ubicacion_usuario"] : '';
 
-  //COMPANIA ASOCIADA
-  $nombre_compania = "";
-  $direccion_compania_asociada = "";
-  $direccion_exacta = "";
-  $numero_contacto = "";
-  
-  if (!empty($id_fkcompania_asociada)) {
-    $query_datos_compania = "SELECT nombre_compania_asociada,nombre_destino as direccion_compania_asociada,direccion_exacta,numero_contacto FROM compania_asociada,destino WHERE id_compania_asociada = $id_fkcompania_asociada AND lugar_destino ='$destino_guia'";
-    $recuperar_detalles_compnai = mysqli_query($conn, $query_datos_compania) or die(mysqli_error($conn));
-    if ($vals_detalle_compania = mysqli_fetch_array($recuperar_detalles_compnai)) {
-      $nombre_compania = $vals_detalle_compania['nombre_compania_asociada'];
-      $direccion_compania_asociada = $vals_detalle_compania['direccion_compania_asociada'];
-      $direccion_exacta = $vals_detalle_compania['direccion_exacta'];
-      $numero_contacto = $vals_detalle_compania['numero_contacto'];
+  // 4. COMPANIA ASOCIADA (Condicional y optimizada sin producto cartesiano)
+  $nombre_compania = '';
+  $direccion_compania_asociada = '';
+  $direccion_exacta = '';
+  $numero_contacto = '';
+  if ($id_fkcompania_asociada > 0) {
+    $destino_escaped = mysqli_real_escape_string($conn, $destino_guia);
+    $query_datos_compania = "SELECT 
+      ca.nombre_compania_asociada, 
+      d.nombre_destino AS direccion_compania_asociada, 
+      d.direccion_exacta, 
+      d.numero_contacto 
+    FROM compania_asociada ca
+    LEFT JOIN destino d ON d.lugar_destino = '$destino_escaped'
+    WHERE ca.id_compania_asociada = $id_fkcompania_asociada 
+    LIMIT 1";
+    $recuperar_detalles_compnai = mysqli_query($conn, $query_datos_compania);
+    if ($recuperar_detalles_compnai && $vals_detalle_compania = mysqli_fetch_assoc($recuperar_detalles_compnai)) {
+      $nombre_compania = isset($vals_detalle_compania['nombre_compania_asociada']) ? $vals_detalle_compania['nombre_compania_asociada'] : '';
+      $direccion_compania_asociada = isset($vals_detalle_compania['direccion_compania_asociada']) ? $vals_detalle_compania['direccion_compania_asociada'] : '';
+      $direccion_exacta = isset($vals_detalle_compania['direccion_exacta']) ? $vals_detalle_compania['direccion_exacta'] : '';
+      $numero_contacto = isset($vals_detalle_compania['numero_contacto']) ? $vals_detalle_compania['numero_contacto'] : '';
     }
   }
 
-  //NUMERO GUIA
+  // 5. NUMERO GUIA Y DETALLES
   $resultado_guia = sprintf("%09s", $vals_guia['numero_guia']);
   $numero_guia = $punto_emision_sucursal_guia . '-' . $punto_emision_guia . '-' . $resultado_guia;
-  $query_datos_detalles = "SELECT contenido_guia, cantidad_detalle_guia, tipo_envio.nombre_envio FROM detalle_guia_nota_venta, tipo_envio WHERE id_fkguia_detalle_envio = $id_guia AND tipo_envio.id_tipo_envio = detalle_guia_nota_venta.id_fktipo_envio_detalle_guia;";
+
+  $query_datos_detalles = "SELECT 
+    dg.contenido_guia, 
+    dg.cantidad_detalle_guia, 
+    te.nombre_envio 
+  FROM detalle_guia_nota_venta dg
+  LEFT JOIN tipo_envio te ON dg.id_fktipo_envio_detalle_guia = te.id_tipo_envio 
+  WHERE dg.id_fkguia_detalle_envio = $id_guia";
 
   $recuperar_detalles = mysqli_query($conn, $query_datos_detalles) or die(mysqli_error($conn));
 
   $contenido_detalle = '<p class="izquierda">';
   $posicion_codigo = 190;
   $espacio_codigo = '';
-  $items_detalle = []; // guardar items para generar hojas extra
+  $items_detalle = [];
   $total_copias_extra = 0;
 
-  while ($vals_detalle = mysqli_fetch_array($recuperar_detalles)) {
+  while ($vals_detalle = mysqli_fetch_assoc($recuperar_detalles)) {
     $cant = max(1, (int)$vals_detalle["cantidad_detalle_guia"]);
-    $contenido_detalle .= 'CONTENIDO: ' . $vals_detalle["cantidad_detalle_guia"] . ' ' . $vals_detalle["nombre_envio"] . '
-  ' . $vals_detalle["contenido_guia"] . ' <br>';
-    $posicion_codigo = $posicion_codigo + 15;
-    $espacio_codigo .= '
-<p> </p>';
-    // guardar cada unidad como una copia extra
+    $contenido_detalle .= 'CONTENIDO: ' . $vals_detalle["cantidad_detalle_guia"] . ' ' . $vals_detalle["nombre_envio"] . ' ' . $vals_detalle["contenido_guia"] . ' <br>';
+    $posicion_codigo += 15;
+    $espacio_codigo .= '<p> </p>';
     for ($ci = 1; $ci <= $cant; $ci++) {
       $items_detalle[] = [
-        'nombre_envio' => $vals_detalle['nombre_envio'],
-        'contenido'    => $vals_detalle['contenido_guia'],
+        'nombre_envio' => isset($vals_detalle['nombre_envio']) ? $vals_detalle['nombre_envio'] : '',
+        'contenido'    => isset($vals_detalle['contenido_guia']) ? $vals_detalle['contenido_guia'] : '',
         'cantidad'     => $cant,
         'unidad'       => $ci,
       ];
       $total_copias_extra++;
     }
-  };
-
+  }
   $contenido_detalle .= ' ';
 
-
-  //UBICACION USUARIO GUIA
-
-
-  $query_ubicacion = "SELECT lugar_destino FROM destino,usuario WHERE id_fkdestino_usuario = id_destino AND id_usuario=
-$id_usuario_guia";
-  $recuperar_ubicacion = mysqli_query($conn, $query_ubicacion) or die(mysqli_error($conn));
-  $vals_ubicacion = mysqli_fetch_array($recuperar_ubicacion);
-  $ubicacion_usuaurio = $vals_ubicacion ? $vals_ubicacion['lugar_destino'] : '';
-
-
+  // 6. FORMAS DE PAGO NOTA DE VENTA
   $detalles_forma_pago = "";
   $suma_total = 0;
   $suma_cobrada = 0;
   $total_cobrado = 0;
-
   $total_factura = $total_guia;
   $clave_acceso = "";
   $fecha_factura = "S/N";
 
   $sql_pagos = "SELECT
-  COALESCE(SUM(cc.monto_comprobante_cobro), 0) AS total,
-  fp.id_forma_pago,
-  fp.nombre_forma_pago,
-  fp.tipo_forma_pago
-  FROM
-  comprobante_cobro_nota_venta cc
-  LEFT JOIN
-  forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
-  WHERE
-  cc.id_fkfactura_comprobante_cobro = $id_guia AND cc.estado_comprobante_cobro != 'ANULADA'
-  GROUP BY
-  fp.id_forma_pago";
+    COALESCE(SUM(cc.monto_comprobante_cobro), 0) AS total,
+    fp.id_forma_pago,
+    fp.nombre_forma_pago,
+    fp.tipo_forma_pago
+  FROM comprobante_cobro_nota_venta cc
+  LEFT JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
+  WHERE cc.id_fkfactura_comprobante_cobro = $id_guia AND cc.estado_comprobante_cobro != 'ANULADA'
+  GROUP BY fp.id_forma_pago, fp.nombre_forma_pago, fp.tipo_forma_pago";
 
   $recuperar_datos_factura_formas = mysqli_query($conn, $sql_pagos) or die(mysqli_error($conn));
-  while ($vals_datos_facturaR = mysqli_fetch_array($recuperar_datos_factura_formas)) {
-    $detalles_forma_pago .= '' . $vals_datos_facturaR["nombre_forma_pago"] . ': $' . number_format((float) $vals_datos_facturaR["total"], 2) . ' ';
-    $suma_total = $suma_total + $vals_datos_facturaR["total"];
-    // El crédito no es un pago real - no debe contar como cobrado
+  while ($vals_datos_facturaR = mysqli_fetch_assoc($recuperar_datos_factura_formas)) {
+    $monto_pago = (float) $vals_datos_facturaR["total"];
+    $detalles_forma_pago .= $vals_datos_facturaR["nombre_forma_pago"] . ': $' . number_format($monto_pago, 2) . ' ';
+    $suma_total += $monto_pago;
     if ((int)$vals_datos_facturaR["tipo_forma_pago"] != 4) {
-      $suma_cobrada = $suma_cobrada + $vals_datos_facturaR["total"];
+      $suma_cobrada += $monto_pago;
     }
   }
 
   $total_cobrado = $total_factura - $suma_cobrada;
-  
-  $estado_factura = ($total_cobrado <= 0) ? "COBRADA" : "POR COBRAR";
+  $estado_factura = ($total_cobrado <= 0.001) ? "COBRADA" : "POR COBRAR";
 
-  if ($detalles_forma_pago == "") {
+  if (empty($detalles_forma_pago)) {
     $detalles_forma_pago = "NINGUNA";
   }
 
-  // COMPROBANTES
-
-  $sql_configuracion = "SELECT configuracion.leyenda_nota_venta, configuracion.mostrar_leyenda_nota_venta, configuracion.imprimir_boucher_guia FROM
-configuracion";
-  $recuperar_configuracion = mysqli_query($conn, $sql_configuracion) or die(mysqli_error($conn));
-  $vals_configuracion = mysqli_fetch_array($recuperar_configuracion);
-
-  $leyenda_nota_venta = $vals_configuracion["leyenda_nota_venta"];
-  $mostrar_leyenda_nota_venta = $vals_configuracion["mostrar_leyenda_nota_venta"];
-  $imprimir_boucher_guia = isset($vals_configuracion["imprimir_boucher_guia"]) ? (int)$vals_configuracion["imprimir_boucher_guia"] : 1;
-  $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 110);
-  $metricas = obtenerMetricasImpresion($ancho_impresion, 110);
-
-  $validar_leyenda = $mostrar_leyenda_nota_venta;
-  $mensaje = $leyenda_nota_venta;
-  $leyenda = $mensaje;
-  $rutaLogo = obtenerRutaLogoEmpresa($conn);
-  // No longer using $pdf->Image('@' . $img) here as it's better handled in HTML or explicitly with a file path if needed.
+  // create new PDF document
+  $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(), true, 'UTF-8', false);
+  $pdf->setFontSubsetting(false);
+  $pdf->setPrintHeader(false);
+  $pdf->setPrintFooter(false);
 
   $html = '
 <!DOCTYPE html>

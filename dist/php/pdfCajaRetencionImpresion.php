@@ -203,7 +203,7 @@ try {
 
     $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 120);
     $metricas = obtenerMetricasImpresion($ancho_impresion, 120);
-    $rutaLogo = obtenerRutaLogoEmpresa($conn);
+    $rutaLogo = obtenerRutaLogoEmpresa($conn, $imagen_empresa);
 
     $html = '
 <!DOCTYPE html>

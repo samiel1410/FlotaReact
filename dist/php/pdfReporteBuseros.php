@@ -26,7 +26,7 @@ try {
     $razon_social = $emp['nombre_comercial_empresa'] ?? $emp['razon_social_empresa'] ?? '';
     $ruc_empresa   = $emp['ruc_empresa'] ?? '';
     $direccion     = $emp['direccion_empresa'] ?? '';
-    $logo          = obtenerRutaLogoEmpresa($conn);
+    $logo          = obtenerRutaLogoEmpresa($conn, $emp['imagen_empresa'] ?? null);
 
     // ─── AGENCIA / SUCURSAL ──────────────────────────────────────────────────
     $nombre_sucursal = $_SESSION['nombre_sucursal'] ?? $_SESSION['sucursal'] ?? '';

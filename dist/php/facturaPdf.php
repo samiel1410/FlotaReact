@@ -178,7 +178,7 @@ razon_social_empresa, obligado_contabilidad FROM empresa LIMIT 1";
                         COALESCE(f.nombre_forma_pago, 'SIN UTILIZACION DEL SISTEMA FINANCIERO') as nombre_forma_pago 
                  FROM comprobante_cobro c 
                  LEFT JOIN forma_pago f ON (c.id_fkforma_pago = f.id_forma_pago OR c.id_fkforma_pago = f.codigo_forma_pago) 
-                 WHERE (c.id_fkfactura_comprobante_cobro = $id_factura OR c.id_fkfactura_comprobante_cobro = (SELECT f2.id_fkguia_factura FROM factura f2 WHERE f2.id_factura = $id_factura))";
+                 WHERE (c.id_fkfactura_comprobante_cobro = $id_factura" . ($id_fkguia > 0 ? " OR c.id_fkfactura_comprobante_cobro = $id_fkguia" : "") . ")";
   $recuperar_pago = mysqli_query($conn, $query_pago);
   $datos_pago = "";
 
@@ -203,7 +203,7 @@ razon_social_empresa, obligado_contabilidad FROM empresa LIMIT 1";
 ';
   }
 
-  $rutaLogo = obtenerRutaLogoEmpresa($conn);
+  $rutaLogo = obtenerRutaLogoEmpresa($conn, $vals_empresa['imagen_empresa'] ?? null);
   $html_logo = '';
   if ($rutaLogo) {
     $html_logo = '<tr>

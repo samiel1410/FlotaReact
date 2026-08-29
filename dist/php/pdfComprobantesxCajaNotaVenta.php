@@ -22,7 +22,7 @@ try {
     $direccion     = $emp['direccion_empresa'] ?? '';
     $telefono      = $emp['telefono_empresa'] ?? '';
     $correo        = $emp['correo_empresa'] ?? '';
-    $logo = obtenerRutaLogoEmpresa($conn);
+    $logo = obtenerRutaLogoEmpresa($conn, $emp['imagen_empresa'] ?? null);
 
     // ─── CAJA ─────────────────────────────────────────────────────────────────
     $rsCaja = mysqli_query($conn, "

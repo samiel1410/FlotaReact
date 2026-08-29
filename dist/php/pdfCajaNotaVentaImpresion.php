@@ -19,7 +19,7 @@ try {
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
     $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa,
-razon_social_empresa FROM empresa WHERE 1";
+razon_social_empresa FROM empresa LIMIT 1";
     $recuperar_empresa = mysqli_query($conn, $query_empresa) or die(mysqli_error($conn));
     $vals_empresa = mysqli_fetch_array($recuperar_empresa);
 
@@ -312,7 +312,7 @@ caja_detalle WHERE id_fkcaja =$id_caja GROUP BY tipo_caja_detalle";
 <body>
 
     <p class="center">
-        ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn)) ? '<img width="' . $metricas['logo_width_px'] . 'px" class="center"
+        ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn, $imagen_empresa)) ? '<img width="' . $metricas['logo_width_px'] . 'px" class="center"
             src="' . $rutaLogo . '" /><br>' : '') . '
         <span class="titulo_inicio">' . $razon_social_empresa . '</span> <br>
         <span class="titulo_inicio">RUC:' . $ruc_empresa . '</span> <br>

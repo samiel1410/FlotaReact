@@ -58,15 +58,15 @@ try {
     $id_fkusuario_despacho_maestro = $vals["id_fkusuario_despacho_maestro"];
 
     // Datos Empresa
-    $query3 = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa
-    FROM empresa WHERE 1 LIMIT 1";
+    $query3 = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa
+    FROM empresa LIMIT 1";
     $recuperar3 = mysqli_query($conn, $query3) or die(mysqli_error($conn));
     $vals3 = mysqli_fetch_array($recuperar3);
 
     $razon_social_empresa = $vals3["razon_social_empresa"] ?? "SISTEMA FLOTA";
     $ruc_empresa          = $vals3["ruc_empresa"] ?? "";
 
-    $rutaLogo = obtenerRutaLogoEmpresa($conn);
+    $rutaLogo = obtenerRutaLogoEmpresa($conn, $vals3['imagen_empresa'] ?? null);
     $html_logo = '';
     if ($rutaLogo) {
         $html_logo = '<div style="text-align:center;"><img src="' . $rutaLogo . '" style="width:110px;" /></div>';

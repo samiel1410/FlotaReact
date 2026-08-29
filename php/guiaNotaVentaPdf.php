@@ -31,22 +31,24 @@ g.id_guia, f.clave_acceso_factura, f.id_factura, g.subtotal_12_guia, g.subtotal_
 g.sucursal_guia, g.punto_emision_guia, g.valor_tarifa_adicional_guia, g.numero_guia,
 g.nombre_cliente_receptor, g.nombre_cliente_remitente, g.cedula_cliente_remitente,
 g.cedula_cliente_receptor, g.direccion_cliente_receptor, g.direccion_cliente_emisor, g.telefono_cliente_receptor, g.telefono_cliente_emisor,
-g.correo_cliente_emisor, g.correo_cliente_receptor
+g.correo_cliente_emisor, g.correo_cliente_receptor,
+COALESCE(s2.nombre_sucursal, s.nombre_sucursal, '') AS nombre_sucursal,
+COALESCE(s2.direccion_sucursal, s.ubicacion_sucursal, '') AS ubicacion_sucursal,
+COALESCE(s2.punto_emision_sucursal, s.punto_emision_sucursal, '001') AS punto_emision_sucursal
 FROM guia_nota_venta g
 LEFT JOIN factura f ON f.id_fkguia_factura = g.id_guia AND f.estado_factura = 1
-WHERE g.id_guia = $id_guia";
-
+LEFT JOIN sucursal2 s2 ON g.sucursal_guia = s2.suc_codigo_sucursal
+LEFT JOIN sucursal s ON g.sucursal_guia = s.id_sucursal
+WHERE g.id_guia = $id_guia LIMIT 1";
 
 $recuperar= mysqli_query($conn,$query) or die(mysqli_error($conn));
 $vals = mysqli_fetch_array($recuperar);
-
 
 if(empty($vals)){
   header('Content-Type: text/plain', true, 404);
   echo 'No se encontró la guía con id=' . $id_guia;
   exit;
 }else{
-
 
 $id_sucursal = $vals["sucursal_guia"];
 $id_factura = $vals["id_factura"];
@@ -68,23 +70,17 @@ $iva_guia = $vals["impuesto_iva_guia"];
 $total_guia = $vals["total_guia"];
 $tarifa_guia = $vals["valor_tarifa_adicional_guia"];
 
-
-$query_sucural = "SELECT nombre_sucursal, ubicacion_sucursal,punto_emision_sucursal FROM sucursal WHERE id_sucursal =
-$id_sucursal";
-$recuperar_sucursal= mysqli_query($conn,$query_sucural) or die(mysqli_error($conn));
-$vals_sucursal = mysqli_fetch_array($recuperar_sucursal);
-
 $resultado= sprintf("%09s", $vals['numero_guia']);
 
-$punto_emision_sucursal = !empty($vals_sucursal["punto_emision_sucursal"]) ? $vals_sucursal["punto_emision_sucursal"] : '001';
+$punto_emision_sucursal = !empty($vals["punto_emision_sucursal"]) ? $vals["punto_emision_sucursal"] : '001';
 $punto_emision_guia = !empty($vals["punto_emision_guia"]) ? $vals["punto_emision_guia"] : '001';
 $numero_guia = $punto_emision_sucursal . '-' . $punto_emision_guia . '-' . $resultado;
-$nombre_sucursal = isset($vals_sucursal["nombre_sucursal"]) ? $vals_sucursal["nombre_sucursal"] : '';
-$ubicacion_sucursal = isset($vals_sucursal["ubicacion_sucursal"]) ? $vals_sucursal["ubicacion_sucursal"] : '';
+$nombre_sucursal = isset($vals["nombre_sucursal"]) ? $vals["nombre_sucursal"] : '';
+$ubicacion_sucursal = isset($vals["ubicacion_sucursal"]) ? $vals["ubicacion_sucursal"] : '';
 
 //EMPRESA
 $query_empresa= "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa,
-razon_social_empresa FROM empresa";
+razon_social_empresa FROM empresa LIMIT 1";
 $recuperar_empresa= mysqli_query($conn,$query_empresa) or die(mysqli_error($conn));
 $vals_empresa = mysqli_fetch_array($recuperar_empresa);
 $nombre_empresa=$vals_empresa['razon_social_empresa'];
@@ -122,7 +118,7 @@ while ($vals_detalles = mysqli_fetch_array($recuperar_detalles)) {
     $datos .= $tabla;
 }
 
-$rutaLogo = obtenerRutaLogoEmpresa($conn);
+$rutaLogo = obtenerRutaLogoEmpresa($conn, $vals_empresa['imagen_empresa'] ?? null);
 $html_logo = '';
 if ($rutaLogo) {
     $html_logo = '<tr>

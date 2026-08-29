@@ -14,7 +14,7 @@ try {
 
     $conn = conexion();
     $query = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa,
-imagen_empresa FROM empresa WHERE 1";
+imagen_empresa FROM empresa LIMIT 1";
     $recuperar = mysqli_query($conn, $query) or die(mysqli_error($conn));
     $vals = mysqli_fetch_array($recuperar);
 
@@ -57,7 +57,7 @@ factura.id_fksucursal_factura = sucursal.id_sucursal AND comprobante_cobro.id_fk
     $nombre_sucursal_2 = $vals2["nombre_sucursal"];
     $nombre_forma_pago = $vals2["nombre_forma_pago"];
 
-    $rutaLogo = obtenerRutaLogoEmpresa($conn);
+    $rutaLogo = obtenerRutaLogoEmpresa($conn, $vals['imagen_empresa'] ?? null);
     $html_logo = '';
     if ($rutaLogo) {
         $html_logo = '<div style="text-align:center;margin-bottom:10px;"><img src="' . $rutaLogo . '"

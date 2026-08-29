@@ -27,7 +27,7 @@ try {
   $vals_empresa  = mysqli_fetch_assoc(mysqli_query($conn, $query_empresa));
 
   $razon_social  = !empty($vals_empresa["razon_social_empresa"]) ? strtoupper($vals_empresa["razon_social_empresa"]) : 'GRUPO TRAMACO';
-  $rutaLogo      = obtenerRutaLogoEmpresa($conn);
+  $rutaLogo      = obtenerRutaLogoEmpresa($conn, $vals_empresa["imagen_empresa"] ?? null);
 
   // ─── 2. GUÍA ───────────────────────────────────────────────────────────────
   $query_guia = "SELECT g.origen_guia, g.destino_guia, g.numero_guia, g.observacion_guia,

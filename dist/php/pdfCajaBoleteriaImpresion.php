@@ -161,7 +161,7 @@ try {
 <body>
 
     <p class="center">
-        ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn)) ? '<img width="' . $metricas['logo_width_px'] . 'px" class="center" src="' . $rutaLogo . '" /><br>' : '') . '
+        ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn, $imagen_empresa)) ? '<img width="' . $metricas['logo_width_px'] . 'px" class="center" src="' . $rutaLogo . '" /><br>' : '') . '
         <span class="titulo_inicio">' . $razon_social_empresa . '</span> <br>
         <span class="titulo_inicio">RUC:' . $ruc_empresa . '</span> <br>
         <span class="titulo_inicio">CAJA BOLETERIA</span> <br>

@@ -120,18 +120,19 @@ try {
 
     $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa,
 correo_empresa, ruc_empresa, direccion_empresa,
-razon_social_empresa FROM empresa WHERE 1";
+razon_social_empresa FROM empresa LIMIT 1";
     $recuperar_empresa = mysqli_query($conn, $query_empresa) or die(mysqli_error($conn));
-    $vals_empresa = mysqli_fetch_array($recuperar_empresa);
+    $vals_empresa = mysqli_fetch_assoc($recuperar_empresa);
 
     // Obtener leyenda de configuración
-    $query_config = "SELECT leyenda_boleteria, mostrar_leyenda_boleteria FROM configuracion LIMIT 1";
+    $query_config = "SELECT leyenda_boleteria, mostrar_leyenda_boleteria, formato_impresion FROM configuracion LIMIT 1";
     $recuperar_config = mysqli_query($conn, $query_config);
     $vals_config = mysqli_fetch_assoc($recuperar_config);
     $leyenda_viaje = ($vals_config && $vals_config['mostrar_leyenda_boleteria'] == 1) ? $vals_config['leyenda_boleteria'] :
         'GRACIAS POR SU PREFERENCIA';
 
-    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 80);
+    $formato_impresion_db = $vals_config['formato_impresion'] ?? null;
+    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 80, $formato_impresion_db);
     $metricas = obtenerMetricasImpresion($ancho_impresion, 80);
 
     $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array($ancho_impresion, 380), true, 'UTF-8', false);
@@ -170,7 +171,7 @@ razon_social_empresa FROM empresa WHERE 1";
         table{width:100%;border-collapse:collapse}td{padding:0;vertical-align:middle;font-size:' . $metricas['font_boleto_base_pt'] . 'pt}
     </style></head><body><div class="center">';
 
-    $rutaLogo = obtenerRutaLogoEmpresa($conn);
+    $rutaLogo = obtenerRutaLogoEmpresa($conn, $vals_empresa['imagen_empresa'] ?? null);
     if ($rutaLogo) {
         $html1 .= '<img src="' . $rutaLogo . '" width="' . max(24, round(30 * $metricas['factor'])) . '" style="margin-bottom:0;"><br>';
     }
