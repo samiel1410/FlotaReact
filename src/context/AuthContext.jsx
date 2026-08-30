@@ -15,6 +15,44 @@ export const useAuth = () => {
   return context;
 };
 
+const AUTH_KEYS = [
+  'auth_token',
+  'refresh_token',
+  'backend_url',
+  'user_data',
+  'db_name',
+  'db_host',
+  'db_user',
+  'db_pass',
+  'php_url',
+  'empresa_data'
+];
+
+const syncStorageFromLocal = () => {
+  AUTH_KEYS.forEach(key => {
+    const sessionVal = sessionStorage.getItem(key);
+    const localVal = localStorage.getItem(key);
+    if (!sessionVal && localVal) {
+      sessionStorage.setItem(key, localVal);
+    }
+  });
+};
+
+const persistAuthData = (data) => {
+  AUTH_KEYS.forEach(key => {
+    if (data[key] !== undefined && data[key] !== null) {
+      const val = typeof data[key] === 'object' ? JSON.stringify(data[key]) : String(data[key]);
+      sessionStorage.setItem(key, val);
+      localStorage.setItem(key, val);
+    }
+  });
+};
+
+const clearAuthData = () => {
+  sessionStorage.clear();
+  AUTH_KEYS.forEach(key => localStorage.removeItem(key));
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -43,10 +81,12 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  // Inicializar estado desde sessionStorage
+  // Inicializar estado desde sessionStorage / localStorage (para soportar nuevas pestañas)
   useEffect(() => {
-    const token = sessionStorage.getItem('auth_token');
-    const userDataStr = sessionStorage.getItem('user_data');
+    syncStorageFromLocal();
+
+    const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
+    const userDataStr = sessionStorage.getItem('user_data') || localStorage.getItem('user_data');
 
     if (!token || !userDataStr) {
       setLoading(false);
@@ -60,26 +100,23 @@ export const AuthProvider = ({ children }) => {
       setIsAuthenticated(true);
       cargarPermisosRol(userData);
     } catch (e) {
-      console.error('Error parsing user data from session storage', e);
-      logout();
+      console.error('Error parsing user data from storage', e);
+      clearAuthData();
+      setUser(null);
+      setIsAuthenticated(false);
       setLoading(false);
       return;
     }
 
     // Re-establecer la sesión PHP (login.php) ANTES de renderizar la app.
-    // Al recargar la página (F5) el puente no se ejecuta en el flujo de login,
-    // y si la cookie PHPSESSID se perdió, las peticiones PHP no encuentran las
-    // variables de sesión y caen a credenciales por defecto. Aquí se garantiza
-    // que la sesión PHP exista cuando carguen las peticiones del dashboard.
     const bridgeData = {
       user: userData,
-      db_name: sessionStorage.getItem('db_name') || '',
-      db_host: sessionStorage.getItem('db_host') || '',
-      db_user: sessionStorage.getItem('db_user') || '',
-      db_pass: sessionStorage.getItem('db_pass') || '',
+      db_name: sessionStorage.getItem('db_name') || localStorage.getItem('db_name') || '',
+      db_host: sessionStorage.getItem('db_host') || localStorage.getItem('db_host') || '',
+      db_user: sessionStorage.getItem('db_user') || localStorage.getItem('db_user') || '',
+      db_pass: sessionStorage.getItem('db_pass') || localStorage.getItem('db_pass') || '',
     };
-    // Tope de 2s para no bloquear la recarga si PHP no responde. phpSessionBridge
-    // nunca rechaza (captura errores internamente y devuelve true/false).
+
     Promise.race([
       AuthService.phpSessionBridge(bridgeData),
       new Promise((resolve) => setTimeout(resolve, 2000)),
@@ -90,25 +127,53 @@ export const AuthProvider = ({ children }) => {
         }
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [cargarPermisosRol]);
+
+  // Sincronizar logout y cambios de sesión entre pestañas en tiempo real
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'auth_token') {
+        if (!e.newValue) {
+          sessionStorage.clear();
+          setUser(null);
+          setIsAuthenticated(false);
+          window.location.href = '/#/login';
+        } else {
+          syncStorageFromLocal();
+          const userStr = localStorage.getItem('user_data');
+          if (userStr) {
+            try {
+              const u = JSON.parse(userStr);
+              setUser(u);
+              setIsAuthenticated(true);
+              cargarPermisosRol(u);
+            } catch (err) {}
+          }
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [cargarPermisosRol]);
 
   const login = async (username, password) => {
     try {
       const loginData = await AuthService.login(username, password);
       
       if (loginData.success) {
-        // 1. Guardar tokens y URL de backend
-        sessionStorage.setItem('auth_token', loginData.token);
-        sessionStorage.setItem('refresh_token', loginData.refresh_token);
+        // 1. Guardar tokens y URL de backend en session y local storage
         const backendUrlToUse = loginData.backend_url || CONFIG.AUTH_API_URL;
-        sessionStorage.setItem('backend_url', backendUrlToUse);
-        sessionStorage.setItem('user_data', JSON.stringify(loginData.user));
-
-        // Credenciales de BD guardadas para poder restaurar la sesión PHP al recargar la página
-        sessionStorage.setItem('db_name', loginData.db_name || '');
-        sessionStorage.setItem('db_host', loginData.db_host || '');
-        sessionStorage.setItem('db_user', loginData.db_user || '');
-        sessionStorage.setItem('db_pass', loginData.db_pass || '');
+        persistAuthData({
+          auth_token: loginData.token,
+          refresh_token: loginData.refresh_token,
+          backend_url: backendUrlToUse,
+          user_data: loginData.user,
+          db_name: loginData.db_name || '',
+          db_host: loginData.db_host || '',
+          db_user: loginData.db_user || '',
+          db_pass: loginData.db_pass || ''
+        });
 
         // 2. Puente PHP
         await AuthService.phpSessionBridge(loginData);
@@ -187,21 +252,17 @@ export const AuthProvider = ({ children }) => {
 
   // Suplantación: Login como otro usuario desde el panel de administración
   const loginFromImpersonation = useCallback(async (token, userData, bridgeData) => {
-    // 1. Guardar en sessionStorage exactamente como login normal
-    sessionStorage.setItem('auth_token', token);
-    sessionStorage.setItem('user_data', JSON.stringify(userData));
-    if (bridgeData.refresh_token) {
-      sessionStorage.setItem('refresh_token', bridgeData.refresh_token);
-    }
-    if (bridgeData.backend_url) {
-      sessionStorage.setItem('backend_url', bridgeData.backend_url);
-    }
-
-    // Credenciales de BD para poder restaurar la sesión PHP al recargar la página
-    sessionStorage.setItem('db_name', bridgeData.db_name || '');
-    sessionStorage.setItem('db_host', bridgeData.db_host || '');
-    sessionStorage.setItem('db_user', bridgeData.db_user || '');
-    sessionStorage.setItem('db_pass', bridgeData.db_pass || '');
+    // 1. Guardar en session y local storage exactamente como login normal
+    persistAuthData({
+      auth_token: token,
+      user_data: userData,
+      refresh_token: bridgeData.refresh_token,
+      backend_url: bridgeData.backend_url,
+      db_name: bridgeData.db_name || '',
+      db_host: bridgeData.db_host || '',
+      db_user: bridgeData.db_user || '',
+      db_pass: bridgeData.db_pass || ''
+    });
 
     // 2. Puente PHP (sesión legacy)
     await AuthService.phpSessionBridge(bridgeData);
@@ -215,7 +276,7 @@ export const AuthProvider = ({ children }) => {
   }, [cargarPermisosRol]);
 
   const logout = useCallback(() => {
-    sessionStorage.clear();
+    clearAuthData();
     setUser(null);
     setIsAuthenticated(false);
     window.location.href = '/#/login';

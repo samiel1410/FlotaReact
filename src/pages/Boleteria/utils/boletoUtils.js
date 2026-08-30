@@ -55,11 +55,11 @@ export const hoyLocal = () => {
 export const getSessionUser = () => {
   let user = {};
   try {
-    const userData = sessionStorage.getItem('user_data');
+    const userData = sessionStorage.getItem('user_data') || localStorage.getItem('user_data');
     if (userData) user = { ...user, ...JSON.parse(userData) };
   } catch (e) { }
   try {
-    const usuario = sessionStorage.getItem('usuario');
+    const usuario = sessionStorage.getItem('usuario') || localStorage.getItem('usuario');
     if (usuario) user = { ...user, ...JSON.parse(usuario) };
   } catch (e) { }
   return user;

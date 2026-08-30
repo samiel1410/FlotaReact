@@ -15,9 +15,9 @@ export const CONFIG = {
     return isLocal ? 'http://localhost:4000' : 'https://usuarioeasys.easysplus.com';
   },
 
-  // Backend URL dinámica (asignada tras el login y guardada en sessionStorage)
+  // Backend URL dinámica (asignada tras el login y guardada en sessionStorage/localStorage)
   get API_URL() {
-    const url = sessionStorage.getItem('backend_url') || '';
+    const url = sessionStorage.getItem('backend_url') || localStorage.getItem('backend_url') || '';
     if (isLocal) {
       // Si estamos en entorno local, forzar el uso del servidor backend local (http://localhost:3000)
       return 'http://localhost:3000';
@@ -31,7 +31,7 @@ export const CONFIG = {
 
   get PHP_URL() {
     if (isLocal) return 'http://localhost/SistemaFlota/FrontReact/php';
-    const stored = sessionStorage.getItem('php_url');
+    const stored = sessionStorage.getItem('php_url') || localStorage.getItem('php_url');
     if (stored) return stored;
     return `${window.location.origin}/php`;
   },

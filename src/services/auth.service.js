@@ -11,8 +11,8 @@ import axios from 'axios';
  * (el pathname es siempre la base, sin importar la ruta interna).
  */
 function getPhpBaseUrl() {
-  // Si hay un php_url explícito en sessionStorage y es del mismo origen, respetarlo
-  const stored = sessionStorage.getItem('php_url');
+  // Si hay un php_url explícito en sessionStorage/localStorage y es del mismo origen, respetarlo
+  const stored = sessionStorage.getItem('php_url') || localStorage.getItem('php_url');
   if (stored) {
     try {
       const url = new URL(stored);

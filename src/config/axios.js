@@ -12,7 +12,7 @@ export const api = axios.create({
 // Interceptor de Request: Agrega dinámicamente la baseURL y el Token
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
     const backendUrl = CONFIG.API_URL; // Dinámico
     
     // Si la llamada no es absoluta (no empieza con http), añadir el baseURL
@@ -131,6 +131,18 @@ api.interceptors.response.use(
     if (errorInfo.status === 401) {
       console.error('[Auth] Sesión expirada o token inválido. Redirigiendo al login...');
       sessionStorage.clear();
+      [
+        'auth_token',
+        'refresh_token',
+        'backend_url',
+        'user_data',
+        'db_name',
+        'db_host',
+        'db_user',
+        'db_pass',
+        'php_url',
+        'empresa_data'
+      ].forEach(k => localStorage.removeItem(k));
       window.location.href = '/#/login';
     }
 
