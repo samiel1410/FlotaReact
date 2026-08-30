@@ -316,36 +316,71 @@ function obtenerCredencialesDb($isLocal)
 
 function conexion()
 {
+    if (function_exists('mysqli_report')) {
+        mysqli_report(MYSQLI_REPORT_OFF);
+    }
+
     $rawHost = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : 'localhost');
     $hostOnly = strtolower(trim(explode(':', $rawHost)[0]));
     $isLocal = ($hostOnly === 'localhost' || $hostOnly === '127.0.0.1' || $hostOnly === '::1' || substr($hostOnly, -5) === '.test' || substr($hostOnly, -6) === '.local');
 
     list($db_host, $db_user, $db_pass, $db_name, $origen) = obtenerCredencialesDb($isLocal);
 
-    $conn = @mysqli_connect($db_host, $db_user, $db_pass, $db_name);
+    $conn = false;
+    try {
+        $conn = @mysqli_connect($db_host, $db_user, $db_pass, $db_name);
+    } catch (Throwable $e) {
+        $conn = false;
+    }
 
-    if (!$conn && $isLocal && ($db_host === 'localhost' || $db_host === '127.0.0.1') && !empty($db_user) && $db_user !== 'root') {
+    if (!$conn && ($db_host === 'localhost' || $db_host === '127.0.0.1') && !empty($db_user) && $db_user !== 'root') {
         $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
-        $conn = @mysqli_connect($remoteHost, $db_user, $db_pass, $db_name);
-        if ($conn) {
-            $db_host = $remoteHost;
+        try {
+            $conn = @mysqli_connect($remoteHost, $db_user, $db_pass, $db_name);
+            if ($conn) {
+                $db_host = $remoteHost;
+            }
+        } catch (Throwable $e) {
+            $conn = false;
+        }
+    }
+
+    // Fallback con credenciales remotas estándar si la conexión a localhost o tenant falló
+    if (!$conn) {
+        $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
+        $remoteUser = getenv('REMOTE_DB_USER') ?: 'adminroot';
+        $remotePass = getenv('REMOTE_DB_PASSWORD') ?: 'Latacunga14';
+        $targetDb = !empty($db_name) ? $db_name : (getenv('REMOTE_DB_NAME') ?: 'flotapelileo_produccion');
+        try {
+            $conn = @mysqli_connect($remoteHost, $remoteUser, $remotePass, $targetDb);
+            if ($conn) {
+                $db_host = $remoteHost;
+                $db_user = $remoteUser;
+                $db_name = $targetDb;
+            }
+        } catch (Throwable $e) {
+            $conn = false;
         }
     }
 
     if (!$conn) {
-        // Si la conexión falló con credenciales guardadas en la sesión (por ejemplo patate_user guardado previamente por error), limpiar la sesión y reintentar
+        // Si la conexión falló con credenciales guardadas en la sesión, limpiar y reintentar
         if (!empty($_SESSION['db_name']) || !empty($_SESSION['db_user'])) {
             unset($_SESSION['db_host'], $_SESSION['db_user'], $_SESSION['db_pass'], $_SESSION['db_name']);
             list($db_host, $db_user, $db_pass, $db_name, $origen) = obtenerCredencialesDb($isLocal);
-            $conn = @mysqli_connect($db_host, $db_user, $db_pass, $db_name);
+            try {
+                $conn = @mysqli_connect($db_host, $db_user, $db_pass, $db_name);
+            } catch (Throwable $e) {
+                $conn = false;
+            }
         }
     }
 
     if (!$conn) {
-        $err = mysqli_connect_error();
-        $errNo = mysqli_connect_errno();
+        $err = mysqli_connect_error() ?: 'No se pudo establecer conexión con el servidor MySQL';
+        $errNo = mysqli_connect_errno() ?: 0;
         error_log("DB Connection Error ({$errNo}): " . $err);
-        die("Error generando PDF: " . $err . " | Host: '{$db_host}', User: '{$db_user}', DB: '{$db_name}'");
+        die("Error conectando a BD para generar PDF: " . $err . " | Host: '{$db_host}', User: '{$db_user}', DB: '{$db_name}'");
     }
 
     mysqli_set_charset($conn, "utf8");

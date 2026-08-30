@@ -101,7 +101,14 @@ export const BoleteriaPage = () => {
 
   const openPdfViewer = (id_boleto) => {
     if (!id_boleto) return;
-    const urlGenerador = `/php/boletoFactura.php?id_boleto=${id_boleto}`;
+    const dbName = sessionStorage.getItem('db_name') || localStorage.getItem('db_name') || '';
+    const dbHost = sessionStorage.getItem('db_host') || localStorage.getItem('db_host') || '';
+    const dbUser = sessionStorage.getItem('db_user') || localStorage.getItem('db_user') || '';
+    const dbPass = sessionStorage.getItem('db_pass') || localStorage.getItem('db_pass') || '';
+    let urlGenerador = `/php/boletoFactura.php?id_boleto=${id_boleto}`;
+    if (dbName) {
+      urlGenerador += `&db_name=${encodeURIComponent(dbName)}&db_host=${encodeURIComponent(dbHost)}&db_user=${encodeURIComponent(dbUser)}&db_pass=${encodeURIComponent(dbPass)}`;
+    }
     setPdfUrl(urlGenerador);
     setPdfModalOpen(true);
   };
