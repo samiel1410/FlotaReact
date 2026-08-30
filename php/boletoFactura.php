@@ -58,16 +58,57 @@ function formatearFechaEspanol($fecha)
     return ucfirst($nombreDia) . ', ' . $diaNumero . ' de ' . $nombreMes . ' ' . $anio;
 }
 
+function extraerDestinoLimpio($candidato)
+{
+    if (empty($candidato)) {
+        return '';
+    }
+    $cand = trim((string)$candidato);
+    if ($cand === '' || $cand === '—' || $cand === '-' || is_numeric($cand)) {
+        return '';
+    }
+    if (strpos(strtoupper($cand), 'SIN DESTINO') !== false) {
+        return '';
+    }
+    if (strpos(strtoupper($cand), 'S/N - S/N') !== false) {
+        return '';
+    }
+    if (preg_match('/^ID\s+\d+\s*-\s*ID\s+\d+$/i', $cand)) {
+        return '';
+    }
+    if (preg_match('/^\d+\s*-\s*\d+$/', $cand)) {
+        return '';
+    }
+
+    // Si contiene separador (>>, ->, >, -, a), extraer la parte final correspondiente al destino
+    $separadores = ['>>', '->', '>', ' - ', ' / ', ' A '];
+    foreach ($separadores as $sep) {
+        if (stripos($cand, $sep) !== false) {
+            $partes = explode($sep, $cand);
+            $ultimaParte = trim(end($partes));
+            if (!empty($ultimaParte) && !is_numeric($ultimaParte) && strpos(strtoupper($ultimaParte), 'SIN DESTINO') === false) {
+                return $ultimaParte;
+            }
+        }
+    }
+
+    return $cand;
+}
+
 function obtener_datos_factura($id_boleto, $conn)
 {
     $query_boleto = "SELECT
 b.id_boleto, b.identificacion_boleto, b.nombres_boleto, b.observacion_boleto,
 b.fecha_boleto, b.total_boleto, b.numero_boleto,
 b.punto_emision_boleto, b.sucursal_emision_boleto, b.id_fkviaje_boleto,
-b.nombre_origen, b.nombre_destino, b.clave_acceso_boletos, b.fecha_creacion_boleto,
+b.nombre_origen, b.nombre_destino, b.origen_boleto, b.destino_boleto, b.id_fksubruta_boleto,
+b.clave_acceso_boletos, b.fecha_creacion_boleto,
 s.nombre_sucursal, u.nombre_usuario, bu.disco_buses, bu.placa_buses,
-r.nombre_rutas, r.andes_rutas, r.piso_rutas, b.celular_boleto, b.tipo_boleto, b.estado_boleto,
-sr.anden_sub_rutas, sr.piso_sub_rutas, sr.fecha_salida, sr.hora_salida,
+r.nombre_rutas, r.andes_rutas, r.piso_rutas, r.id_fkdestino_rutas, b.celular_boleto, b.tipo_boleto, b.estado_boleto,
+sr.nombre_sub_rutas, sr.anden_sub_rutas, sr.piso_sub_rutas, sr.fecha_salida, sr.hora_salida, sr.id_fkdestino_sub_rutas,
+d_sr.nombre_destino as destino_sr_nombre, d_sr.lugar_destino as destino_sr_lugar,
+d_bol.nombre_destino as destino_bol_nombre, d_bol.lugar_destino as destino_bol_lugar,
+d_ruta.nombre_destino as destino_ruta_nombre, d_ruta.lugar_destino as destino_ruta_lugar,
 v.incluye_alimentos, v.hora_origen_salida, v.fecha_cierre,
 (SELECT GROUP_CONCAT(nombre_alimentos SEPARATOR ', ')
 FROM alimentos
@@ -78,22 +119,34 @@ LEFT JOIN sucursal2 s ON u.id_fksucursal_usuario = s.suc_codigo_sucursal
 LEFT JOIN buses bu ON b.id_fkbus_boleto = bu.id_buses
 LEFT JOIN viajes v ON b.id_fkviaje_boleto = v.id_viajes
 LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
-LEFT JOIN sub_rutas sr ON b.id_fksubruta_boleto = sr.id_sub_rutas
+LEFT JOIN sub_rutas sr ON (b.id_fksubruta_boleto = sr.id_sub_rutas OR (b.destino_boleto = sr.id_sub_rutas AND b.destino_boleto > 0))
+LEFT JOIN destino d_sr ON sr.id_fkdestino_sub_rutas = d_sr.id_destino
+LEFT JOIN destino d_bol ON (b.destino_boleto = d_bol.id_destino AND b.destino_boleto > 0)
+LEFT JOIN destino d_ruta ON r.id_fkdestino_rutas = d_ruta.id_destino
 WHERE b.id_boleto = $id_boleto";
 
     $recuperar_boleto = mysqli_query($conn, $query_boleto) or die(mysqli_error($conn));
     $boleto = mysqli_fetch_assoc($recuperar_boleto);
 
     $query_detalles = "SELECT
-asiento_boleto_detalle, precio_boleto_detalle,
-descuento_boleto_detalle, iva_boleto_detalle,
-total_boleto_detalle, tarifa_boleto_detalle,
-nombre_cliente_boleto_detalle,
-identificacion_boleto_detalle,
-incluye_alimento_boleto_detalle,
-precio_alimento_boleto_detalle
-FROM boleto_detalle
-WHERE id_fkboleto_boleto_detalle = $id_boleto";
+bd.asiento_boleto_detalle, bd.precio_boleto_detalle,
+bd.descuento_boleto_detalle, bd.iva_boleto_detalle,
+bd.total_boleto_detalle, bd.tarifa_boleto_detalle,
+bd.nombre_cliente_boleto_detalle,
+bd.identificacion_boleto_detalle,
+bd.incluye_alimento_boleto_detalle,
+bd.precio_alimento_boleto_detalle,
+bd.id_destino_boleto,
+sr_det.nombre_sub_rutas as subruta_detalle_nombre,
+d_det_sr.nombre_destino as destino_det_sr_nombre,
+d_det_sr.lugar_destino as destino_det_sr_lugar,
+d_det.nombre_destino as destino_det_nombre,
+d_det.lugar_destino as destino_det_lugar
+FROM boleto_detalle bd
+LEFT JOIN sub_rutas sr_det ON bd.id_destino_boleto = sr_det.id_sub_rutas
+LEFT JOIN destino d_det_sr ON sr_det.id_fkdestino_sub_rutas = d_det_sr.id_destino
+LEFT JOIN destino d_det ON bd.id_destino_boleto = d_det.id_destino
+WHERE bd.id_fkboleto_boleto_detalle = $id_boleto";
 
     $recuperar_detalles = mysqli_query($conn, $query_detalles) or die(mysqli_error($conn));
     $detalles = [];
@@ -150,13 +203,26 @@ razon_social_empresa FROM empresa LIMIT 1";
     
     $viajeMostrar = !empty($boleto['nombre_rutas']) ? $boleto['nombre_rutas'] : '—';
     
-    $origenBoleto = trim(str_replace('?', '', $boleto['nombre_origen']));
-    $destinoBoleto = trim($boleto['nombre_destino']);
-    
-    if (!empty($origenBoleto) && !empty($destinoBoleto) && strpos(strtoupper($destinoBoleto), 'SIN DESTINO') === false) {
-        $rutaPasajero = $origenBoleto . ' >> ' . $destinoBoleto;
-    } else {
-        $rutaPasajero = $viajeMostrar;
+    // Obtener destino general del boleto como fallback
+    $destinoGeneral = '';
+    $candidatosBoleto = [
+        $boleto['destino_sr_lugar'] ?? '',
+        $boleto['destino_sr_nombre'] ?? '',
+        $boleto['destino_bol_lugar'] ?? '',
+        $boleto['destino_bol_nombre'] ?? '',
+        $boleto['nombre_destino'] ?? '',
+        $boleto['nombre_sub_rutas'] ?? '',
+        $boleto['destino_boleto'] ?? '',
+        $boleto['destino_ruta_lugar'] ?? '',
+        $boleto['destino_ruta_nombre'] ?? '',
+        $boleto['nombre_rutas'] ?? ''
+    ];
+    foreach ($candidatosBoleto as $cand) {
+        $dest = extraerDestinoLimpio($cand);
+        if (!empty($dest)) {
+            $destinoGeneral = $dest;
+            break;
+        }
     }
 
     $busMostrar = !empty($boleto['disco_buses']) ? $boleto['disco_buses'] : '—';
@@ -200,7 +266,24 @@ razon_social_empresa FROM empresa LIMIT 1";
         $nombrePasajero = strtoupper($detalle['nombre_cliente_boleto_detalle']);
         $fechaSalidaFormateada = formatearFechaEspanol($fechaSalida); 
         
-        $destinoMostrar = !empty($destinoBoleto) ? strtoupper($destinoBoleto) : strtoupper($rutaPasajero);
+        $destinoDetalle = '';
+        $candidatosDetalle = [
+            $detalle['destino_det_sr_lugar'] ?? '',
+            $detalle['destino_det_sr_nombre'] ?? '',
+            $detalle['destino_det_lugar'] ?? '',
+            $detalle['destino_det_nombre'] ?? '',
+            $detalle['subruta_detalle_nombre'] ?? '',
+            $detalle['id_destino_boleto'] ?? ''
+        ];
+        foreach ($candidatosDetalle as $cand) {
+            $dest = extraerDestinoLimpio($cand);
+            if (!empty($dest)) {
+                $destinoDetalle = $dest;
+                break;
+            }
+        }
+
+        $destinoMostrar = !empty($destinoDetalle) ? strtoupper($destinoDetalle) : (!empty($destinoGeneral) ? strtoupper($destinoGeneral) : '—');
         
         $html1 .= '<table style="margin-top:1px">
             <tr><td class="bold" style="font-size:' . round($metricas['font_boleto_base_pt'] * 1.1, 1) . 'pt">' . $nombrePasajero . '</td><td class="bold" style="font-size:' . $metricas['font_boleto_total_pt'] . 'pt" align="right">Asiento ' . str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) . '</td></tr>
