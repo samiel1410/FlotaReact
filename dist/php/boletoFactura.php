@@ -1,4 +1,8 @@
 <?php
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once('library/tcpdf.php');
 require_once("db.php");
 require_once("pdf_utils.php");
@@ -388,13 +392,15 @@ razon_social_empresa FROM empresa LIMIT 1";
 
 } catch (Throwable $e) {
     http_response_code(500);
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode([
-        "error" => $e->getMessage(),
-        "success" => false,
-        "line" => $e->getLine(),
-        "file" => basename($e->getFile())
-    ]);
+    header('Content-Type: text/html; charset=utf-8');
+    echo "<!DOCTYPE html><html><head><title>Error al generar boleto</title></head><body style='font-family:sans-serif;padding:30px;background:#f8f9fa;'>";
+    echo "<div style='max-width:800px;margin:0 auto;background:#fff;border:1px solid #e74c3c;border-radius:8px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);'>";
+    echo "<h2 style='color:#c0392b;margin-top:0;'>⚠️ Error al generar el boleto (ID: " . htmlspecialchars($_GET['id_boleto'] ?? '0') . ")</h2>";
+    echo "<p style='font-size:16px;'><strong>Mensaje:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+    echo "<p><strong>Archivo:</strong> <code>" . htmlspecialchars($e->getFile()) . "</code> (Línea <strong>" . $e->getLine() . "</strong>)</p>";
+    echo "<h4 style='margin-bottom:5px;color:#2c3e50;'>Traza de ejecución:</h4>";
+    echo "<pre style='background:#2c3e50;color:#ecf0f1;padding:15px;border-radius:5px;overflow:auto;font-size:13px;'>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+    echo "</div></body></html>";
     exit();
 }
 ?>
