@@ -84,19 +84,11 @@ function extraerDestinoLimpio($candidato)
         return '';
     }
 
-    // Si contiene separador (>>, ->, >, -, a), extraer la parte final correspondiente al destino
-    $separadores = ['>>', '->', '>', ' - ', ' / ', ' A '];
-    foreach ($separadores as $sep) {
-        if (stripos($cand, $sep) !== false) {
-            $partes = explode($sep, $cand);
-            $ultimaParte = trim(end($partes));
-            if (!empty($ultimaParte) && !is_numeric($ultimaParte) && strpos(strtoupper($ultimaParte), 'SIN DESTINO') === false) {
-                return $ultimaParte;
-            }
-        }
-    }
+    // Limpiar posibles precios adjuntos al final (ej: "Quito - Latacunga - $3.13" -> "Quito - Latacunga")
+    $cand = preg_replace('/\s*-\s*\$\s*[\d\.,]+\s*$/i', '', $cand);
+    $cand = preg_replace('/\s*\$\s*[\d\.,]+\s*$/i', '', $cand);
 
-    return $cand;
+    return trim($cand);
 }
 
 function obtener_datos_factura($id_boleto, $conn)
@@ -258,15 +250,15 @@ razon_social_empresa FROM empresa LIMIT 1";
     // Obtener destino general del boleto como fallback
     $destinoGeneral = '';
     $candidatosBoleto = [
-        $boleto['destino_sr_lugar'] ?? '',
-        $boleto['destino_sr_nombre'] ?? '',
-        $boleto['destino_bol_lugar'] ?? '',
-        $boleto['destino_bol_nombre'] ?? '',
-        $boleto['nombre_destino'] ?? '',
         $boleto['nombre_sub_rutas'] ?? '',
+        $boleto['nombre_destino'] ?? '',
+        $boleto['destino_sr_nombre'] ?? '',
+        $boleto['destino_sr_lugar'] ?? '',
+        $boleto['destino_bol_nombre'] ?? '',
+        $boleto['destino_bol_lugar'] ?? '',
         $boleto['destino_boleto'] ?? '',
-        $boleto['destino_ruta_lugar'] ?? '',
         $boleto['destino_ruta_nombre'] ?? '',
+        $boleto['destino_ruta_lugar'] ?? '',
         $boleto['nombre_rutas'] ?? ''
     ];
     foreach ($candidatosBoleto as $cand) {
@@ -320,11 +312,11 @@ razon_social_empresa FROM empresa LIMIT 1";
         
         $destinoDetalle = '';
         $candidatosDetalle = [
-            $detalle['destino_det_sr_lugar'] ?? '',
-            $detalle['destino_det_sr_nombre'] ?? '',
-            $detalle['destino_det_lugar'] ?? '',
-            $detalle['destino_det_nombre'] ?? '',
             $detalle['subruta_detalle_nombre'] ?? '',
+            $detalle['destino_det_nombre'] ?? '',
+            $detalle['destino_det_lugar'] ?? '',
+            $detalle['destino_det_sr_nombre'] ?? '',
+            $detalle['destino_det_sr_lugar'] ?? '',
             $detalle['id_destino_boleto'] ?? ''
         ];
         foreach ($candidatosDetalle as $cand) {

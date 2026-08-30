@@ -952,7 +952,14 @@ export const NuevoBoletoPage = () => {
 
           if (numerosValidos.length > 0 && enviarWhatsapp) {
             try {
-              const fileUrl = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
+              const dbName = sessionStorage.getItem('db_name') || localStorage.getItem('db_name') || '';
+              const dbHost = sessionStorage.getItem('db_host') || localStorage.getItem('db_host') || '';
+              const dbUser = sessionStorage.getItem('db_user') || localStorage.getItem('db_user') || '';
+              const dbPass = sessionStorage.getItem('db_pass') || localStorage.getItem('db_pass') || '';
+              let fileUrl = window.location.origin + `/php/boletoFactura.php?id_boleto=${idBoleto}`;
+              if (dbName) {
+                fileUrl += `&db_name=${encodeURIComponent(dbName)}&db_host=${encodeURIComponent(dbHost)}&db_user=${encodeURIComponent(dbUser)}&db_pass=${encodeURIComponent(dbPass)}`;
+              }
               const mensaje = `Estimado(a) ${formData.nombres || 'pasajero'},\n\nAdjuntamos su boleto de viaje para su próximo traslado. ¡Buen viaje!`;
 
               for (const celular of numerosValidos) {
