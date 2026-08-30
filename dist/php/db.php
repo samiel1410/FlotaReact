@@ -1,7 +1,8 @@
 <?php
 
-ini_set('display_errors', 0);
-error_reporting(E_ERROR | E_WARNING | E_PARSE);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
 
 // Zona horaria de Ecuador para que la fecha de emisión del SRI sea consistente.
 date_default_timezone_set('America/Guayaquil');
