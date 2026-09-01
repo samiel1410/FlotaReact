@@ -7,6 +7,7 @@ import { ItinerarioViajeModal } from './components/ItinerarioViajeModal';
 import { ConfigurarAlimentosModal } from './components/ConfigurarAlimentosModal';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
+import { useAuth } from '../../context/AuthContext';
 
 const inputCls = 'w-full h-9 px-3 text-xs font-semibold border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none bg-white';
 const labelCls = 'block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1';

@@ -9,9 +9,18 @@ date_default_timezone_set('America/Guayaquil');
 
 // Configuración de sesión persistente (30 días)
 if (session_status() === PHP_SESSION_NONE) {
-    $sessionLifetime = 30 * 24 * 60 * 60;
-    ini_set('session.gc_maxlifetime', $sessionLifetime);
-    session_set_cookie_params($sessionLifetime);
+    $sessionLifetime = 30 * 24 * 60 * 60; // 30 días
+    ini_set('session.gc_maxlifetime', (string)$sessionLifetime);
+    if (PHP_VERSION_ID >= 70300) {
+        session_set_cookie_params([
+            'lifetime' => $sessionLifetime,
+            'path' => '/',
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ]);
+    } else {
+        session_set_cookie_params($sessionLifetime, '/; SameSite=Lax');
+    }
     session_start();
 }
 

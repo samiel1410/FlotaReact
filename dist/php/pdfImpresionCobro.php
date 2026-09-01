@@ -5,7 +5,7 @@ require_once ("db.php");
 
 try {
   $fecha_actual = date('Y-m-d H:i:s');
-  $id_comprobante_cobro = $_GET['id_comprobante'];
+  $id_comprobante_cobro = (int)($_GET['id_comprobante'] ?? 0);
 
         // create new PDF document
 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(500, 200) , true, 'UTF-8', false);
