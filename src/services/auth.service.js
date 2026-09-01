@@ -59,6 +59,7 @@ export const AuthService = {
       const url = `${getPhpBaseUrl()}/login.php`;
       const response = await axios.post(url, {
         id_usuario: loginData.user?.id_usuario,
+        tenant_id: loginData.user?.tenant_id || loginData.user?.tenantId || loginData.tenantId,
         db_name: loginData.db_name,
         db_host: loginData.db_host,
         db_user: loginData.db_user,
