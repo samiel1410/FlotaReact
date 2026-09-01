@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { buildPdfUrl } from '../../../utils/pdfUrlUtils';
 
 const BASE_URL = window.location.origin;
 
@@ -7,7 +8,7 @@ export const ListadoPasajerosModal = ({ isOpen, onClose, viajeId }) => {
 
   useEffect(() => {
     if (isOpen && iframeRef.current) {
-      iframeRef.current.src = `${BASE_URL}/php/imprimirPasajeros.php?inline=1&id_viaje=${viajeId}`;
+      iframeRef.current.src = BASE_URL + buildPdfUrl(`/php/imprimirPasajeros.php?inline=1&id_viaje=${viajeId}`);
     }
   }, [isOpen, viajeId]);
 

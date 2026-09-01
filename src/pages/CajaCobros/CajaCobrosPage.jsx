@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { cajaCobrosService } from '../../services/cajaCobros.service';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import Modal from '../../components/common/Modal';
 import AperturaCajaCobrosModal from '../../components/common/AperturaCajaCobrosModal';
 import { CajaGrid } from '../Caja/CajaGrid';
@@ -82,7 +83,7 @@ export const CajaCobrosPage = () => {
         setSelectedRowForInfo(row);
         setInfoCompModalOpen(true);
         break;
-      case 'arqueo': window.open(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`, '_blank'); break;
+      case 'arqueo': window.open(buildPdfUrl(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`), '_blank'); break;
       case 'comprobantes': window.open(`/cajaretenciones/reportecomprobantefacturasxcaja?idcaja=${row.id_caja_retenciones}`, '_blank'); break;
       case 'editar':
         setShowDetalle(true);
@@ -102,7 +103,7 @@ export const CajaCobrosPage = () => {
           setConfirmAprobarOpen(true);
         } else toast('Ya aprobada');
         break;
-      case 'impresion-rapida': window.open(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`, '_blank'); break;
+      case 'impresion-rapida': window.open(buildPdfUrl(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`), '_blank'); break;
     }
   }, []);
 

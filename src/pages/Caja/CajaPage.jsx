@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import cajaService from '../../services/caja.service';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { CajaGrid } from './CajaGrid';
 import Modal from '../../components/common/Modal';
 import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
@@ -161,7 +162,7 @@ export const CajaPage = () => {
         } else toast('Ya aprobada para editar');
         break;
       case 'impresion-rapida':
-        window.open(`/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`, '_blank');
+        window.open(buildPdfUrl(`/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`), '_blank');
         break;
     }
   }, []);

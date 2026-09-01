@@ -7,8 +7,7 @@ import { BoleteriaService } from '../../services/boleteria.service';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
-import { CONFIG } from '../../config/env';
-import './BoleteriaPage.css';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 export const BoleteriaPage = () => {
   const [boletos, setBoletos] = useState([]);
@@ -101,14 +100,7 @@ export const BoleteriaPage = () => {
 
   const openPdfViewer = (id_boleto) => {
     if (!id_boleto) return;
-    const dbName = sessionStorage.getItem('db_name') || localStorage.getItem('db_name') || '';
-    const dbHost = sessionStorage.getItem('db_host') || localStorage.getItem('db_host') || '';
-    const dbUser = sessionStorage.getItem('db_user') || localStorage.getItem('db_user') || '';
-    const dbPass = sessionStorage.getItem('db_pass') || localStorage.getItem('db_pass') || '';
-    let urlGenerador = `/php/boletoFactura.php?id_boleto=${id_boleto}`;
-    if (dbName) {
-      urlGenerador += `&db_name=${encodeURIComponent(dbName)}&db_host=${encodeURIComponent(dbHost)}&db_user=${encodeURIComponent(dbUser)}&db_pass=${encodeURIComponent(dbPass)}`;
-    }
+    const urlGenerador = buildPdfUrl(`/php/boletoFactura.php?id_boleto=${id_boleto}`);
     setPdfUrl(urlGenerador);
     setPdfModalOpen(true);
   };

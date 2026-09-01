@@ -3,6 +3,7 @@ import { despachoConvenioService } from '../../services/despachoConvenio.service
 import { NuevoDespachoGuiaCompaniaModal } from './components/NuevoDespachoGuiaCompaniaModal';
 import { BusquedaGuiaDespachoModal } from './components/BusquedaGuiaDespachoModal';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
@@ -293,7 +294,7 @@ export const DespachoGuiasPage = () => {
 
   const handlePdf = (despacho) => {
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    const url = `${baseUrl}/php/convenios/pdfDespachoConvenios.php?id_maestro=${despacho.id_despacho_maestro_convenios}&inline=1`;
+    const url = baseUrl + buildPdfUrl(`/php/convenios/pdfDespachoConvenios.php?id_maestro=${despacho.id_despacho_maestro_convenios}&inline=1`);
     setPdfUrl(url);
     setPdfModalOpen(true);
   };

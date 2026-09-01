@@ -58,7 +58,8 @@ export const FacturasService = {
 
   getPdf: async (id_factura) => {
     const { CONFIG } = await import('../../../config/env');
-    window.open(`${CONFIG.PHP_URL}/facturaPdf.php?id_factura=${encodeURIComponent(id_factura)}`, '_blank');
+    const { buildPdfUrl } = await import('../../../utils/pdfUrlUtils');
+    window.open(buildPdfUrl(`${CONFIG.PHP_URL}/facturaPdf.php?id_factura=${encodeURIComponent(id_factura)}`), '_blank');
   },
 
   getComboUsuarios: async () => {

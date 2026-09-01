@@ -6,6 +6,7 @@ import { NuevoDespachoModal } from './components/NuevoDespachoModal';
 import { EditarDespachoModal } from './components/EditarDespachoModal';
 import { BusquedaGuiaDespachoModal } from './components/BusquedaGuiaDespachoModal';
 import { CONFIG } from '../../config/env';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 const PAGE_SIZE = 25;
 
@@ -137,7 +138,7 @@ export const DespachoPage = () => {
   // ─── Acción: PDF ──────────────────────────────────────────
   const handlePdf = async (despacho) => {
     try {
-      const url = `${CONFIG.PHP_URL}/despachoPdf.php?id_maestro=${despacho.id_despacho_maestro}`;
+      const url = buildPdfUrl(`${CONFIG.PHP_URL}/despachoPdf.php?id_maestro=${despacho.id_despacho_maestro}`);
       window.open(url, 'PDF_Despacho', 'width=800,height=600');
     } catch (err) {
       console.error('Error PDF:', err);

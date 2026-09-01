@@ -11,10 +11,10 @@ try {
 
     // Fallback a GET por compatibilidad temporal
     $id_usuario = $input['id_usuario'] ?? $_GET['id_usuario'] ?? null;
-    $db_name    = $input['db_name']    ?? $_GET['db_name']    ?? null;
-    $db_host    = $input['db_host']    ?? $_GET['db_host']    ?? 'localhost';
-    $db_user    = $input['db_user']    ?? $_GET['db_user']    ?? 'root';
-    $db_pass    = $input['db_pass']    ?? $_GET['db_pass']    ?? '';
+    $db_name    = decrypt_db_data($input['db_name']    ?? $_GET['db_name']    ?? null);
+    $db_host    = decrypt_db_data($input['db_host']    ?? $_GET['db_host']    ?? 'localhost');
+    $db_user    = decrypt_db_data($input['db_user']    ?? $_GET['db_user']    ?? 'root');
+    $db_pass    = decrypt_db_data($input['db_pass']    ?? $_GET['db_pass']    ?? '');
 
     if (!$id_usuario || !$db_name) {
         throw new Exception('Parámetros de sesión incompletos');

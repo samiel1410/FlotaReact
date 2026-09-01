@@ -3,6 +3,7 @@ import { despachoNotaVentaService } from '../../services/despachoNotaVenta.servi
 import { NuevoDespachoGuiaNotaVentaModal } from './components/NuevoDespachoGuiaNotaVentaModal';
 import { BusquedaGuiaDespachoNotaVentaModal } from './components/BusquedaGuiaDespachoNotaVentaModal';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
@@ -293,7 +294,7 @@ export const DespachoGuiasNotaVentaPage = () => {
 
   const handlePdf = (despacho) => {
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    const url = `${baseUrl}/php/convenios/pdfDespachoNotasVenta.php?id_maestro=${despacho.id_despacho_maestro_nota_venta}&inline=1`;
+    const url = baseUrl + buildPdfUrl(`/php/convenios/pdfDespachoNotasVenta.php?id_maestro=${despacho.id_despacho_maestro_nota_venta}&inline=1`);
     setPdfUrl(url);
     setPdfModalOpen(true);
   };

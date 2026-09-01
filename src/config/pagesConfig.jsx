@@ -23,6 +23,7 @@ import { api, authApi } from '../config/axios';
 import toast from 'react-hot-toast';
 import comprobantesService from '../services/comprobantes.service';
 import Swal from 'sweetalert2';
+import { buildPdfUrl } from '../utils/pdfUrlUtils';
 
 // Configuración centralizada para todas las páginas genéricas de listado
 export const PAGES_CONFIG = {
@@ -472,7 +473,7 @@ export const PAGES_CONFIG = {
           icon: 'fas fa-file-pdf',
           tooltip: 'Hoja de Vida',
           color: 'text-red-500 hover:border-red-200 hover:bg-red-50',
-          modal: (row) => `/php/socio/hoja_vida_personal.php?id_personal=${row.id_personal}`,
+          modal: (row) => buildPdfUrl(`/php/socio/hoja_vida_personal.php?id_personal=${row.id_personal}`),
           handler: () => { }
         }
       ]
@@ -875,7 +876,7 @@ export const PAGES_CONFIG = {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
           handler: async (row) => {
-            window.open(`/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`), '_blank');
           }
         },
         {
@@ -960,13 +961,13 @@ export const PAGES_CONFIG = {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
-            window.open(`/php/pdfArqueoCaja.php?id_caja=${row.id_caja}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfArqueoCaja.php?id_caja=${row.id_caja}`), '_blank');
           }
         }, {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
-            window.open(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja}`), '_blank');
           }
         },
         createCerrarAction('id_caja', '/caja/cerrarCaja'),
@@ -1079,7 +1080,7 @@ export const PAGES_CONFIG = {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
           handler: async (row) => {
-            window.open(`/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja_boleteria}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja_boleteria}`), '_blank');
           }
         },
         {
@@ -1144,13 +1145,13 @@ export const PAGES_CONFIG = {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
-            window.open(`/php/pdfArqueoCajaBoleteria.php?id_caja=${row.id_caja_boleteria}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfArqueoCajaBoleteria.php?id_caja=${row.id_caja_boleteria}`), '_blank');
           }
         }, {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
-            window.open(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja_boleteria}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja_boleteria}`), '_blank');
           }
         },
         createCerrarAction('id_caja_boleteria', '/caja_boleteria/cerrarCaja'),
@@ -1245,7 +1246,7 @@ export const PAGES_CONFIG = {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
           handler: async (row) => {
-            window.open(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`), '_blank');
           }
         },
         {
@@ -1310,13 +1311,13 @@ export const PAGES_CONFIG = {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
-            window.open(`/php/pdfArqueoCajaRetenciones.php?id_caja=${row.id_caja_retenciones}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfArqueoCajaRetenciones.php?id_caja=${row.id_caja_retenciones}`), '_blank');
           }
         }, {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
-            window.open(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja_retenciones}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja_retenciones}`), '_blank');
           }
         },
         createCerrarAction('id_caja_retenciones', '/cajaretenciones/cerrarCaja'),
@@ -1411,7 +1412,7 @@ export const PAGES_CONFIG = {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
           handler: async (row) => {
-            window.open(`/php/pdfCajaNotaVentaImpresion.php?id_caja=${row.id_caja}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfCajaNotaVentaImpresion.php?id_caja=${row.id_caja}`), '_blank');
           }
         },
         {
@@ -1496,14 +1497,14 @@ export const PAGES_CONFIG = {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
           handler: async (row) => {
-            window.open(`/php/pdfArqueoCajaNotaVenta.php?id_caja=${row.id_caja}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfArqueoCajaNotaVenta.php?id_caja=${row.id_caja}`), '_blank');
           }
         },
         {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row) => {
-            window.open(`/php/pdfComprobantesxCajaNotaVenta.php?idcaja=${row.id_caja}`, '_blank');
+            window.open(buildPdfUrl(`/php/pdfComprobantesxCajaNotaVenta.php?idcaja=${row.id_caja}`), '_blank');
           }
         },
         createCerrarAction('id_caja', '/caja_nota_venta/cerrarCaja'),
@@ -2210,10 +2211,10 @@ export const PAGES_CONFIG = {
                 toast('Solo puedes ver el PDF de entrega cuando la guía está DESPACHADA.', { icon: '⚠️' });
                 return '';
               }
-              return `${baseUrl}/php/pdfGuiaEntregasCompania.php?id_guia=${row.id}`;
+              return baseUrl + buildPdfUrl(`/php/pdfGuiaEntregasCompania.php?id_guia=${row.id}`);
             }
             if (esGuiaUsuario === 1 || esGuiaUsuario === '1') {
-              return `${baseUrl}/php/pdfGuiaRecibesCompania.php?id_guia=${row.id}`;
+              return baseUrl + buildPdfUrl(`/php/pdfGuiaRecibesCompania.php?id_guia=${row.id}`);
             }
             toast.error('No se puede determinar el tipo de PDF para esta guía.');
             return '';

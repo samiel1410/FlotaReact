@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../config/axios';
 import Swal from 'sweetalert2';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 // ============================================================
 // LISTADO DE COBROS — 3 TABS
@@ -138,12 +139,12 @@ const ListadoCobros = () => {
   };
 
   const handlePdfRetencion = (row) => {
-    const url = `/php/pdfRetencion.php?id_cobros=${row.id_cobros}`;
+    const url = buildPdfUrl(`/php/pdfRetencion.php?id_cobros=${row.id_cobros}`);
     window.open(url, '_blank');
   };
 
   const handleImprimir = (row) => {
-    const url = `/php/pdfCobroEntregadoA4.php?id_cobros=${row.id_cobros}`;
+    const url = buildPdfUrl(`/php/pdfCobroEntregadoA4.php?id_cobros=${row.id_cobros}`);
     window.open(url, '_blank');
   };
 
@@ -848,7 +849,7 @@ const ComprobantesPago = () => {
       cancelButtonText: 'Cerrar'
     });
     if (isConfirmed) {
-      window.open(`/php/cobros/imprimirComprobanteCobro.php?numero_comprobante=${grupo.numero_comprobante_cobro}`, '_blank');
+      window.open(buildPdfUrl(`/php/cobros/imprimirComprobanteCobro.php?numero_comprobante=${grupo.numero_comprobante_cobro}`), '_blank');
     }
   };
 
@@ -974,7 +975,7 @@ const ComprobantesPago = () => {
                           className="px-2.5 py-1 bg-indigo-50 text-indigo-600 text-[10px] font-bold rounded hover:bg-indigo-100 border border-indigo-200 flex items-center gap-1">
                           <i className="fas fa-eye"></i> Ver Detalles
                         </button>
-                        <button onClick={() => window.open(`/php/cobros/imprimirComprobanteCobro.php?numero_comprobante=${grupo.numero_comprobante_cobro}`, '_blank')}
+                        <button onClick={() => window.open(buildPdfUrl(`/php/cobros/imprimirComprobanteCobro.php?numero_comprobante=${grupo.numero_comprobante_cobro}`), '_blank')}
                           className="px-2.5 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1">
                           <i className="fas fa-print"></i> Imprimir
                         </button>

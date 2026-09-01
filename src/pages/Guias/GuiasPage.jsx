@@ -5,6 +5,7 @@ import { GuiasGrid } from './components/GuiasGrid';
 import { GuiaService } from '../../services/guia.service';
 import { CONFIG } from '../../config/env';
 import { useAuth } from '../../context/AuthContext';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import toast from 'react-hot-toast';
 import './GuiasPage.css';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
@@ -141,7 +142,8 @@ export const GuiasPage = () => {
   // Si el PHP falla, responde JSON {success:false}; lo detectamos y mostramos el error.
   const openPhpPdf = async (phpUrl, titulo) => {
     try {
-      const res = await fetch(phpUrl);
+      const finalUrl = buildPdfUrl(phpUrl);
+      const res = await fetch(finalUrl);
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
       const blob = await res.blob();
       const text = await blob.text();

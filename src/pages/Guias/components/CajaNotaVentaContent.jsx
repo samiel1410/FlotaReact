@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Skeleton from 'react-loading-skeleton';
 import 'react-loading-skeleton/dist/skeleton.css';
 import cajaService from '../../../services/cajaNotaVenta.service';
+import { buildPdfUrl } from '../../../utils/pdfUrlUtils';
 import toast from 'react-hot-toast';
 import { CajaGrid } from '../../Caja/CajaGrid';
 import { AperturaCajaForm } from '../../CajaBoleteria/components/AperturaCajaForm';
@@ -192,7 +193,7 @@ export const CajaNotaVentaContent = () => {
   // ─── IMPRESIÓN RÁPIDA ────────────────────────────────────────────────
   const handleImpresionRapida = (row) => {
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    window.open(`${baseUrl}/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`, '_blank');
+    window.open(baseUrl + buildPdfUrl(`/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`), '_blank');
   };
 
   // ─── BUSCAR MI CAJA ABIERTA ──────────────────────────────────────────

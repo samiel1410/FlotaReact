@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../config/axios';
 import toast from 'react-hot-toast';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { BusquedaPersonalModal } from './components/BusquedaPersonalModal';
 import { BusquedaRutaModal } from './components/BusquedaRutaModal';
 import { BusquedaBusModal } from '../Despacho/components/BusquedaBusModal';
@@ -146,7 +147,7 @@ export const BuserosPage = () => {
       anio: filters.comboAnioFactura || '0',
       format: format,
     });
-    window.open(`/php/pdfReporteBuseros.php?${params.toString()}`, '_blank');
+    window.open(buildPdfUrl(`/php/pdfReporteBuseros.php?${params.toString()}`), '_blank');
   };
 
   const updateFilter = (key, value) => {

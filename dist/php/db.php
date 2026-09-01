@@ -22,25 +22,34 @@ function decrypt_db_data($data) {
     if (!$data) return $data;
     
     try {
+        $cleanData = trim((string)$data);
+
         // Formato 1: iv_hex:encrypted_hex
-        if (strpos($data, ':') !== false) {
-            list($iv_hex, $encrypted_hex) = explode(':', $data);
-            $iv = hex2bin($iv_hex);
-            $encrypted = hex2bin($encrypted_hex);
-            $decrypted = openssl_decrypt($encrypted, 'aes-256-cbc', DB_ENCRYPTION_KEY, OPENSSL_RAW_DATA, $iv);
-            return $decrypted !== false ? $decrypted : $data;
+        if (strpos($cleanData, ':') !== false) {
+            list($iv_hex, $encrypted_hex) = explode(':', $cleanData);
+            if (ctype_xdigit($iv_hex) && ctype_xdigit($encrypted_hex)) {
+                $iv = hex2bin($iv_hex);
+                $encrypted = hex2bin($encrypted_hex);
+                $decrypted = openssl_decrypt($encrypted, 'aes-256-cbc', DB_ENCRYPTION_KEY, OPENSSL_RAW_DATA, $iv);
+                if ($decrypted !== false && $decrypted !== '') {
+                    return trim($decrypted);
+                }
+            }
         }
 
         // Formato 2: Base64 directo de (16 bytes IV + ciphertext)
-        $decoded = base64_decode($data, true);
+        $base64Candidate = str_replace(' ', '+', $cleanData);
+        $decoded = base64_decode($base64Candidate, true);
         if ($decoded !== false && strlen($decoded) > 16) {
             $iv = substr($decoded, 0, 16);
             $encrypted = substr($decoded, 16);
             $decrypted = openssl_decrypt($encrypted, 'aes-256-cbc', DB_ENCRYPTION_KEY, OPENSSL_RAW_DATA, $iv);
-            return ($decrypted !== false && $decrypted !== '') ? trim($decrypted) : $data;
+            if ($decrypted !== false && $decrypted !== '') {
+                return trim($decrypted);
+            }
         }
 
-        return $data;
+        return $cleanData;
     } catch (Exception $e) {
         return $data;
     }
@@ -54,9 +63,10 @@ function obtenerCredencialesDb($isLocal)
         @mkdir($cacheDir, 0777, true);
     }
 
-    if (isset($_GET['tenantId']) || isset($_POST['tenantId'])) {
+    $tId = $_GET['tenantId'] ?? $_POST['tenantId'] ?? $_GET['tenant_id'] ?? $_POST['tenant_id'] ?? $_SESSION['tenantId'] ?? $_SESSION['tenant_id'] ?? null;
+
+    if (!empty($tId)) {
         $tenantIntentado = true;
-        $tId = isset($_GET['tenantId']) ? $_GET['tenantId'] : $_POST['tenantId'];
         $cacheFile = $cacheDir . 'tenant_' . md5($tId) . '.json';
 
         // 1. Revisar caché en disco (válido por 1 hora)
@@ -72,6 +82,7 @@ function obtenerCredencialesDb($isLocal)
                 $_SESSION['db_user'] = $dbUser;
                 $_SESSION['db_pass'] = $dbPass;
                 $_SESSION['db_name'] = $dbName;
+                $_SESSION['tenantId'] = $tId;
 
                 $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
                 $finalHost = $dbHost ?: 'localhost';
@@ -136,6 +147,7 @@ function obtenerCredencialesDb($isLocal)
                     $_SESSION['db_user'] = $dbUser;
                     $_SESSION['db_pass'] = $dbPass;
                     $_SESSION['db_name'] = $dbName;
+                    $_SESSION['tenantId'] = $tId;
                 }
 
                 $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
@@ -180,39 +192,51 @@ function obtenerCredencialesDb($isLocal)
     }
 
     if (isset($_GET['db_name']) && !empty($_GET['db_name'])) {
-        $_SESSION['db_host'] = isset($_GET['db_host']) ? $_GET['db_host'] : 'localhost';
-        $_SESSION['db_user'] = isset($_GET['db_user']) ? $_GET['db_user'] : ($isLocal ? 'root' : '');
-        $_SESSION['db_pass'] = isset($_GET['db_pass']) ? $_GET['db_pass'] : '';
-        $_SESSION['db_name'] = $_GET['db_name'];
+        $decHost = decrypt_db_data($_GET['db_host'] ?? 'localhost');
+        $decUser = decrypt_db_data($_GET['db_user'] ?? ($isLocal ? 'root' : ''));
+        $decPass = decrypt_db_data($_GET['db_pass'] ?? '');
+        $decName = decrypt_db_data($_GET['db_name']);
+
+        $_SESSION['db_host'] = $decHost;
+        $_SESSION['db_user'] = $decUser;
+        $_SESSION['db_pass'] = $decPass;
+        $_SESSION['db_name'] = $decName;
+
         $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
-        $finalHost = $_SESSION['db_host'];
-        if ($isLocal && ($finalHost === 'localhost' || $finalHost === '127.0.0.1') && !empty($_SESSION['db_user']) && $_SESSION['db_user'] !== 'root') {
+        $finalHost = $decHost ?: 'localhost';
+        if ($isLocal && ($finalHost === 'localhost' || $finalHost === '127.0.0.1') && !empty($decUser) && $decUser !== 'root') {
             $finalHost = $remoteHost;
         }
         return [
             $finalHost,
-            $_SESSION['db_user'],
-            $_SESSION['db_pass'],
-            $_SESSION['db_name'],
+            $decUser ?: ($isLocal ? 'root' : ''),
+            $decPass ?: '',
+            $decName,
             'GET (?db_name)'
         ];
     }
 
     if (isset($_POST['db_name']) && !empty($_POST['db_name'])) {
-        $_SESSION['db_host'] = isset($_POST['db_host']) ? $_POST['db_host'] : 'localhost';
-        $_SESSION['db_user'] = isset($_POST['db_user']) ? $_POST['db_user'] : ($isLocal ? 'root' : '');
-        $_SESSION['db_pass'] = isset($_POST['db_pass']) ? $_POST['db_pass'] : '';
-        $_SESSION['db_name'] = $_POST['db_name'];
+        $decHost = decrypt_db_data($_POST['db_host'] ?? 'localhost');
+        $decUser = decrypt_db_data($_POST['db_user'] ?? ($isLocal ? 'root' : ''));
+        $decPass = decrypt_db_data($_POST['db_pass'] ?? '');
+        $decName = decrypt_db_data($_POST['db_name']);
+
+        $_SESSION['db_host'] = $decHost;
+        $_SESSION['db_user'] = $decUser;
+        $_SESSION['db_pass'] = $decPass;
+        $_SESSION['db_name'] = $decName;
+
         $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
-        $finalHost = $_SESSION['db_host'];
-        if ($isLocal && ($finalHost === 'localhost' || $finalHost === '127.0.0.1') && !empty($_SESSION['db_user']) && $_SESSION['db_user'] !== 'root') {
+        $finalHost = $decHost ?: 'localhost';
+        if ($isLocal && ($finalHost === 'localhost' || $finalHost === '127.0.0.1') && !empty($decUser) && $decUser !== 'root') {
             $finalHost = $remoteHost;
         }
         return [
             $finalHost,
-            $_SESSION['db_user'],
-            $_SESSION['db_pass'],
-            $_SESSION['db_name'],
+            $decUser ?: ($isLocal ? 'root' : ''),
+            $decPass ?: '',
+            $decName,
             'POST (db_name)'
         ];
     }

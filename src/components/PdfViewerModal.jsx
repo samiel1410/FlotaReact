@@ -1,8 +1,11 @@
 import React, { useRef } from 'react';
+import { buildPdfUrl } from '../utils/pdfUrlUtils';
 
-export const PdfViewerModal = ({ open, onClose, url, title = 'Documento PDF', showPrintButton = false }) => {
+export const PdfViewerModal = ({ open, onClose, url: rawUrl, title = 'Documento PDF', showPrintButton = false }) => {
   const iframeRef = useRef(null);
   if (!open) return null;
+
+  const url = buildPdfUrl(rawUrl);
 
   const handlePrint = () => {
     try {

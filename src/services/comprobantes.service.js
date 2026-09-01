@@ -1,4 +1,5 @@
 import { api } from '../config/axios';
+import { buildPdfUrl } from '../utils/pdfUrlUtils';
 
 /**
  * Servicio para Comprobantes
@@ -81,7 +82,7 @@ const comprobantesService = {
    * @returns {Promise<string>} URL del PDF generado
    */
   async generarPdf(id) {
-    const res = await fetch(`/php/comprobantePdf.php?id_comprobante=${id}`);
+    const res = await fetch(buildPdfUrl(`/php/comprobantePdf.php?id_comprobante=${id}`));
     const data = await res.json();
     if (data?.success && data?.ruta) {
       const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
@@ -96,7 +97,7 @@ const comprobantesService = {
    * @returns {Promise<string>} URL del PDF generado
    */
   async generarPdfCobro(id) {
-    const res = await fetch(`/php/pdfImpresionCobro.php?id_comprobante=${id}`);
+    const res = await fetch(buildPdfUrl(`/php/pdfImpresionCobro.php?id_comprobante=${id}`));
     const data = await res.json();
     if (data?.success && data?.ruta) {
       const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;

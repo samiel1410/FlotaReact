@@ -4,6 +4,7 @@ import Swal from 'sweetalert2';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import Modal from '../../components/common/Modal';
 import { AperturaCajaForm } from './components/AperturaCajaForm';
 import { CierreCajaForm } from './components/CierreCajaForm';
@@ -124,7 +125,7 @@ export const CajaBoleteriaPage = () => {
         } else toast('Ya aprobada');
         break;
       case 'impresion-rapida':
-        window.open(`/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja}`, '_blank');
+        window.open(buildPdfUrl(`/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja}`), '_blank');
         break;
     }
   }, [loadData]);

@@ -7,6 +7,7 @@ import { CobrarFacturaModal } from '../../Guias/components/CobrarFacturaModal';
 import { CobrosRealizadosModal } from '../../Guias/components/CobrosRealizadosModal';
 import cajaService from '../../../services/caja.service';
 import { CONFIG } from '../../../config/env';
+import { buildPdfUrl } from '../../../utils/pdfUrlUtils';
 
 export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, onReload, id_usuario, rol_usuario }) => {
   const [selectedIds, setSelectedIds] = useState([]);
@@ -87,7 +88,7 @@ export const FacturasGrid = ({ data, loading, page, limit, total, onPageChange, 
     switch (action) {
       case 'pdf':
         try {
-          const phpUrl = `${CONFIG.PHP_URL}/facturaPdf.php?id_factura=${encodeURIComponent(row.id_factura)}`;
+          const phpUrl = buildPdfUrl(`${CONFIG.PHP_URL}/facturaPdf.php?id_factura=${encodeURIComponent(row.id_factura)}`);
           setPdfTitle(`Factura ${formatSecuencial(row)}`);
           setPdfUrl(phpUrl);
           setPdfModalOpen(true);

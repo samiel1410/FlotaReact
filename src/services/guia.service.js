@@ -73,7 +73,8 @@ export const GuiaService = {
    * Abre guiaPdfImpresion.php en nueva pestaña
    */
   generarPdf: async (idGuia, reimpresoPor = null, tenantId = 1) => {
-    const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(idGuia)}&tenantId=${encodeURIComponent(tenantId)}${reimpresoPor ? `&reimpreso_por=${encodeURIComponent(reimpresoPor)}` : ''}`;
+    const rawUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(idGuia)}&tenantId=${encodeURIComponent(tenantId)}${reimpresoPor ? `&reimpreso_por=${encodeURIComponent(reimpresoPor)}` : ''}`;
+    const phpUrl = buildPdfUrl(rawUrl);
     window.open(phpUrl, '_blank');
     return { url: phpUrl };
   },
@@ -83,7 +84,8 @@ export const GuiaService = {
    * Abre guiaPdf.php en nueva pestaña
    */
   descargarGuiaPDF: async (idGuia, tenantId = 1) => {
-    const phpUrl = `${CONFIG.PHP_URL}/guiaPdf.php?id_guia=${encodeURIComponent(idGuia)}&tenantId=${encodeURIComponent(tenantId)}`;
+    const rawUrl = `${CONFIG.PHP_URL}/guiaPdf.php?id_guia=${encodeURIComponent(idGuia)}&tenantId=${encodeURIComponent(tenantId)}`;
+    const phpUrl = buildPdfUrl(rawUrl);
     window.open(phpUrl, '_blank');
     return phpUrl;
   },

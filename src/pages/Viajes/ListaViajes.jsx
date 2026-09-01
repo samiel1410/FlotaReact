@@ -6,7 +6,7 @@ import { DespachoViajeModal } from './components/DespachoViajeModal';
 import { ItinerarioViajeModal } from './components/ItinerarioViajeModal';
 import { ConfigurarAlimentosModal } from './components/ConfigurarAlimentosModal';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
-import { useAuth } from '../../context/AuthContext';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 const inputCls = 'w-full h-9 px-3 text-xs font-semibold border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none bg-white';
 const labelCls = 'block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1';
@@ -128,7 +128,7 @@ export const ListaViajes = () => {
       return;
     }
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    setPdfUrl(`${baseUrl}/php/despachoViajePdf.php?id_viajes=${trip.id_viajes}`);
+    setPdfUrl(baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?id_viajes=${trip.id_viajes}`));
     setPdfTitle(`Despacho — Viaje #${trip.id_viajes}`);
     setPdfModalOpen(true);
   };
@@ -136,7 +136,7 @@ export const ListaViajes = () => {
   const handleImprimirPasajeros = (trip) => {
     setMenuAbierto(null);
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    setPdfUrl(`${baseUrl}/php/imprimirPasajeros.php?inline=1&id_viaje=${trip.id_viajes}`);
+    setPdfUrl(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?inline=1&id_viaje=${trip.id_viajes}`));
     setPdfTitle(`Lista de Pasajeros — Viaje #${trip.id_viajes}`);
     setPdfModalOpen(true);
   };
