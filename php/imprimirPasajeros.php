@@ -6,7 +6,7 @@ date_default_timezone_set('America/Guayaquil');
 
 try {
 $fecha_actual = date('Y-m-d H:i:s');
-$id_viaje = $_GET['id_viaje'];
+$id_viaje = (int)($_GET['id_viaje'] ?? 0);
 
 // Crear PDF
 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(500, 200), true, 'UTF-8', false);

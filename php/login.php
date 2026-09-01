@@ -29,7 +29,17 @@ try {
 
     if ($tenant_id) {
         $_SESSION["tenantId"] = $tenant_id;
-        @setcookie('tenantId', (string)$tenant_id, time() + (30 * 24 * 60 * 60), '/');
+        $cookieOptions = [
+            'expires' => time() + (30 * 24 * 60 * 60),
+            'path' => '/',
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ];
+        if (PHP_VERSION_ID >= 70300) {
+            @setcookie('tenantId', (string)$tenant_id, $cookieOptions);
+        } else {
+            @setcookie('tenantId', (string)$tenant_id, time() + (30 * 24 * 60 * 60), '/; SameSite=Lax', '', false, true);
+        }
     }
 
     echo json_encode([
