@@ -108,16 +108,18 @@ export const BuscarGuiaOficinaPage = () => {
 
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
       const blob = await res.blob();
-      const text = await blob.text();
+      const headerText = await blob.slice(0, 1024).text();
 
-      if (text.startsWith('%PDF')) {
+      if (headerText.startsWith('%PDF')) {
+        const pdfBlob = blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
         setPdfTitle(`Ticket Guía ${guia.numero_guia_final || guia.id_guia}`);
-        setPdfUrl(URL.createObjectURL(blob));
+        setPdfUrl(URL.createObjectURL(pdfBlob));
         setPdfModalOpen(true);
       } else {
         let mensaje = 'No se pudo generar el ticket';
         try {
-          const data = JSON.parse(text);
+          const fullText = await blob.text();
+          const data = JSON.parse(fullText);
           mensaje = data.error || data.mensaje || mensaje;
         } catch (e) { /* no es JSON */ }
         toast.error(mensaje);
@@ -152,14 +154,16 @@ export const BuscarGuiaOficinaPage = () => {
 
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
       const blob = await res.blob();
-      const text = await blob.text();
+      const headerText = await blob.slice(0, 1024).text();
 
-      if (text.startsWith('%PDF')) {
-        window.open(URL.createObjectURL(blob), '_blank', 'width=500,height=700');
+      if (headerText.startsWith('%PDF')) {
+        const pdfBlob = blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
+        window.open(URL.createObjectURL(pdfBlob), '_blank', 'width=500,height=700');
       } else {
         let mensaje = 'No se pudo generar la reimpresión';
         try {
-          const data = JSON.parse(text);
+          const fullText = await blob.text();
+          const data = JSON.parse(fullText);
           mensaje = data.error || data.mensaje || mensaje;
         } catch (e) { /* no es JSON */ }
         toast.error(mensaje);
@@ -317,6 +321,11 @@ export const BuscarGuiaOficinaPage = () => {
         open={pdfModalOpen}
         onClose={() => {
           setPdfModalOpen(false);
+          try {
+            if (pdfUrl && pdfUrl.startsWith('blob:')) {
+              URL.revokeObjectURL(pdfUrl);
+            }
+          } catch (e) { /* ignore */ }
           setPdfUrl(null);
         }}
         url={pdfUrl}

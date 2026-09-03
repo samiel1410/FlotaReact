@@ -132,17 +132,19 @@ export const GuiasNotaVentaPage = () => {
       const res = await fetch(finalUrl);
       if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
       const blob = await res.blob();
-      const text = await blob.text();
-      if (!text.startsWith('%PDF')) {
+      const headerText = await blob.slice(0, 1024).text();
+      if (!headerText.startsWith('%PDF')) {
         let mensaje = 'El servidor no devolvió un PDF válido';
         try {
-          const data = JSON.parse(text);
+          const fullText = await blob.text();
+          const data = JSON.parse(fullText);
           mensaje = data.error || data.mensaje || mensaje;
         } catch (e) { /* no es JSON */ }
         toast.error(mensaje);
         return;
       }
-      const url = URL.createObjectURL(blob);
+      const pdfBlob = blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
+      const url = URL.createObjectURL(pdfBlob);
       setPdfTitle(titulo);
       setPdfUrl(url);
       setPdfShouldShowPrint(true);

@@ -6,7 +6,12 @@
  * @returns {string} - URL limpia enriquecida con tenantId.
  */
 export const buildPdfUrl = (url) => {
-  if (!url) return '';
+  if (!url || typeof url !== 'string') return '';
+
+  // Blob URLs y Data URIs son URLs internas del navegador y nunca deben modificarse ni recibir query params
+  if (url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('about:')) {
+    return url;
+  }
 
   let tenantId = '';
   const userDataStr = sessionStorage.getItem('user_data') || localStorage.getItem('user_data');
