@@ -127,8 +127,15 @@ api.interceptors.response.use(
   (error) => {
     const errorInfo = dispatchError(error);
 
-    // Manejo especial para 401: cerrar sesión y redirigir
-    if (errorInfo.status === 401) {
+    // Manejo especial para 401 o 403 con token expirado/inválido: cerrar sesión y redirigir
+    const isTokenAuthError = errorInfo.status === 401 || (
+      errorInfo.status === 403 && (
+        String(error.response?.data?.mensaje || error.response?.data?.message || '').toLowerCase().includes('token') ||
+        String(error.response?.data?.mensaje || error.response?.data?.message || '').toLowerCase().includes('expirado')
+      )
+    );
+
+    if (isTokenAuthError) {
       console.error('[Auth] Sesión expirada o token inválido. Redirigiendo al login...');
       sessionStorage.clear();
       [
@@ -136,14 +143,33 @@ api.interceptors.response.use(
         'refresh_token',
         'backend_url',
         'user_data',
+        'user',
+        'usuario',
         'db_name',
         'db_host',
         'db_user',
         'db_pass',
         'php_url',
-        'empresa_data'
+        'empresa_data',
+        'id_caja_global',
+        'sistema_modo'
       ].forEach(k => localStorage.removeItem(k));
-      window.location.href = '/#/login';
+
+      try {
+        Object.keys(localStorage)
+          .filter(k => k.startsWith('login_as_'))
+          .forEach(k => localStorage.removeItem(k));
+      } catch (e) {}
+
+      if (window.__socket) {
+        try {
+          window.__socket.disconnect();
+          window.__socket = null;
+        } catch (e) {}
+      }
+
+      const basePath = window.location.pathname;
+      window.location.replace(`${basePath}#/login`);
     }
 
     // Log en consola para desarrollo (solo errores no manejados)

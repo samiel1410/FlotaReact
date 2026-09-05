@@ -68,6 +68,7 @@ const NotificacionesPage = lazy(() => import('./pages/Notificaciones/Notificacio
 // Componente Wrapper para rutas protegidas
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
+  useIdle(); // Monitor de inactividad para todas las rutas protegidas (incluye pantallas completas)
   
   if (loading) {
     return <div className="loading-screen">Cargando...</div>;
@@ -82,7 +83,6 @@ const ProtectedRoute = ({ children }) => {
 
 // Layout Principal protegido que inicializará Hooks globales
 const ProtectedLayout = () => {
-  useIdle(); // Monitor de inactividad
   useSocket(); // Conexión a Socket.IO
   
   return (

@@ -20,13 +20,22 @@ const AUTH_KEYS = [
   'refresh_token',
   'backend_url',
   'user_data',
+  'user',
+  'usuario',
   'db_name',
   'db_host',
   'db_user',
   'db_pass',
   'php_url',
-  'empresa_data'
+  'empresa_data',
+  'id_caja_global',
+  'sistema_modo'
 ];
+
+const redirectToLogin = () => {
+  const basePath = window.location.pathname;
+  window.location.replace(`${basePath}#/login`);
+};
 
 const syncStorageFromLocal = () => {
   AUTH_KEYS.forEach(key => {
@@ -46,11 +55,23 @@ const persistAuthData = (data) => {
       localStorage.setItem(key, val);
     }
   });
+  if (data.user_data) {
+    const userVal = typeof data.user_data === 'object' ? JSON.stringify(data.user_data) : String(data.user_data);
+    localStorage.setItem('user', userVal);
+    sessionStorage.setItem('user', userVal);
+    localStorage.setItem('usuario', userVal);
+    sessionStorage.setItem('usuario', userVal);
+  }
 };
 
 const clearAuthData = () => {
   sessionStorage.clear();
   AUTH_KEYS.forEach(key => localStorage.removeItem(key));
+  try {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('login_as_'))
+      .forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
 };
 
 export const AuthProvider = ({ children }) => {
@@ -137,7 +158,14 @@ export const AuthProvider = ({ children }) => {
           sessionStorage.clear();
           setUser(null);
           setIsAuthenticated(false);
-          window.location.href = '/#/login';
+          setPermisos(null);
+          if (window.__socket) {
+            try {
+              window.__socket.disconnect();
+              window.__socket = null;
+            } catch (err) {}
+          }
+          redirectToLogin();
         } else {
           syncStorageFromLocal();
           const userStr = localStorage.getItem('user_data');
@@ -275,11 +303,25 @@ export const AuthProvider = ({ children }) => {
     cargarPermisosRol(userData);
   }, [cargarPermisosRol]);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    if (window.__socket) {
+      try {
+        window.__socket.disconnect();
+        window.__socket = null;
+      } catch (e) {}
+    }
+
+    try {
+      await AuthService.phpLogout();
+    } catch (e) {
+      console.warn('Error al cerrar sesión PHP:', e);
+    }
+
     clearAuthData();
     setUser(null);
     setIsAuthenticated(false);
-    window.location.href = '/#/login';
+    setPermisos(null);
+    redirectToLogin();
   }, []);
 
   return (

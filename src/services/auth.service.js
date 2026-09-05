@@ -80,5 +80,23 @@ export const AuthService = {
       console.warn('⚠️ PHP Session Bridge failed, but continuing...', phpErr);
       return false;
     }
+  },
+
+  /**
+   * Cierra la sesión legacy de PHP (php/salir.php)
+   */
+  async phpLogout() {
+    try {
+      const url = `${getPhpBaseUrl()}/salir.php`;
+      await axios.get(url, {
+        timeout: 4000,
+        withCredentials: true
+      });
+      console.log(`✅ PHP Session closed (${url})`);
+      return true;
+    } catch (phpErr) {
+      console.warn('⚠️ Error al cerrar sesión PHP:', phpErr);
+      return false;
+    }
   }
 };
