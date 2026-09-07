@@ -89,7 +89,7 @@ export const AuthService = {
     try {
       const url = `${getPhpBaseUrl()}/salir.php`;
       await axios.get(url, {
-        timeout: 4000,
+        timeout: 3000,
         withCredentials: true
       });
       console.log(`✅ PHP Session closed (${url})`);
@@ -98,5 +98,35 @@ export const AuthService = {
       console.warn('⚠️ Error al cerrar sesión PHP:', phpErr);
       return false;
     }
+  },
+
+  /**
+   * Notifica a AuthService, Node Backend y PHP de forma concurrente sin bloquear
+   */
+  async serverLogout(refreshToken, userId) {
+    const cleanups = [];
+    try {
+      // 1. AuthService
+      cleanups.push(
+        authApi.post('/auth/logout', { refresh_token: refreshToken, user_id: userId }, { timeout: 3000 })
+          .catch(e => console.warn('[AuthService] Logout warning:', e?.message))
+      );
+    } catch (e) {}
+
+    try {
+      // 2. Backend Node Express
+      const nodeUrl = `${CONFIG.API_URL}/login/salir`;
+      cleanups.push(
+        axios.get(nodeUrl, { withCredentials: true, timeout: 3000 })
+          .catch(e => console.warn('[Node] Logout warning:', e?.message))
+      );
+    } catch (e) {}
+
+    try {
+      // 3. PHP Legacy
+      cleanups.push(this.phpLogout());
+    } catch (e) {}
+
+    await Promise.allSettled(cleanups);
   }
 };

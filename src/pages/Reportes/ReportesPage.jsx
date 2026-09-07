@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import ReporteModal from './components/ReporteModal';
+import { ReporteFacturacionGeneralModal } from '../Facturas/components/ReporteFacturacionGeneralModal';
 
 const REPORTES_CONFIG = {
   // ExtJS reportes_boleteria: Excel → "Boletos Oficina", "Guias Asociados"
   excel: [
+    { id: 'facturas_boleto', title: 'Facturas Boleto', icon: 'fas fa-file-invoice-dollar', color: 'text-emerald-600', bg: 'bg-emerald-100', tipo: 'facturas_boleto', type: 'excel' },
     { id: 'boletos_oficina', title: 'Boletos Oficina', icon: 'fas fa-file-excel', color: 'text-emerald-600', bg: 'bg-emerald-100', tipo: 'boletos_oficina', type: 'excel' },
     { id: 'guias_asociados', title: 'Guías Asociados', icon: 'fas fa-file-excel', color: 'text-emerald-600', bg: 'bg-emerald-100', tipo: 'guias_asociados', type: 'excel' },
   ],
   // ExtJS reportes_boleteria: Pdf → "Facturas", "Guias", "Comprobantes", "Guias Despacho", "Guias Entregadas", "Egresos/Ingresos"
   pdf: [
+    { id: 'facturas_boleto', title: 'Facturas Boleto', icon: 'fas fa-file-invoice-dollar', color: 'text-red-600', bg: 'bg-red-100', tipo: 'facturas_boleto', type: 'pdf' },
     { id: 'guias', title: 'Guías', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'guias_pdf', type: 'pdf' },
     { id: 'facturas', title: 'Facturas', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'facturas', type: 'pdf' },
     { id: 'comprobantes', title: 'Comprobantes', icon: 'fas fa-file-pdf', color: 'text-red-600', bg: 'bg-red-100', tipo: 'comprobantes', type: 'pdf' },
@@ -23,6 +26,7 @@ const REPORTES_CONFIG = {
 export const ReportesPage = () => {
   const [activeTab, setActiveTab] = useState('excel');
   const [modalReporte, setModalReporte] = useState(null);
+  const [modalFacturasBoleto, setModalFacturasBoleto] = useState(false);
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto min-h-screen space-y-6">
@@ -40,6 +44,17 @@ export const ReportesPage = () => {
                 Generación y exportación de información del sistema
               </p>
             </div>
+          </div>
+
+          <div>
+            <button
+              onClick={() => setModalFacturasBoleto(true)}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm"
+              title="Reporte general agrupado por socios en PDF y Excel"
+            >
+              <i className="fas fa-file-invoice-dollar text-sm"></i>
+              Facturas Boleto
+            </button>
           </div>
         </div>
       </div>
@@ -81,7 +96,13 @@ export const ReportesPage = () => {
             {REPORTES_CONFIG[activeTab].map((reporte) => (
               <button
                 key={reporte.id}
-                onClick={() => setModalReporte(reporte)}
+                onClick={() => {
+                  if (reporte.id === 'facturas_boleto') {
+                    setModalFacturasBoleto(true);
+                  } else {
+                    setModalReporte(reporte);
+                  }
+                }}
                 className="group relative flex flex-col items-center justify-center p-6 bg-white border border-slate-200 rounded-xl hover:border-indigo-300 hover:shadow-md transition-all duration-200 ease-in-out text-center"
               >
                 <div className={`w-14 h-14 ${reporte.bg} ${reporte.color} rounded-full flex items-center justify-center text-2xl mb-4 group-hover:scale-110 transition-transform duration-200`}>
@@ -101,10 +122,16 @@ export const ReportesPage = () => {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal Genérico */}
       {modalReporte && (
         <ReporteModal reporte={modalReporte} onClose={() => setModalReporte(null)} />
       )}
+
+      {/* Modal Facturas Boleto (Agrupado por Socios / Secuencias en PDF y Excel) */}
+      <ReporteFacturacionGeneralModal
+        isOpen={modalFacturasBoleto}
+        onClose={() => setModalFacturasBoleto(false)}
+      />
     </div>
   );
 };

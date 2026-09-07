@@ -322,7 +322,7 @@ export const reportesService = {
    * @param {number} maxWaitMs - Tiempo máximo de espera en ms (default: 120000 = 2 min)
    * @returns {Promise} - Resultado del reporte
    */
-  async enqueueAndWait(tipo, params = {}, onProgress = null, intervalMs = 1000, maxWaitMs = 120000) {
+  async enqueueAndWait(tipo, params = {}, onProgress = null, intervalMs = 1200, maxWaitMs = 600000) {
     const { success, jobId } = await this.enqueueReport(tipo, params);
     if (!success) throw new Error('No se pudo encolar el reporte');
 
@@ -333,15 +333,17 @@ export const reportesService = {
         try {
           const elapsed = Date.now() - startTime;
           if (elapsed > maxWaitMs) {
-            reject(new Error('Tiempo de espera agotado para el reporte'));
+            reject(new Error('Tiempo de espera agotado para el reporte en cola'));
             return;
           }
 
           const statusResponse = await this.getJobStatus(jobId);
           const job = statusResponse.data;
 
-          if (onProgress && job.progress) {
-            onProgress(job.progress.percent || 0, job.progress.message || '');
+          if (onProgress && (job.progress !== undefined || job.progressPercent !== undefined)) {
+            const pct = typeof job.progress === 'object' ? job.progress.percent : (job.progressPercent ?? job.progress ?? 0);
+            const msg = typeof job.progress === 'object' ? job.progress.message : (job.progressMessage || '');
+            onProgress(pct, msg);
           }
 
           if (job.status === 'completed') {

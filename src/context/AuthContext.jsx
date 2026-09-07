@@ -32,9 +32,48 @@ const AUTH_KEYS = [
   'sistema_modo'
 ];
 
-const redirectToLogin = () => {
-  const basePath = window.location.pathname;
-  window.location.replace(`${basePath}#/login`);
+export const redirectToLogin = () => {
+  const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+  window.location.href = `${window.location.origin}${basePath}#/login`;
+  window.location.reload();
+};
+
+export const clearAuthData = () => {
+  try {
+    sessionStorage.clear();
+  } catch (e) {}
+
+  AUTH_KEYS.forEach(key => {
+    try {
+      localStorage.removeItem(key);
+    } catch (e) {}
+  });
+
+  try {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('login_as_') || k.startsWith('auth_') || k.startsWith('tenant_'))
+      .forEach(k => localStorage.removeItem(k));
+  } catch (e) {}
+
+  try {
+    const cookiesToClear = ['connect.sid', 'PHPSESSID', 'id_usuario', 'nombre_usuario', 'rol_usuario'];
+    cookiesToClear.forEach(c => {
+      document.cookie = `${c}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    });
+  } catch (e) {}
+};
+
+export const isTokenExpired = (token) => {
+  if (!token || typeof token !== 'string') return true;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return true;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (!payload.exp) return false;
+    return Date.now() >= (payload.exp * 1000 - 10000);
+  } catch (e) {
+    return true;
+  }
 };
 
 const syncStorageFromLocal = () => {
@@ -62,16 +101,6 @@ const persistAuthData = (data) => {
     localStorage.setItem('usuario', userVal);
     sessionStorage.setItem('usuario', userVal);
   }
-};
-
-const clearAuthData = () => {
-  sessionStorage.clear();
-  AUTH_KEYS.forEach(key => localStorage.removeItem(key));
-  try {
-    Object.keys(localStorage)
-      .filter(k => k.startsWith('login_as_'))
-      .forEach(k => localStorage.removeItem(k));
-  } catch (e) {}
 };
 
 export const AuthProvider = ({ children }) => {
@@ -109,7 +138,11 @@ export const AuthProvider = ({ children }) => {
     const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
     const userDataStr = sessionStorage.getItem('user_data') || localStorage.getItem('user_data');
 
-    if (!token || !userDataStr) {
+    if (!token || !userDataStr || isTokenExpired(token)) {
+      if (token && isTokenExpired(token)) {
+        console.warn('[Auth] Token JWT expirado en storage. Limpiando credenciales...');
+        clearAuthData();
+      }
       setLoading(false);
       return;
     }
@@ -304,6 +337,10 @@ export const AuthProvider = ({ children }) => {
   }, [cargarPermisosRol]);
 
   const logout = useCallback(async () => {
+    const refreshToken = sessionStorage.getItem('refresh_token') || localStorage.getItem('refresh_token');
+    const userId = user?.id || user?.id_usuario;
+
+    // 1. Desconectar socket inmediatamente
     if (window.__socket) {
       try {
         window.__socket.disconnect();
@@ -311,18 +348,18 @@ export const AuthProvider = ({ children }) => {
       } catch (e) {}
     }
 
-    try {
-      await AuthService.phpLogout();
-    } catch (e) {
-      console.warn('Error al cerrar sesión PHP:', e);
-    }
-
+    // 2. Limpiar de inmediato el storage y estado React (no esperar a la red)
     clearAuthData();
     setUser(null);
     setIsAuthenticated(false);
     setPermisos(null);
+
+    // 3. Notificar a AuthService, Node Backend y PHP en segundo plano
+    AuthService.serverLogout(refreshToken, userId).catch(() => {});
+
+    // 4. Redirigir a login y recargar para reiniciar limpiamente la aplicación
     redirectToLogin();
-  }, []);
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, loginFromImpersonation, hasRole, hasPermission, userName, userRole }}>

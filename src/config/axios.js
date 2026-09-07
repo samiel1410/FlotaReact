@@ -137,7 +137,15 @@ api.interceptors.response.use(
 
     if (isTokenAuthError) {
       console.error('[Auth] Sesión expirada o token inválido. Redirigiendo al login...');
-      sessionStorage.clear();
+      if (window.__socket) {
+        try {
+          window.__socket.disconnect();
+          window.__socket = null;
+        } catch (e) {}
+      }
+      try {
+        sessionStorage.clear();
+      } catch (e) {}
       [
         'auth_token',
         'refresh_token',
@@ -153,23 +161,26 @@ api.interceptors.response.use(
         'empresa_data',
         'id_caja_global',
         'sistema_modo'
-      ].forEach(k => localStorage.removeItem(k));
+      ].forEach(k => {
+        try { localStorage.removeItem(k); } catch (e) {}
+      });
 
       try {
         Object.keys(localStorage)
-          .filter(k => k.startsWith('login_as_'))
+          .filter(k => k.startsWith('login_as_') || k.startsWith('auth_') || k.startsWith('tenant_'))
           .forEach(k => localStorage.removeItem(k));
       } catch (e) {}
 
-      if (window.__socket) {
-        try {
-          window.__socket.disconnect();
-          window.__socket = null;
-        } catch (e) {}
-      }
+      try {
+        const cookiesToClear = ['connect.sid', 'PHPSESSID', 'id_usuario', 'nombre_usuario', 'rol_usuario'];
+        cookiesToClear.forEach(c => {
+          document.cookie = `${c}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        });
+      } catch (e) {}
 
-      const basePath = window.location.pathname;
-      window.location.replace(`${basePath}#/login`);
+      const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+      window.location.href = `${window.location.origin}${basePath}#/login`;
+      window.location.reload();
     }
 
     // Log en consola para desarrollo (solo errores no manejados)

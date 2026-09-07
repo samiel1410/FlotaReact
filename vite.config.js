@@ -20,7 +20,7 @@ function buildProxyConfig() {
     '/viajes', '/boleteria', '/boleto', '/guia', '/guias_companias',
     '/factura', '/caja', '/cajacomprobante', '/cobro', '/comprobante',
     '/tipo_cobros', '/configuracion', '/reportes', '/estadisticas',
-    '/impresoras', '/dashboard', '/locacion', '/api',
+    '/impresoras', '/dashboard', '/locacion', '/api', '/login',
   ];
 
   const proxy = {};

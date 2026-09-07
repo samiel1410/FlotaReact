@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { FacturasService } from './services/facturas.service';
 import { FacturasFilterPanel } from './components/FacturasFilterPanel';
 import { FacturasGrid } from './components/FacturasGrid';
+import { ReporteFacturacionGeneralModal } from './components/ReporteFacturacionGeneralModal';
 import { useAuth } from '../../hooks/useAuth';
 import toast from 'react-hot-toast';
 
@@ -16,6 +17,7 @@ export const FacturasPage = () => {
   const [page, setPage] = useState(1);
   const [filtros, setFiltros] = useState({});
   const [usuarios, setUsuarios] = useState([]);
+  const [reporteModalOpen, setReporteModalOpen] = useState(false);
   const limit = 25;
 
   // Cargar combo de usuarios al montar
@@ -69,6 +71,15 @@ export const FacturasPage = () => {
           </h1>
           <p className="text-xs text-slate-400 mt-0.5">Gestión y consulta de facturas emitidas</p>
         </div>
+
+        <button
+          onClick={() => setReporteModalOpen(true)}
+          className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-sm"
+          title="Generar reporte de facturación general en PDF o Excel agrupado por socios"
+        >
+          <i className="fas fa-file-invoice-dollar"></i>
+          Facturas Boleto
+        </button>
       </div>
 
       {/* Filters */}
@@ -88,6 +99,12 @@ export const FacturasPage = () => {
           rol_usuario={rol_usuario}
         />
       </div>
+
+      {/* Modal Reporte de Facturación General */}
+      <ReporteFacturacionGeneralModal
+        isOpen={reporteModalOpen}
+        onClose={() => setReporteModalOpen(false)}
+      />
     </div>
   );
 };

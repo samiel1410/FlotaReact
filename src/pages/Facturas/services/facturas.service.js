@@ -171,5 +171,51 @@ export const FacturasService = {
       console.warn(`[FacturasService reenviarSri] ⚠️ registrarAutorizacion no disponible o falló:`, eReg.message);
     }
     return { success: esAutorizado, estado: estadoSRI, mensaje: mensajeRes, resultFirma };
+  },
+
+  getReporteFacturacionGeneralData: async (params = {}) => {
+    const response = await api.get('/factura/reporteFacturacionGeneralData', { params });
+    return response.data;
+  },
+
+  getReporteFacturacionGeneralPdfHtml: async (params = {}) => {
+    const response = await api.get('/factura/reporteFacturacionGeneralPdf', { params, responseType: 'text' });
+    return response.data;
+  },
+
+  descargarReporteFacturacionGeneralExcel: async (params = {}) => {
+    const response = await api.get('/factura/reporteFacturacionGeneralExcel', {
+      params,
+      responseType: 'blob'
+    });
+    const blob = new Blob([response.data], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Listado_Facturacion_General_${params.desde || 'todos'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+  },
+
+  getSociosCombo: async () => {
+    try {
+      const response = await api.get('/personal/socioSelectCombo');
+      return response.data?.data || response.data || [];
+    } catch {
+      return [];
+    }
+  },
+
+  getBusesCombo: async () => {
+    try {
+      const response = await api.get('/buses/seleccionarBusesCombo');
+      return response.data?.data || response.data || [];
+    } catch {
+      return [];
+    }
   }
 };
