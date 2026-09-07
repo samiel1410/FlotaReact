@@ -4,6 +4,8 @@ require_once("db.php");
 require_once("pdf_utils.php");
 date_default_timezone_set('America/Guayaquil');
 
+ob_start();
+
 try {
 $fecha_actual = date('Y-m-d H:i:s');
 $id_viaje = (int)($_GET['id_viaje'] ?? 0);
@@ -16,18 +18,39 @@ $conn = conexion();
 // Consulta optimizada de datos del bus, ruta y conductor
 $query_info = "SELECT
 v.id_viajes, v.dia_viajes, v.hora_salida_estimado, r.nombre_rutas,
-b.disco_buses, b.placa_buses, p.per_cedula_personal,
-CONCAT(p.per_nombres_persona, ' ', p.per_apellidos_personal) AS per_nombres_persona,
+b.disco_buses, b.placa_buses,
+p.per_cedula_personal, p.per_nombres_persona, p.per_apellidos_personal,
+v.chofer_viajes, v.cedula_viajes,
 d.fecha_salida_despacho_viaje, u.nombre_usuario, u.apellido_usuario
 FROM viajes v
 LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
 LEFT JOIN buses b ON v.id_fkbus_viajes = b.id_buses
-LEFT JOIN personal p ON b.id_fkpersonal_buses = p.id_personal
+LEFT JOIN personal p ON p.id_personal = CASE 
+    WHEN IFNULL(v.id_fkchofer_viajes, 0) > 0 THEN v.id_fkchofer_viajes 
+    ELSE b.id_fkpersonal_buses 
+END
 LEFT JOIN despacho_viaje d ON v.id_viajes = d.id_fkviaje_despacho_viaje
 LEFT JOIN usuario u ON d.id_fkusuario_aprueba = u.id_usuario
 WHERE v.id_viajes = $id_viaje LIMIT 1";
 $result_info = mysqli_query($conn, $query_info) or die(mysqli_error($conn));
-$info = mysqli_fetch_assoc($result_info);
+$info = mysqli_fetch_assoc($result_info) ?: [];
+
+$conductor_nombre = trim(($info['per_nombres_persona'] ?? '') . ' ' . ($info['per_apellidos_personal'] ?? ''));
+if (empty($conductor_nombre) && !empty($info['chofer_viajes'])) {
+    $conductor_nombre = trim($info['chofer_viajes']);
+}
+if (empty($conductor_nombre)) {
+    $conductor_nombre = 'N/A';
+}
+
+$conductor_cedula = !empty($info['per_cedula_personal']) 
+    ? trim($info['per_cedula_personal']) 
+    : (!empty($info['cedula_viajes']) ? trim($info['cedula_viajes']) : 'N/A');
+
+$usuario_entrega = trim(($info['nombre_usuario'] ?? '') . ' ' . ($info['apellido_usuario'] ?? ''));
+if (empty($usuario_entrega)) {
+    $usuario_entrega = 'N/A';
+}
 
 // Consulta optimizada de pasajeros (agrupados por oficina de venta y embarque)
 $query = "SELECT 
@@ -176,15 +199,15 @@ $tabla .= '
 $query = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM
 empresa LIMIT 1";
 $recuperar = mysqli_query($conn, $query) or die(mysqli_error($conn));
-$vals = mysqli_fetch_array($recuperar);
+$vals = mysqli_fetch_array($recuperar) ?: [];
 
-$id_empresa = $vals["id_empresa"];
+$id_empresa = $vals["id_empresa"] ?? '';
 $imagen_empresa = $vals["imagen_empresa"] ?? null;
-$telefono_empresa = $vals["telefono_empresa"];
-$correo_empresa = $vals["correo_empresa"];
-$ruc_empresa = $vals["ruc_empresa"];
-$direccion_empresa = $vals["direccion_empresa"];
-$razon_social_empresa = $vals["razon_social_empresa"];
+$telefono_empresa = $vals["telefono_empresa"] ?? '';
+$correo_empresa = $vals["correo_empresa"] ?? '';
+$ruc_empresa = $vals["ruc_empresa"] ?? '';
+$direccion_empresa = $vals["direccion_empresa"] ?? '';
+$razon_social_empresa = $vals["razon_social_empresa"] ?? '';
 
 $html = '
 <html>
@@ -290,16 +313,16 @@ $html = '
     </div>
     <hr>
     <div class="titulo">LISTADO DE PASAJEROS</div>
-    <div class="titulo"> <b>Disco:</b> ' . $info['disco_buses'] . '</div>
+    <div class="titulo"> <b>Disco:</b> ' . htmlspecialchars($info['disco_buses'] ?? 'S/N') . '</div>
     <div class="subtitulo">Viaje #' . $id_viaje . ' | Fecha: ' . $fecha_actual . '</div>
 
     <div class="info-bus" style="display: flex; justify-content: space-between; align-items: center;">
-        <span><b>Ruta:</b> ' . $ruta . ' </span>
-        <span><b>Placa:</b> ' . $info['placa_buses'] . '</span>
+        <span><b>Ruta:</b> ' . htmlspecialchars($ruta) . ' </span>
+        <span><b>Placa:</b> ' . htmlspecialchars($info['placa_buses'] ?? 'S/N') . '</span>
     </div>
 
-    <span><b>Conductor:</b> ' . $info['per_nombres_persona'] . '' . $info['per_apellidos_personal'] . '</span>
-    <br><span><b>C.I:</b> ' . $info['per_cedula_personal'] . '</span>
+    <span><b>Conductor:</b> ' . htmlspecialchars($conductor_nombre) . '</span>
+    <br><span><b>C.I:</b> ' . htmlspecialchars($conductor_cedula) . '</span>
     <br>
     <br>
 
@@ -318,7 +341,7 @@ $html = '
         Total Recaudado: $' . number_format($total_valor, 2) . '
     </div>
 
-    <span><b>Entrega:</b> ' . $info['nombre_usuario'] . '' . $info['apellido_usuario'] . '</span>
+    <span><b>Entrega:</b> ' . htmlspecialchars($usuario_entrega) . '</span>
 
     <div class="footer">Impresión: ' . $fecha_actual . '</div>
 </body>
@@ -330,11 +353,17 @@ $pdf->SetFont('helvetica', '', 10);
 $pdf->AddPage('P', array(500, 120));
 $pdf->writeHTML($html, true, false, true, false, '');
 
+if (ob_get_length()) {
+    ob_end_clean();
+}
 
 $pdf->Output('pasajeros.pdf', 'I');
 exit;
 
 } catch (Exception $e) {
+if (ob_get_length()) {
+    ob_end_clean();
+}
 $array = array(
 "error" => $e->getMessage(),
 "success" => false,
