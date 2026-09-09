@@ -76,7 +76,7 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
   const destinosFiltrados = destinos.filter(d => {
     if (!filtroModal) return true;
     const busqueda = filtroModal.toLowerCase();
-    const nombreDest = (d.nombre || d.nombre_destino || '').toLowerCase();
+    const nombreDest = (d.lugar_destino || d.nombre || d.nombre_destino || '').toLowerCase();
     const nombreComp = (d.nombre_compania_asociada || '').toLowerCase();
     return nombreDest.includes(busqueda) || nombreComp.includes(busqueda);
   });
@@ -220,7 +220,7 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
                   <div key={d.id || d.id_destino} 
                     onClick={() => {
                       if (onSeleccionarDestino) {
-                        onSeleccionarDestino(String(d.id || d.id_destino), d.nombre || d.nombre_destino || '');
+                        onSeleccionarDestino(String(d.id || d.id_destino), d.lugar_destino || d.nombre || d.nombre_destino || '');
                       }
                       setShowModalCompanias(false);
                     }}
@@ -229,8 +229,13 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
                     <div>
                       <div className="text-sm font-bold text-slate-800 group-hover:text-indigo-700 transition-colors">
                         <i className="fas fa-map-marker-alt text-slate-400 mr-2 group-hover:text-indigo-500"></i>
-                        {d.nombre || d.nombre_destino}
+                        {d.lugar_destino || d.nombre}
                       </div>
+                      {d.nombre_destino && d.nombre_destino !== (d.lugar_destino || d.nombre) && (
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          {d.nombre_destino}
+                        </div>
+                      )}
                       {d.nombre_compania_asociada ? (
                         <div className="text-xs text-slate-600 font-semibold mt-1 flex items-center gap-1">
                           <i className="fas fa-building text-indigo-500"></i>

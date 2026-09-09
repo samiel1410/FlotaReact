@@ -176,9 +176,9 @@ export const NuevaGuiaNotaVentaPage = () => {
     return arr.map(item => ({
       ...item,
       id: item[idField] !== undefined ? item[idField] : item.id,
-      nombre: item[nombreField] || item.nombre_destino || item.lugar_destino || item.nombre || '',
-      nombre_destino: item.nombre_destino || item.lugar_destino || item[nombreField] || '',
-      lugar_destino: item.lugar_destino || item.nombre_destino || item[nombreField] || '',
+      nombre: item[nombreField] || item.lugar_destino || item.nombre_destino || item.nombre || '',
+      nombre_destino: item.nombre_destino || '',
+      lugar_destino: item.lugar_destino || item[nombreField] || item.nombre_destino || '',
       idfk_compania_asociada_destino: item.idfk_compania_asociada_destino || item.id_compania_asociada,
       nombre_compania_asociada: item.nombre_compania_asociada || '',
       ruc_compania_asociada: item.ruc_compania_asociada || item.ruc_compania || item.ruc || '',
@@ -241,7 +241,7 @@ export const NuevaGuiaNotaVentaPage = () => {
       }
       if (destRes.status === 'fulfilled') {
         const raw = destRes.value?.data || [];
-        setDestinos(normalizeComboData(raw, 'id_destino', 'nombre_destino'));
+        setDestinos(normalizeComboData(raw, 'id_destino', 'lugar_destino'));
       }
       if (teRes.status === 'fulfilled') {
         const raw = teRes.value?.data || [];
@@ -309,7 +309,11 @@ export const NuevaGuiaNotaVentaPage = () => {
 
       const destinoText = cabecera.destino_guia || cabecera.destino || '';
       setDestinoTexto(destinoText);
-      const dMatch = destinos.find(d => (d.nombre || '').toLowerCase() === destinoText.toLowerCase());
+      const dMatch = destinos.find(d => 
+        (d.lugar_destino || '').toLowerCase() === destinoText.toLowerCase() ||
+        (d.nombre || '').toLowerCase() === destinoText.toLowerCase() ||
+        (d.nombre_destino || '').toLowerCase() === destinoText.toLowerCase()
+      );
       if (dMatch) setDestino(String(dMatch.id));
 
       // Remitente
@@ -616,6 +620,7 @@ export const NuevaGuiaNotaVentaPage = () => {
     if (!confirmGuardar.isConfirmed) return;
 
     // Totales calculados
+    const totalSubtotal = detalles.reduce((sum, d) => sum + (d.subtotal || 0), 0);
     let subtotalConIva = 0;
     let subtotalSinIva = 0;
     detalles.forEach(d => {
@@ -1046,12 +1051,12 @@ export const NuevaGuiaNotaVentaPage = () => {
                       setDestinoAbierto(true);
 
                       const exactMatch = destinos.find(d => 
+                        (d.lugar_destino || '').toLowerCase() === val.trim().toLowerCase() ||
                         (d.nombre || '').toLowerCase() === val.trim().toLowerCase() ||
-                        (d.nombre_destino || '').toLowerCase() === val.trim().toLowerCase() ||
-                        (d.lugar_destino || '').toLowerCase() === val.trim().toLowerCase()
+                        (d.nombre_destino || '').toLowerCase() === val.trim().toLowerCase()
                       );
                       if (exactMatch) {
-                        handleSetDestino(String(exactMatch.id || exactMatch.id_destino), exactMatch.nombre || exactMatch.nombre_destino || exactMatch.lugar_destino);
+                        handleSetDestino(String(exactMatch.id || exactMatch.id_destino), exactMatch.lugar_destino || exactMatch.nombre || exactMatch.nombre_destino);
                       } else {
                         setDestino('');
                         setCompania(null);
@@ -1065,13 +1070,13 @@ export const NuevaGuiaNotaVentaPage = () => {
                         e.preventDefault();
                         const val = destinoTexto.trim().toLowerCase();
                         const filtrados = destinos.filter(d => 
+                          (d.lugar_destino || '').toLowerCase().includes(val) ||
                           (d.nombre || '').toLowerCase().includes(val) ||
-                          (d.nombre_destino || '').toLowerCase().includes(val) ||
-                          (d.lugar_destino || '').toLowerCase().includes(val)
+                          (d.nombre_destino || '').toLowerCase().includes(val)
                         );
                         if (filtrados.length > 0) {
                           const primero = filtrados[0];
-                          handleSetDestino(String(primero.id || primero.id_destino), primero.nombre || primero.nombre_destino || primero.lugar_destino || '');
+                          handleSetDestino(String(primero.id || primero.id_destino), primero.lugar_destino || primero.nombre || primero.nombre_destino || '');
                         }
                         setDestinoAbierto(false);
                       }
@@ -1082,12 +1087,12 @@ export const NuevaGuiaNotaVentaPage = () => {
                         if (destinoTexto && !destino) {
                           const val = destinoTexto.trim().toLowerCase();
                           const found = destinos.find(d => 
+                            (d.lugar_destino || '').toLowerCase().includes(val) ||
                             (d.nombre || '').toLowerCase().includes(val) ||
-                            (d.nombre_destino || '').toLowerCase().includes(val) ||
-                            (d.lugar_destino || '').toLowerCase().includes(val)
+                            (d.nombre_destino || '').toLowerCase().includes(val)
                           );
                           if (found) {
-                            handleSetDestino(String(found.id || found.id_destino), found.nombre || found.nombre_destino || found.lugar_destino || '');
+                            handleSetDestino(String(found.id || found.id_destino), found.lugar_destino || found.nombre || found.nombre_destino || '');
                           }
                         }
                       }, 250);
@@ -1096,7 +1101,7 @@ export const NuevaGuiaNotaVentaPage = () => {
                   <button onClick={async () => {
                     try {
                       const res = await GuiaService.getDestinosCombo();
-                      setDestinos(normalizeComboData(res?.data || [], 'id_destino', 'nombre_destino'));
+                      setDestinos(normalizeComboData(res?.data || [], 'id_destino', 'lugar_destino'));
                       toast.success('Destinos actualizados');
                     } catch (e) {
                       toast.error('Error al actualizar destinos');
@@ -1109,22 +1114,27 @@ export const NuevaGuiaNotaVentaPage = () => {
                   <div style={{ position: 'absolute', top: '100%', left: 0, right: '42px', zIndex: 50, background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
                     {destinos.filter(d => {
                       const val = destinoTexto.toLowerCase();
-                      return (d.nombre || '').toLowerCase().includes(val) ||
-                        (d.nombre_destino || '').toLowerCase().includes(val) ||
-                        (d.lugar_destino || '').toLowerCase().includes(val);
+                      return (d.lugar_destino || '').toLowerCase().includes(val) ||
+                        (d.nombre || '').toLowerCase().includes(val) ||
+                        (d.nombre_destino || '').toLowerCase().includes(val);
                     }).map(d => (
                       <div key={d.id || d.id_destino}
                         onMouseDown={() => {
-                          const nombre = d.nombre || d.nombre_destino || d.lugar_destino || '';
+                          const nombre = d.lugar_destino || d.nombre || d.nombre_destino || '';
                           handleSetDestino(String(d.id || d.id_destino), nombre);
                           setDestinoAbierto(false);
                         }}
                         style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', borderBottom: '1px solid #f1f5f9', transition: 'background 0.1s' }}
                         onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                        <div className="font-semibold text-slate-700">{d.nombre || d.nombre_destino}</div>
+                        <div className="font-semibold text-slate-700">{d.lugar_destino || d.nombre}</div>
+                        {d.nombre_destino && d.nombre_destino !== (d.lugar_destino || d.nombre) && (
+                          <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                            <i className="fas fa-map-marker-alt text-[10px] text-slate-400"></i> {d.nombre_destino}
+                          </div>
+                        )}
                         {d.nombre_compania_asociada && (
-                          <div className="text-[10px] text-indigo-600 flex items-center gap-1 font-medium">
+                          <div className="text-[10px] text-indigo-600 flex items-center gap-1 font-medium mt-0.5">
                             <i className="fas fa-building text-[9px]"></i> {d.nombre_compania_asociada}
                           </div>
                         )}
@@ -1132,9 +1142,9 @@ export const NuevaGuiaNotaVentaPage = () => {
                     ))}
                     {destinos.filter(d => {
                       const val = destinoTexto.toLowerCase();
-                      return (d.nombre || '').toLowerCase().includes(val) ||
-                        (d.nombre_destino || '').toLowerCase().includes(val) ||
-                        (d.lugar_destino || '').toLowerCase().includes(val);
+                      return (d.lugar_destino || '').toLowerCase().includes(val) ||
+                        (d.nombre || '').toLowerCase().includes(val) ||
+                        (d.nombre_destino || '').toLowerCase().includes(val);
                     }).length === 0 && (
                       <div style={{ padding: '10px 12px', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>Sin resultados</div>
                     )}
