@@ -22,6 +22,11 @@ api.interceptors.request.use(
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      try {
+        const now = String(Date.now());
+        localStorage.setItem('last_activity_time', now);
+        sessionStorage.setItem('last_activity_time', now);
+      } catch (e) {}
     }
 
     // ExtJS classic style: POST requests send data as form-urlencoded
@@ -160,7 +165,8 @@ api.interceptors.response.use(
         'php_url',
         'empresa_data',
         'id_caja_global',
-        'sistema_modo'
+        'sistema_modo',
+        'last_activity_time'
       ].forEach(k => {
         try { localStorage.removeItem(k); } catch (e) {}
       });

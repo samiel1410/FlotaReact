@@ -107,7 +107,7 @@ export const PAGES_CONFIG = {
           icon: 'fas fa-user-lock',
           tooltip: 'Cambiar y Copiar Credenciales',
           color: 'text-violet-600 hover:bg-violet-50',
-          showIf: (row) => {
+          showIf: (_row) => {
             try {
               const userData = JSON.parse(sessionStorage.getItem('user_data') || '{}');
               const myRole = parseInt(userData.rol_usuario || userData.rol || 0);
@@ -415,11 +415,15 @@ export const PAGES_CONFIG = {
       {
         key: 'tipo_impuesto', label: 'Impuesto',
         render: v => {
-          if (v === '0' || v === 0 || v === '') return '0%';
-          if (v === '1') return '12%';
-          if (v === '2') return '13%';
-          if (v === '3') return '14%';
-          if (v === '4') return '15%';
+          const val = String(v ?? '').trim();
+          if (val === '0' || val === '' || val === 'null') return '0%';
+          if (val === '1') return '12%';
+          if (val === '2') return '13%';
+          if (val === '3') return '14%';
+          if (val === '4') return '15%';
+          if (val === '5') return '16%';
+          const num = parseInt(val, 10);
+          if (!isNaN(num) && num > 0) return `${11 + num}%`;
           return v || '-';
         }
       },

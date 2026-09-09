@@ -21,7 +21,10 @@ v.id_viajes, v.dia_viajes, v.hora_salida_estimado, r.nombre_rutas,
 b.disco_buses, b.placa_buses,
 p.per_cedula_personal, p.per_nombres_persona, p.per_apellidos_personal,
 v.chofer_viajes, v.cedula_viajes,
-d.fecha_salida_despacho_viaje, u.nombre_usuario, u.apellido_usuario
+d.fecha_salida_despacho_viaje,
+COALESCE(u.nombre_usuario, u2.nombre_usuario, u3.nombre_usuario) AS nombre_usuario,
+COALESCE(u.apellido_usuario, u2.apellido_usuario, u3.apellido_usuario) AS apellido_usuario,
+COALESCE(u.username_usuario, u2.username_usuario, u3.username_usuario) AS username_usuario
 FROM viajes v
 LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
 LEFT JOIN buses b ON v.id_fkbus_viajes = b.id_buses
@@ -31,6 +34,8 @@ LEFT JOIN personal p ON p.id_personal = CASE
 END
 LEFT JOIN despacho_viaje d ON v.id_viajes = d.id_fkviaje_despacho_viaje
 LEFT JOIN usuario u ON d.id_fkusuario_aprueba = u.id_usuario
+LEFT JOIN usuario u2 ON d.id_fkusuario_aprueba = u2.username_usuario
+LEFT JOIN usuario u3 ON v.id_fkusuario_viajes = u3.id_usuario
 WHERE v.id_viajes = $id_viaje LIMIT 1";
 $result_info = mysqli_query($conn, $query_info) or die(mysqli_error($conn));
 $info = mysqli_fetch_assoc($result_info) ?: [];
@@ -47,9 +52,41 @@ $conductor_cedula = !empty($info['per_cedula_personal'])
     ? trim($info['per_cedula_personal']) 
     : (!empty($info['cedula_viajes']) ? trim($info['cedula_viajes']) : 'N/A');
 
+// Obtener usuario que entrega / emite la hoja de ruta
 $usuario_entrega = trim(($info['nombre_usuario'] ?? '') . ' ' . ($info['apellido_usuario'] ?? ''));
+if (empty($usuario_entrega) && !empty($info['username_usuario'])) {
+    $usuario_entrega = trim($info['username_usuario']);
+}
+
+// Fallback: usuario pasado en URL o sesión
+if (empty($usuario_entrega) && !empty($_GET['usuario'])) {
+    $usuario_entrega = trim($_GET['usuario']);
+}
+if (empty($usuario_entrega) && !empty($_GET['nombre_usuario'])) {
+    $usuario_entrega = trim($_GET['nombre_usuario']);
+}
+if (empty($usuario_entrega) && !empty($_SESSION['nombre_usuario'])) {
+    $usuario_entrega = trim($_SESSION['nombre_usuario']);
+}
+if (empty($usuario_entrega) && !empty($_COOKIE['nombre_usuario'])) {
+    $usuario_entrega = trim($_COOKIE['nombre_usuario']);
+}
+
+// Fallback: último usuario que emitió boleto en este viaje
 if (empty($usuario_entrega)) {
-    $usuario_entrega = 'N/A';
+    $q_vendedor = "SELECT u.nombre_usuario, u.apellido_usuario, u.username_usuario 
+                   FROM boletos b 
+                   JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario 
+                   WHERE b.id_fkviaje_boleto = $id_viaje AND b.estado_boleto != 3 
+                   ORDER BY b.id_boleto DESC LIMIT 1";
+    $res_vendedor = mysqli_query($conn, $q_vendedor);
+    if ($res_vendedor && $row_v = mysqli_fetch_assoc($res_vendedor)) {
+        $usuario_entrega = trim(($row_v['nombre_usuario'] ?? $row_v['username_usuario'] ?? '') . ' ' . ($row_v['apellido_usuario'] ?? ''));
+    }
+}
+
+if (empty($usuario_entrega)) {
+    $usuario_entrega = 'SISTEMA';
 }
 
 // Consulta optimizada de pasajeros (agrupados por oficina de venta y embarque)

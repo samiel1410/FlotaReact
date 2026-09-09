@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api } from '../../config/axios';
+import { CONFIG } from '../../config/env';
 import { BoleteriaFilterPanel } from './components/BoleteriaFilterPanel';
 import { BoleteriaGrid } from './components/BoleteriaGrid';
 import { CambiarFechaViajeModal } from './components/CambiarFechaViajeModal';

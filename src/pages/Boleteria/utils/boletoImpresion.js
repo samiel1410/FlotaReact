@@ -1,5 +1,4 @@
 import { api } from '../../../config/axios';
-import toast from 'react-hot-toast';
 import { buildPdfUrl } from '../../../utils/pdfUrlUtils';
 
 export const loadQZTrayScript = () => {

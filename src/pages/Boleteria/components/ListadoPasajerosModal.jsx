@@ -1,16 +1,19 @@
 import { useEffect, useRef } from 'react';
 import { buildPdfUrl } from '../../../utils/pdfUrlUtils';
+import { useAuth } from '../../../context/AuthContext';
 
 const BASE_URL = window.location.origin;
 
 export const ListadoPasajerosModal = ({ isOpen, onClose, viajeId }) => {
+  const { user } = useAuth();
   const iframeRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && iframeRef.current) {
-      iframeRef.current.src = BASE_URL + buildPdfUrl(`/php/imprimirPasajeros.php?inline=1&id_viaje=${viajeId}`);
+      const nombreUsuario = user?.nombre_usuario || user?.nombre || user?.username || '';
+      iframeRef.current.src = BASE_URL + buildPdfUrl(`/php/imprimirPasajeros.php?inline=1&id_viaje=${viajeId}&usuario=${encodeURIComponent(nombreUsuario)}`);
     }
-  }, [isOpen, viajeId]);
+  }, [isOpen, viajeId, user]);
 
   if (!isOpen) return null;
 

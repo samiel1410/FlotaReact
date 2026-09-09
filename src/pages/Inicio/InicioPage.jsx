@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import './InicioPage.css';
@@ -22,14 +22,13 @@ const ACCIONES = [
 ];
 
 export const InicioPage = () => {
-  const [date, setDate] = useState('');
   const navigate = useNavigate();
   const { hasPermission } = useAuth();
 
-  useEffect(() => {
+  const date = useMemo(() => {
     const today = new Date();
     const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-    setDate(today.toLocaleDateString('es-EC', options));
+    return today.toLocaleDateString('es-EC', options);
   }, []);
 
   const accionesVisibles = ACCIONES.filter(a => !a.permission || hasPermission(a.permission));

@@ -1,6 +1,7 @@
 <?php
 if(!isset($_SESSION)){
     session_start();
+}
 
 	
 // require_once ("db.php"); - Not needed for session destruction, was causing 12s connection delays

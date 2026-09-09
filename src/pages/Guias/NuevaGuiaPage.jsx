@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { RemitenteDestinatarioForm } from './components/RemitenteDestinatarioForm';
 import { DetalleCargaGrid } from './components/DetalleCargaGrid';
-import { TotalesPanel } from './components/TotalesPanel';
 import { CompaniaPanel } from './components/CompaniaPanel';
 import { FormaPagoPanel } from './components/FormaPagoPanel';
 import Modal from '../../components/common/Modal';
@@ -15,7 +14,7 @@ import { PdfViewerModal } from '../../components/PdfViewerModal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
-import { calcGuardarIva } from '../../utils/ivaUtils';
+import { calcGuardarIva, getIvaRate } from '../../utils/ivaUtils';
 
 
 const getInitialCobrarIvaGuia = () => {
@@ -207,7 +206,18 @@ export const NuevaGuiaPage = () => {
   // para permitir la selección manual si hay múltiples compañías.
   const normalizeComboData = (arr, idField, nombreField) => {
     if (!Array.isArray(arr)) return [];
-    return arr.map(item => ({ ...item, id: item[idField], nombre: item[nombreField] }));
+    return arr.map(item => ({
+      ...item,
+      id: item[idField] !== undefined ? item[idField] : item.id,
+      nombre: item[nombreField] || item.nombre_destino || item.lugar_destino || item.nombre || '',
+      nombre_destino: item.nombre_destino || item.lugar_destino || item[nombreField] || '',
+      lugar_destino: item.lugar_destino || item.nombre_destino || item[nombreField] || '',
+      idfk_compania_asociada_destino: item.idfk_compania_asociada_destino || item.id_compania_asociada,
+      nombre_compania_asociada: item.nombre_compania_asociada || '',
+      ruc_compania_asociada: item.ruc_compania_asociada || item.ruc_compania || item.ruc || '',
+      telefono_compania_asociada: item.telefono_compania_asociada || item.numero_contacto || '',
+      correo_compania_asociada: item.correo_compania_asociada || ''
+    }));
   };
 
   const loadCombos = async () => {
@@ -228,7 +238,7 @@ export const NuevaGuiaPage = () => {
       }
       if (destRes.status === 'fulfilled') {
         const raw = destRes.value?.data || [];
-        setDestinos(normalizeComboData(raw, 'id_destino', 'lugar_destino'));
+        setDestinos(normalizeComboData(raw, 'id_destino', 'nombre_destino'));
       }
       if (teRes.status === 'fulfilled') {
         const raw = teRes.value?.data || [];
@@ -510,27 +520,51 @@ export const NuevaGuiaPage = () => {
     if (companyToSet !== undefined) {
       setCompania(companyToSet);
     } else {
-      if (!id) {
+      if (!id && !texto) {
         setCompania(null);
         return;
       }
-      const matches = destinos.filter(d => String(d.id) === String(id));
+      const matches = destinos.filter(d => 
+        (id && String(d.id || d.id_destino) === String(id)) ||
+        (texto && (
+          (d.nombre || '').toLowerCase() === texto.toLowerCase() ||
+          (d.nombre_destino || '').toLowerCase() === texto.toLowerCase() ||
+          (d.lugar_destino || '').toLowerCase() === texto.toLowerCase()
+        ))
+      );
+
       if (matches.length === 1) {
-        if (matches[0].idfk_compania_asociada_destino) {
+        const match = matches[0];
+        if (match.idfk_compania_asociada_destino || match.id_compania_asociada) {
           setCompania({
-            id: matches[0].idfk_compania_asociada_destino,
-            id_compania_asociada: matches[0].idfk_compania_asociada_destino,
-            nombre: matches[0].nombre_compania_asociada || '',
-            ruc: matches[0].ruc_compania_asociada || matches[0].ruc_compania || matches[0].ruc || '',
-            telefono: matches[0].numero_contacto || '',
-            correo: ''
+            id: match.idfk_compania_asociada_destino || match.id_compania_asociada,
+            id_compania: match.idfk_compania_asociada_destino || match.id_compania_asociada,
+            id_compania_asociada: match.idfk_compania_asociada_destino || match.id_compania_asociada,
+            nombre: match.nombre_compania_asociada || '',
+            ruc: match.ruc_compania_asociada || match.ruc_compania || match.ruc || '',
+            telefono: match.telefono_compania_asociada || match.numero_contacto || '',
+            correo: match.correo_compania_asociada || ''
           });
         } else {
           setCompania(null);
         }
       } else if (matches.length > 1) {
-        setMultiCompaniaOptions(matches);
-        setShowMultiCompaniaModal(true);
+        const primerMatch = matches[0];
+        const mismaCompania = matches.every(m => (m.idfk_compania_asociada_destino || m.id_compania_asociada) === (primerMatch.idfk_compania_asociada_destino || primerMatch.id_compania_asociada));
+        if (mismaCompania && (primerMatch.idfk_compania_asociada_destino || primerMatch.id_compania_asociada)) {
+          setCompania({
+            id: primerMatch.idfk_compania_asociada_destino || primerMatch.id_compania_asociada,
+            id_compania: primerMatch.idfk_compania_asociada_destino || primerMatch.id_compania_asociada,
+            id_compania_asociada: primerMatch.idfk_compania_asociada_destino || primerMatch.id_compania_asociada,
+            nombre: primerMatch.nombre_compania_asociada || '',
+            ruc: primerMatch.ruc_compania_asociada || primerMatch.ruc_compania || primerMatch.ruc || '',
+            telefono: primerMatch.telefono_compania_asociada || primerMatch.numero_contacto || '',
+            correo: primerMatch.correo_compania_asociada || ''
+          });
+        } else {
+          setMultiCompaniaOptions(matches);
+          setShowMultiCompaniaModal(true);
+        }
       } else {
         setCompania(null);
       }
@@ -580,8 +614,18 @@ export const NuevaGuiaPage = () => {
     const confirmGuardar = await Swal.fire({ title: '¿Guardar guía?', text: '¿Está seguro de guardar la guía?', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar' });
     if (!confirmGuardar.isConfirmed) return;
 
-    // Calcular totales
-    const totalSubtotal = detalles.reduce((sum, d) => sum + (d.subtotal || 0), 0);
+    // Totales calculados
+    let subtotalConIva = 0;
+    let subtotalSinIva = 0;
+    detalles.forEach(d => {
+      const rate = cobrarIvaGuia ? getIvaRate(d.tipoEnvioId, tiposEnvio) : 0;
+      if (rate > 0) {
+        subtotalConIva += (d.subtotal || 0);
+      } else {
+        subtotalSinIva += (d.subtotal || 0);
+      }
+    });
+
     const totalDescuento = descuentoTipo === '2' ? totalSubtotal
       : descuentoTipo === '1' ? totalSubtotal * 0.5
         : detalles.reduce((sum, d) => sum + (d.descuento || 0), 0);
@@ -707,10 +751,10 @@ export const NuevaGuiaPage = () => {
       })),
 
       // Totales calculados
-      subtotal_12: totalSubtotal,
-      subtotal12: totalSubtotal,
-      subtotal_0: 0,
-      subtotal0: 0,
+      subtotal_12: subtotalConIva,
+      subtotal12: subtotalConIva,
+      subtotal_0: subtotalSinIva,
+      subtotal0: subtotalSinIva,
       subtotalguia: totalSubtotal,
       descuentoguia: totalDescuento,
       tarifa_factura: totalTarifa,
@@ -997,9 +1041,20 @@ export const NuevaGuiaPage = () => {
                     onChange={(e) => {
                       const val = e.target.value;
                       setDestinoTexto(val);
-                      setDestino(''); // Limpiar selección mientras escribe
                       setFieldErrors(prev => ({ ...prev, destino: undefined }));
                       setDestinoAbierto(true);
+
+                      const exactMatch = destinos.find(d => 
+                        (d.nombre || '').toLowerCase() === val.trim().toLowerCase() ||
+                        (d.nombre_destino || '').toLowerCase() === val.trim().toLowerCase() ||
+                        (d.lugar_destino || '').toLowerCase() === val.trim().toLowerCase()
+                      );
+                      if (exactMatch) {
+                        handleSetDestino(String(exactMatch.id || exactMatch.id_destino), exactMatch.nombre || exactMatch.nombre_destino || exactMatch.lugar_destino);
+                      } else {
+                        setDestino('');
+                        setCompania(null);
+                      }
                     }}
                     onFocus={() => {
                       setDestinoAbierto(true);
@@ -1007,20 +1062,40 @@ export const NuevaGuiaPage = () => {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        const filtrados = destinos.filter(d => (d.nombre || d.nombre_destino || '').toLowerCase().includes(destinoTexto.toLowerCase()));
+                        const val = destinoTexto.trim().toLowerCase();
+                        const filtrados = destinos.filter(d => 
+                          (d.nombre || '').toLowerCase().includes(val) ||
+                          (d.nombre_destino || '').toLowerCase().includes(val) ||
+                          (d.lugar_destino || '').toLowerCase().includes(val)
+                        );
                         if (filtrados.length > 0) {
                           const primero = filtrados[0];
-                          handleSetDestino(String(primero.id || primero.id_destino), primero.nombre || primero.nombre_destino || '');
+                          handleSetDestino(String(primero.id || primero.id_destino), primero.nombre || primero.nombre_destino || primero.lugar_destino || '');
                         }
                         setDestinoAbierto(false);
                       }
                     }}
-                    onBlur={() => setTimeout(() => setDestinoAbierto(false), 200)}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        setDestinoAbierto(false);
+                        if (destinoTexto && !destino) {
+                          const val = destinoTexto.trim().toLowerCase();
+                          const found = destinos.find(d => 
+                            (d.nombre || '').toLowerCase().includes(val) ||
+                            (d.nombre_destino || '').toLowerCase().includes(val) ||
+                            (d.lugar_destino || '').toLowerCase().includes(val)
+                          );
+                          if (found) {
+                            handleSetDestino(String(found.id || found.id_destino), found.nombre || found.nombre_destino || found.lugar_destino || '');
+                          }
+                        }
+                      }, 250);
+                    }}
                     placeholder="Escriba para buscar destino..." />
                   <button onClick={async () => {
                     try {
                       const res = await GuiaService.getDestinosCombo();
-                      setDestinos(res?.data || []);
+                      setDestinos(normalizeComboData(res?.data || [], 'id_destino', 'nombre_destino'));
                       toast.success('Destinos actualizados');
                     } catch (e) {
                       toast.error('Error al actualizar destinos');
@@ -1032,22 +1107,34 @@ export const NuevaGuiaPage = () => {
                 {destinoAbierto && (
                   <div style={{ position: 'absolute', top: '100%', left: 0, right: '42px', zIndex: 50, background: 'white', border: '1px solid #e2e8f0', borderRadius: '8px', maxHeight: '200px', overflowY: 'auto', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
                     {destinos.filter(d => {
-                      const txt = (d.nombre || d.nombre_destino || '').toLowerCase();
-                      return txt.includes(destinoTexto.toLowerCase());
+                      const val = destinoTexto.toLowerCase();
+                      return (d.nombre || '').toLowerCase().includes(val) ||
+                        (d.nombre_destino || '').toLowerCase().includes(val) ||
+                        (d.lugar_destino || '').toLowerCase().includes(val);
                     }).map(d => (
                       <div key={d.id || d.id_destino}
                         onMouseDown={() => {
-                          const nombre = d.nombre || d.nombre_destino || '';
+                          const nombre = d.nombre || d.nombre_destino || d.lugar_destino || '';
                           handleSetDestino(String(d.id || d.id_destino), nombre);
                           setDestinoAbierto(false);
                         }}
                         style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '12px', borderBottom: '1px solid #f1f5f9', transition: 'background 0.1s' }}
                         onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
-                        {d.nombre || d.nombre_destino}
+                        <div className="font-semibold text-slate-700">{d.nombre || d.nombre_destino}</div>
+                        {d.nombre_compania_asociada && (
+                          <div className="text-[10px] text-indigo-600 flex items-center gap-1 font-medium">
+                            <i className="fas fa-building text-[9px]"></i> {d.nombre_compania_asociada}
+                          </div>
+                        )}
                       </div>
                     ))}
-                    {destinos.filter(d => (d.nombre || d.nombre_destino || '').toLowerCase().includes(destinoTexto.toLowerCase())).length === 0 && (
+                    {destinos.filter(d => {
+                      const val = destinoTexto.toLowerCase();
+                      return (d.nombre || '').toLowerCase().includes(val) ||
+                        (d.nombre_destino || '').toLowerCase().includes(val) ||
+                        (d.lugar_destino || '').toLowerCase().includes(val);
+                    }).length === 0 && (
                       <div style={{ padding: '10px 12px', fontSize: '11px', color: '#94a3b8', fontStyle: 'italic' }}>Sin resultados</div>
                     )}
                   </div>
@@ -1377,22 +1464,6 @@ export const NuevaGuiaPage = () => {
           </div>
         </div>
 
-        {/* ═══════════════════════════════════════════════════
-            FILA 4: Totales
-        ═══════════════════════════════════════════════════ */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', alignItems: 'start' }}>
-
-          <div></div>
-
-          {/* Totales */}
-          <TotalesPanel
-            detalles={detalles}
-            descuentoTipo={descuentoTipo}
-            tiposEnvio={tiposEnvio}
-            cobrarIvaGuia={cobrarIvaGuia}
-          />
-        </div>
-
         {/* Hidden fields para compatibilidad con ExtJS */}
         <input type="hidden" name="total" value={detalles.reduce((s, d) => s + (d.total || 0), 0)} />
         <input type="hidden" name="tipodescuento" value={descuentoTipo} />
@@ -1435,10 +1506,7 @@ export const NuevaGuiaPage = () => {
             <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 8px' }}>
               <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Subtotal</span>
               <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#475569' }}>
-                ${(() => {
-                  const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
-                  return st12.toFixed(2);
-                })()}
+                ${detalles.reduce((s, d) => s + (d.subtotal || 0), 0).toFixed(2)}
               </span>
             </div>
 
@@ -1447,9 +1515,9 @@ export const NuevaGuiaPage = () => {
               <span style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Desc.</span>
               <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#16a34a' }}>
                 ${(() => {
-                  const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
-                  if (descuentoTipo === '2') return st12.toFixed(2);
-                  if (descuentoTipo === '1') return (st12 * 0.50).toFixed(2);
+                  const base = detalles.reduce((s, d) => s + (d.subtotal || 0), 0);
+                  if (descuentoTipo === '2') return base.toFixed(2);
+                  if (descuentoTipo === '1') return (base * 0.50).toFixed(2);
                   return detalles.reduce((s, d) => s + (d.descuento || 0), 0).toFixed(2);
                 })()}
               </span>
@@ -1481,15 +1549,15 @@ export const NuevaGuiaPage = () => {
               <span style={{ fontSize: '9px', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total a Pagar</span>
               <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 900, color: '#059669' }}>
                 ${(() => {
-                  const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
+                  const base = detalles.reduce((s, d) => s + (d.subtotal || 0), 0);
                   let desc;
-                  if (descuentoTipo === '2') desc = st12;
-                  else if (descuentoTipo === '1') desc = st12 * 0.50;
+                  if (descuentoTipo === '2') desc = base;
+                  else if (descuentoTipo === '1') desc = base * 0.50;
                   else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
-                  const stDesc = st12 - desc;
+                  const baseConDesc = base - desc;
                   const tarifa = detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
-                  const ivaTotal = calcGuardarIva(detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia);
-                  return (stDesc + ivaTotal + tarifa).toFixed(2);
+                  const ivaTotal = cobrarIvaGuia ? detalles.reduce((s, d) => s + (d.iva || 0), 0) : 0;
+                  return (baseConDesc + ivaTotal + tarifa).toFixed(2);
                 })()}
               </span>
             </div>
@@ -1501,15 +1569,16 @@ export const NuevaGuiaPage = () => {
 
             {/* Estado de cobro */}
             {(() => {
-              const st12 = detalles.reduce((s, d) => s + ((d.precioUnitario || 0) * (d.cantidad || 1)), 0);
+              const base = detalles.reduce((s, d) => s + (d.subtotal || 0), 0);
               let desc;
-              if (descuentoTipo === '2') desc = st12;
-              else if (descuentoTipo === '1') desc = st12 * 0.50;
+              if (descuentoTipo === '2') desc = base;
+              else if (descuentoTipo === '1') desc = base * 0.50;
               else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
-              const ivaTotal = calcGuardarIva(detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia);
-              const totalG = st12 - desc + ivaTotal + detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
+              const baseConDesc = base - desc;
+              const ivaTotal = cobrarIvaGuia ? detalles.reduce((s, d) => s + (d.iva || 0), 0) : 0;
+              const totalG = baseConDesc + ivaTotal + detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
               const totalPagado = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
-              const cobrado = totalPagado >= totalG && totalG > 0;
+              const cobrado = Math.abs(totalPagado - totalG) < 0.01 && totalG > 0;
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: cobrado ? '#f0fdf4' : '#fffbeb', padding: '6px 12px', borderRadius: '8px' }}>
                   <i className={`fas ${cobrado ? 'fa-check-circle' : 'fa-hourglass-half'}`}

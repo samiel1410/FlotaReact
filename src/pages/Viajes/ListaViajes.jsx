@@ -8,6 +8,8 @@ import { ConfigurarAlimentosModal } from './components/ConfigurarAlimentosModal'
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { useAuth } from '../../context/AuthContext';
+import { SearchableSelect } from '../../components/common/SearchableSelect';
+import { DateRangePicker } from '../../components/common/DateRangePicker';
 
 const inputCls = 'w-full h-9 px-3 text-xs font-semibold border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none bg-white';
 const labelCls = 'block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1';
@@ -102,14 +104,23 @@ export const ListaViajes = () => {
   }, [searchTrigger]);
 
   const handleBuscar = (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
+    setPage(1);
     setSearchTrigger(prev => prev + 1);
   };
+
   const handleLimpiar = () => {
     const localDate = new Date();
     localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
     const today = localDate.toISOString().split('T')[0];
-    setFiltros({ fecha_inicio: today, fecha_fin: today, id_bus: '', id_chofer: '', estado_viaje: '2', criterio_busqueda: '' });
+    setFiltros({
+      fecha_inicio: today,
+      fecha_fin: today,
+      id_bus: '',
+      id_chofer: '',
+      estado_viaje: '2',
+      criterio_busqueda: '',
+    });
     setPage(1);
     setSearchTrigger(t => t + 1);
   };
@@ -129,7 +140,42 @@ export const ListaViajes = () => {
       return;
     }
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    setPdfUrl(baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?id_viajes=${trip.id_viajes}`));
+    const nombreUsuario = user?.nombre_usuario || user?.nombre || user?.username || '';
+
+    // Si tiene múltiples despachos registrados, permitir seleccionar cuál imprimir
+    if (trip.despachos && trip.despachos.length > 1) {
+      const inputOptions = {};
+      trip.despachos.forEach(d => {
+        const oficina = d.nombre_sucursal || `Oficina #${d.id_fksucursal_usuario || ''}`;
+        const motivo = d.motivo_despacho_viaje || 'Despacho';
+        const hora = d.hora_salida_despacho_viaje ? ` (${String(d.hora_salida_despacho_viaje).substring(0, 5)})` : '';
+        const userTxt = d.usuario_despacho ? ` - ${d.usuario_despacho}` : '';
+        inputOptions[d.id_despacho_viaje] = `Despacho #${d.id_despacho_viaje}: ${oficina} [${motivo}]${hora}${userTxt}`;
+      });
+
+      const { value: selectedDespacho } = await Swal.fire({
+        title: 'Seleccionar Despacho de Oficina',
+        text: `Este viaje cuenta con ${trip.despachos.length} despachos de oficina. Elija cuál desea imprimir:`,
+        input: 'radio',
+        inputOptions: inputOptions,
+        inputValue: String(trip.despachos[trip.despachos.length - 1].id_despacho_viaje),
+        showCancelButton: true,
+        confirmButtonText: 'Ver PDF',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#4f46e5'
+      });
+
+      if (!selectedDespacho) return;
+
+      setPdfUrl(baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?id_despacho=${selectedDespacho}&usuario=${encodeURIComponent(nombreUsuario)}`));
+      setPdfTitle(`Despacho #${selectedDespacho} — Viaje #${trip.id_viajes}`);
+      setPdfModalOpen(true);
+      return;
+    }
+
+    const idDesp = trip.despachos && trip.despachos.length === 1 ? trip.despachos[0].id_despacho_viaje : (trip.id_despacho_viaje || '');
+    const urlParam = idDesp ? `id_despacho=${idDesp}&id_viajes=${trip.id_viajes}` : `id_viajes=${trip.id_viajes}`;
+    setPdfUrl(baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?${urlParam}&usuario=${encodeURIComponent(nombreUsuario)}`));
     setPdfTitle(`Despacho — Viaje #${trip.id_viajes}`);
     setPdfModalOpen(true);
   };
@@ -137,7 +183,8 @@ export const ListaViajes = () => {
   const handleImprimirPasajeros = (trip) => {
     setMenuAbierto(null);
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    setPdfUrl(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?inline=1&id_viaje=${trip.id_viajes}`));
+    const nombreUsuario = user?.nombre_usuario || user?.nombre || user?.username || '';
+    setPdfUrl(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?inline=1&id_viaje=${trip.id_viajes}&usuario=${encodeURIComponent(nombreUsuario)}`));
     setPdfTitle(`Lista de Pasajeros — Viaje #${trip.id_viajes}`);
     setPdfModalOpen(true);
   };
@@ -243,71 +290,94 @@ export const ListaViajes = () => {
           </div>
         </div>
 
-        {/* Filtros (como ExtJS) */}
+        {/* Filtros de Búsqueda */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Filtros de Búsqueda</div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          
+          {/* Fila 1: 4 Selectores / Controles Principales */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+            {/* Rango de Fechas Unificado */}
             <div>
-              <label className={labelCls}>Fecha Inicio</label>
-              <input type="date" value={filtros.fecha_inicio}
-                onChange={e => setFiltros(f => ({ ...f, fecha_inicio: e.target.value }))}
-                className={inputCls} />
+              <label className={labelCls}>Rango de Fechas (Desde - Hasta)</label>
+              <DateRangePicker
+                startDate={filtros.fecha_inicio}
+                endDate={filtros.fecha_fin}
+                onChange={({ startDateStr, endDateStr }) => {
+                  setFiltros(f => ({ ...f, fecha_inicio: startDateStr, fecha_fin: endDateStr }));
+                }}
+              />
             </div>
-            <div>
-              <label className={labelCls}>Fecha Fin</label>
-              <input type="date" value={filtros.fecha_fin}
-                onChange={e => setFiltros(f => ({ ...f, fecha_fin: e.target.value }))}
-                className={inputCls} />
-            </div>
+
+            {/* Bus con Buscador Integrado */}
             <div>
               <label className={labelCls}>Bus</label>
-              <select value={filtros.id_bus} onChange={e => setFiltros(f => ({ ...f, id_bus: e.target.value }))}
-                className={inputCls}>
-                <option value="">Todos los buses</option>
-                {buses.map(b => (
-                  <option key={b.id_buses || b.bus_id} value={b.id_buses || b.bus_id}>
-                    {b.disco_buses || b.codigo_buses} - {b.placa_buses || ''}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                options={buses.map(b => ({
+                  value: String(b.id_buses || b.bus_id),
+                  label: `${b.disco_buses || b.codigo_buses || ''} ${b.placa_buses ? `(${b.placa_buses})` : ''}`.trim()
+                }))}
+                value={filtros.id_bus}
+                onChange={val => setFiltros(f => ({ ...f, id_bus: val }))}
+                placeholder="Todos los buses"
+              />
             </div>
+
+            {/* Chofer con Buscador Integrado */}
             <div>
               <label className={labelCls}>Chofer</label>
-              <select value={filtros.id_chofer} onChange={e => setFiltros(f => ({ ...f, id_chofer: e.target.value }))}
-                className={inputCls}>
-                <option value="">Todos los choferes</option>
-                {choferes.map(c => (
-                  <option key={c.id_personal || c.per_codigo_personal} value={c.id_personal || c.per_codigo_personal}>
-                    {c.per_nombres_persona || c.nombre_personal}
-                  </option>
-                ))}
-              </select>
+              <SearchableSelect
+                options={choferes.map(c => ({
+                  value: String(c.id_personal || c.per_codigo_personal),
+                  label: `${c.per_nombres_persona || c.nombre_personal || ''} ${c.per_apellidos_personal || ''}`.trim()
+                }))}
+                value={filtros.id_chofer}
+                onChange={val => setFiltros(f => ({ ...f, id_chofer: val }))}
+                placeholder="Todos los choferes"
+              />
             </div>
+
+            {/* Estado con Buscador Integrado */}
             <div>
               <label className={labelCls}>Estado</label>
-              <select value={filtros.estado_viaje} onChange={e => setFiltros(f => ({ ...f, estado_viaje: e.target.value }))}
-                className={inputCls}>
-                {ESTADOS.map(e => (
-                  <option key={e.id} value={e.id}>{e.nombre}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Viaje / Ruta</label>
-              <input type="text" value={filtros.criterio_busqueda} placeholder="Buscar..."
-                onChange={e => setFiltros(f => ({ ...f, criterio_busqueda: e.target.value }))}
-                className={inputCls} />
+              <SearchableSelect
+                options={ESTADOS.map(e => ({ value: e.id, label: e.nombre }))}
+                value={filtros.estado_viaje}
+                onChange={val => setFiltros(f => ({ ...f, estado_viaje: val }))}
+                placeholder="Seleccionar estado"
+                isClearable={false}
+              />
             </div>
           </div>
-          <div className="flex gap-2 mt-3">
-            <button onClick={handleBuscar}
-              className="h-8 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-lg transition-all flex items-center gap-1.5 uppercase tracking-widest shadow-sm">
-              <i className="fas fa-search text-xs"></i> BUSCAR
-            </button>
-            <button onClick={handleLimpiar}
-              className="h-8 px-4 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-black rounded-lg transition-all flex items-center gap-1.5 uppercase tracking-widest">
-              <i className="fas fa-eraser text-xs"></i> LIMPIAR
-            </button>
+
+          {/* Fila 2: Criterio de Búsqueda + Botones de Acción */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
+            <div className="lg:col-span-9">
+              <label className={labelCls}>Ruta / Criterio de Búsqueda (N° Viaje, N° Despacho o Ruta)</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                  <i className="fas fa-search"></i>
+                </div>
+                <input
+                  type="text"
+                  value={filtros.criterio_busqueda}
+                  placeholder="Escriba el N° de viaje, N° de despacho o nombre de la ruta..."
+                  onChange={e => setFiltros(f => ({ ...f, criterio_busqueda: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') handleBuscar(); }}
+                  className={`${inputCls} pl-8`}
+                />
+              </div>
+            </div>
+
+            <div className="lg:col-span-3 flex gap-2">
+              <button onClick={handleBuscar}
+                className="flex-1 h-9 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest shadow-sm">
+                <i className="fas fa-search text-xs"></i> BUSCAR
+              </button>
+              <button onClick={handleLimpiar}
+                className="h-9 px-4 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest">
+                <i className="fas fa-eraser text-xs"></i> LIMPIAR
+              </button>
+            </div>
           </div>
         </div>
 
@@ -317,7 +387,8 @@ export const ListaViajes = () => {
             <table className="w-full text-xs">
               <thead>
                 <tr className="bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider">
-                  <th className="px-3 py-3 text-center w-14">ID</th>
+                  <th className="px-3 py-3 text-center w-24">N° VIAJE</th>
+                  <th className="px-3 py-3 text-center w-24">N° DESPACHO</th>
                   <th className="px-3 py-3 text-center w-20">BUS</th>
                   <th className="px-3 py-3 text-left">CHOFER</th>
                   <th className="px-3 py-3 text-left">AUXILIAR</th>
@@ -332,14 +403,27 @@ export const ListaViajes = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
-                  <tr><td colSpan="11" className="text-center py-12 text-slate-400">
+                  <tr><td colSpan="12" className="text-center py-12 text-slate-400">
                     <i className="fas fa-spinner fa-spin mr-2"></i>Cargando viajes...
                   </td></tr>
                 ) : trips.length === 0 ? (
-                  <tr><td colSpan="11" className="text-center py-12 text-slate-400 font-bold">No hay viajes para mostrar</td></tr>
+                  <tr><td colSpan="12" className="text-center py-12 text-slate-400 font-bold">No hay viajes para mostrar</td></tr>
                 ) : trips.map((t, idx) => (
                   <tr key={t.id_viajes || idx} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-3 py-2.5 text-center font-bold text-slate-700">{t.id_viajes}</td>
+                    <td className="px-3 py-2.5 text-center font-bold text-slate-700">#{t.id_viajes}</td>
+                    <td className="px-3 py-2.5 text-center font-mono">
+                      {t.despachos && t.despachos.length > 1 ? (
+                        <span className="font-bold text-amber-700 text-[11px] bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                          #{t.despachos.map(d => d.id_despacho_viaje).join(', #')}
+                        </span>
+                      ) : (t.id_despacho_viaje || (t.despachos && t.despachos[0]?.id_despacho_viaje)) ? (
+                        <span className="font-bold text-amber-700 text-[11px] bg-amber-50/50 px-1.5 py-0.5 rounded">
+                          #{t.id_despacho_viaje || t.despachos[0]?.id_despacho_viaje}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 font-semibold">-</span>
+                      )}
+                    </td>
                     <td className="px-3 py-2.5 text-center font-bold text-slate-700">{t.nombre_bus || '-'}</td>
                     <td className="px-3 py-2.5">
                       <div className="text-[10px] leading-tight">
@@ -361,17 +445,25 @@ export const ListaViajes = () => {
                     </td>
                     <td className="px-3 py-2.5 text-center">{renderEstado(t.estado_viajes)}</td>
                     <td className="px-3 py-2.5">
-                      {t.estado_viajes == 2 || t.hora_despacho ? (
+                      {t.estado_viajes == 2 || t.hora_despacho || (t.despachos && t.despachos.length > 0) ? (
                         <div className="text-[10px] leading-tight">
                           <div className="font-bold text-amber-700 flex items-center gap-1">
                             <i className="far fa-clock text-amber-500"></i> Desp: {t.hora_despacho ? String(t.hora_despacho).substring(0, 5) : (t.fecha_despacho ? t.fecha_despacho.split(' ')[1]?.substring(0, 5) : '-')}
                           </div>
-                          <div className="text-slate-500 font-medium mt-0.5">
-                            <i className="far fa-user mr-1 text-slate-400"></i>{t.usuario_despacho || 'Sistema'}
+                          <div className="text-slate-500 font-medium mt-0.5 flex items-center gap-1">
+                            <i className="far fa-user text-slate-400"></i>
+                            <span className="truncate max-w-[120px]">{t.usuario_despacho || 'Sistema'}</span>
                           </div>
-                          {t.motivo_despacho && (
-                            <div className="text-[9px] text-slate-400 italic">({t.motivo_despacho})</div>
-                          )}
+                          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                            {t.nombre_sucursal_despacho && (
+                              <span className="text-[9px] font-semibold text-slate-600 bg-slate-100 px-1 py-0.2 rounded">{t.nombre_sucursal_despacho}</span>
+                            )}
+                            {t.despachos && t.despachos.length > 1 && (
+                              <span className="text-[8px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-1 py-0.2 rounded">
+                                {t.despachos.length} oficinas
+                              </span>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <span className="text-[10px] text-slate-400 italic">Sin despacho</span>

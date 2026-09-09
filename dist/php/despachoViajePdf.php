@@ -1,75 +1,178 @@
 <?php
+ob_start();
 require_once('library/tcpdf.php');
 require_once("db.php");
 date_default_timezone_set('America/Guayaquil');
 
 // Configuración para impresora POS (80mm)
-$width = 80; // Ancho en mm
-$height = 300; // Aumentamos la altura para los cobros
+$width = 80;
+$height = 250;
 
 try {
-    $fecha_actual = date('d-m-Y H:i:s');
-    $id_despacho_viaje = $_GET['id_viajes'];
+    $id_despacho_param = intval($_GET['id_despacho'] ?? $_GET['id_despacho_viaje'] ?? 0);
+    $id_viajes_param = intval($_GET['id_viajes'] ?? $_GET['id_viaje'] ?? 0);
+    $usuario_param = trim($_GET['usuario'] ?? '');
+    $id_sucursal_param = intval($_GET['id_sucursal'] ?? 0);
+
+    if ($id_despacho_param <= 0 && $id_viajes_param <= 0) {
+        throw new Exception("Parámetros de viaje o despacho no válidos");
+    }
 
     // Conexión MySQLi
     $conn = conexion();
-
     if ($conn->connect_error) {
         throw new Exception("Error de conexión: " . $conn->connect_error);
     }
 
-    // Consulta SQL - obtener datos del viaje filtrando boletos por sucursal que despachó
-    $query = "SELECT 
-        v.id_viajes,
-        v.fecha_cierre as fecha_viaje,
-        v.hora_origen_salida,
-        r.nombre_rutas,
-        r.id_rutas,
-        CONCAT(chofer.per_nombres_persona, ' ', chofer.per_apellidos_personal) as nombre_completo_chofer,
-        chofer.per_cedula_personal as cedula_chofer,
-        b.disco_buses,
-        b.placa_buses,
-        b.id_buses,
-        IFNULL(u.nombre_usuario, 'DESPACHO AUTOMÁTICO') as nombre_oficinista,
-        COALESCE(u.id_fksucursal_usuario, (SELECT id_fksucursal_boleto FROM boletos b_sub WHERE b_sub.id_fkviaje_boleto = v.id_viajes LIMIT 1), 0) as id_sucursal_despacho,
-        s.nombre_sucursal,
-        s.porcentaje_retencion,
-        dv.id_despacho_viaje,
-        dv.tarifa_despacho_viaje,
-        dv.fecha_salida_despacho_viaje,
-        dv.hora_salida_despacho_viaje,
-        IFNULL(SUM(CASE WHEN (u.id_fksucursal_usuario IS NULL OR bo.id_fksucursal_boleto = u.id_fksucursal_usuario OR bo.id_fksucursal_boleto = s.id_sucursal) AND bo.estado_boleto != 3 THEN bd.total_boleto_detalle ELSE 0 END), 0) AS total_boletos,
-        COUNT(CASE WHEN (u.id_fksucursal_usuario IS NULL OR bo.id_fksucursal_boleto = u.id_fksucursal_usuario OR bo.id_fksucursal_boleto = s.id_sucursal) AND bo.estado_boleto != 3 THEN bd.id_boleto_detalle END) AS cantidad_boletos
+    // 1. Identificar el despacho y viaje correspondiente
+    // Los despachos son por oficina/oficinista (un viaje puede tener varios despachos en distintas paradas/oficinas)
+    if ($id_despacho_param > 0) {
+        $query_despacho = "SELECT 
+            dv.id_despacho_viaje,
+            dv.tarifa_despacho_viaje,
+            dv.fecha_salida_despacho_viaje,
+            dv.hora_salida_despacho_viaje,
+            dv.motivo_despacho_viaje,
+            dv.id_fkusuario_aprueba,
+            dv.id_fkviaje_despacho_viaje,
+            u.id_usuario,
+            u.nombre_usuario,
+            u.apellido_usuario,
+            u.username_usuario,
+            u.id_fksucursal_usuario,
+            s.nombre_sucursal,
+            s.porcentaje_retencion,
+            v.id_viajes,
+            v.fecha_cierre as fecha_viaje,
+            v.hora_origen_salida,
+            v.dia_viajes,
+            v.hora_salida_estimado,
+            v.chofer_viajes,
+            v.cedula_viajes,
+            r.nombre_rutas,
+            b.disco_buses,
+            b.placa_buses,
+            CONCAT(IFNULL(chofer.per_nombres_persona, ''), ' ', IFNULL(chofer.per_apellidos_personal, '')) as nombre_completo_chofer,
+            chofer.per_cedula_personal as cedula_chofer
+          FROM despacho_viaje dv
+          JOIN viajes v ON dv.id_fkviaje_despacho_viaje = v.id_viajes
+          LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
+          LEFT JOIN buses b ON v.id_fkbus_viajes = b.id_buses
+          LEFT JOIN personal chofer ON chofer.id_personal = CASE 
+              WHEN IFNULL(v.id_fkchofer_viajes, 0) > 0 THEN v.id_fkchofer_viajes 
+              ELSE b.id_fkpersonal_buses 
+          END
+          LEFT JOIN usuario u ON dv.id_fkusuario_aprueba = u.id_usuario
+          LEFT JOIN sucursal2 s ON s.id_sucursal = u.id_fksucursal_usuario
+          WHERE dv.id_despacho_viaje = ?
+          LIMIT 1";
 
-      FROM 
-        viajes v
-        LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
-        LEFT JOIN personal chofer ON v.id_fkchofer_viajes = chofer.id_personal
-        LEFT JOIN buses b ON v.id_fkbus_viajes = b.id_buses
-        LEFT JOIN despacho_viaje dv ON v.id_viajes = dv.id_fkviaje_despacho_viaje
-        LEFT JOIN usuario u ON dv.id_fkusuario_aprueba = u.id_usuario
-        LEFT JOIN sucursal2 s ON s.id_sucursal = COALESCE(u.id_fksucursal_usuario, (SELECT id_fksucursal_boleto FROM boletos b_sub WHERE b_sub.id_fkviaje_boleto = v.id_viajes LIMIT 1))
-        LEFT JOIN boletos bo ON v.id_viajes = bo.id_fkviaje_boleto
-        LEFT JOIN boleto_detalle bd ON bo.id_boleto = bd.id_fkboleto_boleto_detalle
-      WHERE v.id_viajes = ?
-      GROUP BY v.id_viajes, v.fecha_cierre, v.hora_origen_salida, r.nombre_rutas, r.id_rutas,
-               chofer.per_nombres_persona, chofer.per_apellidos_personal, chofer.per_cedula_personal,
-               b.disco_buses, b.placa_buses, b.id_buses, u.nombre_usuario, u.id_fksucursal_usuario,
-               s.nombre_sucursal, s.porcentaje_retencion,
-               dv.id_despacho_viaje, dv.tarifa_despacho_viaje, dv.fecha_salida_despacho_viaje, dv.hora_salida_despacho_viaje";
+        $stmt = $conn->prepare($query_despacho);
+        $stmt->bind_param("i", $id_despacho_param);
+    } else {
+        // Buscar por id_viajes: priorizar el despacho de la oficina/usuario solicitante, o el más reciente
+        $query_despacho = "SELECT 
+            dv.id_despacho_viaje,
+            dv.tarifa_despacho_viaje,
+            dv.fecha_salida_despacho_viaje,
+            dv.hora_salida_despacho_viaje,
+            dv.motivo_despacho_viaje,
+            dv.id_fkusuario_aprueba,
+            dv.id_fkviaje_despacho_viaje,
+            u.id_usuario,
+            u.nombre_usuario,
+            u.apellido_usuario,
+            u.username_usuario,
+            u.id_fksucursal_usuario,
+            s.nombre_sucursal,
+            s.porcentaje_retencion,
+            v.id_viajes,
+            v.fecha_cierre as fecha_viaje,
+            v.hora_origen_salida,
+            v.dia_viajes,
+            v.hora_salida_estimado,
+            v.chofer_viajes,
+            v.cedula_viajes,
+            r.nombre_rutas,
+            b.disco_buses,
+            b.placa_buses,
+            CONCAT(IFNULL(chofer.per_nombres_persona, ''), ' ', IFNULL(chofer.per_apellidos_personal, '')) as nombre_completo_chofer,
+            chofer.per_cedula_personal as cedula_chofer
+          FROM viajes v
+          LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
+          LEFT JOIN buses b ON v.id_fkbus_viajes = b.id_buses
+          LEFT JOIN personal chofer ON chofer.id_personal = CASE 
+              WHEN IFNULL(v.id_fkchofer_viajes, 0) > 0 THEN v.id_fkchofer_viajes 
+              ELSE b.id_fkpersonal_buses 
+          END
+          LEFT JOIN despacho_viaje dv ON v.id_viajes = dv.id_fkviaje_despacho_viaje
+          LEFT JOIN usuario u ON dv.id_fkusuario_aprueba = u.id_usuario
+          LEFT JOIN sucursal2 s ON s.id_sucursal = u.id_fksucursal_usuario
+          WHERE v.id_viajes = ?
+          ORDER BY (CASE 
+              WHEN ? != '' AND (u.nombre_usuario = ? OR u.username_usuario = ?) THEN 0 
+              WHEN ? > 0 AND u.id_fksucursal_usuario = ? THEN 0
+              ELSE 1 
+          END), dv.id_despacho_viaje DESC
+          LIMIT 1";
 
-    $stmt = $conn->prepare($query);
-    $stmt->bind_param("i", $id_despacho_viaje);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($result->num_rows === 0) {
-        throw new Exception("Viaje no encontrado");
+        $stmt = $conn->prepare($query_despacho);
+        $stmt->bind_param("isssii", $id_viajes_param, $usuario_param, $usuario_param, $usuario_param, $id_sucursal_param, $id_sucursal_param);
     }
 
-    $despacho = $result->fetch_assoc();
+    $stmt->execute();
+    $res_despacho = $stmt->get_result();
 
-    // Consulta para obtener los cobros que fueron descontados en este despacho
+    if ($res_despacho->num_rows === 0) {
+        throw new Exception("Viaje o Despacho no encontrado");
+    }
+
+    $despacho = $res_despacho->fetch_assoc();
+    $stmt->close();
+
+    $id_despacho_viaje = intval($despacho['id_viajes']);
+    $id_despacho_num = !empty($despacho['id_despacho_viaje']) ? intval($despacho['id_despacho_viaje']) : $id_despacho_viaje;
+    $id_usuario_aprueba = intval($despacho['id_fkusuario_aprueba'] ?? 0);
+    $id_sucursal_despacho = intval($despacho['id_fksucursal_usuario'] ?? $id_sucursal_param);
+
+    // Resolver chofer si venía como texto en el viaje
+    $nombre_chofer = trim($despacho['nombre_completo_chofer'] ?? '');
+    if (empty($nombre_chofer) && !empty($despacho['chofer_viajes'])) {
+        $nombre_chofer = trim($despacho['chofer_viajes']);
+    }
+    if (empty($nombre_chofer)) {
+        $nombre_chofer = 'N/A';
+    }
+
+    // 2. Consulta de boletos correspondientes a ESTE despacho (por oficina/sucursal/usuario que despachó)
+    $query_totales = "SELECT 
+        IFNULL(SUM(bd.total_boleto_detalle), 0) AS total_boletos,
+        COUNT(bd.id_boleto_detalle) AS cantidad_boletos
+      FROM boletos b
+      JOIN boleto_detalle bd ON b.id_boleto = bd.id_fkboleto_boleto_detalle
+      WHERE b.id_fkviaje_boleto = ? 
+        AND b.estado_boleto != 3
+        AND (
+            (? > 0 AND b.id_fksucursal_boleto = ?)
+            OR (? > 0 AND b.id_fkusuario_boleto = ?)
+            OR (? = 0 AND ? = 0)
+        )";
+
+    $stmt_tot = $conn->prepare($query_totales);
+    $stmt_tot->bind_param("iiiiiii", 
+        $id_despacho_viaje, 
+        $id_sucursal_despacho, $id_sucursal_despacho, 
+        $id_usuario_aprueba, $id_usuario_aprueba,
+        $id_sucursal_despacho, $id_usuario_aprueba
+    );
+    $stmt_tot->execute();
+    $res_tot = $stmt_tot->get_result();
+    $totales_boletos = $res_tot->fetch_assoc();
+    $stmt_tot->close();
+
+    $total_boletos = floatval($totales_boletos['total_boletos'] ?? 0);
+
+    // 3. Consulta de cobros/retenciones descontados en este despacho específico
     $totalRetenciones = 0;
     $cobros = [];
 
@@ -77,12 +180,10 @@ try {
         $query_cobros = "SELECT 
             dvr.total_cobrado_despacho_viaje_retenciones as monto_cobros,
             tc.nombre_tipo_cobros as tipo_cobro
-          FROM 
-            despacho_viaje_reteciones dvr
-            JOIN cobros c ON dvr.id_fkcobro_despacho_viaje_reteciones = c.id_cobros
-            JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
-          WHERE 
-            dvr.id_fkdespacho_viaje = ?";
+          FROM despacho_viaje_reteciones dvr
+          JOIN cobros c ON dvr.id_fkcobro_despacho_viaje_reteciones = c.id_cobros
+          JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
+          WHERE dvr.id_fkdespacho_viaje = ?";
 
         $stmt_cobros = $conn->prepare($query_cobros);
         $stmt_cobros->bind_param("i", $despacho['id_despacho_viaje']);
@@ -91,94 +192,103 @@ try {
         $stmt_cobros->close();
     }
 
-    // La tarifa_despacho_viaje ya contiene el monto de retención calculado por la sucursal
-    // (porcentaje_retencion de la sucursal aplicado sobre sus propios boletos)
     $retencionSucursal = floatval($despacho['tarifa_despacho_viaje'] ?? 0);
     $porcentajeRetencion = floatval($despacho['porcentaje_retencion'] ?? 0);
-    $nombreSucursal = $despacho['nombre_sucursal'] ?? 'Sucursal';
+    $nombreSucursal = $despacho['nombre_sucursal'] ?? 'Oficina';
     $totalRetenciones = $retencionSucursal;
     foreach ($cobros as $cobro) {
-        $totalRetenciones += $cobro['monto_cobros'];
+        $totalRetenciones += floatval($cobro['monto_cobros']);
     }
 
-    $stmt->close();
-
-    // Obtener datos de la empresa desde la BD
-    $query_empresa = "SELECT razon_social_empresa, ruc_empresa, direccion_empresa, telefono_empresa, correo_empresa FROM empresa WHERE 1 LIMIT 1";
+    // 4. Datos de la empresa
+    $query_empresa = "SELECT razon_social_empresa, ruc_empresa, direccion_empresa FROM empresa LIMIT 1";
     $result_empresa = $conn->query($query_empresa);
-    $empresa = $result_empresa->fetch_assoc();
+    $empresa = $result_empresa ? $result_empresa->fetch_assoc() : [];
     $razon_social = $empresa['razon_social_empresa'] ?? 'COOP. FLOTA PELILEO';
     $ruc_empresa = $empresa['ruc_empresa'] ?? '1890066123001';
     $direccion_empresa = $empresa['direccion_empresa'] ?? '';
-    $telefono_empresa = $empresa['telefono_empresa'] ?? '';
-    $correo_empresa = $empresa['correo_empresa'] ?? '';
 
-    // Calcular valores
-    $total_boletos = floatval($despacho['total_boletos']);
     $total_entrega = max(0, $total_boletos - $totalRetenciones);
 
-    // Formatear fechas
-    $fecha_salida = $despacho['fecha_salida_despacho_viaje']
-        ? date('d/m/Y', strtotime($despacho['fecha_salida_despacho_viaje']))
-        : date('d/m/Y', strtotime($despacho['fecha_viaje']));
+    // Formatear fechas del viaje
+    $raw_fecha = !empty($despacho['fecha_viaje']) ? $despacho['fecha_viaje'] : (!empty($despacho['dia_viajes']) ? $despacho['dia_viajes'] : $despacho['fecha_salida_despacho_viaje']);
+    $fecha_salida = $raw_fecha ? date('d/m/Y', strtotime($raw_fecha)) : date('d/m/Y');
 
-    $hora_salida = $despacho['hora_salida_despacho_viaje']
-        ? $despacho['hora_salida_despacho_viaje']
-        : $despacho['hora_origen_salida'];
+    $hora_salida = !empty($despacho['hora_origen_salida']) 
+        ? $despacho['hora_origen_salida'] 
+        : (!empty($despacho['hora_salida_estimado']) 
+            ? $despacho['hora_salida_estimado'] 
+            : (!empty($despacho['hora_salida_despacho_viaje']) ? $despacho['hora_salida_despacho_viaje'] : ''));
 
-    // Crear PDF para POS (80mm)
+    // 5. Instanciar y configurar TCPDF optimizado para POS
     $pdf = new TCPDF('P', 'mm', array($width, $height), true, 'UTF-8', false);
-
-    // Configuración del documento
+    $pdf->setFontSubsetting(false);
     $pdf->SetCreator('FlotaPelileo');
     $pdf->SetAuthor('Sistema Flota');
-    $pdf->SetTitle('Despacho #' . $id_despacho_viaje);
+    $pdf->SetTitle('Despacho #' . $id_despacho_num);
     $pdf->setPrintHeader(false);
     $pdf->setPrintFooter(false);
-    $pdf->SetMargins(5, 5, 5);
-    $pdf->SetAutoPageBreak(true, 5);
-    $pdf->AddPage('P', array(500, 120));
+    $pdf->SetMargins(4, 4, 4);
+    $pdf->SetAutoPageBreak(true, 4);
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->AddPage('P', array($width, $height));
 
-    // Encabezado compacto (datos desde BD)
+    $nombre_oficinista = trim(($despacho['nombre_usuario'] ?? '') . ' ' . ($despacho['apellido_usuario'] ?? ''));
+    if (empty($nombre_oficinista)) {
+        $nombre_oficinista = !empty($despacho['username_usuario']) ? $despacho['username_usuario'] : ($usuario_param ?: 'DESPACHO AUTOMÁTICO');
+    }
+
     $content = '
-    <div style="text-align: center; line-height: 10px;">
+    <div style="text-align: center; line-height: 11px;">
         <span style="font-size: 12px; font-weight: bold;">' . strtoupper($razon_social) . '</span><br>
         <span style="font-size: 8px;">RUC ' . $ruc_empresa . '</span><br>
-        <span style="font-size: 8px;">' . $direccion_empresa . '</span>
+        <span style="font-size: 8px;">' . htmlspecialchars($direccion_empresa) . '</span><br>
+        <span style="font-size: 11px; font-weight: bold;">DESPACHO N° ' . $id_despacho_num . '</span>
     </div>
     <hr style="border: 0; border-top: 1px solid #000; margin: 2px 0;">
     
     <div style="font-size: 9px; line-height: 11px;">
         <table style="width: 100%;">
-            <tr><td style="width: 25%;"><b>DISCO:</b></td><td style="width: 75%;">' . $despacho['disco_buses'] . '</td></tr>
-            <tr><td><b>RUTA:</b></td><td>' . $despacho['nombre_rutas'] . '</td></tr>
+            <tr><td style="width: 25%;"><b>N° VIAJE:</b></td><td style="width: 75%;"><b>' . $id_despacho_viaje . '</b></td></tr>
+            <tr><td><b>DISCO:</b></td><td>' . ($despacho['disco_buses'] ?? '') . '</td></tr>
+            <tr><td><b>RUTA:</b></td><td>' . ($despacho['nombre_rutas'] ?? '') . '</td></tr>
             <tr><td><b>SALIDA:</b></td><td>' . $fecha_salida . ' ' . $hora_salida . '</td></tr>
-            <tr><td><b>PLACA:</b></td><td>' . $despacho['placa_buses'] . '</td></tr>
-            <tr><td><b>CHOFER:</b></td><td>' . $despacho['nombre_completo_chofer'] . '</td></tr>
+            <tr><td><b>PLACA:</b></td><td>' . ($despacho['placa_buses'] ?? '') . '</td></tr>
+            <tr><td><b>CHOFER:</b></td><td>' . strtoupper(htmlspecialchars($nombre_chofer)) . '</td></tr>
         </table>
     </div>
     
     <hr style="border: 0; border-top: 1px dashed #000; margin: 2px 0;">
     
     <div style="font-size: 9px;">
-        <b>OFICINISTA:</b> ' . strtoupper($despacho['nombre_oficinista']) . '
+        <b>OFICINISTA:</b> ' . strtoupper(htmlspecialchars($nombre_oficinista)) . '
     </div>';
 
-    // SECCIÓN VENTAS POR ORIGEN - solo boletos de la sucursal que despachó
-    $id_sucursal_despacho = intval($despacho['id_sucursal_despacho'] ?? 0);
+    // 6. Sección de ventas por punto (origen) correspondientes a este despacho
     $query_origen = "SELECT 
-        IFNULL(b.nombre_origen, 'ORIGEN PRINCIPAL') as origen, 
+        IFNULL(NULLIF(TRIM(b.nombre_origen), ''), IFNULL(s.nombre_sucursal, 'ORIGEN PRINCIPAL')) as origen, 
         COUNT(bd.id_boleto_detalle) as cantidad, 
         SUM(bd.total_boleto_detalle) as total
-      FROM viajes v
-      JOIN boletos b ON v.id_viajes = b.id_fkviaje_boleto AND b.estado_boleto != 3
+      FROM boletos b
       JOIN boleto_detalle bd ON b.id_boleto = bd.id_fkboleto_boleto_detalle
-      WHERE v.id_viajes = ? AND ( ? = 0 OR b.id_fksucursal_boleto = ? )
-      GROUP BY b.nombre_origen
-      ORDER BY b.nombre_origen";
+      LEFT JOIN sucursal2 s ON b.id_fksucursal_boleto = s.id_sucursal
+      WHERE b.id_fkviaje_boleto = ? 
+        AND b.estado_boleto != 3
+        AND (
+            (? > 0 AND b.id_fksucursal_boleto = ?)
+            OR (? > 0 AND b.id_fkusuario_boleto = ?)
+            OR (? = 0 AND ? = 0)
+        )
+      GROUP BY IFNULL(NULLIF(TRIM(b.nombre_origen), ''), IFNULL(s.nombre_sucursal, 'ORIGEN PRINCIPAL'))
+      ORDER BY origen ASC";
 
     $stmt_origen = $conn->prepare($query_origen);
-    $stmt_origen->bind_param("iii", $id_despacho_viaje, $id_sucursal_despacho, $id_sucursal_despacho);
+    $stmt_origen->bind_param("iiiiiii", 
+        $id_despacho_viaje, 
+        $id_sucursal_despacho, $id_sucursal_despacho, 
+        $id_usuario_aprueba, $id_usuario_aprueba,
+        $id_sucursal_despacho, $id_usuario_aprueba
+    );
     $stmt_origen->execute();
     $result_origen = $stmt_origen->get_result();
 
@@ -195,7 +305,7 @@ try {
         while ($row_origen = $result_origen->fetch_assoc()) {
             $content .= '
             <tr>
-                <td style="text-align:left;">' . strtoupper($row_origen['origen']) . '</td>
+                <td style="text-align:left;">' . strtoupper(htmlspecialchars($row_origen['origen'])) . '</td>
                 <td style="text-align:center;">' . $row_origen['cantidad'] . '</td>
                 <td style="text-align:right;">$' . number_format($row_origen['total'], 2) . '</td>
             </tr>';
@@ -204,7 +314,7 @@ try {
     }
     $stmt_origen->close();
 
-    // SECCIÓN DESGLOSE
+    // 7. Sección Desglose de cobros
     $content .= '
     <div style="font-size: 9px; font-weight: bold; margin-top: 3px;">DETALLE DE COBROS:</div>
     <table style="width:100%; font-size:8px; border-collapse: collapse;">
@@ -228,7 +338,7 @@ try {
     foreach ($cobros as $cobro) {
         $content .= '
         <tr>
-            <td style="text-align:left;">' . $cobro['tipo_cobro'] . '</td>
+            <td style="text-align:left;">' . htmlspecialchars($cobro['tipo_cobro']) . '</td>
             <td style="text-align:right;">$' . number_format($cobro['monto_cobros'], 2) . '</td>
         </tr>';
     }
@@ -252,23 +362,39 @@ try {
                 <td style="text-align: right;">$' . number_format($totalRetenciones, 2) . '</td>
             </tr>
         </table>
-    </div>
+    </div>';
     
+    $usuario_despacho = $nombre_oficinista;
+
+    $content .= '
     <div style="font-size: 14px; font-weight: bold; margin-top: 5px; text-align: center; border: 1px dashed #000; padding: 5px;">
         RECIBE: $' . number_format($total_entrega, 2) . '
     </div>
     
-    <div style="text-align: center; font-size: 7px; margin-top: 5px;">
-        F. Impresión: ' . date('d/m/Y H:i:s') . '
+    <div style="text-align: center; font-size: 8px; margin-top: 5px; line-height: 11px;">
+        F. Impresión: ' . date('d/m/Y H:i:s') . '<br>
+        <b>N° Viaje:</b> ' . $id_despacho_viaje . '<br>
+        <b>Despachado por:</b> ' . strtoupper(htmlspecialchars($usuario_despacho)) . '
     </div>';
+
+    // Cerrar conexión
+    $conn->close();
+
+    // Limpiar buffer de salida previo
+    if (ob_get_length()) {
+        ob_clean();
+    }
 
     // Generar PDF
     $pdf->writeHTML($content, true, false, true, false, '');
 
-    // Salida para impresión directa
-    $pdf->Output('despacho_pos_' . $id_despacho_viaje . '.pdf', 'I');
+    // Salida para navegador / impresión directa
+    $pdf->Output('despacho_pos_' . $id_despacho_num . '.pdf', 'I');
 
 } catch (Exception $e) {
+    if (ob_get_length()) {
+        ob_clean();
+    }
     die("Error: " . $e->getMessage());
 }
 ?>

@@ -1,0 +1,1 @@
+import{o as e}from"./rolldown-runtime-CMxvf4Kt.js";import{g as t,u as n}from"./vendor-react-DuAI9x6w.js";import{r}from"./dist-DaEGKLxP.js";var i=e(t(),1),a=()=>{let e=n();return(0,i.useEffect)(()=>{r.error(`La edición de guías y facturas se encuentra deshabilitada`),e(`/guias`,{replace:!0})},[e]),null};export{a as EditarGuiaPage};

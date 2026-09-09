@@ -29,7 +29,8 @@ const AUTH_KEYS = [
   'php_url',
   'empresa_data',
   'id_caja_global',
-  'sistema_modo'
+  'sistema_modo',
+  'last_activity_time'
 ];
 
 export const redirectToLogin = () => {
@@ -137,15 +138,24 @@ export const AuthProvider = ({ children }) => {
 
     const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
     const userDataStr = sessionStorage.getItem('user_data') || localStorage.getItem('user_data');
+    const lastActivity = sessionStorage.getItem('last_activity_time') || localStorage.getItem('last_activity_time');
+    
+    // Inactividad máxima permitida: 30 minutos
+    const IDLE_LIMIT_MS = 30 * 60 * 1000;
+    const isIdleExpired = lastActivity && (Date.now() - parseInt(lastActivity, 10) > IDLE_LIMIT_MS);
 
-    if (!token || !userDataStr || isTokenExpired(token)) {
-      if (token && isTokenExpired(token)) {
-        console.warn('[Auth] Token JWT expirado en storage. Limpiando credenciales...');
+    if (!token || !userDataStr || isTokenExpired(token) || isIdleExpired) {
+      if (token && (isTokenExpired(token) || isIdleExpired)) {
+        console.warn(`[Auth] Sesión terminada (${isIdleExpired ? 'inactividad' : 'token expirado'}). Limpiando datos...`);
         clearAuthData();
       }
       setLoading(false);
       return;
     }
+
+    // Actualizar actividad actual
+    localStorage.setItem('last_activity_time', String(Date.now()));
+    sessionStorage.setItem('last_activity_time', String(Date.now()));
 
     let userData;
     try {
@@ -233,7 +243,8 @@ export const AuthProvider = ({ children }) => {
           db_name: loginData.db_name || '',
           db_host: loginData.db_host || '',
           db_user: loginData.db_user || '',
-          db_pass: loginData.db_pass || ''
+          db_pass: loginData.db_pass || '',
+          last_activity_time: Date.now()
         });
 
         // 2. Puente PHP
@@ -322,7 +333,8 @@ export const AuthProvider = ({ children }) => {
       db_name: bridgeData.db_name || '',
       db_host: bridgeData.db_host || '',
       db_user: bridgeData.db_user || '',
-      db_pass: bridgeData.db_pass || ''
+      db_pass: bridgeData.db_pass || '',
+      last_activity_time: Date.now()
     });
 
     // 2. Puente PHP (sesión legacy)

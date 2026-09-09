@@ -3,8 +3,10 @@ import toast from 'react-hot-toast';
 import { api } from '../../../config/axios';
 import ViajesService from '../../../services/viajes.service';
 import { buildPdfUrl } from '../../../utils/pdfUrlUtils';
+import { useAuth } from '../../../context/AuthContext';
 
 export const DespachoViajeModal = ({ trip, onClose }) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [buses, setBuses] = useState([]);
   const [personal, setPersonal] = useState([]);
@@ -98,8 +100,9 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
         toast.success('Viaje despachado exitosamente');
         // Abrir PDF de despacho y PDF de listado de pasajeros
         const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-        window.open(baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?id_viajes=${form.id_viaje}`), '_blank');
-        window.open(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?id_viaje=${form.id_viaje}`), '_blank');
+        const nombreUsuario = user?.nombre_usuario || user?.nombre || user?.username || '';
+        window.open(baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?id_viajes=${form.id_viaje}&usuario=${encodeURIComponent(nombreUsuario)}`), '_blank');
+        window.open(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?id_viaje=${form.id_viaje}&usuario=${encodeURIComponent(nombreUsuario)}`), '_blank');
         onClose(true);
       } else {
         toast.error(res.data?.message || 'Error al despachar');

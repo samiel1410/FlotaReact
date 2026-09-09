@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 
 export const BoletoTotalesPanel = ({ cantidadAsientos, precioUnitario, totales, onTotalesChange, onPrecioChange, compact }) => {
+  const [prevPrecio, setPrevPrecio] = useState(precioUnitario);
   const [precioLocal, setPrecioLocal] = useState(precioUnitario || 0);
 
-  useEffect(() => {
-    if (precioUnitario > 0) {
-      setPrecioLocal(precioUnitario);
-    }
-  }, [precioUnitario]);
+  if (precioUnitario !== prevPrecio) {
+    setPrevPrecio(precioUnitario);
+    setPrecioLocal(precioUnitario || 0);
+  }
 
   // El total se calcula desde el grid (suma de valores individuales con descuentos aplicados)
   // Solo reseteamos a 0 si no hay asientos

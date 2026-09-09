@@ -1,6 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import Skeleton from 'react-loading-skeleton';
-import 'react-loading-skeleton/dist/skeleton.css';
 import cajaService from '../../../services/cajaNotaVenta.service';
 import { buildPdfUrl } from '../../../utils/pdfUrlUtils';
 import toast from 'react-hot-toast';

@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
-import { api } from '../../../config/axios';
+import { api, clienteApi } from '../../../config/axios';
 import toast from 'react-hot-toast';
 
 const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
   const [loading, setLoading] = useState(false);
+  const [buscandoCliente, setBuscandoCliente] = useState(false);
 
-  const { register, handleSubmit, formState: { errors }, reset } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset, setValue, getValues } = useForm({
     defaultValues: {
       nombre: '',
       ruc: '',
@@ -50,6 +51,56 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
     }
   }, [initialData, reset]);
 
+  // Buscar información del cliente por RUC o Cédula
+  const handleBuscarCliente = async (rucParam) => {
+    const ident = (rucParam || getValues('ruc') || '').trim();
+    if (!ident) {
+      toast.error('Ingrese el RUC o Cédula a buscar');
+      return;
+    }
+    if (ident.length < 10) {
+      toast.error('La identificación debe tener al menos 10 dígitos');
+      return;
+    }
+
+    setBuscandoCliente(true);
+    try {
+      const res = await clienteApi.get('/cliente/clientebusquedaIdentificacion', {
+        params: { identificacion_busqueda: ident }
+      });
+
+      if (res.data?.success && res.data?.data && res.data.data.length > 0) {
+        const cliente = res.data.data[0];
+        
+        if (cliente.nombre_cliente) {
+          setValue('nombre', cliente.nombre_cliente, { shouldValidate: true });
+        }
+        if (cliente.direccion_cliente) {
+          setValue('direccion', cliente.direccion_cliente, { shouldValidate: true });
+        }
+        if (cliente.telefono_cliente) {
+          const tel = cliente.telefono_cliente.trim();
+          if (tel.startsWith('09') || tel.length === 10) {
+            setValue('celular', tel, { shouldValidate: true });
+          } else {
+            setValue('telefono', tel, { shouldValidate: true });
+          }
+        }
+        if (cliente.email_cliente || cliente.correo_cliente) {
+          setValue('correo', cliente.email_cliente || cliente.correo_cliente, { shouldValidate: true });
+        }
+        toast.success(`Cliente encontrado: ${cliente.nombre_cliente}`);
+      } else {
+        toast.error('No se encontró información para la identificación ingresada');
+      }
+    } catch (err) {
+      console.error('Error buscando cliente:', err);
+      toast.error('Error al consultar cliente: ' + (err.response?.data?.mensaje || err.message));
+    } finally {
+      setBuscandoCliente(false);
+    }
+  };
+
   const onFormSubmit = async (data) => {
     setLoading(true);
     try {
@@ -88,9 +139,54 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
+        {/* RUC / Cédula con Buscador */}
+        <div>
+          <label className={labelClass}>
+            RUC / Cédula <span className="text-rose-500">*</span>
+          </label>
+          <div className="relative flex items-center">
+            <input
+              type="text"
+              maxLength={13}
+              {...register('ruc', {
+                required: 'El RUC o Cédula es requerido',
+                pattern: { value: /^[0-9]+$/, message: 'Solo se permiten números' },
+                minLength: { value: 10, message: 'Mínimo 10 dígitos' },
+                maxLength: { value: 13, message: 'Máximo 13 dígitos' }
+              })}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleBuscarCliente();
+                }
+              }}
+              className={`${inputClass} pr-10`}
+              placeholder="Ej: 1790012345001"
+              onChange={e => {
+                const val = e.target.value.replace(/\D/g, '');
+                setValue('ruc', val, { shouldValidate: true });
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => handleBuscarCliente()}
+              disabled={buscandoCliente}
+              title="Buscar cliente por Cédula / RUC"
+              className="absolute right-1 px-2.5 py-1 text-slate-400 hover:text-indigo-600 focus:outline-none transition-colors disabled:opacity-50"
+            >
+              {buscandoCliente ? (
+                <i className="fas fa-spinner fa-spin text-sm text-indigo-600" />
+              ) : (
+                <i className="fas fa-search text-sm" />
+              )}
+            </button>
+          </div>
+          {errors.ruc && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.ruc.message}</p>}
+        </div>
+
         {/* Nombre */}
         <div>
-          <label className={labelClass}>Nombre <span className="text-rose-500">*</span></label>
+          <label className={labelClass}>Nombre / Razón Social <span className="text-rose-500">*</span></label>
           <input
             type="text"
             {...register('nombre', {
@@ -101,28 +197,6 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
             placeholder="Nombre de la compañía"
           />
           {errors.nombre && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.nombre.message}</p>}
-        </div>
-
-        {/* RUC */}
-        <div>
-          <label className={labelClass}>RUC / Cédula <span className="text-rose-500">*</span></label>
-          <input
-            type="text"
-            maxLength={13}
-            {...register('ruc', {
-              required: 'El RUC o Cédula es requerido',
-              pattern: { value: /^[0-9]+$/, message: 'Solo se permiten números' },
-              minLength: { value: 10, message: 'Mínimo 10 dígitos' },
-              maxLength: { value: 13, message: 'Máximo 13 dígitos' }
-            })}
-            className={inputClass}
-            placeholder="Ej: 1790012345001"
-            onChange={e => {
-              const val = e.target.value.replace(/\D/g, '');
-              e.target.value = val;
-            }}
-          />
-          {errors.ruc && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.ruc.message}</p>}
         </div>
 
         {/* Porcentaje Comisión */}

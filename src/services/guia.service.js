@@ -1,5 +1,6 @@
 import { api, clienteApi } from '../config/axios';
 import { CONFIG } from '../config/env';
+import { buildPdfUrl } from '../utils/pdfUrlUtils';
 
 /**
  * Servicio para interactuar con el backend de Guías

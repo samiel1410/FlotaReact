@@ -62,8 +62,6 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
           <tbody>
             {data.map(item => {
               const est = formatEstado(item.estado_boleto);
-              const origenNombre = item.nombre_origen_res || item.nombre_origen || item.origen_boleto || 'Origen';
-              const destinoNombre = item.nombre_destino_res || item.nombre_sub_rutas || item.nombre_destino || item.destino_boleto || 'Destino';
               const asientosStr = item.detalles && item.detalles.length > 0
                 ? item.detalles.map(d => d.asiento_boleto_detalle).join(', ')
                 : item.total_asiento > 0 ? `${item.total_asiento} asns` : '-';

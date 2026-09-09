@@ -1,4 +1,5 @@
 import { authApi } from '../config/axios';
+import { CONFIG } from '../config/env';
 import axios from 'axios';
 
 /**

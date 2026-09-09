@@ -79,6 +79,7 @@ export const EntregaService = {
    */
   generarPdfEntrega: async (idGuia, idUsuario, isNotaVenta = false) => {
     try {
+      const phpScript = isNotaVenta ? 'guiaEntregadaNotaVentaPdf.php' : 'guiaEntregadaPdf.php';
       const rawUrl = `${CONFIG.PHP_URL}/${phpScript}?id_guia=${encodeURIComponent(idGuia)}&id_usuario=${encodeURIComponent(idUsuario)}`;
       const phpUrl = buildPdfUrl(rawUrl);
       const r = await fetch(phpUrl, { credentials: 'same-origin' });
