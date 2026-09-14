@@ -103,13 +103,25 @@ export const DespachoRetencionesModal = ({
                       <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                         <td className="px-3 py-2.5 text-center text-slate-400 font-mono text-[11px]">{idx + 1}</td>
                         <td className="px-3 py-2.5 font-bold text-slate-800">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             {item.tipo === 'COMISION' ? (
                               <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                            ) : item.cobro_total_despacho == 1 ? (
+                              <span className="w-2 h-2 rounded-full bg-rose-600 shrink-0" />
                             ) : (
-                              <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
                             )}
                             <span>{item.nombre}</span>
+                            {item.cobro_total_despacho == 1 && (
+                              <span className="bg-rose-100 text-rose-700 text-[9px] font-extrabold px-1.5 py-0.2 rounded border border-rose-200">
+                                100% Boletos
+                              </span>
+                            )}
+                            {item.tipo === 'COBRO_AUTOMATICO' && (
+                              <span className="bg-blue-100 text-blue-700 text-[9px] font-bold px-1.5 py-0.2 rounded border border-blue-200">
+                                Automático
+                              </span>
+                            )}
                           </div>
                         </td>
                         <td className="px-3 py-2.5 text-slate-500 text-[11px]">

@@ -192,12 +192,20 @@ try {
         $stmt_cobros->close();
     }
 
-    $retencionSucursal = floatval($despacho['tarifa_despacho_viaje'] ?? 0);
+    $tarifaDespacho = floatval($despacho['tarifa_despacho_viaje'] ?? 0);
     $porcentajeRetencion = floatval($despacho['porcentaje_retencion'] ?? 0);
     $nombreSucursal = $despacho['nombre_sucursal'] ?? 'Oficina';
-    $totalRetenciones = $retencionSucursal;
+
+    $totalCobrosDespacho = 0;
     foreach ($cobros as $cobro) {
-        $totalRetenciones += floatval($cobro['monto_cobros']);
+        $totalCobrosDespacho += floatval($cobro['monto_cobros']);
+    }
+
+    // Si existen cobros detallados en despacho_viaje_reteciones, ese es el total exacto.
+    if (count($cobros) > 0) {
+        $totalRetenciones = $totalCobrosDespacho;
+    } else {
+        $totalRetenciones = $tarifaDespacho;
     }
 
     // 4. Datos de la empresa
@@ -323,7 +331,7 @@ try {
             <th style="text-align:right; border-bottom:1px solid #000; width: 30%;">Valor</th>
         </tr>';
 
-    if ($retencionSucursal > 0) {
+    if (count($cobros) === 0 && $tarifaDespacho > 0) {
         $label = 'RETENCIÓN ' . strtoupper($nombreSucursal);
         if ($porcentajeRetencion > 0) {
             $label .= ' (' . $porcentajeRetencion . '%)';
@@ -331,7 +339,7 @@ try {
         $content .= '
         <tr>
             <td style="text-align:left;">' . $label . '</td>
-            <td style="text-align:right;">$' . number_format($retencionSucursal, 2) . '</td>
+            <td style="text-align:right;">$' . number_format($tarifaDespacho, 2) . '</td>
         </tr>';
     }
 

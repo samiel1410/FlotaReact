@@ -1,14 +1,15 @@
 <?php
+error_reporting(0);
+ini_set('display_errors', '0');
+
 require_once('library/tcpdf.php');
 require_once("db.php");
-error_reporting(E_ALL);
-ini_set('display_errors', '1');
 
 // Configuración de zona horaria
-date_default_timezone_set('America/Lima'); // Ajusta según tu zona horaria
+date_default_timezone_set('America/Guayaquil');
 
 try {
-    $fecha_actual = date('d/m/Y H:i:s'); // Formato día/mes/año hora:minuto:segundo
+    $fecha_actual = date('d/m/Y H:i:s');
     
     // Ajustar el alto de la página para que todo entre en una sola hoja
     $pdf = new TCPDF('P', PDF_UNIT, array(80, 120), true, 'UTF-8', false);
@@ -19,12 +20,17 @@ try {
     
     // Datos cobro
     $id_cobros = intval($_GET['id_cobros'] ?? 0);
-    $id_usuario = $_GET['id_usuario'] ?? 0;
+    $id_usuario = intval($_GET['id_usuario'] ?? 0);
     
     // Obtener datos del usuario
-    $query_usuario = "SELECT nombre_usuario, apellido_usuario FROM usuario WHERE id_usuario = $id_usuario";
-    $usuario = mysqli_fetch_array(mysqli_query($conn, $query_usuario));
-    $nombre_usuario = $usuario['nombre_usuario'] . ' ' . $usuario['apellido_usuario'];
+    $nombre_usuario = '';
+    if ($id_usuario > 0) {
+        $query_usuario = "SELECT nombre_usuario, apellido_usuario FROM usuario WHERE id_usuario = $id_usuario";
+        $res_u = mysqli_query($conn, $query_usuario);
+        if ($res_u && $u = mysqli_fetch_array($res_u)) {
+            $nombre_usuario = trim(($u['nombre_usuario'] ?? '') . ' ' . ($u['apellido_usuario'] ?? ''));
+        }
+    }
   
     $query = "SELECT c.*, u.nombre_usuario, u.apellido_usuario, b.placa_buses, b.disco_buses, 
               s.nombre_sucursal, ca.id_caja_boleteria, tc.nombre_tipo_cobros,
@@ -34,15 +40,33 @@ try {
               LEFT JOIN usuario u ON c.id_fkusuario_cobros = u.id_usuario
               LEFT JOIN usuario ue ON c.id_usuario_entrego = ue.id_usuario
               LEFT JOIN buses b ON c.id_fkbus_cobros = b.id_buses
-              LEFT JOIN personal p ON b.id_fkpersonal_buses = p.id_personal
+              LEFT JOIN personal p ON p.id_personal = COALESCE(b.id_fksocio_buses, b.id_fkpersonal_buses)
               LEFT JOIN sucursal2 s ON c.id_fksucursal_cobros = s.suc_codigo_sucursal
               LEFT JOIN caja_boleteria ca ON c.id_fkcaja_cobros = ca.id_caja_boleteria
               LEFT JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
-              WHERE c.id_cobros = $id_cobros;";
-    $cobro = mysqli_fetch_array(mysqli_query($conn, $query));
+              WHERE c.id_cobros = $id_cobros";
+    $res = mysqli_query($conn, $query);
+    $cobro = $res ? mysqli_fetch_array($res) : null;
+
+    if (!$cobro) {
+        $pdf->SetCreator('Sistema Flota');
+        $pdf->SetMargins(5, 5, 5);
+        $pdf->SetAutoPageBreak(true, 5);
+        $pdf->AddPage();
+        $pdf->writeHTML('<h3 style="color:red;text-align:center;">Cobro #' . $id_cobros . ' no encontrado</h3>', true, false, true, false, '');
+        $pdf->Output('error.pdf', 'I');
+        exit;
+    }
+
+    if (empty($nombre_usuario)) {
+        $nombre_usuario = trim(($cobro['nombre_usuario'] ?? '') . ' ' . ($cobro['apellido_usuario'] ?? ''));
+    }
 
     // Formatear fecha de creación del cobro
-    $fecha_cobro = date('d/m/Y H:i:s', strtotime($cobro['fecha_creacion_cobros']));
+    $fecha_crea = $cobro['fecha_creacion_cobros'] ?? $cobro['fecha_cobros'] ?? null;
+    $fecha_cobro = ($fecha_crea && $fecha_crea !== '0000-00-00' && $fecha_crea !== '0000-00-00 00:00:00')
+        ? date('d/m/Y H:i:s', strtotime($fecha_crea))
+        : $fecha_actual;
 
     // Configuración PDF
     $pdf->SetCreator('Sistema Flota');

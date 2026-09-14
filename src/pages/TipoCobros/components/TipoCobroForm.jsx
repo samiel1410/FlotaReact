@@ -18,7 +18,7 @@ export const TipoCobroForm = (props) => {
           ], defaultValue: '3'
         },
         {
-          name: 'tipo_cobros_automaticos', label: 'Automático', type: 'select', options: [
+          name: 'tipo_cobros_automaticos', label: 'Automático en Despacho', type: 'select', options: [
             { value: '1', label: 'Sí' },
             { value: '0', label: 'No' },
           ], defaultValue: '0'
@@ -27,6 +27,12 @@ export const TipoCobroForm = (props) => {
           name: 'cobrar_una_vez_dia', label: 'Cobrar Una Vez al Día', type: 'select', options: [
             { value: '1', label: 'Sí' },
             { value: '0', label: 'No' },
+          ], defaultValue: '0'
+        },
+        {
+          name: 'cobro_total_despacho', label: 'Deducir 100% Boletos (Sin Tope %)', type: 'select', options: [
+            { value: '0', label: 'No (Hasta el % de retención de agencia)' },
+            { value: '1', label: 'Sí (Hasta el 100% de boletos del viaje)' },
           ], defaultValue: '0'
         },
         {

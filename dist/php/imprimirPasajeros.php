@@ -17,7 +17,7 @@ $conn = conexion();
 
 // Consulta optimizada de datos del bus, ruta y conductor
 $query_info = "SELECT
-v.id_viajes, v.dia_viajes, v.hora_salida_estimado, r.nombre_rutas,
+v.id_viajes, v.dia_viajes, v.hora_salida_estimado, v.hora_origen_salida, v.fecha_cierre, r.nombre_rutas,
 b.disco_buses, b.placa_buses,
 p.per_cedula_personal, p.per_nombres_persona, p.per_apellidos_personal,
 v.chofer_viajes, v.cedula_viajes,
@@ -39,6 +39,25 @@ LEFT JOIN usuario u3 ON v.id_fkusuario_viajes = u3.id_usuario
 WHERE v.id_viajes = $id_viaje LIMIT 1";
 $result_info = mysqli_query($conn, $query_info) or die(mysqli_error($conn));
 $info = mysqli_fetch_assoc($result_info) ?: [];
+
+$ruta = $info['nombre_rutas'] ?? '';
+
+// Formatear fecha y hora del viaje
+$raw_fecha_viaje = !empty($info['fecha_cierre']) 
+    ? $info['fecha_cierre'] 
+    : (!empty($info['fecha_salida_despacho_viaje']) ? $info['fecha_salida_despacho_viaje'] : '');
+
+$fecha_viaje = (!empty($raw_fecha_viaje) && strtotime($raw_fecha_viaje) !== false) 
+    ? date('Y-m-d', strtotime($raw_fecha_viaje)) 
+    : date('Y-m-d');
+
+$raw_hora_viaje = !empty($info['hora_salida_estimado']) 
+    ? $info['hora_salida_estimado'] 
+    : (!empty($info['hora_origen_salida']) ? $info['hora_origen_salida'] : '');
+
+$hora_viaje = (!empty($raw_hora_viaje) && strtotime($raw_hora_viaje) !== false) 
+    ? date('H:i', strtotime($raw_hora_viaje)) 
+    : '';
 
 $conductor_nombre = trim(($info['per_nombres_persona'] ?? '') . ' ' . ($info['per_apellidos_personal'] ?? ''));
 if (empty($conductor_nombre) && !empty($info['chofer_viajes'])) {
@@ -122,8 +141,6 @@ $sucursal_subtotal_pasajeros = 0;
 $sucursal_subtotal_valor = 0;
 $origen_subtotal_pasajeros = 0;
 $origen_subtotal_valor = 0;
-
-$ruta = "";
 
 while ($row = mysqli_fetch_array($result)) {
 $sucursal = !empty($row['nombre_sucursal']) ? $row['nombre_sucursal'] : 'OFICINA PRINCIPAL';
@@ -351,7 +368,7 @@ $html = '
     <hr>
     <div class="titulo">LISTADO DE PASAJEROS</div>
     <div class="titulo"> <b>Disco:</b> ' . htmlspecialchars($info['disco_buses'] ?? 'S/N') . '</div>
-    <div class="subtitulo">Viaje #' . $id_viaje . ' | Fecha: ' . $fecha_actual . '</div>
+    <div class="subtitulo">Viaje #' . $id_viaje . ' | Fecha: ' . $fecha_viaje . ' | Hora: ' . $hora_viaje . '</div>
 
     <div class="info-bus" style="display: flex; justify-content: space-between; align-items: center;">
         <span><b>Ruta:</b> ' . htmlspecialchars($ruta) . ' </span>

@@ -75,6 +75,9 @@ export const PAGES_CONFIG = {
       { key: 'estado_buses', label: 'Estado', renderType: 'status' },
     ],
     filters: [
+      { key: 'disco_busqueda', label: 'N° Bus / Disco', type: 'text' },
+      { key: 'id_socio', label: 'Socio', type: 'select' },
+      { key: 'placa_busqueda', label: 'Placa', type: 'text' },
       { key: 'codigo_busqueda', label: 'Código', type: 'text' },
       { key: 'anio_busqueda', label: 'Año', type: 'text' },
       {
@@ -85,6 +88,10 @@ export const PAGES_CONFIG = {
       },
     ],
     customParams: (page, pageSize, filters) => ({
+      disco_busqueda: filters.disco_busqueda || filters.bus_disco || '',
+      id_socio: filters.id_socio || '',
+      placa_busqueda: filters.placa_busqueda || filters.bus_placa || '',
+      id_personal: filters.id_personal || '',
       codigo_busqueda: filters.codigo_busqueda || '',
       anio_busqueda: filters.anio_busqueda || '',
       estado_busqueda: filters.estado_busqueda || '',
@@ -2373,6 +2380,11 @@ export const PAGES_CONFIG = {
         key: 'cobrar_una_vez_dia', label: '1 vez/Día', render: v => v == 1
           ? <span className="bg-violet-100 text-violet-700 px-2 py-0.5 rounded text-[9px] font-bold">Sí</span>
           : <span className="text-slate-400">No</span>
+      },
+      {
+        key: 'cobro_total_despacho', label: 'Cobro en Despacho', render: v => v == 1
+          ? <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-[9px] font-bold">100% Boletos</span>
+          : <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-medium">Tope % Agencia</span>
       },
       { key: 'estado_tipo_cobros', label: 'Estado', renderType: 'status' },
     ],

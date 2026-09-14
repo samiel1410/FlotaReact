@@ -64,8 +64,49 @@ function decrypt_db_data($data) {
     }
 }
 
+function cargarEnvBack() {
+    $possiblePaths = [
+        dirname(__DIR__, 2) . '/Back/.env',
+        __DIR__ . '/../../Back/.env',
+        'c:/laragon/www/SistemaFlota/Back/.env'
+    ];
+    foreach ($possiblePaths as $envPath) {
+        if (file_exists($envPath)) {
+            $lines = @file($envPath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+            if ($lines) {
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if (empty($line) || strpos($line, '#') === 0) continue;
+                    if (strpos($line, '=') !== false) {
+                        list($key, $val) = explode('=', $line, 2);
+                        $key = trim($key);
+                        $val = trim(trim($val), '"\'');
+                        if (!isset($_ENV[$key])) {
+                            $_ENV[$key] = $val;
+                            putenv("{$key}={$val}");
+                        }
+                    }
+                }
+            }
+            break;
+        }
+    }
+}
+
 function obtenerCredencialesDb($isLocal)
 {
+    if ($isLocal) {
+        cargarEnvBack();
+        $target = strtolower(trim(getenv('USE_DB_TARGET') ?: ''));
+        if ($target === 'remota') {
+            $rHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
+            $rUser = getenv('REMOTE_DB_USER') ?: 'adminroot';
+            $rPass = getenv('REMOTE_DB_PASSWORD') ?: 'Latacunga14';
+            $rDb   = getenv('REMOTE_DB_NAME') ?: 'admin_pruebas';
+            return [$rHost, $rUser, $rPass, $rDb, 'Back/.env (USE_DB_TARGET=remota)'];
+        }
+    }
+
     $tenantIntentado = false;
     $cacheDir = __DIR__ . '/tmp/tenants/';
     if (!is_dir($cacheDir)) {
