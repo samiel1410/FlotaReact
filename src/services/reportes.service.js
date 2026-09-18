@@ -373,30 +373,55 @@ export const reportesService = {
    * Generar PDF a partir de HTML
    * @param {string} html - Contenido HTML
    * @param {string} titulo - Título del PDF
+   * @param {string} orientation - 'portrait' | 'landscape' (default: 'portrait')
    */
-  async generatePdfFromHtml(html, titulo = 'Reporte') {
+  async generatePdfFromHtml(html, titulo = 'Reporte', orientation = 'portrait') {
     try {
-      // Usar jspdf y html2canvas para generar PDF en el frontend
       const { default: jsPDF } = await import('jspdf');
       const { default: html2canvas } = await import('html2canvas');
 
+      const isLandscape = orientation === 'landscape';
+      const containerWidth = isLandscape ? 1120 : 794;
+
       const element = document.createElement('div');
       element.innerHTML = html;
+      element.style.position = 'fixed';
+      element.style.left = '-9999px';
+      element.style.top = '0';
+      element.style.width = `${containerWidth}px`;
+      element.style.backgroundColor = '#ffffff';
+      element.style.zIndex = '-1000';
       document.body.appendChild(element);
 
-      const canvas = await html2canvas(element);
-      const imgData = canvas.toDataURL('image/png');
-      
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`${titulo}.pdf`);
+      const canvas = await html2canvas(element, {
+        scale: 1.5,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
 
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new jsPDF(isLandscape ? 'l' : 'p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let position = 0;
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      let remainingHeight = imgHeight - pageHeight;
+
+      while (remainingHeight > 0) {
+        position -= pageHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        remainingHeight -= pageHeight;
+      }
+
+      pdf.save(`${titulo}.pdf`);
       document.body.removeChild(element);
-      
-      return { success: true, message: 'PDF generado correctamente' };
+
+      return { success: true, message: 'PDF generado y descargado correctamente' };
     } catch (error) {
       console.error('Error al generar PDF:', error);
       throw error;

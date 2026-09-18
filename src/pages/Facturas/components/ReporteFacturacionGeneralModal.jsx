@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { FacturasService } from '../services/facturas.service';
 import { reportesService } from '../../../services/reportes.service';
-import { CONFIG } from '../../../config/env';
+import { api } from '../../../config/axios';
 
 export const ReporteFacturacionGeneralModal = ({ isOpen, onClose }) => {
   const getToday = () => new Date().toISOString().split('T')[0];
@@ -24,7 +24,6 @@ export const ReporteFacturacionGeneralModal = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [generando, setGenerando] = useState(false);
   const [progreso, setProgreso] = useState({ percent: 0, message: '' });
-  const [previewHtml, setPreviewHtml] = useState(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -90,17 +89,12 @@ export const ReporteFacturacionGeneralModal = ({ isOpen, onClose }) => {
       );
 
       if (result?.html) {
-        toast.success(`Reporte generado con éxito (${(result.total || 0).toLocaleString('es-EC')} registros)`, { id: toastId });
-        // Abrir en nueva ventana para imprimir directamente
-        const win = window.open('', '_blank');
-        if (win) {
-          win.document.write(result.html);
-          win.document.close();
-        } else {
-          setPreviewHtml(result.html);
-        }
+        toast.loading('Generando y descargando PDF...', { id: toastId });
+        const fileName = `Facturas_Boleto_${filtros.desde || 'desde'}_${filtros.hasta || 'hasta'}`;
+        await reportesService.generatePdfFromHtml(result.html, fileName, 'landscape');
+        toast.success(`PDF descargado con éxito (${(result.total || 0).toLocaleString('es-EC')} registros)`, { id: toastId });
       } else {
-        toast.error('No se pudo obtener el HTML del reporte', { id: toastId });
+        toast.error('No se pudo obtener el contenido del reporte', { id: toastId });
       }
     } catch (err) {
       console.error('Error generando PDF en cola:', err);
@@ -128,24 +122,32 @@ export const ReporteFacturacionGeneralModal = ({ isOpen, onClose }) => {
       );
 
       if (result?.downloadUrl) {
-        toast.success(`Excel generado con éxito (${(result.total || 0).toLocaleString('es-EC')} registros)`, { id: toastId });
+        toast.loading('Descargando archivo Excel...', { id: toastId });
         
-        // Descarga directa nativa por streaming (0 consumo de RAM en React)
-        const baseApi = CONFIG.API_URL || '';
-        const downloadEndpoint = result.downloadUrl.startsWith('/api')
-          ? `${baseApi}${result.downloadUrl}`
-          : `${baseApi}/api${result.downloadUrl}`;
+        // Petición autenticada con token JWT
+        const endpoint = result.downloadUrl.startsWith('/api')
+          ? result.downloadUrl
+          : `/api${result.downloadUrl}`;
 
+        const response = await api.get(endpoint, {
+          responseType: 'blob'
+        });
+
+        const blob = new Blob([response.data], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        });
+        const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = downloadEndpoint;
-        a.download = `${result.fileName || 'Facturas_Boleto'}.xlsx`;
+        a.href = url;
+        a.download = result.fileName || `Facturas_Boleto_${filtros.desde || 'general'}.xlsx`;
         document.body.appendChild(a);
         a.click();
+        window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+
+        toast.success(`Excel descargado con éxito (${(result.total || 0).toLocaleString('es-EC')} registros)`, { id: toastId });
       } else if (result?.base64) {
-        toast.success(`Excel generado con éxito (${(result.total || 0).toLocaleString('es-EC')} registros)`, { id: toastId });
-        
-        // Decodificar Base64 a Blob de forma eficiente
+        // Fallback Base64 a Blob
         const byteCharacters = atob(result.base64);
         const byteNumbers = new Uint8Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
@@ -157,11 +159,13 @@ export const ReporteFacturacionGeneralModal = ({ isOpen, onClose }) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${result.fileName || 'Facturas_Boleto'}.xlsx`;
+        a.download = result.fileName || `Facturas_Boleto_${filtros.desde || 'general'}.xlsx`;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
+
+        toast.success(`Excel descargado con éxito (${(result.total || 0).toLocaleString('es-EC')} registros)`, { id: toastId });
       } else {
         toast.error('No se recibió el resultado del reporte', { id: toastId });
       }
@@ -409,25 +413,6 @@ export const ReporteFacturacionGeneralModal = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Modal de Previsualización Embebida (en caso de que el navegador bloquee popups) */}
-        {previewHtml && (
-          <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/70 p-4">
-            <div className="bg-white rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden shadow-2xl">
-              <div className="flex items-center justify-between px-6 py-3 border-b border-slate-200 bg-slate-50">
-                <span className="font-bold text-sm text-slate-800">Previsualización - Facturas Boleto</span>
-                <button onClick={() => setPreviewHtml(null)} className="text-slate-500 hover:text-slate-800">
-                  <i className="fas fa-times text-lg"></i>
-                </button>
-              </div>
-              <iframe
-                srcDoc={previewHtml}
-                title="Vista Previa Reporte"
-                className="flex-1 w-full h-full border-none"
-              />
-            </div>
-          </div>
-        )}
-
         {/* Botones de Pie */}
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
           <button
@@ -463,8 +448,8 @@ export const ReporteFacturacionGeneralModal = ({ isOpen, onClose }) => {
                 </>
               ) : (
                 <>
-                  <i className="fas fa-print"></i>
-                  Ver / Imprimir PDF
+                  <i className="fas fa-file-pdf"></i>
+                  Descargar PDF
                 </>
               )}
             </button>
