@@ -209,8 +209,8 @@ try {
 
     // Crear PDF
     $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
-    $pdf->SetCreator('FlotaPelileo');
-    $pdf->SetAuthor('FlotaPelileo');
+    $pdf->SetCreator('SistemaFlota');
+    $pdf->SetAuthor(!empty($empresa['razon_social_empresa']) ? $empresa['razon_social_empresa'] : 'SistemaFlota');
     $pdf->SetTitle('Ficha Personal - ' . $nombre_completo);
     $pdf->setPrintHeader(false);
     $pdf->setPrintFooter(false);
@@ -346,7 +346,7 @@ try {
     
     // Celda central: Información de la empresa
     $html .= '<td class="info-cell">';
-    $companyName = !empty($empresa['razon_social_empresa']) ? $empresa['razon_social_empresa'] : 'COOPERATIVA DE TRANSPORTES FLOTA PELILEO';
+    $companyName = !empty($empresa['razon_social_empresa']) ? $empresa['razon_social_empresa'] : (!empty($empresa['nombre_comercial_empresa']) ? $empresa['nombre_comercial_empresa'] : 'Empresa');
     $html .= '<div class="coop-title">' . htmlspecialchars($companyName) . '</div>';
     $html .= '<div class="coop-info">RUC: ' . htmlspecialchars($empresa['ruc_empresa']) . ' | Tel: ' . htmlspecialchars($empresa['telefono_empresa']) . '</div>';
     $html .= '<div class="coop-info">Dirección: ' . htmlspecialchars($empresa['direccion_empresa']) . '</div>';

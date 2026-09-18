@@ -52,7 +52,7 @@ export const clearAuthData = () => {
 
   try {
     Object.keys(localStorage)
-      .filter(k => k.startsWith('login_as_') || k.startsWith('auth_') || k.startsWith('tenant_'))
+      .filter(k => k.startsWith('auth_') || k.startsWith('tenant_'))
       .forEach(k => localStorage.removeItem(k));
   } catch (e) {}
 
@@ -118,22 +118,41 @@ export const AuthProvider = ({ children }) => {
       try {
         const res = await api.post('/roles/selectRolesAcciones', { id_rol: idRol });
         if (res.data?.success && res.data?.data?.length > 0 && res.data.data[0]?.descripcion_rol) {
-          const parsed = JSON.parse(res.data.data[0].descripcion_rol);
-          setPermisos(parsed);
-          return;
+          const raw = res.data.data[0].descripcion_rol;
+          if (typeof raw === 'object' && raw !== null) {
+            setPermisos(raw);
+            return;
+          }
+          if (typeof raw === 'string' && (raw.trim().startsWith('{') || raw.trim().startsWith('['))) {
+            try {
+              const parsed = JSON.parse(raw);
+              setPermisos(parsed);
+              return;
+            } catch (e) {
+              // String no es JSON válido (texto plano o descripción textual del rol)
+            }
+          }
         }
       } catch (err) {
-        console.warn('No se pudieron cargar los permisos del rol:', err);
+        console.warn('No se pudieron cargar los permisos del rol:', err.message);
       }
     }
-    // Fallback: si no se cargaron permisos pero el usuario es admin numérico (rol 5), activar todo
-    if (userData?.rol_usuario === 5 || userData?.rol === 5) {
-      setPermisos(null); // null hará que hasPermission devuelva true para admin
+    // Fallback: si no se cargaron permisos pero el usuario es admin numérico (rol 5 o rol 1), activar todo
+    const rolNum = parseInt(userData?.rol_usuario || userData?.rol || 0, 10);
+    if (rolNum === 5 || rolNum === 1) {
+      setPermisos(null); // null hace que hasPermission devuelva true para admin
     }
   }, []);
 
   // Inicializar estado desde sessionStorage / localStorage (para soportar nuevas pestañas)
   useEffect(() => {
+    // Si estamos en la ruta de suplantación (#/login-as), NO limpiar datos aquí;
+    // LoginAsPage se encargará de establecer la sesión con la nueva clave temporal.
+    if (window.location.hash.includes('login-as') || window.location.pathname.includes('login-as')) {
+      setLoading(false);
+      return;
+    }
+
     syncStorageFromLocal();
 
     const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
@@ -287,8 +306,9 @@ export const AuthProvider = ({ children }) => {
   // Verificar si el usuario tiene permiso por módulo
   const hasPermission = useCallback((permission) => {
     if (!user) return false;
-    // Admin por rol numérico (5) o por nombre tiene todos los permisos
-    if (hasRole('admin') || hasRole('administrador') || user.rol_usuario === 5) return true;
+    // Admin por rol numérico (5 o 1) o por nombre tiene todos los permisos
+    const rolNum = parseInt(user.rol_usuario || user.rol || 0, 10);
+    if (hasRole('admin') || hasRole('administrador') || rolNum === 5 || rolNum === 1) return true;
     // Si permisos es null significa admin fallback
     if (permisos === null) return true;
     
@@ -323,13 +343,13 @@ export const AuthProvider = ({ children }) => {
   const userRole = user?.rol || user?.role || user?.roles || '';
 
   // Suplantación: Login como otro usuario desde el panel de administración
-  const loginFromImpersonation = useCallback(async (token, userData, bridgeData) => {
+  const loginFromImpersonation = useCallback(async (token, userData, bridgeData = {}) => {
     // 1. Guardar en session y local storage exactamente como login normal
     persistAuthData({
       auth_token: token,
       user_data: userData,
-      refresh_token: bridgeData.refresh_token,
-      backend_url: bridgeData.backend_url,
+      refresh_token: bridgeData.refresh_token || '',
+      backend_url: bridgeData.backend_url || '',
       db_name: bridgeData.db_name || '',
       db_host: bridgeData.db_host || '',
       db_user: bridgeData.db_user || '',

@@ -294,7 +294,9 @@ export const ConfigRutasPage = () => {
       });
       if (res.data?.success) {
         toast.success('Tiempos de paradas actualizados');
-        setSelectedRoute(prev => ({ ...prev, tiempos_paradas_rutas: JSON.stringify(tiemposMapped) }));
+        const jsonTiempos = JSON.stringify(tiemposMapped);
+        setSelectedRoute(prev => ({ ...prev, tiempos_paradas_rutas: jsonTiempos }));
+        setRoutes(prev => prev.map(r => r.id_rutas === selectedRoute.id_rutas ? { ...r, tiempos_paradas_rutas: jsonTiempos } : r));
         setShowTiemposModal(false);
       } else {
         toast.error('Error: ' + res.data?.error);
@@ -391,7 +393,7 @@ export const ConfigRutasPage = () => {
               <i className="fas fa-route text-indigo-600" />
               <span className="font-semibold text-indigo-800">{selectedRoute.nombre_rutas || selectedRoute.rut_nombre}</span>
               <span className="text-indigo-500">|</span>
-              <span className="text-indigo-600">{selectedRoute.origen_nombre || selectedRoute.rut_origen} → {selectedRoute.destino_nombre || selectedRoute.rut_destino}</span>
+              <span className="text-indigo-600">{selectedRoute.origen_nombre || selectedRoute.rut_origen || getCantonNombre(selectedRoute.id_fkorigen_rutas) || '-'} → {selectedRoute.destino_nombre || selectedRoute.rut_destino || getCantonNombre(selectedRoute.id_fkdestino_rutas) || '-'}</span>
               <span className="text-indigo-400 text-xs">${parseFloat(selectedRoute.valor_rutas || 0).toFixed(2)}</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-600">{subrutas.length} subrutas</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-600">{itinerarios.length} horarios</span>
@@ -442,8 +444,8 @@ export const ConfigRutasPage = () => {
                     onClick={() => handleSelectRoute(r)}
                     className={`border-t border-slate-100 cursor-pointer transition-colors hover:bg-slate-50 text-sm ${selectedRoute?.id_rutas === r.id_rutas ? 'bg-indigo-50/70' : ''}`}
                   >
-                    <td className="px-4 py-2.5 font-semibold text-slate-800">{r.origen_nombre || r.rut_origen}</td>
-                    <td className="px-4 py-2.5 font-semibold text-slate-800">{r.destino_nombre || r.rut_destino}</td>
+                    <td className="px-4 py-2.5 font-semibold text-slate-800">{r.origen_nombre || r.rut_origen || getCantonNombre(r.id_fkorigen_rutas) || '-'}</td>
+                    <td className="px-4 py-2.5 font-semibold text-slate-800">{r.destino_nombre || r.rut_destino || getCantonNombre(r.id_fkdestino_rutas) || '-'}</td>
                     <td className="px-4 py-2.5 text-slate-500">{r.nombre_rutas || r.rut_nombre}</td>
                     <td className="px-4 py-2.5 text-right font-mono text-slate-700">${parseFloat(r.valor_rutas || 0).toFixed(2)}</td>
                     <td className="px-4 py-2.5 text-center">

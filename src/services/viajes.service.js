@@ -81,9 +81,11 @@ const ViajesService = {
     }
   },
 
-  getTripDetail: async (id_viaje) => {
+  getTripDetail: async (id_viaje, id_sucursal = null) => {
     try {
-      const response = await api.get('/viajes/detalleDespacho', { params: { id_viaje } });
+      const params = { id_viaje };
+      if (id_sucursal) params.id_sucursal = id_sucursal;
+      const response = await api.get('/viajes/detalleDespacho', { params });
       return response.data;
     } catch (error) {
       return { success: false, message: error.response?.data?.message || 'Error al cargar detalle' };
@@ -99,12 +101,31 @@ const ViajesService = {
     }
   },
 
-  reversarDespacho: async (id_viaje) => {
+  marcarNoCumple: async ({ id_viaje, motivo }) => {
     try {
-      const response = await api.post('/viajes/reversarDespacho', { id_viaje });
+      const response = await api.post('/viajes/noCumpleViaje', { id_viaje, motivo });
+      return response.data;
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Error al marcar viaje como No Cumple' };
+    }
+  },
+
+  reversarDespacho: async (params) => {
+    try {
+      const payload = typeof params === 'object' ? params : { id_viaje: params };
+      const response = await api.post('/viajes/reversarDespacho', payload);
       return response.data;
     } catch (error) {
       return { success: false, message: error.response?.data?.message || 'Error al reversar despacho' };
+    }
+  },
+
+  getHistorialReversa: async (id_viaje) => {
+    try {
+      const response = await api.get('/viajes/historialReversa', { params: { id_viaje } });
+      return response.data;
+    } catch (error) {
+      return { success: false, data: [], message: error.response?.data?.message || 'Error al obtener historial de reversas' };
     }
   },
 
@@ -166,4 +187,5 @@ const ViajesService = {
   },
 };
 
+export { ViajesService };
 export default ViajesService;

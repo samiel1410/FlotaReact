@@ -30,6 +30,7 @@ import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import { api, clienteApi } from '../../config/axios';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { useSocket } from '../../hooks/useSocket';
+import { useAuth } from '../../hooks/useAuth';
 import {
   getTarifaLabel,
   calcularValorConTarifa,
@@ -45,6 +46,8 @@ import './NuevoBoletoPage.css';
 
 export const NuevoBoletoPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const usuario = user || getSessionUser();
   useSocket();
 
   // Estados del formulario y viaje
@@ -85,6 +88,7 @@ export const NuevoBoletoPage = () => {
   const [showListadoPasajeros, setShowListadoPasajeros] = useState(false);
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [descuentoGlobalBoleto, setDescuentoGlobalBoleto] = useState(false);
+  const [omitirConfirmacionBoleto, setOmitirConfirmacionBoleto] = useState(false);
   const [refreshAsientosKey, setRefreshAsientosKey] = useState(0);
   const [asientosPendientes, setAsientosPendientes] = useState({});
 
@@ -103,6 +107,31 @@ export const NuevoBoletoPage = () => {
   const [currentAgencia, setCurrentAgencia] = useState(() => {
     const u = getSessionUser();
     return u.nombre_sucursal || 'Desconocida';
+  });
+
+  const extractSucursalId = (val) => {
+    if (!val) return null;
+    if (typeof val === 'number') return isNaN(val) ? null : val;
+    if (typeof val === 'string') {
+      if (val === '[object Object]' || val.trim() === '' || val === 'undefined' || val === 'null') return null;
+      const n = parseInt(val, 10);
+      return isNaN(n) ? null : n;
+    }
+    if (typeof val === 'object') {
+      // Ignore SyntheticEvent and DOM events
+      if (val.nativeEvent || val.target || val.preventDefault || val._reactName) return null;
+      const raw = val.id_sucursal ?? val.id_fksucursal ?? val.suc_codigo_sucursal ?? val.id ?? val.value;
+      if (raw !== undefined && raw !== null && typeof raw !== 'object') {
+        const n = parseInt(raw, 10);
+        return isNaN(n) ? null : n;
+      }
+    }
+    return null;
+  };
+
+  const [activeSucursalId, setActiveSucursalId] = useState(() => {
+    const u = getSessionUser();
+    return extractSucursalId(u.id_sucursal || u.id_fksucursal || u.sucursal);
   });
 
   const [formData, setFormData] = useState({
@@ -140,16 +169,11 @@ export const NuevoBoletoPage = () => {
     const calcular = () => {
       const ahora = new Date();
       const [h, m, s] = horaViaje.split(':').map(Number);
-      const salida = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate(), h, m, s || 0);
-      const diffSeg = Math.floor((salida - ahora) / 1000);
-      const abs = Math.abs(diffSeg);
-      setTiempoRestante({
-        horas: Math.floor(abs / 3600),
-        minutos: Math.floor((abs % 3600) / 60),
-        segundos: abs % 60,
-        pasado: diffSeg < 0,
-        totalSeg: diffSeg,
-      });
+      const salida = new Date();
+      salida.setHours(h, m, s || 0, 0);
+
+      const diff = Math.floor((salida - ahora) / 1000);
+      setTiempoRestante(diff > 0 ? diff : 0);
     };
     calcular();
     const interval = setInterval(calcular, 1000);
@@ -189,10 +213,11 @@ export const NuevoBoletoPage = () => {
     const fetchInit = async () => {
       try {
         const usuario = getSessionUser();
+        const initialSucursalId = extractSucursalId(usuario.id_sucursal || usuario.id_fksucursal || usuario.sucursal);
         const [viajesRes, configRes] = await Promise.all([
           BoleteriaService.getViajesDisponibles({
             fecha: hoyLocal(),
-            id_sucursal: usuario.id_sucursal
+            ...(initialSucursalId ? { id_sucursal: initialSucursalId } : {})
           }),
           api.get('/configuracion/configuracionSeleccion')
         ]);
@@ -205,12 +230,28 @@ export const NuevoBoletoPage = () => {
           if (cfg.descuento_global_boleto === 1 || cfg.descuento_global_boleto === true) {
             setDescuentoGlobalBoleto(true);
           }
+          if (cfg.omitir_confirmacion_boleto === 1 || cfg.omitir_confirmacion_boleto === true) {
+            setOmitirConfirmacionBoleto(true);
+          }
         }
 
         try {
           const userRes = await api.get('/buscarUsuario');
-          if (userRes.data?.success && userRes.data?.data?.nombre_sucursal) {
-            setCurrentAgencia(userRes.data.data.nombre_sucursal);
+          if (userRes.data?.success && userRes.data?.data) {
+            const uData = userRes.data.data;
+            if (uData.nombre_sucursal) {
+              setCurrentAgencia(uData.nombre_sucursal);
+            }
+            const sucId = extractSucursalId(uData.id_sucursal || uData.suc_codigo_sucursal);
+            if (sucId) {
+              setActiveSucursalId(sucId);
+              const currUser = getSessionUser();
+              currUser.id_sucursal = sucId;
+              currUser.nombre_sucursal = uData.nombre_sucursal;
+              currUser.punto_emision_sucursal = uData.punto_emision_sucursal;
+              sessionStorage.setItem('usuario', JSON.stringify(currUser));
+              sessionStorage.setItem('user_data', JSON.stringify(currUser));
+            }
           }
         } catch (e) {
           console.error('Error cargando datos de usuario:', e);
@@ -338,15 +379,23 @@ export const NuevoBoletoPage = () => {
   };
 
   // Buscar viajes disponibles
-  const buscarViajes = useCallback(async () => {
+  const buscarViajes = useCallback(async (customSucursalId) => {
     if (!formData.fechaViaje) return;
     setLoadingViajes(true);
     try {
-      const usuario = getSessionUser();
-      const res = await BoleteriaService.getViajesDisponibles({
-        fecha: formData.fechaViaje,
-        id_sucursal: usuario.id_sucursal
-      });
+      const parsedCustom = extractSucursalId(customSucursalId);
+      const parsedActive = extractSucursalId(activeSucursalId);
+      const sessionUser = getSessionUser();
+      const parsedSession = extractSucursalId(sessionUser?.id_sucursal || sessionUser?.id_fksucursal || sessionUser?.sucursal);
+      const parsedUsuario = extractSucursalId(usuario?.id_sucursal || usuario?.id_fksucursal || usuario?.sucursal);
+
+      const sucursalId = parsedCustom || parsedActive || parsedSession || parsedUsuario || null;
+      const params = { fecha: formData.fechaViaje };
+      if (sucursalId && typeof sucursalId === 'number') {
+        params.id_sucursal = sucursalId;
+      }
+
+      const res = await BoleteriaService.getViajesDisponibles(params);
       if (res.success && res.data) {
         setViajesDisponibles(res.data);
       } else {
@@ -358,7 +407,7 @@ export const NuevoBoletoPage = () => {
     } finally {
       setLoadingViajes(false);
     }
-  }, [formData.fechaViaje]);
+  }, [formData.fechaViaje, activeSucursalId, usuario]);
 
   // Cargar asientos y destinos al seleccionar viaje
   useEffect(() => {
@@ -374,12 +423,13 @@ export const NuevoBoletoPage = () => {
 
     const cargarAsientos = async () => {
       try {
+        const sucursalId = activeSucursalId || getSessionUser().id_sucursal || usuario?.id_sucursal;
         const [asientosRes, destinosViajeRes] = await Promise.all([
           BoleteriaService.getAsientosBusViaje(formData.idViaje).catch(e => {
             console.error('[cargarAsientos] Error en getAsientosBusViaje:', e);
             return { success: false };
           }),
-          BoleteriaService.getDestinosViaje(formData.idViaje).catch(e => {
+          BoleteriaService.getDestinosViaje(formData.idViaje, sucursalId).catch(e => {
             console.error('[cargarAsientos] Error en getDestinosViaje:', e);
             return { success: false };
           })
@@ -437,7 +487,7 @@ export const NuevoBoletoPage = () => {
     setSubrutaSeleccionada('');
     setPrecioUnitario(0);
     cargarAsientos();
-  }, [formData.idViaje, refreshAsientosKey]);
+  }, [formData.idViaje, refreshAsientosKey, activeSucursalId]);
 
   // Sockets: Bloqueo/Liberación en tiempo real
   useEffect(() => {
@@ -631,6 +681,25 @@ export const NuevoBoletoPage = () => {
     window.addEventListener('boleto_insertado', handler);
     return () => window.removeEventListener('boleto_insertado', handler);
   }, [formData.idViaje, formData.asientosSeleccionados]);
+
+  // Socket: Viaje Despachado (Actualizar viajes y tiempos en tiempo real)
+  useEffect(() => {
+    const handleViajeDespachado = (e) => {
+      const data = e.detail;
+      console.log('[NuevoBoletoPage] Evento viaje_despachado recibido:', data);
+      
+      // 1. Refrescar listado de viajes disponibles para actualizar tiempos de salida calculados
+      buscarViajes();
+
+      // 2. Si el viaje despachado es el seleccionado actualmente, forzar recarga de asientos y hora
+      if (data && data.id_viaje && String(data.id_viaje) === String(formData.idViaje)) {
+        setRefreshAsientosKey(k => k + 1);
+      }
+    };
+
+    window.addEventListener('viaje_despachado', handleViajeDespachado);
+    return () => window.removeEventListener('viaje_despachado', handleViajeDespachado);
+  }, [buscarViajes, formData.idViaje]);
 
   // Click en asiento
   const handleAsientoClick = (asientoId) => {
@@ -858,6 +927,12 @@ export const NuevoBoletoPage = () => {
       return;
     }
 
+    // Si la configuración tiene activa la opción de omitir confirmación, guardar directamente
+    if (omitirConfirmacionBoleto) {
+      ejecutarGuardar();
+      return;
+    }
+
     const result = await Swal.fire({
       title: 'Confirmar Venta',
       html: `
@@ -1009,15 +1084,18 @@ export const NuevoBoletoPage = () => {
 
   const handleAgenciaCambiada = (record) => {
     if (!record) return;
+    const sucursalId = record.id_sucursal || record.suc_codigo_sucursal;
     const usuario = getSessionUser();
-    usuario.id_sucursal = record.id_sucursal;
+    usuario.id_sucursal = sucursalId;
     usuario.nombre_sucursal = record.nombre_sucursal || usuario.nombre_sucursal;
     usuario.punto_emision_sucursal = record.punto_emision_sucursal || usuario.punto_emision_sucursal;
     sessionStorage.setItem('usuario', JSON.stringify(usuario));
+    sessionStorage.setItem('user_data', JSON.stringify(usuario));
+    setActiveSucursalId(sucursalId);
     setCurrentAgencia(record.nombre_sucursal || usuario.nombre_sucursal || 'Desconocida');
-    toast.success(`Agencia cambiada a: ${record.nombre_sucursal || record.id_sucursal}`);
+    toast.success(`Agencia cambiada a: ${record.nombre_sucursal || sucursalId}`);
     limpiarFormulario();
-    buscarViajes();
+    buscarViajes(sucursalId);
   };
 
   const handleCerrarModalCaja = () => {
@@ -1087,7 +1165,7 @@ export const NuevoBoletoPage = () => {
             marcarActividadReal();
             setFormData(prev => ({ ...prev, fechaViaje: fecha }));
           }}
-          onBuscarViajes={buscarViajes}
+          onBuscarViajes={() => buscarViajes()}
           loadingViajes={loadingViajes}
           viajesDisponibles={viajesDisponibles}
           idViajeSeleccionado={formData.idViaje}
@@ -1143,7 +1221,8 @@ export const NuevoBoletoPage = () => {
               }}
               onRefrescarDestinos={() => {
                 if (formData.idViaje) {
-                  BoleteriaService.getDestinosViaje(formData.idViaje).then(r => {
+                  const sucursalId = activeSucursalId || getSessionUser().id_sucursal || usuario?.id_sucursal;
+                  BoleteriaService.getDestinosViaje(formData.idViaje, sucursalId).then(r => {
                     if (r.success && r.data) {
                       setDestinosViaje(r.data);
                     } else {

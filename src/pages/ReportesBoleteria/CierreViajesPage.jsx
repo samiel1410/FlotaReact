@@ -303,7 +303,7 @@ export const CierreViajesPage = () => {
         <div>
           {/* ENCABEZADO EMPRESA */}
           <div className="empresa-header" style={{ background: 'white', borderRadius: 8, padding: '10px 16px', marginBottom: 10, boxShadow: '0 1px 4px rgba(0,0,0,.08)', textAlign: 'center' }}>
-            <div style={{ fontWeight: 900, fontSize: 14, color: '#1e3a5f', textTransform: 'uppercase' }}>{empresa.razon_social_empresa || 'COOPERATIVA DE TRANSPORTES FLOTA PELILEO'}</div>
+            <div style={{ fontWeight: 900, fontSize: 14, color: '#1e3a5f', textTransform: 'uppercase' }}>{empresa.razon_social_empresa || empresa.nombre_comercial_empresa || ''}</div>
             <div style={{ fontSize: 11, color: '#475569' }}>RUC: {empresa.ruc_empresa || ''} &nbsp;|&nbsp; Dirección: {empresa.direccion_empresa || ''}</div>
             <div style={{ fontWeight: 800, fontSize: 13, color: '#1e3a5f', marginTop: 4, textDecoration: 'underline' }}>REPORTE CIERRE DE VIAJES</div>
             <div style={{ fontSize: 10, color: '#64748b', marginTop: 2 }}>

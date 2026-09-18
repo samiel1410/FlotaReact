@@ -51,6 +51,8 @@ export const LoginAsPage = () => {
         await loginFromImpersonation(data.token, data.user, {
           token: data.token,
           user: data.user,
+          refresh_token: data.refresh_token,
+          backend_url: data.backend_url,
           db_name: data.db_name,
           db_host: data.db_host,
           db_user: data.db_user,
@@ -60,8 +62,8 @@ export const LoginAsPage = () => {
         // ─── Redirigir al dashboard (SPA, sin recarga completa) ──────────
         setStatus('success');
         setTimeout(() => {
-          navigate('/');
-        }, 500);
+          navigate('/inicio', { replace: true });
+        }, 600);
 
       } catch (e) {
         console.error('Error al procesar suplantación:', e);

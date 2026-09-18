@@ -63,7 +63,7 @@ try {
               ELSE b.id_fkpersonal_buses 
           END
           LEFT JOIN usuario u ON dv.id_fkusuario_aprueba = u.id_usuario
-          LEFT JOIN sucursal2 s ON s.id_sucursal = u.id_fksucursal_usuario
+          LEFT JOIN sucursal2 s ON (s.id_sucursal = u.id_fksucursal_usuario OR s.suc_codigo_sucursal = u.id_fksucursal_usuario)
           WHERE dv.id_despacho_viaje = ?
           LIMIT 1";
 
@@ -107,7 +107,7 @@ try {
           END
           LEFT JOIN despacho_viaje dv ON v.id_viajes = dv.id_fkviaje_despacho_viaje
           LEFT JOIN usuario u ON dv.id_fkusuario_aprueba = u.id_usuario
-          LEFT JOIN sucursal2 s ON s.id_sucursal = u.id_fksucursal_usuario
+          LEFT JOIN sucursal2 s ON (s.id_sucursal = u.id_fksucursal_usuario OR s.suc_codigo_sucursal = u.id_fksucursal_usuario)
           WHERE v.id_viajes = ?
           ORDER BY (CASE 
               WHEN ? != '' AND (u.nombre_usuario = ? OR u.username_usuario = ?) THEN 0 
@@ -153,15 +153,15 @@ try {
       WHERE b.id_fkviaje_boleto = ? 
         AND b.estado_boleto != 3
         AND (
-            (? > 0 AND b.id_fksucursal_boleto = ?)
+            (? > 0 AND (b.id_fksucursal_boleto = ? OR b.id_sucursal_venta = ?))
             OR (? > 0 AND b.id_fkusuario_boleto = ?)
             OR (? = 0 AND ? = 0)
         )";
 
     $stmt_tot = $conn->prepare($query_totales);
-    $stmt_tot->bind_param("iiiiiii", 
+    $stmt_tot->bind_param("iiiiiiii", 
         $id_despacho_viaje, 
-        $id_sucursal_despacho, $id_sucursal_despacho, 
+        $id_sucursal_despacho, $id_sucursal_despacho, $id_sucursal_despacho,
         $id_usuario_aprueba, $id_usuario_aprueba,
         $id_sucursal_despacho, $id_usuario_aprueba
     );
@@ -176,20 +176,41 @@ try {
     $totalRetenciones = 0;
     $cobros = [];
 
-    if (!empty($despacho['id_despacho_viaje'])) {
+    $id_desp_val = !empty($despacho['id_despacho_viaje']) ? intval($despacho['id_despacho_viaje']) : 0;
+    $id_viaje_val = intval($despacho['id_viajes'] ?? $id_despacho_viaje);
+
+    if ($id_desp_val > 0 || $id_viaje_val > 0) {
+        // A. Multas, deudas de socio y retenciones dinámicas (despacho_retencion_log)
+        $query_log = "SELECT 
+            drl.monto_aplicado as monto_cobros,
+            COALESCE(d.concepto, td.nombre, drl.tipo, 'RETENCIÓN DESPACHO') as tipo_cobro
+          FROM despacho_retencion_log drl
+          LEFT JOIN deudas d ON drl.id_deuda = d.id_deuda
+          LEFT JOIN tipo_deudas td ON COALESCE(drl.id_tipo_deuda, d.id_tipo_deuda) = td.id_tipo_deuda
+          WHERE (drl.id_despacho_viaje = ? AND ? > 0) OR (drl.id_despacho_viaje = ? AND ? > 0)";
+
+        $stmt_log = $conn->prepare($query_log);
+        $stmt_log->bind_param("iiii", $id_desp_val, $id_desp_val, $id_viaje_val, $id_viaje_val);
+        $stmt_log->execute();
+        $cobros_log = $stmt_log->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt_log->close();
+
+        // B. Cobros de bus retenidos (despacho_viaje_reteciones)
         $query_cobros = "SELECT 
             dvr.total_cobrado_despacho_viaje_retenciones as monto_cobros,
             tc.nombre_tipo_cobros as tipo_cobro
           FROM despacho_viaje_reteciones dvr
           JOIN cobros c ON dvr.id_fkcobro_despacho_viaje_reteciones = c.id_cobros
           JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
-          WHERE dvr.id_fkdespacho_viaje = ?";
+          WHERE (dvr.id_fkdespacho_viaje = ? AND ? > 0) OR (dvr.id_fkdespacho_viaje = ? AND ? > 0)";
 
         $stmt_cobros = $conn->prepare($query_cobros);
-        $stmt_cobros->bind_param("i", $despacho['id_despacho_viaje']);
+        $stmt_cobros->bind_param("iiii", $id_desp_val, $id_desp_val, $id_viaje_val, $id_viaje_val);
         $stmt_cobros->execute();
-        $cobros = $stmt_cobros->get_result()->fetch_all(MYSQLI_ASSOC);
+        $cobros_bus = $stmt_cobros->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt_cobros->close();
+
+        $cobros = array_merge($cobros_log, $cobros_bus);
     }
 
     $tarifaDespacho = floatval($despacho['tarifa_despacho_viaje'] ?? 0);
@@ -201,7 +222,7 @@ try {
         $totalCobrosDespacho += floatval($cobro['monto_cobros']);
     }
 
-    // Si existen cobros detallados en despacho_viaje_reteciones, ese es el total exacto.
+    // Si existen cobros detallados en despacho_viaje_reteciones o log, ese es el total exacto.
     if (count($cobros) > 0) {
         $totalRetenciones = $totalCobrosDespacho;
     } else {
@@ -209,11 +230,11 @@ try {
     }
 
     // 4. Datos de la empresa
-    $query_empresa = "SELECT razon_social_empresa, ruc_empresa, direccion_empresa FROM empresa LIMIT 1";
+    $query_empresa = "SELECT razon_social_empresa, nombre_comercial_empresa, ruc_empresa, direccion_empresa FROM empresa LIMIT 1";
     $result_empresa = $conn->query($query_empresa);
     $empresa = $result_empresa ? $result_empresa->fetch_assoc() : [];
-    $razon_social = $empresa['razon_social_empresa'] ?? 'COOP. FLOTA PELILEO';
-    $ruc_empresa = $empresa['ruc_empresa'] ?? '1890066123001';
+    $razon_social = !empty($empresa['razon_social_empresa']) ? $empresa['razon_social_empresa'] : (!empty($empresa['nombre_comercial_empresa']) ? $empresa['nombre_comercial_empresa'] : '');
+    $ruc_empresa = $empresa['ruc_empresa'] ?? '';
     $direccion_empresa = $empresa['direccion_empresa'] ?? '';
 
     $total_entrega = max(0, $total_boletos - $totalRetenciones);
@@ -231,7 +252,7 @@ try {
     // 5. Instanciar y configurar TCPDF optimizado para POS
     $pdf = new TCPDF('P', 'mm', array($width, $height), true, 'UTF-8', false);
     $pdf->setFontSubsetting(false);
-    $pdf->SetCreator('FlotaPelileo');
+    $pdf->SetCreator('SistemaFlota');
     $pdf->SetAuthor('Sistema Flota');
     $pdf->SetTitle('Despacho #' . $id_despacho_num);
     $pdf->setPrintHeader(false);

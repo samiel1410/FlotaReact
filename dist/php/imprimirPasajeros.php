@@ -108,25 +108,37 @@ if (empty($usuario_entrega)) {
     $usuario_entrega = 'SISTEMA';
 }
 
+$id_sucursal_filtro = (int)($_GET['id_sucursal'] ?? 0);
+$where_sucursal = "";
+$nombre_sucursal_filtro = '';
+if ($id_sucursal_filtro > 0) {
+    $where_sucursal = " AND (s.id_sucursal = $id_sucursal_filtro OR s.suc_codigo_sucursal = '$id_sucursal_filtro' OR b.id_sucursal_venta = $id_sucursal_filtro OR b.id_fksucursal_boleto = $id_sucursal_filtro OR u.id_fksucursal_usuario = $id_sucursal_filtro) ";
+    $q_suc = mysqli_query($conn, "SELECT nombre_sucursal FROM sucursal2 WHERE id_sucursal = $id_sucursal_filtro OR suc_codigo_sucursal = '$id_sucursal_filtro' LIMIT 1");
+    if ($q_suc && $r_suc = mysqli_fetch_assoc($q_suc)) {
+        $nombre_sucursal_filtro = $r_suc['nombre_sucursal'];
+    }
+}
+
 // Consulta optimizada de pasajeros (agrupados por oficina de venta y embarque)
 $query = "SELECT 
 COALESCE(d.lugar_destino, sr.nombre_sub_rutas, 'N/A') AS lugar_destino,
 r.nombre_rutas, bd.estado_boleto_detalle, bd.identificacion_boleto_detalle,
 bd.asiento_boleto_detalle, bd.total_boleto_detalle,
 bd.nombre_cliente_boleto_detalle, b.nombre_origen,
-COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal, 'OFICINA PATATE') AS nombre_sucursal
+COALESCE(s.nombre_sucursal, b.nombre_origen, 'OFICINA PRINCIPAL') AS nombre_sucursal
 FROM boleto_detalle bd
 JOIN boletos b ON bd.id_fkboleto_boleto_detalle = b.id_boleto
 JOIN viajes v ON b.id_fkviaje_boleto = v.id_viajes
 LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
 LEFT JOIN destino d ON bd.id_destino_boleto = d.id_destino
 LEFT JOIN sub_rutas sr ON bd.id_destino_boleto = sr.id_sub_rutas
-LEFT JOIN sucursal2 s ON b.id_sucursal_venta = s.id_sucursal
-LEFT JOIN sucursal2 s2 ON b.id_sucursal_venta = s2.suc_codigo_sucursal
 LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
-LEFT JOIN sucursal2 s3 ON u.id_fksucursal_usuario = s3.suc_codigo_sucursal
-WHERE b.id_fkviaje_boleto = $id_viaje
-ORDER BY COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal) ASC, b.nombre_origen ASC, CAST(bd.asiento_boleto_detalle AS UNSIGNED) ASC";
+LEFT JOIN sucursal2 s ON (
+    s.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+    OR s.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+)
+WHERE b.id_fkviaje_boleto = $id_viaje AND (b.estado_boleto IS NULL OR b.estado_boleto != 3) $where_sucursal
+ORDER BY COALESCE(s.nombre_sucursal, b.nombre_origen) ASC, b.nombre_origen ASC, CAST(bd.asiento_boleto_detalle AS UNSIGNED) ASC";
 
 $result = mysqli_query($conn, $query) or die(mysqli_error($conn));
 
@@ -366,7 +378,7 @@ $html = '
         Dirección: ' . $direccion_empresa . '
     </div>
     <hr>
-    <div class="titulo">LISTADO DE PASAJEROS</div>
+    <div class="titulo">LISTADO DE PASAJEROS' . ($nombre_sucursal_filtro ? ' - ' . strtoupper($nombre_sucursal_filtro) : '') . '</div>
     <div class="titulo"> <b>Disco:</b> ' . htmlspecialchars($info['disco_buses'] ?? 'S/N') . '</div>
     <div class="subtitulo">Viaje #' . $id_viaje . ' | Fecha: ' . $fecha_viaje . ' | Hora: ' . $hora_viaje . '</div>
 

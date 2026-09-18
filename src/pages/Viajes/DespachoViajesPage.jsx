@@ -4,6 +4,7 @@ import Swal from 'sweetalert2';
 import ViajesService from '../../services/viajes.service';
 import { api } from '../../config/axios';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
+import { useAuth } from '../../context/AuthContext';
 
 import DespachoFilterBar from './components/despacho/DespachoFilterBar';
 import DespachoTripList from './components/despacho/DespachoTripList';
@@ -25,6 +26,7 @@ const formatDateStr = (date) => {
  * DespachoViajesPage — Panel operativo modular de despacho de viajes con SRI y liquidación financiera.
  */
 export const DespachoViajesPage = () => {
+  const { user } = useAuth();
   // ── Filtros de consulta ──────────────────────────────────────
   const todayStr = useMemo(() => formatDateStr(new Date()), []);
   const [fechaInicio, setFechaInicio] = useState(todayStr);
@@ -41,6 +43,7 @@ export const DespachoViajesPage = () => {
   const [detailData, setDetailData] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [despachando, setDespachando] = useState(false);
+  const [noCumpliendo, setNoCumpliendo] = useState(false);
 
   // Combos
   const [buses, setBuses] = useState([]);
@@ -50,6 +53,7 @@ export const DespachoViajesPage = () => {
   const [showUnidadModal, setShowUnidadModal] = useState(false);
   const [showConductorModal, setShowConductorModal] = useState(false);
   const [showRetencionesModal, setShowRetencionesModal] = useState(false);
+  const [modalRetencionesInfo, setModalRetencionesInfo] = useState(null);
   const [cambiando, setCambiando] = useState(false);
 
   // Ref para evitar doble fetch de combos
@@ -148,7 +152,8 @@ export const DespachoViajesPage = () => {
     setDetailData(null);
     try {
       const id = trip.id_viajes || trip.id_viaje;
-      const res = await ViajesService.getTripDetail(id);
+      const userSucursalId = user?.id_fksucursal_usuario || user?.sucursal_usuario || user?.id_sucursal || user?.id_fksucursal;
+      const res = await ViajesService.getTripDetail(id, userSucursalId);
       if (res.success && res.data) {
         if (res.data.unidad && res.data.unidad.id) {
           try {
@@ -212,7 +217,8 @@ export const DespachoViajesPage = () => {
         const metodoImpresion = localStorage.getItem('metodo_impresion') || 'manual';
         const printerBoletos = localStorage.getItem('printer_boletos') || localStorage.getItem('printer_guias');
         const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-        const pdfUrl = baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?id_viajes=${tripId}`);
+        const nombreUsuario = user?.nombre_usuario || user?.nombre || user?.username || '';
+        const pdfUrl = baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?id_viajes=${tripId}&usuario=${encodeURIComponent(nombreUsuario)}`);
 
         if (metodoImpresion === 'directa') {
           try {
@@ -304,6 +310,53 @@ export const DespachoViajesPage = () => {
     } catch {
       toast.error('Error al despachar el viaje');
       setDespachando(false);
+    }
+  };
+
+  // ── Marcar viaje como "No Cumple" (Anular / No despachar) ──
+  const handleNoCumple = async () => {
+    const tripId = selectedTrip?.id_viajes || selectedTrip?.id_viaje;
+    const { value: motivo, isConfirmed } = await Swal.fire({
+      title: '¿Marcar viaje como NO CUMPLE?',
+      html: `
+        <div style="text-align: left; font-size: 13px; line-height: 1.5;">
+          <p class="text-slate-600 mb-2">
+            El viaje <b>N° ${tripId}</b> (${selectedTrip?.origen || ''} ➔ ${selectedTrip?.destino || ''}) se anulará (no será despachado), <b>no será tomado en cuenta en despachos automáticos</b> y se anularán cobros/deudas automáticas pendientes asociadas.
+          </p>
+          <label style="font-weight: 600; color: #334155; display: block; margin-top: 8px; margin-bottom: 4px;">Motivo u Observación (opcional):</label>
+        </div>
+      `,
+      input: 'text',
+      inputPlaceholder: 'Ej: Unidad no se presentó, desperfecto mecánico, etc.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: '<i class="fas fa-ban mr-1"></i> Sí, marcar No Cumple',
+      cancelButtonText: 'Cancelar',
+    });
+
+    if (!isConfirmed) return;
+
+    setNoCumpliendo(true);
+    try {
+      const res = await ViajesService.marcarNoCumple({
+        id_viaje: tripId,
+        motivo: motivo || 'No cumple con el despacho',
+      });
+
+      if (res.success) {
+        toast.success(res.message || 'Viaje marcado como No Cumple correctamente');
+        setSelectedTrip(null);
+        setDetailData(null);
+        fetchTrips();
+      } else {
+        toast.error(res.message || 'Error al procesar No Cumple');
+      }
+    } catch {
+      toast.error('Error al conectar con el servidor');
+    } finally {
+      setNoCumpliendo(false);
     }
   };
 
@@ -597,10 +650,15 @@ export const DespachoViajesPage = () => {
           detailLoading={detailLoading}
           detailData={detailData}
           despachando={despachando}
+          noCumpliendo={noCumpliendo}
           onDespachar={handleDespachar}
+          onNoCumple={handleNoCumple}
           onOpenUnidadModal={() => setShowUnidadModal(true)}
           onOpenConductorModal={() => setShowConductorModal(true)}
-          onOpenRetencionesModal={() => setShowRetencionesModal(true)}
+          onOpenRetencionesModal={(valoresVista, sucursalActiva) => {
+            setModalRetencionesInfo({ valoresVista, sucursalActiva });
+            setShowRetencionesModal(true);
+          }}
         />
       </div>
 
@@ -631,9 +689,14 @@ export const DespachoViajesPage = () => {
       {showRetencionesModal && (
         <DespachoRetencionesModal
           valores={detailData?.valores}
+          valoresVista={modalRetencionesInfo?.valoresVista}
+          sucursalActual={modalRetencionesInfo?.sucursalActiva || detailData?.sucursal_actual}
           deudas={detailData?.deudas_pendientes}
           unidad={detailData?.unidad}
-          onClose={() => setShowRetencionesModal(false)}
+          onClose={() => {
+            setShowRetencionesModal(false);
+            setModalRetencionesInfo(null);
+          }}
           viajeDesc={viajeDesc}
         />
       )}

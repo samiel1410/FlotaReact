@@ -100,6 +100,255 @@ const PagarDeudaModal = ({ deuda, onClose, onSuccess }) => {
   );
 };
 
+const AnularCobroModal = ({ cobro, onClose, onSuccess }) => {
+  const [motivo, setMotivo] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleConfirmar = async (e) => {
+    e?.preventDefault();
+    if (!motivo.trim()) {
+      setError('Debe ingresar el motivo de anulación');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.post('/deuda/anular', {
+        id_deuda: cobro.id_deuda,
+        fuente: cobro.fuente || 'deuda',
+        motivo: motivo.trim()
+      });
+
+      if (res.data?.success) {
+        Swal.fire({
+          icon: 'success',
+          title: 'Anulado',
+          text: res.data.message || 'Registro anulado correctamente',
+          timer: 2000,
+          showConfirmButton: false
+        });
+        onSuccess();
+      } else {
+        setError(res.data?.error || 'No se pudo anular el registro');
+      }
+    } catch (err) {
+      console.error('Error anulando cobro:', err);
+      setError(err.response?.data?.error || err.message || 'Error al anular el registro');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title="¿Anular este Cobro / Deuda?" width="max-w-md">
+      <form onSubmit={handleConfirmar} className="space-y-4">
+        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs text-rose-900 space-y-1.5">
+          <div className="flex items-center gap-2 font-bold text-rose-800">
+            <i className="fas fa-exclamation-triangle text-rose-600 text-sm"></i>
+            <span>Confirmación de Anulación</span>
+          </div>
+          <p className="text-slate-700">
+            Se anulará el registro <strong className="font-mono text-slate-900">#{cobro?.id_deuda}</strong> ({cobro?.concepto || cobro?.tipo_nombre}) por valor de <strong className="font-mono text-rose-700">{formatCurrency(cobro?.valor_original)}</strong>.
+          </p>
+        </div>
+
+        {error && (
+          <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
+            <i className="fas fa-times-circle shrink-0"></i>
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div>
+          <label className="block text-[11px] font-bold text-slate-700 mb-1.5">
+            Motivo de anulación <span className="text-rose-500">*</span>
+          </label>
+          <textarea
+            required
+            rows={3}
+            placeholder="Ej: Cobro duplicado, error de asignación, exonerado..."
+            className="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs text-slate-800 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none transition-all placeholder:text-slate-400"
+            value={motivo}
+            onChange={(e) => {
+              setMotivo(e.target.value);
+              if (error) setError('');
+            }}
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-slate-100">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="px-4 py-2 text-xs font-bold text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !motivo.trim()}
+            className="px-4 py-2 text-xs bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl disabled:opacity-50 flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+          >
+            {loading ? (
+              <>
+                <i className="fas fa-spinner fa-spin"></i> Anulando...
+              </>
+            ) : (
+              <>
+                <i className="fas fa-ban"></i> Sí, Anular
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+const VerDetalleCobroModal = ({ detalle, onClose }) => {
+  if (!detalle) return null;
+
+  return (
+    <Modal isOpen={true} onClose={onClose} title={`Detalle de Cobro #${detalle.id} — ${detalle.concepto || detalle.tipo_nombre}`} width="max-w-xl">
+      <div className="space-y-4">
+        {/* Cabecera / Resumen Financiero */}
+        <div className="grid grid-cols-3 gap-2 bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase">Valor Original</p>
+            <p className="text-sm font-black text-slate-800 font-mono">{formatCurrency(detalle.valor_original)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-emerald-600 uppercase">Cobrado / Pagado</p>
+            <p className="text-sm font-black text-emerald-600 font-mono">{formatCurrency(detalle.valor_pagado)}</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-rose-600 uppercase">Saldo Pendiente</p>
+            <p className="text-sm font-black text-rose-600 font-mono">{formatCurrency(detalle.saldo_pendiente)}</p>
+          </div>
+        </div>
+
+        {/* Datos generales */}
+        <div className="bg-white border border-slate-200 rounded-xl p-3 text-xs space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <p><strong className="text-slate-500">Socio:</strong> <span className="font-semibold text-slate-800">{detalle.socio_nombre || '-'}</span></p>
+            <p><strong className="text-slate-500">Cédula:</strong> <span className="font-mono">{detalle.socio_cedula || '-'}</span></p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <p><strong className="text-slate-500">Bus / Unidad:</strong> <span className="font-bold text-slate-800">Bus {detalle.disco_buses || '-'} {detalle.placa_buses ? `(${detalle.placa_buses})` : ''}</span></p>
+            <p>
+              <strong className="text-slate-500">Estado:</strong>{' '}
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                detalle.estado === 'pagado' ? 'bg-emerald-100 text-emerald-800' :
+                detalle.estado === 'parcial' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
+              }`}>
+                {detalle.estado}
+              </span>
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500">
+            <p><i className="far fa-calendar-plus mr-1"></i><strong>Registro:</strong> {detalle.fecha_creacion || '-'}</p>
+            <p><i className="far fa-check-circle mr-1 text-emerald-600"></i><strong>Fecha Cobro:</strong> {detalle.fecha_ultimo_pago || '-'}</p>
+          </div>
+        </div>
+
+        {/* Origen del Cobro / Despachos */}
+        <div>
+          <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <i className="fas fa-file-invoice-dollar text-emerald-600"></i>
+            Origen de Cobro / Retenciones
+          </h4>
+
+          {detalle.historial_retenciones && detalle.historial_retenciones.length > 0 ? (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl overflow-hidden">
+              <table className="w-full text-xs text-left">
+                <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase">
+                  <tr>
+                    <th className="px-3 py-2">Viaje / Despacho</th>
+                    <th className="px-3 py-2">Ruta</th>
+                    <th className="px-3 py-2">Fecha Despacho</th>
+                    <th className="px-3 py-2 text-right">Monto Retenido</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 text-[11px]">
+                  {detalle.historial_retenciones.map((ret, idx) => (
+                    <tr key={idx} className="hover:bg-slate-100/60">
+                      <td className="px-3 py-2 font-bold text-indigo-700">
+                        Viaje #{ret.id_viaje || ret.id_despacho_viaje || '-'}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-slate-700">
+                        {ret.ruta || 'Despacho de Terminal'}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-slate-500">
+                        {ret.fecha || '-'}
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono font-bold text-emerald-700">
+                        {formatCurrency(ret.monto_retenido)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : detalle.viaje_info ? (
+            <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 text-xs space-y-1">
+              <p className="font-bold text-emerald-900 flex items-center gap-1.5">
+                <i className="fas fa-bus text-emerald-600"></i>
+                Generado por Despacho del Viaje #{detalle.viaje_info.id_viajes}
+              </p>
+              <p className="text-slate-600"><strong>Ruta:</strong> {detalle.viaje_info.ruta || '-'}</p>
+              <p className="text-slate-600"><strong>Fecha/Hora de Salida:</strong> {detalle.viaje_info.fecha_viajes} {detalle.viaje_info.hora_salida}</p>
+            </div>
+          ) : detalle.despacho_info ? (
+            <div className="bg-emerald-50/60 border border-emerald-200 rounded-xl p-3 text-xs space-y-1">
+              <p className="font-bold text-emerald-900 flex items-center gap-1.5">
+                <i className="fas fa-route text-emerald-600"></i>
+                Retenido en Despacho #{detalle.despacho_info.id_despacho_viaje} (Viaje #{detalle.despacho_info.id_viaje})
+              </p>
+              <p className="text-slate-600"><strong>Ruta:</strong> {detalle.despacho_info.ruta || '-'}</p>
+              <p className="text-slate-600"><strong>Fecha Salida:</strong> {detalle.despacho_info.fecha_salida_despacho_viaje} {detalle.despacho_info.hora_salida_despacho_viaje}</p>
+            </div>
+          ) : (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5">
+              <div className="flex items-center gap-2 text-slate-700 font-semibold">
+                <i className="fas fa-cash-register text-emerald-600"></i>
+                <span>Cobro Registrado en Ventanilla / Caja</span>
+              </div>
+              {detalle.fecha_ultimo_pago && (
+                <p className="text-slate-600">
+                  <strong>Fecha de pago:</strong> {detalle.fecha_ultimo_pago}
+                </p>
+              )}
+              {detalle.usuario_pago && (
+                <p className="text-slate-600">
+                  <strong>Cajero / Registrado por:</strong> {detalle.usuario_pago}
+                </p>
+              )}
+              {detalle.observacion && (
+                <div className="mt-1 bg-white p-2 rounded-lg border border-slate-200 text-slate-600 font-mono text-[11px] whitespace-pre-line">
+                  {detalle.observacion}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Botón Cerrar */}
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 const capitalize = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '');
 
 const opcionesEstado = [
@@ -111,9 +360,11 @@ const opcionesEstado = [
 ];
 
 const getColorForTipo = (prioridad, index) => {
-  if (prioridad === 1) return 'bg-red-500';
+  if (prioridad === 1) return 'bg-rose-500';
   if (prioridad === 2) return 'bg-purple-500';
   if (prioridad === 3) return 'bg-blue-500';
+  if (prioridad === 4) return 'bg-amber-500';
+  if (prioridad === 5) return 'bg-teal-500';
   const palette = ['bg-emerald-500', 'bg-teal-500', 'bg-amber-500', 'bg-indigo-500'];
   return palette[index % palette.length];
 };
@@ -124,6 +375,9 @@ export const CarteraSocioPage = () => {
   const [loading, setLoading] = useState(false);
   const [cartera, setCartera] = useState(null);
   const [pagarDeuda, setPagarDeuda] = useState(null);
+  const [anularCobro, setAnularCobro] = useState(null);
+  const [detalleCobro, setDetalleCobro] = useState(null);
+  const [loadingDetalle, setLoadingDetalle] = useState(false);
 
   // Refs para mantener los IDs actuales sin problemas de stale closure
   const activeSocioIdRef = useRef(null);
@@ -262,6 +516,25 @@ export const CarteraSocioPage = () => {
     }
   };
 
+  const handleVerDetalle = async (item) => {
+    setLoadingDetalle(true);
+    try {
+      const res = await api.get('/deuda/detallePago', {
+        params: { id: item.id_deuda, fuente: item.fuente || 'deuda' }
+      });
+      if (res.data?.success && res.data?.data) {
+        setDetalleCobro(res.data.data);
+      } else {
+        Swal.fire('Información', 'No se encontró información detallada del cobro', 'info');
+      }
+    } catch (err) {
+      console.error('Error obteniendo detalle de pago:', err);
+      Swal.fire('Error', 'No se pudo cargar el detalle del cobro', 'error');
+    } finally {
+      setLoadingDetalle(false);
+    }
+  };
+
   const cardsResumen = (cartera?.resumen || []).map((r, i) => ({
     id: r.id_tipo_cobros || r.id_tipo_deuda,
     label: r.tipo_nombre,
@@ -279,6 +552,24 @@ export const CarteraSocioPage = () => {
             setPagarDeuda(null);
             cargarCartera();
           }}
+        />
+      )}
+
+      {anularCobro && (
+        <AnularCobroModal
+          cobro={anularCobro}
+          onClose={() => setAnularCobro(null)}
+          onSuccess={() => {
+            setAnularCobro(null);
+            cargarCartera();
+          }}
+        />
+      )}
+
+      {detalleCobro && (
+        <VerDetalleCobroModal
+          detalle={detalleCobro}
+          onClose={() => setDetalleCobro(null)}
         />
       )}
 
@@ -475,7 +766,7 @@ export const CarteraSocioPage = () => {
             </div>
           </div>
 
-          {/* ─── TARJETAS RESUMEN (Basadas en tipo_cobros) ────────────────────────────── */}
+          {/* ─── TARJETAS RESUMEN (Basadas en tipo_cobros del sistema) ────────────────────────────── */}
           {cardsResumen.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {cardsResumen.map((card) => (
@@ -549,10 +840,14 @@ export const CarteraSocioPage = () => {
                         <td className="px-4 py-3">
                           <span
                             className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black tracking-wide ${
-                              d.prioridad === 1
-                                ? 'bg-red-50 text-red-700 border border-red-200'
-                                : d.prioridad === 2
+                              d.prioridad === 1 || (d.tipo_nombre && d.tipo_nombre.toLowerCase().includes('multa'))
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : d.prioridad === 2 || (d.tipo_nombre && d.tipo_nombre.toLowerCase().includes('crédit'))
                                 ? 'bg-purple-50 text-purple-700 border border-purple-200'
+                                : d.prioridad === 4 || (d.tipo_nombre && d.tipo_nombre.toLowerCase().includes('accidente'))
+                                ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                                : d.prioridad === 5 || (d.tipo_nombre && (d.tipo_nombre.toLowerCase().includes('oficina') || d.tipo_nombre.toLowerCase().includes('dolar')))
+                                ? 'bg-teal-50 text-teal-700 border border-teal-200'
                                 : 'bg-blue-50 text-blue-700 border border-blue-200'
                             }`}
                           >
@@ -599,16 +894,42 @@ export const CarteraSocioPage = () => {
                           {formatFecha(d.fecha_creacion)}
                         </td>
                         <td className="px-4 py-3 text-center">
-                          {d.estado !== 'pagado' && d.estado !== 'anulado' && (
+                          <div className="flex items-center justify-center gap-1.5">
+                            {/* Botón Ver de dónde se cobró / Detalle */}
                             <button
-                              onClick={() => setPagarDeuda(d)}
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center gap-1 mx-auto active:scale-95"
-                              title="Registrar Pago"
+                              onClick={() => handleVerDetalle(d)}
+                              disabled={loadingDetalle}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center gap-1 active:scale-95 disabled:opacity-50"
+                              title="Ver de dónde se cobró este valor"
                             >
-                              <i className="fas fa-hand-holding-usd text-xs"></i>
-                              <span>Pagar</span>
+                              <i className="fas fa-search-dollar text-xs"></i>
+                              <span>Ver Cobro</span>
                             </button>
-                          )}
+
+                            {/* Botón Pagar si está pendiente */}
+                            {d.estado !== 'pagado' && d.estado !== 'anulado' && (
+                              <button
+                                onClick={() => setPagarDeuda(d)}
+                                className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center gap-1 active:scale-95"
+                                title="Registrar Pago"
+                              >
+                                <i className="fas fa-hand-holding-usd text-xs"></i>
+                                <span>Pagar</span>
+                              </button>
+                            )}
+
+                            {/* Botón Anular si no está anulado */}
+                            {d.estado !== 'anulado' && (
+                              <button
+                                onClick={() => setAnularCobro(d)}
+                                className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-bold transition-all shadow-2xs flex items-center gap-1 active:scale-95"
+                                title="Anular este cobro o deuda"
+                              >
+                                <i className="fas fa-ban text-xs"></i>
+                                <span>Anular</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))

@@ -226,25 +226,33 @@ export const PAGES_CONFIG = {
             return targetRole !== 5;
           },
           handler: async (row) => {
+            const targetUsername = row.username_usuario || row.username || row.usuario || '';
+            const targetDisplayName = row.nombre_usuario || targetUsername || 'el usuario';
+
+            if (!targetUsername) {
+              Swal.fire('Error', 'No se pudo determinar el nombre de usuario', 'error');
+              return;
+            }
+
             try {
               Swal.fire({
                 title: 'Generando acceso...',
-                text: `Preparando sesión para ${row.username_usuario || row.nombre_usuario || ''}`,
+                text: `Preparando sesión para ${targetDisplayName}`,
                 allowOutsideClick: false,
                 didOpen: () => Swal.showLoading()
               });
 
-              // authApi no tiene interceptor de token, lo pasamos manualmente
-              const token = sessionStorage.getItem('auth_token');
+              // authApi no tiene interceptor de token, lo pasamos manualmente desde session o local storage
+              const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
               const res = await authApi.post('/auth/admin/impersonate', {
-                username: row.username_usuario
+                username: targetUsername
               }, {
                 headers: { Authorization: `Bearer ${token}` }
               });
 
               Swal.close();
 
-              if (res.data.success) {
+              if (res.data && res.data.success) {
                 // Guardar en localStorage para que la nueva pestaña lo lea
                 const loginAsKey = 'login_as_' + Date.now();
                 localStorage.setItem(loginAsKey, JSON.stringify({
@@ -258,11 +266,12 @@ export const PAGES_CONFIG = {
                   db_pass: res.data.db_pass
                 }));
 
-                // Abrir nueva pestaña con la llave
-                const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-                window.open(`${baseUrl}/#/login-as?key=${loginAsKey}`, '_blank');
+                // Abrir nueva pestaña con la ruta exacta respetando subcarpetas si existen
+                const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
+                const baseUrl = `${window.location.origin}${basePath}`;
+                window.open(`${baseUrl}#/login-as?key=${loginAsKey}`, '_blank');
               } else {
-                Swal.fire('Error', res.data.mensaje || 'No se pudo generar el acceso', 'error');
+                Swal.fire('Error', res.data?.mensaje || 'No se pudo generar el acceso', 'error');
               }
             } catch (e) {
               Swal.close();
@@ -2364,11 +2373,13 @@ export const PAGES_CONFIG = {
       { key: 'nombre_tipo_cobros', label: 'Nombre' },
       { key: 'valor_tipo_cobros', label: 'Valor', render: v => `$ ${parseFloat(v || 0).toFixed(2)}` },
       {
-        key: 'prioridad_cobros_tipo', label: 'Prioridad', render: v => {
-          if (v == 1) return <span className="text-red-600 font-bold">Alta</span>;
-          if (v == 2) return <span className="text-amber-600 font-bold">Media</span>;
-          if (v == 3) return <span className="text-slate-500 font-bold">Baja</span>;
-          return v || '-';
+        key: 'prioridad_cobros_tipo', label: 'Orden de Cobro', render: v => {
+          const num = parseInt(v) || 3;
+          if (num === 1) return <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-0.5 rounded text-[10px] font-black border border-red-200"><i className="fas fa-arrow-up text-[8px]"></i> 1° (Máxima)</span>;
+          if (num === 2) return <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-[10px] font-black border border-amber-200">2° (Alta)</span>;
+          if (num === 3) return <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-200">3° (Media)</span>;
+          if (num <= 5) return <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200">{num}° (Baja)</span>;
+          return <span className="inline-flex items-center gap-1 bg-slate-50 text-slate-500 px-2 py-0.5 rounded text-[10px] font-medium">{num}°</span>;
         }
       },
       {

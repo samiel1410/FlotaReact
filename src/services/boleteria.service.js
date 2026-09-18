@@ -66,9 +66,14 @@ export const BoleteriaService = {
   /**
    * Obtiene destinos (sub-rutas) disponibles para un viaje
    * @param {number} idViaje
+   * @param {number} [idSucursal]
+   * @param {number} [idOrigen]
    */
-  getDestinosViaje: async (idViaje) => {
-    const response = await api.get('/viajes/destinoViajeSelect', { params: { id_viaje: idViaje } });
+  getDestinosViaje: async (idViaje, idSucursal, idOrigen) => {
+    const params = { id_viaje: idViaje };
+    if (idSucursal) params.id_sucursal = idSucursal;
+    if (idOrigen) params.id_origen = idOrigen;
+    const response = await api.get('/viajes/destinoViajeSelect', { params });
     return response.data;
   },
 

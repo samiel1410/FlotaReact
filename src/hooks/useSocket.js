@@ -207,6 +207,34 @@ export const useSocket = () => {
       }
     });
 
+    // ─── VIAJE DESPACHADO (en tiempo real) ────────────────────────────────
+    newSocket.on('viaje_despachado', (data) => {
+      console.log('[Socket] Viaje despachado:', data);
+      window.dispatchEvent(new CustomEvent('viaje_despachado', { detail: data }));
+
+      const esOrigen = data.es_origen !== false;
+      const msg = esOrigen
+        ? `🚌 ¡Viaje #${data.id_viaje} DESPACHADO en Origen!\n${data.nombre_ruta ? `Ruta: ${data.nombre_ruta}\n` : ''}Hora salida: ${data.hora_despacho || 'Ahora'}. Los tiempos estimados de parada se han actualizado.`
+        : `🚌 Viaje #${data.id_viaje} despachado en parada (${data.sucursal_nombre || 'Parada'}).`;
+
+      toast(msg, {
+        id: `viaje-despachado-${data.id_viaje}`,
+        duration: 9000,
+        icon: '🚀',
+        style: {
+          background: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          color: '#1e40af',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: '13px',
+          fontWeight: 600,
+          whiteSpace: 'pre-line',
+        },
+      });
+    });
+
     return () => {
       newSocket.disconnect();
     };

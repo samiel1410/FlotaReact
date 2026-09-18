@@ -103,6 +103,7 @@ export const ConfiguracionPage = () => {
             imprimir_boucher_guia: conf.imprimir_boucher_guia === 1 || conf.imprimir_boucher_guia === true,
             formato_impresion: conf.formato_impresion || '80mm',
             descuento_global_boleto: conf.descuento_global_boleto === 1 || conf.descuento_global_boleto === true,
+            omitir_confirmacion_boleto: conf.omitir_confirmacion_boleto === 1 || conf.omitir_confirmacion_boleto === true,
           };
           setConfigData(newConf);
           reset(newConf);
@@ -580,20 +581,39 @@ export const ConfiguracionPage = () => {
                     <h3 className="text-sm font-bold text-slate-800 mb-3">
                       <i className="fas fa-ticket-alt text-blue-600 mr-2"></i>Boletería
                     </h3>
-                    <div className="flex items-start gap-3 p-3 bg-blue-50/60 border border-blue-200 rounded-xl">
-                      <input
-                        type="checkbox"
-                        {...register('descuento_global_boleto')}
-                        id="descuento_global_boleto"
-                        className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 mt-0.5 cursor-pointer"
-                      />
-                      <div>
-                        <label htmlFor="descuento_global_boleto" className="text-sm font-bold text-slate-800 cursor-pointer">
-                          Habilitar Descuentos Globales en Boletos
-                        </label>
-                        <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                          Al activar esta opción, cuando se seleccione una tarifa con descuento (ej: 50% 3ra Edad), se mantendrá activa para todos los asientos seleccionados y los que se sigan agregando. Al desactivarla, el descuento se aplica solo al primer asiento y vuelve automáticamente a tarifa Normal.
-                        </p>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3 p-3 bg-blue-50/60 border border-blue-200 rounded-xl">
+                        <input
+                          type="checkbox"
+                          {...register('descuento_global_boleto')}
+                          id="descuento_global_boleto"
+                          className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 mt-0.5 cursor-pointer"
+                        />
+                        <div>
+                          <label htmlFor="descuento_global_boleto" className="text-sm font-bold text-slate-800 cursor-pointer">
+                            Habilitar Descuentos Globales en Boletos
+                          </label>
+                          <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+                            Al activar esta opción, cuando se seleccione una tarifa con descuento (ej: 50% 3ra Edad), se mantendrá activa para todos los asientos seleccionados y los que se sigan agregando. Al desactivarla, el descuento se aplica solo al primer asiento y vuelve automáticamente a tarifa Normal.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 bg-blue-50/60 border border-blue-200 rounded-xl">
+                        <input
+                          type="checkbox"
+                          {...register('omitir_confirmacion_boleto')}
+                          id="omitir_confirmacion_boleto"
+                          className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 mt-0.5 cursor-pointer"
+                        />
+                        <div>
+                          <label htmlFor="omitir_confirmacion_boleto" className="text-sm font-bold text-slate-800 cursor-pointer">
+                            Omitir Mensaje de Confirmación al Guardar Boleto
+                          </label>
+                          <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+                            Al activar esta opción, al presionar 'Guardar Boleto', la venta se registrará directamente sin mostrar la ventana emergente de confirmación previa (modo rápido).
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>

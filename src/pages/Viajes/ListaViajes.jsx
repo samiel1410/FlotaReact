@@ -5,6 +5,7 @@ import ViajesService from '../../services/viajes.service';
 import { DespachoViajeModal } from './components/DespachoViajeModal';
 import { ItinerarioViajeModal } from './components/ItinerarioViajeModal';
 import { ConfigurarAlimentosModal } from './components/ConfigurarAlimentosModal';
+import ModalReversarDespacho from './ModalReversarDespacho';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { useAuth } from '../../context/AuthContext';
@@ -54,6 +55,7 @@ export const ListaViajes = () => {
   const [modalDespacho, setModalDespacho] = useState(null);
   const [modalItinerario, setModalItinerario] = useState(null);
   const [modalAlimentos, setModalAlimentos] = useState(null);
+  const [modalReversar, setModalReversar] = useState(null);
   const [menuAbierto, setMenuAbierto] = useState(null);
 
   // Modal PDF
@@ -79,15 +81,17 @@ export const ListaViajes = () => {
   }, []);
 
   // Cargar viajes
-  const fetchTrips = useCallback(async (pageNum = 1) => {
+  const fetchTrips = useCallback(async (pageNum = 1, customFiltros = null) => {
     setLoading(true);
     try {
-      const params = { ...filtros, page: pageNum, limit, id_sucursal: user?.id_sucursal || user?.sucursal };
+      const activeFiltros = customFiltros || filtros;
+      const params = { ...activeFiltros, page: pageNum, limit, id_sucursal: user?.id_sucursal || user?.sucursal };
       Object.keys(params).forEach(k => { if (params[k] === '' || params[k] === null || params[k] === undefined) delete params[k]; });
       const response = await ViajesService.getTrips(params);
       if (response.success) {
         setTrips(response.data);
         setTotal(response.total);
+        setPage(pageNum);
       } else {
         toast.error(response.message);
       }
@@ -101,31 +105,35 @@ export const ListaViajes = () => {
 
   useEffect(() => {
     fetchTrips(1);
-  }, [searchTrigger]);
+  }, []);
 
   const handleBuscar = (e) => {
     e?.preventDefault?.();
-    setPage(1);
-    setSearchTrigger(prev => prev + 1);
+    fetchTrips(1);
   };
 
   const handleLimpiar = () => {
     const localDate = new Date();
     localDate.setMinutes(localDate.getMinutes() - localDate.getTimezoneOffset());
     const today = localDate.toISOString().split('T')[0];
-    setFiltros({
+    const initialFiltros = {
       fecha_inicio: today,
       fecha_fin: today,
       id_bus: '',
       id_chofer: '',
       estado_viaje: '2',
       criterio_busqueda: '',
-    });
-    setPage(1);
-    setSearchTrigger(t => t + 1);
+    };
+    setFiltros(initialFiltros);
+    fetchTrips(1, initialFiltros);
   };
 
   const totalPages = Math.ceil(total / limit);
+
+  const handlePageChange = (newPage) => {
+    if (newPage < 1 || (totalPages > 0 && newPage > totalPages) || newPage === page) return;
+    fetchTrips(newPage);
+  };
 
   // ─── ACCIONES ──────────────────────────────────────────────────────────
   const handleDespachar = (trip) => {
@@ -194,32 +202,9 @@ export const ListaViajes = () => {
     setModalAlimentos(trip);
   };
 
-  const handleReversarDespacho = async (trip) => {
+  const handleReversarDespacho = (trip) => {
     setMenuAbierto(null);
-    const result = await Swal.fire({
-      title: '¿Reversar Despacho?',
-      text: 'El viaje volverá a estar "En Curso". Se eliminará el registro del despacho y los cobros relacionados volverán a estar pendientes. ¿Está seguro?',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#3085d6',
-      cancelButtonColor: '#d33',
-      confirmButtonText: 'Sí, reversar',
-      cancelButtonText: 'Cancelar'
-    });
-
-    if (result.isConfirmed) {
-      try {
-        const response = await ViajesService.reversarDespacho(trip.id_viajes);
-        if (response.success) {
-          toast.success('Despacho reversado correctamente');
-          fetchTrips(page);
-        } else {
-          toast.error(response.message || 'Error al reversar el despacho');
-        }
-      } catch (error) {
-        toast.error('Error de red al intentar reversar el despacho');
-      }
-    }
+    setModalReversar(trip);
   };
 
   const handleTiempoExtra = async (trip) => {
@@ -520,25 +505,37 @@ export const ListaViajes = () => {
           {total > limit && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-slate-200 bg-slate-50">
               <span className="text-[10px] font-bold text-slate-500">
-                Mostrando {(page - 1) * limit + 1} - {Math.min(page * limit, total)} de {total}
+                Mostrando {(page - 1) * limit + 1} - {Math.min(page * limit, total)} de {total} (Página {page} de {totalPages})
               </span>
-              <div className="flex gap-1">
-                <button disabled={page <= 1} onClick={() => setPage(p => p - 1)}
-                  className="h-7 px-3 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-all">
+              <div className="flex items-center gap-1">
+                <button
+                  disabled={page <= 1 || loading}
+                  onClick={() => handlePageChange(page - 1)}
+                  className="h-7 px-3 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-all cursor-pointer disabled:cursor-not-allowed flex items-center gap-1"
+                >
                   <i className="fas fa-chevron-left"></i>
+                  <span>Ant.</span>
                 </button>
                 {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                  const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+                  const start = Math.max(1, Math.min(page - 2, Math.max(1, totalPages - 4)));
                   const p = start + i;
                   return p <= totalPages ? (
-                    <button key={p} onClick={() => setPage(p)}
-                      className={`h-7 w-7 rounded-lg text-[10px] font-bold transition-all ${p === page ? 'bg-indigo-600 text-white' : 'border border-slate-200 text-slate-600 hover:bg-slate-100'}`}>
+                    <button
+                      key={p}
+                      disabled={loading}
+                      onClick={() => handlePageChange(p)}
+                      className={`h-7 w-7 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${p === page ? 'bg-indigo-600 text-white shadow-sm' : 'border border-slate-200 text-slate-600 hover:bg-slate-100'}`}
+                    >
                       {p}
                     </button>
                   ) : null;
                 })}
-                <button disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}
-                  className="h-7 px-3 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-all">
+                <button
+                  disabled={page >= totalPages || loading}
+                  onClick={() => handlePageChange(page + 1)}
+                  className="h-7 px-3 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-30 transition-all cursor-pointer disabled:cursor-not-allowed flex items-center gap-1"
+                >
+                  <span>Sig.</span>
                   <i className="fas fa-chevron-right"></i>
                 </button>
               </div>
@@ -552,6 +549,13 @@ export const ListaViajes = () => {
         <DespachoViajeModal
           trip={modalDespacho}
           onClose={() => { setModalDespacho(null); fetchTrips(page); }}
+        />
+      )}
+      {modalReversar && (
+        <ModalReversarDespacho
+          trip={modalReversar}
+          onClose={() => setModalReversar(null)}
+          onReversado={() => fetchTrips(page)}
         />
       )}
       {modalItinerario && (
