@@ -207,7 +207,13 @@ try {
     $numero_boleto = "{$sucursal_emi}-{$punto_emi}-{$num_bol}";
 
     // Optimización: Cache de datos estáticos de la empresa y configuración (5 min)
-    $dbKey = md5($_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : 'default'));
+    // Incluir tenantId en el dbKey para aislar correctamente la caché por tenant
+    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
+    $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
+    $dbKey = md5($dbNameStr . '_t' . $tenantIdStr);
+
+    // Timing para diagnosticar lentitud en producción (visible en headers de respuesta)
+    $t0 = microtime(true);
     $cacheDir = __DIR__ . '/tmp/cache/';
     if (!is_dir($cacheDir)) {
         @mkdir($cacheDir, 0777, true);
@@ -278,6 +284,9 @@ try {
             'logo_path' => $rutaLogo
         ]));
     }
+
+    $t1 = microtime(true);
+    header('X-PDF-Time-EmpresaCache: ' . round(($t1 - $t0) * 1000) . 'ms');
 
     if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
         $rutaLogo = obtenerRutaLogoEmpresa($conn);
@@ -439,6 +448,8 @@ try {
     if (ob_get_length()) {
         ob_end_clean();
     }
+    $t2 = microtime(true);
+    header('X-PDF-Time-Total: ' . round(($t2 - $t0) * 1000) . 'ms');
     $pdf->Output($filename, 'I');
     exit();
 
