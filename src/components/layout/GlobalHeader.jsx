@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../config/axios';
+import { CONFIG } from '../../config/env';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 import { getSistemaModo } from '../../services/sistema.service';
@@ -217,9 +218,22 @@ export const GlobalHeader = () => {
         >
           {empresa.imagen ? (
             <img
-              src={`data:image/png;base64,${empresa.imagen}`}
+              src={
+                empresa.imagen.startsWith('data:') || empresa.imagen.startsWith('blob:')
+                  ? empresa.imagen
+                  : empresa.imagen.startsWith('http')
+                  ? empresa.imagen
+                  : `${CONFIG.API_URL || ''}${empresa.imagen.startsWith('/') ? '' : '/'}${empresa.imagen}`
+              }
               alt="logo"
               className="w-8 h-8 rounded object-cover border border-slate-200 shrink-0"
+              onError={(e) => {
+                // Fallback por si la ruta relativa no carga
+                if (!e.currentTarget.dataset.retried && !empresa.imagen.startsWith('data:') && !empresa.imagen.startsWith('/')) {
+                  e.currentTarget.dataset.retried = 'true';
+                  e.currentTarget.src = `data:image/png;base64,${empresa.imagen}`;
+                }
+              }}
             />
           ) : (
             <div className="w-8 h-8 rounded bg-blue-100 flex items-center justify-center shrink-0">

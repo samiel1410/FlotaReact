@@ -11,52 +11,141 @@
  * @param mysqli $conn Conexión a la base de datos
  * @return string|null Ruta al archivo de imagen o null si no hay imagen
  */
+/**
+ * Obtiene la ruta del logo de la empresa para TCPDF.
+ * Soporta:
+ *  - Rutas relativas en el backend (ej. /uploads/empresa/logo.webp)
+ *  - URLs HTTP/HTTPS
+ *  - Archivos locales .webp, .png, .jpg
+ *  - Datos Base64 legacy o BLOBs binarios
+ * Convierte automáticamente imágenes (incluyendo WebP) a PNG temporal en tmp/logos/
+ * para que TCPDF pueda leerlas sin error "Unable to get the size of the image".
+ * 
+ * @param mysqli|null $conn Conexión a la base de datos
+ * @param string|null $imageData Ruta, URL o contenido base64/binario de la imagen
+ * @return string|null Ruta local al archivo PNG temporal o null si no hay imagen
+ */
 function obtenerRutaLogoEmpresa($conn, $imageData = null)
 {
     if (empty($imageData) && $conn) {
         $query = "SELECT imagen_empresa FROM empresa LIMIT 1";
-        $result = mysqli_query($conn, $query);
+        $result = @mysqli_query($conn, $query);
         if ($result && $row = mysqli_fetch_assoc($result)) {
             $imageData = $row['imagen_empresa'];
         }
     }
 
-    if (!empty($imageData)) {
-        // Directorio temporal
-        $tempDir = __DIR__ . '/tmp/logos/';
-        if (!is_dir($tempDir)) {
-            @mkdir($tempDir, 0777, true);
+    if (empty($imageData)) {
+        return null;
+    }
+
+    // Directorio temporal para logos PNG que TCPDF puede leer
+    $tempDir = __DIR__ . '/tmp/logos/';
+    if (!is_dir($tempDir)) {
+        @mkdir($tempDir, 0777, true);
+    }
+
+    $rawBinary = null;
+    $cacheKey = '';
+
+    // 1. Caso: URL HTTP / HTTPS
+    if (is_string($imageData) && (strpos($imageData, 'http://') === 0 || strpos($imageData, 'https://') === 0)) {
+        $cacheKey = $imageData;
+        $tempPath = $tempDir . 'logo_' . md5($cacheKey) . '.png';
+        if (file_exists($tempPath) && filesize($tempPath) > 0) {
+            return $tempPath;
+        }
+        $rawBinary = @file_get_contents($imageData);
+    }
+    // 2. Caso: Ruta relativa o absoluta de archivo (ej. /uploads/empresa/logo.webp)
+    else if (is_string($imageData) && (
+        strpos($imageData, '/uploads/') === 0 ||
+        strpos($imageData, 'uploads/') === 0 ||
+        preg_match('/\.(webp|png|jpg|jpeg|gif)$/i', trim($imageData))
+    )) {
+        $cleanPath = ltrim(trim($imageData), '/');
+        $cacheKey = $cleanPath;
+        $tempPath = $tempDir . 'logo_' . md5($cacheKey) . '.png';
+        if (file_exists($tempPath) && filesize($tempPath) > 0) {
+            return $tempPath;
         }
 
-        // Nombre de archivo basado en el contenido para evitar recrearlo innecesariamente
-        $hash = md5($imageData);
-        $tempPath = $tempDir . 'logo_' . $hash . '.png';
+        // Posibles ubicaciones en el sistema de archivos local
+        $candidatePaths = [
+            dirname(__DIR__, 2) . '/Back/' . $cleanPath,
+            dirname(__DIR__, 2) . '/' . $cleanPath,
+            __DIR__ . '/../../Back/' . $cleanPath,
+            __DIR__ . '/' . $cleanPath,
+            'c:/laragon/www/SistemaFlota/Back/' . $cleanPath,
+            $imageData
+        ];
 
-        if (!file_exists($tempPath)) {
-            // Si los datos tienen el prefijo data:image, lo extraemos
-            if (is_string($imageData) && strpos($imageData, 'data:image') === 0) {
-                $parts = explode(',', $imageData);
-                if (count($parts) > 1) {
-                    $imageData = base64_decode($parts[1]);
-                }
-            } else if (is_string($imageData) && (strpos($imageData, 'iVBOR') === 0 || strpos($imageData, '/9j/') === 0 || strpos($imageData, 'R0lG') === 0)) {
-                $imageData = base64_decode($imageData);
-            }
-
-            // Intentar crear la imagen con GD para asegurar que es un PNG válido
-            $im = @imagecreatefromstring($imageData);
-            if ($im !== false) {
-                imagepng($im, $tempPath);
-                imagedestroy($im);
-            } else {
-                // Fallback por si acaso es binario puro pero GD no pudo leerlo
-                file_put_contents($tempPath, $imageData);
+        foreach ($candidatePaths as $p) {
+            if (file_exists($p) && is_file($p)) {
+                $rawBinary = @file_get_contents($p);
+                break;
             }
         }
 
+        // Si no se encontró en disco local, intentar vía HTTP al backend
+        if ($rawBinary === null) {
+            $backendUrl = $_SESSION['backend_url'] ?? $_COOKIE['backend_url'] ?? getenv('BACKEND_URL') ?? null;
+            if (!$backendUrl && file_exists(__DIR__ . '/db.php')) {
+                $backendUrl = (isset($_SERVER['HTTP_HOST']) && ($_SERVER['HTTP_HOST'] === 'localhost' || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') === 0))
+                    ? 'http://localhost:3000'
+                    : '';
+            }
+            if ($backendUrl) {
+                $fullUrl = rtrim($backendUrl, '/') . '/' . $cleanPath;
+                $rawBinary = @file_get_contents($fullUrl);
+            }
+        }
+    }
+    // 3. Caso: Base64 data URI o Base64 crudo legacy
+    else if (is_string($imageData)) {
+        $cacheKey = substr($imageData, 0, 100) . strlen($imageData);
+        $tempPath = $tempDir . 'logo_' . md5($cacheKey) . '.png';
+        if (file_exists($tempPath) && filesize($tempPath) > 0) {
+            return $tempPath;
+        }
+
+        if (strpos($imageData, 'data:image') === 0) {
+            $parts = explode(',', $imageData);
+            if (count($parts) > 1) {
+                $rawBinary = base64_decode($parts[1]);
+            }
+        } else if (strpos($imageData, 'iVBOR') === 0 || strpos($imageData, '/9j/') === 0 || strpos($imageData, 'R0lG') === 0 || strpos($imageData, 'UklGR') === 0) {
+            $rawBinary = base64_decode($imageData);
+        } else {
+            $rawBinary = $imageData;
+        }
+    } else {
+        $rawBinary = $imageData;
+        $cacheKey = md5((string)$imageData);
+    }
+
+    if (empty($rawBinary)) {
+        return null;
+    }
+
+    $tempPath = $tempDir . 'logo_' . md5($cacheKey ?: $rawBinary) . '.png';
+    if (file_exists($tempPath) && filesize($tempPath) > 0) {
         return $tempPath;
     }
-    return null;
+
+    // Convertir a PNG usando GD para que TCPDF lo maneje sin problemas
+    $im = @imagecreatefromstring($rawBinary);
+    if ($im !== false) {
+        imagealphablending($im, false);
+        imagesavealpha($im, true);
+        imagepng($im, $tempPath);
+        imagedestroy($im);
+        return $tempPath;
+    }
+
+    // Fallback: guardar binario directo
+    @file_put_contents($tempPath, $rawBinary);
+    return $tempPath;
 }
 
 /**

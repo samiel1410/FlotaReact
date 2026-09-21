@@ -11,6 +11,17 @@ import { CONFIG } from '../../config/env';
 const inputClass = "w-full pl-3 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all";
 const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2";
 
+const resolveLogoUrl = (img) => {
+  if (!img) return null;
+  if (img.startsWith('data:') || img.startsWith('blob:')) return img;
+  if (img.startsWith('http')) return img;
+  if (img.startsWith('/') || img.startsWith('uploads/')) {
+    const baseUrl = CONFIG.API_URL || '';
+    return img.startsWith('/') ? `${baseUrl}${img}` : `${baseUrl}/${img}`;
+  }
+  return `data:image/png;base64,${img}`;
+};
+
 export const ConfiguracionPage = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('general');
@@ -37,7 +48,7 @@ export const ConfiguracionPage = () => {
         setHistorialJob(res.data.data || []);
       }
     } catch (e) {
-      console.warn('Error al cargar historial del job SRI:', e.message);
+      // Silencioso si falla
     }
   }, []);
 
@@ -48,30 +59,31 @@ export const ConfiguracionPage = () => {
   useEffect(() => {
     const fetchConfig = async () => {
       try {
-        const fpRes = await api.get('/formapago/formapagoSeleccionPaginadoCombo');
-        setFormasPago(fpRes.data?.data || []);
+        const [confRes, fpRes, impRes] = await Promise.all([
+          api.get('/configuracion/selectconfiguracion'),
+          api.get('/formapago/selectformapago'),
+          api.get('/impresoras/formatos-impresion'),
+        ]);
 
-        try {
-          const fiRes = await api.get('/configuracion/formatoImpresionSeleccion');
-          if (fiRes.data?.data) {
-            setFormatosImpresion(fiRes.data.data);
-          }
-        } catch (fiErr) {
-          console.warn('Error cargando formatos de impresión:', fiErr);
+        if (fpRes.data && fpRes.data.data) {
+          setFormasPago(fpRes.data.data);
         }
 
-        const response = await api.get('/configuracion/configuracionSeleccion');
-        if (response.data && response.data.data && response.data.data.length > 0) {
-          const conf = response.data.data[0];
+        if (impRes.data && impRes.data.success && impRes.data.data) {
+          setFormatosImpresion(impRes.data.data);
+        }
+
+        if (confRes.data && confRes.data.data && confRes.data.data.length > 0) {
+          const conf = confRes.data.data[0];
           const newConf = {
-            formapago: conf.id_forma_pago_configuracion || '',
-            numero_factura: conf.numero_factura || '',
-            numero_version: conf.version_sistema || '',
-            tipo_tarifa_configuracion: String(conf.tipo_tarifa_configuracion || '1'),
-            leyenda: conf.leyendamensaje_configuracion || '',
-            maneja_leyenda: conf.mensajeleyenda_configuracion === 1 || conf.mensajeleyenda_configuracion === true,
+            id_configuracion: conf.id_configuracion,
+            iva: conf.iva || 15,
+            leyenda_ticket: conf.leyenda_ticket || '',
+            maneja_leyenda: conf.mostrar_leyenda_ticket === 1 || conf.mostrar_leyenda_ticket === true,
+
             leyenda_boleteria: conf.leyenda_boleteria || '',
             maneja_leyenda_boleteria: conf.mostrar_leyenda_boleteria === 1 || conf.mostrar_leyenda_boleteria === true,
+
             leyenda_nota_venta: conf.leyenda_nota_venta || '',
             maneja_leyenda_nota_venta: conf.mostrar_leyenda_nota_venta === 1 || conf.mostrar_leyenda_nota_venta === true,
 
@@ -125,7 +137,7 @@ export const ConfiguracionPage = () => {
 
   useEffect(() => {
     if (configData.imagen_empresa) {
-      setLogoPreview(`data:image/png;base64,${configData.imagen_empresa}`);
+      setLogoPreview(resolveLogoUrl(configData.imagen_empresa));
     }
   }, [configData.imagen_empresa]);
 
@@ -287,7 +299,7 @@ export const ConfiguracionPage = () => {
 
       const response = await api.post('/configuracion/Actualizarconfiguracion', payload);
       if (response.data && response.data.success) {
-        // Si hay un nuevo logo, subirlo al endpoint de empresa
+        // Si hay un nuevo logo, subirlo al endpoint de empresa para procesarlo a WebP
         if (logoFile) {
           const logoReader = new FileReader();
           const logoBase64 = await new Promise((resolve) => {
@@ -298,6 +310,23 @@ export const ConfiguracionPage = () => {
             imagen_empresa: logoBase64,
           });
           setLogoFile(null);
+
+          try {
+            const empRes = await api.get('/empresa/selectempresa');
+            if (empRes.data?.success && empRes.data?.data?.length > 0) {
+              const updatedImg = empRes.data.data[0].imagen_empresa;
+              data.imagen_empresa = updatedImg;
+              setLogoPreview(resolveLogoUrl(updatedImg));
+              const stored = sessionStorage.getItem('empresa_data');
+              if (stored) {
+                const emp = JSON.parse(stored);
+                emp.imagen = updatedImg;
+                sessionStorage.setItem('empresa_data', JSON.stringify(emp));
+              }
+            }
+          } catch (e) {
+            console.error('Error al sincronizar logo actualizado:', e);
+          }
         }
 
         toast.success('Configuración guardada correctamente');
@@ -312,8 +341,8 @@ export const ConfiguracionPage = () => {
           const emp = JSON.parse(stored);
           emp.nombre = data.razon_social_empresa || data.nombre_comercial_empresa || emp.nombre;
           emp.cobrar_iva_guia = data.cobrar_iva_guia ? 1 : 0;
-          if (logoPreview) {
-            emp.imagen = logoPreview.replace('data:image/png;base64,', '').replace('data:image/jpeg;base64,', '');
+          if (data.imagen_empresa) {
+            emp.imagen = data.imagen_empresa;
           }
           sessionStorage.setItem('empresa_data', JSON.stringify(emp));
         }
