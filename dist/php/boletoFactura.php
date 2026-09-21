@@ -259,7 +259,8 @@ try {
             $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
             $res_img = mysqli_query($conn, $query_img);
             if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
-                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa']);
+                // Pasamos $dbKey como cacheHint: evita md5() sobre megabytes de binario
+                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
                 if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
                     $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
                     $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;

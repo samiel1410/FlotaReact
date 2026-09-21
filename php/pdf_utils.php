@@ -76,7 +76,7 @@ function obtenerRutaLogoEmpresa($conn, $imageData = null)
  * @param mixed $imageData
  * @return string|null
  */
-function procesarLogoParaTcpdf($imageData)
+function procesarLogoParaTcpdf($imageData, $cacheHint = '')
 {
     if (empty($imageData)) {
         return null;
@@ -89,7 +89,7 @@ function procesarLogoParaTcpdf($imageData)
     }
 
     $rawBinary = null;
-    $cacheKey = '';
+    $cacheKey = $cacheHint; // Clave estable suministrada por el caller (ej: dbKey del tenant)
 
     // 1. Caso: URL HTTP / HTTPS
     if (is_string($imageData) && (strpos($imageData, 'http://') === 0 || strpos($imageData, 'https://') === 0)) {
@@ -217,7 +217,17 @@ function procesarLogoParaTcpdf($imageData)
     $isJpg = (strlen($rawBinary) >= 3 && substr($rawBinary, 0, 3) === "\xFF\xD8\xFF");
     $ext = $isJpg ? '.jpg' : '.png';
 
-    $tempPath = $tempDir . 'logo_' . md5($cacheKey ?: $rawBinary) . $ext;
+    // Generar clave de caché rápida: evitar md5() sobre megabytes de binario
+    if (empty($cacheKey)) {
+        $len = strlen($rawBinary);
+        // Hash rápido: primeros 64 bytes + últimos 64 bytes + longitud total
+        $sample = substr($rawBinary, 0, 64) . substr($rawBinary, -64) . $len;
+        $cacheKey = md5($sample);
+    } else {
+        $cacheKey = md5($cacheKey);
+    }
+
+    $tempPath = $tempDir . 'logo_' . $cacheKey . $ext;
     if (esImagenValidaParaTcpdf($tempPath)) {
         return $tempPath;
     }
@@ -236,7 +246,7 @@ function procesarLogoParaTcpdf($imageData)
         if ($im !== false) {
             imagealphablending($im, false);
             imagesavealpha($im, true);
-            $pngPath = $tempDir . 'logo_' . md5($cacheKey ?: $rawBinary) . '.png';
+            $pngPath = $tempDir . 'logo_' . $cacheKey . '.png';
             imagepng($im, $pngPath);
             imagedestroy($im);
             if (esImagenValidaParaTcpdf($pngPath)) {
