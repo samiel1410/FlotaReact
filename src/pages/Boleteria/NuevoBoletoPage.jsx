@@ -170,10 +170,23 @@ export const NuevoBoletoPage = () => {
       const ahora = new Date();
       const [h, m, s] = horaViaje.split(':').map(Number);
       const salida = new Date();
-      salida.setHours(h, m, s || 0, 0);
+      salida.setHours(h || 0, m || 0, s || 0, 0);
 
       const diff = Math.floor((salida - ahora) / 1000);
-      setTiempoRestante(diff > 0 ? diff : 0);
+      const pasado = diff < 0;
+      const absDiff = Math.abs(diff);
+
+      const horas = Math.floor(absDiff / 3600);
+      const minutos = Math.floor((absDiff % 3600) / 60);
+      const segundos = absDiff % 60;
+
+      setTiempoRestante({
+        horas,
+        minutos,
+        segundos,
+        totalSeg: absDiff,
+        pasado
+      });
     };
     calcular();
     const interval = setInterval(calcular, 1000);

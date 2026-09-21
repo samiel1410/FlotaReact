@@ -58,34 +58,52 @@ export const BoletoTopBar = ({
         <span style={{ flex: 1 }}>Agencia actual: {currentAgencia}</span>
 
         {/* TIMER */}
-        {idViaje && tiempoRestante && (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            background: tiempoRestante.pasado ? '#fef2f2' : tiempoRestante.totalSeg < 600 ? '#fffbeb' : '#f0fdf4',
-            border: `1px solid ${tiempoRestante.pasado ? '#fca5a5' : tiempoRestante.totalSeg < 600 ? '#fcd34d' : '#86efac'}`,
-            borderRadius: 4, padding: '3px 8px',
-          }}>
-            <i
-              className={`fas ${tiempoRestante.pasado ? 'fa-flag-checkered' : 'fa-clock'}`}
-              style={{ fontSize: 11, color: tiempoRestante.pasado ? '#dc2626' : tiempoRestante.totalSeg < 600 ? '#d97706' : '#16a34a' }}
-            />
-            <div style={{ lineHeight: 1.2 }}>
-              <div style={{ fontSize: 7, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
-                {tiempoRestante.pasado ? 'En curso' : 'Para despacho'}
+        {idViaje && tiempoRestante && (() => {
+          const tInfo = typeof tiempoRestante === 'number' 
+            ? {
+                horas: Math.floor(Math.abs(tiempoRestante) / 3600),
+                minutos: Math.floor((Math.abs(tiempoRestante) % 3600) / 60),
+                segundos: Math.abs(tiempoRestante) % 60,
+                totalSeg: Math.abs(tiempoRestante),
+                pasado: tiempoRestante < 0
+              }
+            : {
+                horas: tiempoRestante.horas ?? 0,
+                minutos: tiempoRestante.minutos ?? 0,
+                segundos: tiempoRestante.segundos ?? 0,
+                totalSeg: tiempoRestante.totalSeg ?? 0,
+                pasado: !!tiempoRestante.pasado
+              };
+
+          return (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: tInfo.pasado ? '#fef2f2' : tInfo.totalSeg < 600 ? '#fffbeb' : '#f0fdf4',
+              border: `1px solid ${tInfo.pasado ? '#fca5a5' : tInfo.totalSeg < 600 ? '#fcd34d' : '#86efac'}`,
+              borderRadius: 4, padding: '3px 8px',
+            }}>
+              <i
+                className={`fas ${tInfo.pasado ? 'fa-flag-checkered' : 'fa-clock'}`}
+                style={{ fontSize: 11, color: tInfo.pasado ? '#dc2626' : tInfo.totalSeg < 600 ? '#d97706' : '#16a34a' }}
+              />
+              <div style={{ lineHeight: 1.2 }}>
+                <div style={{ fontSize: 7, fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>
+                  {tInfo.pasado ? 'En curso' : 'Para despacho'}
+                </div>
+                <div style={{
+                  fontSize: 13, fontWeight: 900, fontFamily: 'monospace',
+                  color: tInfo.pasado ? '#dc2626' : tInfo.totalSeg < 600 ? '#d97706' : '#16a34a',
+                }}>
+                  {tInfo.pasado ? '-' : ''}{String(tInfo.horas).padStart(2, '0')}:{String(tInfo.minutos).padStart(2, '0')}:{String(tInfo.segundos).padStart(2, '0')}
+                </div>
               </div>
-              <div style={{
-                fontSize: 13, fontWeight: 900, fontFamily: 'monospace',
-                color: tiempoRestante.pasado ? '#dc2626' : tiempoRestante.totalSeg < 600 ? '#d97706' : '#16a34a',
-              }}>
-                {tiempoRestante.pasado ? '-' : ''}{String(tiempoRestante.horas).padStart(2, '0')}:{String(tiempoRestante.minutos).padStart(2, '0')}:{String(tiempoRestante.segundos).padStart(2, '0')}
+              <div style={{ borderLeft: '1px solid #cbd5e1', paddingLeft: 6, lineHeight: 1.2 }}>
+                <div style={{ fontSize: 7, color: '#94a3b8', fontWeight: 600 }}>SALIDA</div>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#334155', fontFamily: 'monospace' }}>{horaViaje?.substring(0, 5)}</div>
               </div>
             </div>
-            <div style={{ borderLeft: '1px solid #cbd5e1', paddingLeft: 6, lineHeight: 1.2 }}>
-              <div style={{ fontSize: 7, color: '#94a3b8', fontWeight: 600 }}>SALIDA</div>
-              <div style={{ fontSize: 12, fontWeight: 800, color: '#334155', fontFamily: 'monospace' }}>{horaViaje?.substring(0, 5)}</div>
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </>
   );

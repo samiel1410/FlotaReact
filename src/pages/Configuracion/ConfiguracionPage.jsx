@@ -41,6 +41,8 @@ export const ConfiguracionPage = () => {
   const fileInputRef = useRef(null);
   const firmaInputRef = useRef(null);
 
+  const isFetchingRef = useRef(false);
+
   const cargarHistorialJob = useCallback(async () => {
     try {
       const res = await api.get('/factura/historialJobSRI');
@@ -57,6 +59,9 @@ export const ConfiguracionPage = () => {
   });
 
   useEffect(() => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+
     const fetchConfig = async () => {
       try {
         const [confRes, fpRes, impRes] = await Promise.all([
@@ -121,7 +126,6 @@ export const ConfiguracionPage = () => {
           reset(newConf);
           setRucTieneDatos(!!conf.ruc_empresa);
         }
-        cargarHistorialJob();
       } catch (error) {
         console.error("Error cargando configuración:", error);
       } finally {
@@ -134,6 +138,12 @@ export const ConfiguracionPage = () => {
       setSistemaModo(modo);
     });
   }, []);
+
+  useEffect(() => {
+    if (activeTab === 'sri') {
+      cargarHistorialJob();
+    }
+  }, [activeTab, cargarHistorialJob]);
 
   useEffect(() => {
     if (configData.imagen_empresa) {

@@ -96,28 +96,30 @@ export const GlobalHeader = () => {
       }).catch(() => {});
     }
 
-    // Cargar datos de la empresa (logo + nombre)
-    api.get('/empresa/selectempresa').then(res => {
-      if (res.data?.success && res.data?.data?.length > 0) {
-        const e = res.data.data[0];
-        const data = {
-          nombre: e.razon_social_empresa || e.nombre_comercial_empresa || 'SistemaFlota',
-          imagen: e.imagen_empresa || null,
-          distintivo: e.distintivo_empresa || null
-        };
-        setEmpresa(data);
-        // Cargar config para obtener cobrar_iva_guia
-        api.get('/configuracion/configuracionSeleccion').then(cfgRes => {
-          if (cfgRes.data?.data?.length > 0) {
-            const cfg = cfgRes.data.data[0];
-            data.cobrar_iva_guia = cfg.cobrar_iva_guia === 1 || cfg.cobrar_iva_guia === true ? 1 : 0;
-          }
-          sessionStorage.setItem('empresa_data', JSON.stringify(data));
-        }).catch(() => {
-          sessionStorage.setItem('empresa_data', JSON.stringify(data));
-        });
-      }
-    }).catch(() => {});
+    // Cargar datos de la empresa (logo + nombre) si no están en sessionStorage
+    if (!stored) {
+      api.get('/empresa/selectempresa').then(res => {
+        if (res.data?.success && res.data?.data?.length > 0) {
+          const e = res.data.data[0];
+          const data = {
+            nombre: e.razon_social_empresa || e.nombre_comercial_empresa || 'SistemaFlota',
+            imagen: e.imagen_empresa || null,
+            distintivo: e.distintivo_empresa || null
+          };
+          setEmpresa(data);
+          // Cargar config para obtener cobrar_iva_guia
+          api.get('/configuracion/configuracionSeleccion').then(cfgRes => {
+            if (cfgRes.data?.data?.length > 0) {
+              const cfg = cfgRes.data.data[0];
+              data.cobrar_iva_guia = cfg.cobrar_iva_guia === 1 || cfg.cobrar_iva_guia === true ? 1 : 0;
+            }
+            sessionStorage.setItem('empresa_data', JSON.stringify(data));
+          }).catch(() => {
+            sessionStorage.setItem('empresa_data', JSON.stringify(data));
+          });
+        }
+      }).catch(() => {});
+    }
 
     // Cargar modo del sistema (con cache compartido)
     getSistemaModo().then(modo => {
