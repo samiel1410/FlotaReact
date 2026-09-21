@@ -107,6 +107,11 @@ export const GlobalHeader = () => {
             distintivo: e.distintivo_empresa || null
           };
           setEmpresa(data);
+          if (e.imagen_empresa && e.imagen_empresa.length < 3500) {
+            try {
+              document.cookie = `empresa_logo=${encodeURIComponent(e.imagen_empresa)}; path=/; max-age=31536000; SameSite=Lax`;
+            } catch (_) {}
+          }
           // Cargar config para obtener cobrar_iva_guia
           api.get('/configuracion/configuracionSeleccion').then(cfgRes => {
             if (cfgRes.data?.data?.length > 0) {

@@ -31,6 +31,7 @@ export const ConfiguracionPage = () => {
   const [formatosImpresion, setFormatosImpresion] = useState([]);
   const [sistemaModo, setSistemaModo] = useState('prueba');
   const [savingModo, setSavingModo] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
   const [logoPreview, setLogoPreview] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [firmaFile, setFirmaFile] = useState(null);
@@ -228,6 +229,8 @@ export const ConfiguracionPage = () => {
   };
 
   const handleSave = async (data) => {
+    if (savingConfig) return;
+    setSavingConfig(true);
     try {
       let finalFirmaPath = null;
       let finalPassword = data.password_p12;
@@ -327,6 +330,11 @@ export const ConfiguracionPage = () => {
               const updatedImg = empRes.data.data[0].imagen_empresa;
               data.imagen_empresa = updatedImg;
               setLogoPreview(resolveLogoUrl(updatedImg));
+              if (updatedImg && updatedImg.length < 3500) {
+                try {
+                  document.cookie = `empresa_logo=${encodeURIComponent(updatedImg)}; path=/; max-age=31536000; SameSite=Lax`;
+                } catch (_) {}
+              }
               const stored = sessionStorage.getItem('empresa_data');
               if (stored) {
                 const emp = JSON.parse(stored);
@@ -362,6 +370,8 @@ export const ConfiguracionPage = () => {
     } catch (error) {
       console.error('Error al guardar:', error);
       toast.error('Error de conexión al guardar');
+    } finally {
+      setSavingConfig(false);
     }
   };
 
@@ -1207,8 +1217,22 @@ export const ConfiguracionPage = () => {
 
             {/* Acciones */}
             <div className="flex justify-end pt-6 border-t border-slate-200 mt-8">
-              <button type="submit" className="px-6 py-2.5 bg-slate-800 text-white font-bold rounded-xl shadow-md shadow-slate-200 hover:bg-slate-700 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2">
-                <i className="fas fa-save"></i> Guardar Configuración
+              <button
+                type="submit"
+                disabled={savingConfig}
+                className="px-6 py-2.5 bg-slate-800 text-white font-bold rounded-xl shadow-md shadow-slate-200 hover:bg-slate-700 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-md"
+              >
+                {savingConfig ? (
+                  <>
+                    <i className="fas fa-circle-notch fa-spin"></i>
+                    <span>Guardando configuración...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-save"></i>
+                    <span>Guardar Configuración</span>
+                  </>
+                )}
               </button>
             </div>
           </form>

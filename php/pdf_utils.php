@@ -45,6 +45,14 @@ function esImagenValidaParaTcpdf($ruta)
  */
 function obtenerRutaLogoEmpresa($conn, $imageData = null)
 {
+    if (empty($imageData)) {
+        if (!empty($_COOKIE['empresa_logo'])) {
+            $imageData = $_COOKIE['empresa_logo'];
+        } else if (!empty($_COOKIE['logo_empresa'])) {
+            $imageData = $_COOKIE['logo_empresa'];
+        }
+    }
+
     if (empty($imageData) && $conn) {
         $query = "SELECT imagen_empresa FROM empresa LIMIT 1";
         $result = @mysqli_query($conn, $query);
