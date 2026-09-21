@@ -212,6 +212,10 @@ try {
     if (!is_dir($cacheDir)) {
         @mkdir($cacheDir, 0777, true);
     }
+    $logosDir = __DIR__ . '/tmp/logos/';
+    if (!is_dir($logosDir)) {
+        @mkdir($logosDir, 0777, true);
+    }
     $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
     $vals_empresa = null;
     $vals_config = null;
@@ -245,7 +249,7 @@ try {
         $vals_config = $recuperar_config ? mysqli_fetch_assoc($recuperar_config) : [];
 
         // Obtener y cachear el logo en disco si aún no existe
-        $cachedLogoFile = __DIR__ . '/tmp/logos/logo_tenant_' . $dbKey . '.png';
+        $cachedLogoFile = $logosDir . 'logo_tenant_' . $dbKey . '.png';
         if (file_exists($cachedLogoFile) && filesize($cachedLogoFile) > 0) {
             $rutaLogo = $cachedLogoFile;
         } else {
@@ -254,8 +258,10 @@ try {
             if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
                 $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa']);
                 if ($rawLogo && file_exists($rawLogo)) {
-                    @copy($rawLogo, $cachedLogoFile);
-                    $rutaLogo = $cachedLogoFile;
+                    $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
+                    $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
+                    @copy($rawLogo, $targetLogo);
+                    $rutaLogo = $targetLogo;
                 }
             }
         }
@@ -265,6 +271,10 @@ try {
             'config' => $vals_config,
             'logo_path' => $rutaLogo
         ]));
+    }
+
+    if (empty($rutaLogo) || !file_exists($rutaLogo)) {
+        $rutaLogo = obtenerRutaLogoEmpresa($conn);
     }
 
     $leyenda_viaje = ($vals_config && ($vals_config['mostrar_leyenda_boleteria'] ?? 0) == 1) ? ($vals_config['leyenda_boleteria'] ?? '') :
@@ -323,8 +333,7 @@ try {
         table{width:100%;border-collapse:collapse}td{padding:0;vertical-align:middle;font-size:' . $metricas['font_boleto_base_pt'] . 'pt}
     </style></head><body><div class="center">';
 
-    $rutaLogo = obtenerRutaLogoEmpresa($conn, $vals_empresa['imagen_empresa'] ?? null);
-    if ($rutaLogo) {
+    if (!empty($rutaLogo) && file_exists($rutaLogo)) {
         $html1 .= '<img src="' . $rutaLogo . '" width="' . max(24, round(30 * $metricas['factor'])) . '" style="margin-bottom:0;"><br>';
     }
 

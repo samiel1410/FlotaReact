@@ -104,46 +104,57 @@ function procesarLogoParaTcpdf($imageData)
             }
         }
 
-        // Si no se encontró en disco local, intentar vía HTTP al backend
+        // Si no se encontró en disco local, intentar vía HTTP al backend o frontend
         if ($rawBinary === null || $rawBinary === false) {
+            $remoteUrls = [];
+            
             $backendUrl = $_SESSION['backend_url'] ?? $_COOKIE['backend_url'] ?? getenv('BACKEND_URL') ?? null;
-            if (!$backendUrl) {
-                $isLocal = isset($_SERVER['HTTP_HOST']) && (
-                    $_SERVER['HTTP_HOST'] === 'localhost' || 
-                    strpos($_SERVER['HTTP_HOST'], '127.0.0.1') === 0 || 
-                    strpos($_SERVER['HTTP_HOST'], 'localhost:') === 0
-                );
-                if ($isLocal) {
-                    $backendUrl = 'http://localhost:3000';
-                } else {
-                    // En producción, deducir según el subdominio o base actual
-                    $host = $_SERVER['HTTP_HOST'] ?? 'app.easysplus.com';
-                    $backendUrl = 'https://backpatate.easysplus.com';
-                }
+            if ($backendUrl) {
+                $remoteUrls[] = rtrim($backendUrl, '/') . '/' . $cleanPath;
             }
 
-            if ($backendUrl) {
-                $fullUrl = rtrim($backendUrl, '/') . '/' . $cleanPath;
+            $isLocal = isset($_SERVER['HTTP_HOST']) && (
+                $_SERVER['HTTP_HOST'] === 'localhost' || 
+                strpos($_SERVER['HTTP_HOST'], '127.0.0.1') === 0 || 
+                strpos($_SERVER['HTTP_HOST'], 'localhost:') === 0
+            );
+
+            if ($isLocal) {
+                $remoteUrls[] = 'http://localhost:3000/' . $cleanPath;
+            }
+
+            // Fallbacks de producción (donde residen las subidas reales de uploads/empresa)
+            $remoteUrls[] = 'https://app.easysplus.com/' . $cleanPath;
+            $remoteUrls[] = 'https://backpatate.easysplus.com/' . $cleanPath;
+            $remoteUrls[] = 'https://easysplus.com/' . $cleanPath;
+
+            foreach ($remoteUrls as $url) {
                 if (function_exists('curl_init')) {
                     $ch = curl_init();
-                    curl_setopt($ch, CURLOPT_URL, $fullUrl);
+                    curl_setopt($ch, CURLOPT_URL, $url);
                     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
                     curl_setopt($ch, CURLOPT_TIMEOUT, 3);
                     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
                     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
                     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-                    $rawBinary = curl_exec($ch);
+                    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                    $resData = curl_exec($ch);
                     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                     curl_close($ch);
-                    if ($httpCode !== 200 || empty($rawBinary)) {
-                        $rawBinary = null;
+                    if ($httpCode === 200 && !empty($resData)) {
+                        $rawBinary = $resData;
+                        break;
                     }
                 } else {
                     $ctx = stream_context_create([
                         "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
-                        "http" => ["timeout" => 2]
+                        "http" => ["timeout" => 2, "follow_location" => 1]
                     ]);
-                    $rawBinary = @file_get_contents($fullUrl, false, $ctx);
+                    $resData = @file_get_contents($url, false, $ctx);
+                    if (!empty($resData)) {
+                        $rawBinary = $resData;
+                        break;
+                    }
                 }
             }
         }
@@ -151,11 +162,6 @@ function procesarLogoParaTcpdf($imageData)
     // 3. Caso: Base64 data URI o Base64 crudo legacy
     else if (is_string($imageData)) {
         $cacheKey = substr($imageData, 0, 100) . strlen($imageData);
-        $tempPath = $tempDir . 'logo_' . md5($cacheKey) . '.png';
-        if (file_exists($tempPath) && filesize($tempPath) > 0) {
-            return $tempPath;
-        }
-
         if (strpos($imageData, 'data:image') === 0) {
             $parts = explode(',', $imageData);
             if (count($parts) > 1) {
@@ -175,16 +181,14 @@ function procesarLogoParaTcpdf($imageData)
         return null;
     }
 
-    $tempPath = $tempDir . 'logo_' . md5($cacheKey ?: $rawBinary) . '.png';
+    $isPng = (strlen($rawBinary) >= 8 && substr($rawBinary, 0, 8) === "\x89PNG\r\n\x1a\n");
+    $isJpg = (strlen($rawBinary) >= 3 && substr($rawBinary, 0, 3) === "\xFF\xD8\xFF");
+    $ext = $isJpg ? '.jpg' : '.png';
+
+    $tempPath = $tempDir . 'logo_' . md5($cacheKey ?: $rawBinary) . $ext;
     if (file_exists($tempPath) && filesize($tempPath) > 0) {
         return $tempPath;
     }
-
-    // Comprobar si ya es un formato nativo soportado por TCPDF (PNG o JPEG)
-    // Magic bytes PNG: \x89PNG\r\n\x1a\n
-    // Magic bytes JPEG: \xFF\xD8\xFF
-    $isPng = (strlen($rawBinary) >= 8 && substr($rawBinary, 0, 8) === "\x89PNG\r\n\x1a\n");
-    $isJpg = (strlen($rawBinary) >= 3 && substr($rawBinary, 0, 3) === "\xFF\xD8\xFF");
 
     if ($isPng || $isJpg) {
         // Guardar directamente sin pasar por GD para no consumir memoria descomprimiendo el mapa de bits
@@ -198,9 +202,10 @@ function procesarLogoParaTcpdf($imageData)
         if ($im !== false) {
             imagealphablending($im, false);
             imagesavealpha($im, true);
-            imagepng($im, $tempPath);
+            $pngPath = $tempDir . 'logo_' . md5($cacheKey ?: $rawBinary) . '.png';
+            imagepng($im, $pngPath);
             imagedestroy($im);
-            return $tempPath;
+            return $pngPath;
         }
     } catch (Throwable $t) {
         // En caso de cualquier excepción en GD, guardar binario directo
