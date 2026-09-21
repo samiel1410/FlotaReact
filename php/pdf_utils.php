@@ -7,6 +7,29 @@
 @ini_set('memory_limit', '512M');
 
 /**
+ * Valida si un archivo en disco es una imagen legible y válida para TCPDF usando getimagesize.
+ * Si el archivo está vacío, corrupto o es una respuesta de error HTML, lo elimina automáticamente.
+ *
+ * @param string|null $ruta
+ * @return bool
+ */
+function esImagenValidaParaTcpdf($ruta)
+{
+    if (empty($ruta) || !@file_exists($ruta) || @filesize($ruta) < 100) {
+        if (!empty($ruta) && @file_exists($ruta)) {
+            @unlink($ruta);
+        }
+        return false;
+    }
+    $info = @getimagesize($ruta);
+    if ($info === false || empty($info[0]) || empty($info[1])) {
+        @unlink($ruta);
+        return false;
+    }
+    return true;
+}
+
+/**
  * Obtiene la ruta del logo de la empresa para TCPDF.
  * Soporta:
  *  - Rutas relativas en el backend (ej. /uploads/empresa/logo.webp)
@@ -18,7 +41,7 @@
  * 
  * @param mysqli|null $conn Conexión a la base de datos
  * @param string|null $imageData Ruta, URL o contenido base64/binario de la imagen
- * @return string|null Ruta local al archivo PNG temporal o null si no hay imagen
+ * @return string|null Ruta local al archivo PNG temporal o null si no hay imagen válida
  */
 function obtenerRutaLogoEmpresa($conn, $imageData = null)
 {
@@ -34,7 +57,8 @@ function obtenerRutaLogoEmpresa($conn, $imageData = null)
         return null;
     }
 
-    return procesarLogoParaTcpdf($imageData);
+    $ruta = procesarLogoParaTcpdf($imageData);
+    return esImagenValidaParaTcpdf($ruta) ? $ruta : null;
 }
 
 /**
@@ -63,7 +87,7 @@ function procesarLogoParaTcpdf($imageData)
     if (is_string($imageData) && (strpos($imageData, 'http://') === 0 || strpos($imageData, 'https://') === 0)) {
         $cacheKey = $imageData;
         $tempPath = $tempDir . 'logo_' . md5($cacheKey) . '.png';
-        if (file_exists($tempPath) && filesize($tempPath) > 0) {
+        if (esImagenValidaParaTcpdf($tempPath)) {
             return $tempPath;
         }
         $rawBinary = @file_get_contents($imageData);
@@ -77,7 +101,7 @@ function procesarLogoParaTcpdf($imageData)
         $cleanPath = ltrim(trim($imageData), '/');
         $cacheKey = $cleanPath;
         $tempPath = $tempDir . 'logo_' . md5($cacheKey) . '.png';
-        if (file_exists($tempPath) && filesize($tempPath) > 0) {
+        if (esImagenValidaParaTcpdf($tempPath)) {
             return $tempPath;
         }
 
@@ -186,14 +210,16 @@ function procesarLogoParaTcpdf($imageData)
     $ext = $isJpg ? '.jpg' : '.png';
 
     $tempPath = $tempDir . 'logo_' . md5($cacheKey ?: $rawBinary) . $ext;
-    if (file_exists($tempPath) && filesize($tempPath) > 0) {
+    if (esImagenValidaParaTcpdf($tempPath)) {
         return $tempPath;
     }
 
     if ($isPng || $isJpg) {
         // Guardar directamente sin pasar por GD para no consumir memoria descomprimiendo el mapa de bits
         @file_put_contents($tempPath, $rawBinary);
-        return $tempPath;
+        if (esImagenValidaParaTcpdf($tempPath)) {
+            return $tempPath;
+        }
     }
 
     // Si es WebP u otro formato, convertir a PNG usando GD con manejo seguro de memoria
@@ -205,15 +231,17 @@ function procesarLogoParaTcpdf($imageData)
             $pngPath = $tempDir . 'logo_' . md5($cacheKey ?: $rawBinary) . '.png';
             imagepng($im, $pngPath);
             imagedestroy($im);
-            return $pngPath;
+            if (esImagenValidaParaTcpdf($pngPath)) {
+                return $pngPath;
+            }
         }
     } catch (Throwable $t) {
-        // En caso de cualquier excepción en GD, guardar binario directo
+        // En caso de cualquier excepción en GD, ignorar y continuar
     }
 
-    // Fallback: guardar binario directo
+    // Fallback: intentar guardar binario directo y validar
     @file_put_contents($tempPath, $rawBinary);
-    return $tempPath;
+    return esImagenValidaParaTcpdf($tempPath) ? $tempPath : null;
 }
 
 /**
