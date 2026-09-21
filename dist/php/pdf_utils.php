@@ -81,34 +81,70 @@ function procesarLogoParaTcpdf($imageData)
             return $tempPath;
         }
 
-        // Posibles ubicaciones en el sistema de archivos local
-        $candidatePaths = [
-            dirname(__DIR__, 2) . '/Back/' . $cleanPath,
-            dirname(__DIR__, 2) . '/' . $cleanPath,
-            __DIR__ . '/../../Back/' . $cleanPath,
-            __DIR__ . '/' . $cleanPath,
-            'c:/laragon/www/SistemaFlota/Back/' . $cleanPath,
-            $imageData
-        ];
+        // Posibles ubicaciones relativas seguras en el sistema de archivos
+        $candidatePaths = [];
+        $isWindows = (DIRECTORY_SEPARATOR === '\\');
+        
+        // Rutas relativas seguras basadas en __DIR__
+        $candidatePaths[] = __DIR__ . '/' . $cleanPath;
+        $candidatePaths[] = dirname(__DIR__) . '/' . $cleanPath;
+        $candidatePaths[] = dirname(__DIR__, 2) . '/Back/' . $cleanPath;
+        $candidatePaths[] = dirname(__DIR__, 2) . '/' . $cleanPath;
+        if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+            $candidatePaths[] = rtrim($_SERVER['DOCUMENT_ROOT'], '/') . '/' . $cleanPath;
+        }
+        if ($isWindows) {
+            $candidatePaths[] = 'c:/laragon/www/SistemaFlota/Back/' . $cleanPath;
+        }
 
         foreach ($candidatePaths as $p) {
-            if (file_exists($p) && is_file($p)) {
+            if (@file_exists($p) && @is_file($p)) {
                 $rawBinary = @file_get_contents($p);
                 break;
             }
         }
 
         // Si no se encontró en disco local, intentar vía HTTP al backend
-        if ($rawBinary === null) {
+        if ($rawBinary === null || $rawBinary === false) {
             $backendUrl = $_SESSION['backend_url'] ?? $_COOKIE['backend_url'] ?? getenv('BACKEND_URL') ?? null;
-            if (!$backendUrl && file_exists(__DIR__ . '/db.php')) {
-                $backendUrl = (isset($_SERVER['HTTP_HOST']) && ($_SERVER['HTTP_HOST'] === 'localhost' || strpos($_SERVER['HTTP_HOST'], '127.0.0.1') === 0))
-                    ? 'http://localhost:3000'
-                    : '';
+            if (!$backendUrl) {
+                $isLocal = isset($_SERVER['HTTP_HOST']) && (
+                    $_SERVER['HTTP_HOST'] === 'localhost' || 
+                    strpos($_SERVER['HTTP_HOST'], '127.0.0.1') === 0 || 
+                    strpos($_SERVER['HTTP_HOST'], 'localhost:') === 0
+                );
+                if ($isLocal) {
+                    $backendUrl = 'http://localhost:3000';
+                } else {
+                    // En producción, deducir según el subdominio o base actual
+                    $host = $_SERVER['HTTP_HOST'] ?? 'app.easysplus.com';
+                    $backendUrl = 'https://backpatate.easysplus.com';
+                }
             }
+
             if ($backendUrl) {
                 $fullUrl = rtrim($backendUrl, '/') . '/' . $cleanPath;
-                $rawBinary = @file_get_contents($fullUrl);
+                if (function_exists('curl_init')) {
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $fullUrl);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+                    $rawBinary = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+                    if ($httpCode !== 200 || empty($rawBinary)) {
+                        $rawBinary = null;
+                    }
+                } else {
+                    $ctx = stream_context_create([
+                        "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
+                        "http" => ["timeout" => 2]
+                    ]);
+                    $rawBinary = @file_get_contents($fullUrl, false, $ctx);
+                }
             }
         }
     }

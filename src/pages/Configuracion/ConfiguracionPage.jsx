@@ -60,8 +60,8 @@ export const ConfiguracionPage = () => {
     const fetchConfig = async () => {
       try {
         const [confRes, fpRes, impRes] = await Promise.all([
-          api.get('/configuracion/selectconfiguracion'),
-          api.get('/formapago/selectformapago'),
+          api.get('/configuracion/configuracionSeleccion'),
+          api.get('/formapago/formapagoSeleccionPaginadoCombo'),
           api.get('/impresoras/formatos-impresion'),
         ]);
 

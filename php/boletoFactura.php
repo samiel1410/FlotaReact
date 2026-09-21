@@ -206,25 +206,67 @@ try {
     $num_bol = !empty($boleto['numero_boleto']) ? sprintf("%09s", $boleto['numero_boleto']) : '000000001';
     $numero_boleto = "{$sucursal_emi}-{$punto_emi}-{$num_bol}";
 
-    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa,
-correo_empresa, ruc_empresa, direccion_empresa,
-razon_social_empresa FROM empresa LIMIT 1";
-    $recuperar_empresa = mysqli_query($conn, $query_empresa);
-    $vals_empresa = $recuperar_empresa ? mysqli_fetch_assoc($recuperar_empresa) : [];
-    if (!$vals_empresa) {
-        $vals_empresa = [
-            'imagen_empresa' => null,
-            'razon_social_empresa' => 'EMPRESA DE TRANSPORTE',
-            'ruc_empresa' => '9999999999001',
-            'direccion_empresa' => 'MATRIZ',
-            'telefono_empresa' => ''
-        ];
+    // Optimización: Cache de datos estáticos de la empresa y configuración (5 min)
+    $dbKey = md5($_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : 'default'));
+    $cacheDir = __DIR__ . '/tmp/cache/';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0777, true);
+    }
+    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
+    $vals_empresa = null;
+    $vals_config = null;
+    $rutaLogo = null;
+
+    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
+        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
+        if ($cachedData && !empty($cachedData['empresa'])) {
+            $vals_empresa = $cachedData['empresa'];
+            $vals_config = $cachedData['config'] ?? [];
+            $rutaLogo = (!empty($cachedData['logo_path']) && file_exists($cachedData['logo_path'])) ? $cachedData['logo_path'] : null;
+        }
     }
 
-    // Obtener leyenda de configuración
-    $query_config = "SELECT leyenda_boleteria, mostrar_leyenda_boleteria, formato_impresion FROM configuracion LIMIT 1";
-    $recuperar_config = mysqli_query($conn, $query_config);
-    $vals_config = $recuperar_config ? mysqli_fetch_assoc($recuperar_config) : [];
+    if (!$vals_empresa) {
+        // Query liviana sin transferir el BLOB pesado de imagen_empresa
+        $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+        $recuperar_empresa = mysqli_query($conn, $query_empresa);
+        $vals_empresa = $recuperar_empresa ? mysqli_fetch_assoc($recuperar_empresa) : [];
+        if (!$vals_empresa) {
+            $vals_empresa = [
+                'razon_social_empresa' => 'EMPRESA DE TRANSPORTE',
+                'ruc_empresa' => '9999999999001',
+                'direccion_empresa' => 'MATRIZ',
+                'telefono_empresa' => ''
+            ];
+        }
+
+        $query_config = "SELECT leyenda_boleteria, mostrar_leyenda_boleteria, formato_impresion FROM configuracion LIMIT 1";
+        $recuperar_config = mysqli_query($conn, $query_config);
+        $vals_config = $recuperar_config ? mysqli_fetch_assoc($recuperar_config) : [];
+
+        // Obtener y cachear el logo en disco si aún no existe
+        $cachedLogoFile = __DIR__ . '/tmp/logos/logo_tenant_' . $dbKey . '.png';
+        if (file_exists($cachedLogoFile) && filesize($cachedLogoFile) > 0) {
+            $rutaLogo = $cachedLogoFile;
+        } else {
+            $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
+            $res_img = mysqli_query($conn, $query_img);
+            if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
+                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa']);
+                if ($rawLogo && file_exists($rawLogo)) {
+                    @copy($rawLogo, $cachedLogoFile);
+                    $rutaLogo = $cachedLogoFile;
+                }
+            }
+        }
+
+        @file_put_contents($empresaCacheFile, json_encode([
+            'empresa' => $vals_empresa,
+            'config' => $vals_config,
+            'logo_path' => $rutaLogo
+        ]));
+    }
+
     $leyenda_viaje = ($vals_config && ($vals_config['mostrar_leyenda_boleteria'] ?? 0) == 1) ? ($vals_config['leyenda_boleteria'] ?? '') :
         'GRACIAS POR SU PREFERENCIA';
 
@@ -232,7 +274,7 @@ razon_social_empresa FROM empresa LIMIT 1";
     $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 80, $formato_impresion_db);
     $metricas = obtenerMetricasImpresion($ancho_impresion, 80);
 
-    $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array($ancho_impresion, 380), true, 'UTF-8', false);
+    $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array($ancho_impresion, 220), true, 'UTF-8', false);
     $pdf->setFontSubsetting(false);
     $pdf->setPrintHeader(false);
     $pdf->setPrintFooter(false);
@@ -379,6 +421,9 @@ razon_social_empresa FROM empresa LIMIT 1";
     $pdf->writeHTML($html1, true, false, true, false, '');
 
     $filename = 'boleto_' . $id_boleto . '.pdf';
+    if (ob_get_length()) {
+        ob_end_clean();
+    }
     $pdf->Output($filename, 'I');
     exit();
 
