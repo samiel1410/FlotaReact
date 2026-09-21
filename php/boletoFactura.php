@@ -197,6 +197,29 @@ try {
         throw new Exception("Parámetro id_boleto inválido o faltante");
     }
 
+    // ── CACHÉ DE PDF POR BOLETO ──────────────────────────────────────────────
+    // Un boleto es inmutable: una vez emitido, su PDF no cambia.
+    // Si ya existe en disco lo servimos directamente (evita los 7s de TCPDF).
+    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
+    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDir)) {
+        @mkdir($pdfCacheDir, 0777, true);
+    }
+    $pdfCacheFile = $pdfCacheDir . 'boleto_' . $id_boleto . '_t' . md5($tenantIdStr) . '.pdf';
+    $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
+
+    if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 500) {
+        // Servir PDF desde caché → respuesta instantánea
+        $filename = 'boleto_' . $id_boleto . '.pdf';
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $filename . '"');
+        header('Content-Length: ' . filesize($pdfCacheFile));
+        header('X-PDF-Cache: HIT');
+        readfile($pdfCacheFile);
+        exit();
+    }
+    // ────────────────────────────────────────────────────────────────────────
+
     $datos_factura = obtener_datos_factura($id_boleto, $conn);
     $boleto = $datos_factura['boleto'];
     $detalles = $datos_factura['detalles'];
@@ -208,7 +231,6 @@ try {
 
     // Optimización: Cache de datos estáticos de la empresa y configuración (5 min)
     // Incluir tenantId en el dbKey para aislar correctamente la caché por tenant
-    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
     $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
     $dbKey = md5($dbNameStr . '_t' . $tenantIdStr);
 
@@ -340,109 +362,178 @@ try {
     $andMostrar = !empty($boleto['anden_sub_rutas']) && $boleto['anden_sub_rutas'] != '0' ? $boleto['anden_sub_rutas'] : (!empty($boleto['andes_rutas']) && $boleto['andes_rutas'] != '0' ? $boleto['andes_rutas'] : '—');
     $pisoMostrar = !empty($boleto['piso_sub_rutas']) && $boleto['piso_sub_rutas'] != 0 ? $boleto['piso_sub_rutas'] : (!empty($boleto['piso_rutas']) && $boleto['piso_rutas'] != 0 ? $boleto['piso_rutas'] : '1');
 
-    $html1 = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
-        body{font-family:Helvetica,Arial,sans-serif;font-size:' . $metricas['font_boleto_base_pt'] . 'pt;color:#000;margin:0;padding:0;line-height:1}
-        .center{text-align:center}.left{text-align:left}.bold{font-weight:bold}
-        .sep{border-top:1.5px solid #000;margin:1px 0}
-        .sep-light{border-top:1px solid #000;margin:1px 0}
-        table{width:100%;border-collapse:collapse}td{padding:0;vertical-align:middle;font-size:' . $metricas['font_boleto_base_pt'] . 'pt}
-    </style></head><body><div class="center">';
-
-    if (!empty($rutaLogo) && file_exists($rutaLogo)) {
-        $html1 .= '<img src="' . $rutaLogo . '" width="' . max(24, round(30 * $metricas['factor'])) . '" style="margin-bottom:0;"><br>';
-    }
-
-    $html1 .= '<div class="bold" style="font-size:' . $metricas['font_boleto_tit_pt'] . 'pt;line-height:1">' . strtoupper($vals_empresa["razon_social_empresa"] ?? 'EMPRESA') . '</div>
-        <div style="font-size:' . $metricas['font_boleto_base_pt'] . 'pt;line-height:1">RUC: ' . ($vals_empresa["ruc_empresa"] ?? '') . '</div>
-        <div style="font-size:' . $metricas['font_boleto_base_pt'] . 'pt;line-height:1;text-transform:uppercase">' . strtoupper($vals_empresa["direccion_empresa"] ?? '') . '</div>
-        <div style="font-size:' . $metricas['font_boleto_base_pt'] . 'pt;line-height:1">Oficina ' . ($boleto['nombre_sucursal'] ?? '') . '</div>
-    </div>
-    <div class="sep"></div>
-    <table>
-        <tr><td width="26%" class="bold">Facturado a:</td><td width="74%" class="bold">' . strtoupper($boleto['nombres_boleto'] ?? 'CLIENTE') . '</td></tr>
-        <tr><td class="bold">RUC/CI:</td><td>' . ($boleto['identificacion_boleto'] ?? '') . '</td></tr>
-        <tr><td class="bold">Teléfono:</td><td>' . (!empty($boleto['celular_boleto']) ? $boleto['celular_boleto'] : '-') . '</td></tr>
-    </table>
-    <table>
-        <tr><td width="26%">Viaje ' . ($boleto['id_fkviaje_boleto'] ?? '') . '</td><td width="74%" class="bold">' . strtoupper($viajeMostrar) . '</td></tr>
-        <tr><td class="bold" style="font-size:' . round($metricas['font_boleto_base_pt'] * 1.2, 1) . 'pt">Bus ' . $busMostrar . '</td><td class="bold" style="font-size:' . round($metricas['font_boleto_base_pt'] * 1.2, 1) . 'pt">Sale Origen ' . $fechaSalida . ' ' . $horaSalida . '</td></tr>
-    </table>
-    <table>
-        <tr><td width="60%" class="bold" style="font-size:' . round($metricas['font_boleto_base_pt'] * 1.1, 1) . 'pt;text-decoration:underline">INFORMACIÓN DEL VIAJE</td><td width="20%" class="bold">Piso ' . $pisoMostrar . '</td><td width="20%" class="bold">Andén ' . $andMostrar . '</td></tr>
-    </table>
-    <div class="sep"></div>';
-
-    foreach ($detalles as $detalle) {
-        $nombrePasajero = strtoupper($detalle['nombre_cliente_boleto_detalle'] ?? ($boleto['nombres_boleto'] ?? 'PASAJERO'));
-        $fechaSalidaFormateada = formatearFechaEspanol($fechaSalida); 
-        
-        $destinoDetalle = '';
-        $candidatosDetalle = [
-            $detalle['subruta_detalle_nombre'] ?? '',
-            $detalle['destino_det_nombre'] ?? '',
-            $detalle['destino_det_lugar'] ?? '',
-            $detalle['destino_det_sr_nombre'] ?? '',
-            $detalle['destino_det_sr_lugar'] ?? '',
-            $detalle['id_destino_boleto'] ?? ''
-        ];
-        foreach ($candidatosDetalle as $cand) {
-            $dest = extraerDestinoLimpio($cand);
-            if (!empty($dest)) {
-                $destinoDetalle = $dest;
-                break;
-            }
-        }
-
-        $destinoMostrar = !empty($destinoDetalle) ? strtoupper($destinoDetalle) : (!empty($destinoGeneral) ? strtoupper($destinoGeneral) : '—');
-        $asientoVal = isset($detalle['asiento_boleto_detalle']) ? str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) : '01';
-        $totalDetalle = isset($detalle['total_boleto_detalle']) ? (float)$detalle['total_boleto_detalle'] : (float)($boleto['total_boleto'] ?? 0);
-        $tarifaDetalle = !empty($detalle['tarifa_boleto_detalle']) ? $detalle['tarifa_boleto_detalle'] : 'Normal';
-        
-        $html1 .= '<table style="margin-top:1px">
-            <tr><td class="bold" style="font-size:' . round($metricas['font_boleto_base_pt'] * 1.1, 1) . 'pt">' . $nombrePasajero . '</td><td class="bold" style="font-size:' . $metricas['font_boleto_total_pt'] . 'pt" align="right">Asiento ' . $asientoVal . '</td></tr>
-            <tr><td colspan="2" class="bold" style="font-size:' . $metricas['font_boleto_tit_pt'] . 'pt" align="right">DESTINO: ' . $destinoMostrar . '</td></tr>
-            <tr><td colspan="2" align="right" class="bold" style="font-size:' . $metricas['font_boleto_dest_pt'] . 'pt">Valor $' . number_format($totalDetalle, 2, ',', '.') . '</td></tr>
-            <tr><td colspan="2" style="font-size:' . round($metricas['font_boleto_base_pt'] * 0.9, 1) . 'pt">Tarifa: ' . $tarifaDetalle . '</td></tr>
-        </table>';
-    }
-
-    $totalBoleto = isset($boleto['total_boleto']) ? (float)$boleto['total_boleto'] : 0.0;
-    $html1 .= '<table style="margin-top:3px">
-        <tr><td width="35%" class="bold" style="font-size:' . $metricas['font_boleto_total_pt'] . 'pt">TOTAL</td><td width="65%" class="bold" style="font-size:' . $metricas['font_boleto_total_pt'] . 'pt" align="right">$' . number_format($totalBoleto, 2, ',', '.') . '</td></tr>
-    </table>
-    <div style="font-size:' . round($metricas['font_boleto_base_pt'] * 0.9, 1) . 'pt;line-height:1">
-        <div>Caducidad ' . $fechaSalida . ' ' . $horaSalida . '</div>
-        <div>F. Emisión ' . (!empty($boleto['fecha_creacion_boleto']) ? date('d/m/Y H:i:s', strtotime($boleto['fecha_creacion_boleto'])) : date('d/m/Y H:i:s')) . '</div>';
-        
-    if (!empty($numero_boleto)) {
-        $html1 .= '<div>Factura ' . $numero_boleto . '</div>';
-    }
-    if (!empty($boleto['clave_acceso_boletos'])) {
-        $html1 .= '<div>Aut. SRI ' . $boleto['clave_acceso_boletos'] . '</div>';
-    }
-
-    $html1 .= '</div>
-    <div class="sep-light"></div>
-    <div class="center" style="font-size:' . round($metricas['font_boleto_base_pt'] * 0.9, 1) . 'pt;line-height:1">
-        <div>' . strtoupper($vals_empresa["razon_social_empresa"] ?? '') . '</div>
-        <div>Dir. Matriz ' . ($vals_empresa["direccion_empresa"] ?? '') . '</div>
-        <div>Oficina ' . ($boleto['nombre_sucursal'] ?? '') . '</div>
-        <div class="left">Registra ' . ($boleto['nombre_usuario'] ?? '') . '</div>
-        <table class="left">
-            <tr><td width="50%">Impresión ' . date('d/m/Y') . '</td><td width="50%">' . date('H:i') . '</td></tr>
-        </table>
-    </div>
-  
-    <div class="center bold" style="font-size:' . $metricas['font_boleto_base_pt'] . 'pt">Vendido por: ' . ($boleto['nombre_usuario'] ?? '') . '</div>
-    <div class="sep-light" style="margin:3px 0"></div>
-    <div class="center" style="font-size:' . round($metricas['font_boleto_base_pt'] * 0.9, 1) . 'pt;line-height:1.2">' . $leyenda_viaje . '</div>
-</body></html>';
-
+    // ── GENERACIÓN NATIVA TCPDF (sin writeHTML) ───────────────────────────────
+    // writeHTML() tarda 7-8s. Los métodos nativos tardan ~300ms.
+    // ─────────────────────────────────────────────────────────────────────────
     $pdf->SetFont('helvetica', '', $metricas['font_boleto_base_pt']);
     $pdf->SetMargins($metricas['margen_mm'], 3, $metricas['margen_mm'], true);
     $pdf->SetAutoPageBreak(true, 2);
-    $pdf->AddPage('P', array($ancho_impresion, 200));
-    $pdf->writeHTML($html1, true, false, true, false, '');
+    $pdf->AddPage('P', [$ancho_impresion, 200]);
+
+    $w  = $ancho_impresion - ($metricas['margen_mm'] * 2); // ancho útil
+    $fB = $metricas['font_boleto_base_pt'];
+    $fT = $metricas['font_boleto_tit_pt'];
+    $fD = $metricas['font_boleto_dest_pt'];
+    $fO = $metricas['font_boleto_total_pt'];
+    $lh = round($fB * 0.42, 1); // line height en mm (~1pt = 0.353mm)
+
+    // ── LOGO ─────────────────────────────────────────────────────────────────
+    if (!empty($rutaLogo) && file_exists($rutaLogo)) {
+        $logoW = max(14, round(18 * $metricas['factor']));
+        $x = $metricas['margen_mm'] + ($w - $logoW) / 2;
+        $pdf->Image($rutaLogo, $x, $pdf->GetY(), $logoW, 0, '', '', '', true, 96);
+        $pdf->Ln(round($logoW * 0.55) + 1);
+    }
+
+    // ── EMPRESA ───────────────────────────────────────────────────────────────
+    $pdf->SetFont('helvetica', 'B', $fT);
+    $pdf->MultiCell($w, $lh * 1.3, strtoupper($vals_empresa['razon_social_empresa'] ?? 'EMPRESA'), 0, 'C', false, 1);
+    $pdf->SetFont('helvetica', '', $fB);
+    $pdf->MultiCell($w, $lh, 'RUC: ' . ($vals_empresa['ruc_empresa'] ?? ''), 0, 'C', false, 1);
+    $pdf->MultiCell($w, $lh, strtoupper($vals_empresa['direccion_empresa'] ?? ''), 0, 'C', false, 1);
+    $pdf->MultiCell($w, $lh, 'Oficina ' . ($boleto['nombre_sucursal'] ?? ''), 0, 'C', false, 1);
+    $pdf->Ln(0.5);
+
+    // ── SEPARADOR ─────────────────────────────────────────────────────────────
+    $pdf->SetLineWidth(0.4);
+    $pdf->Line($metricas['margen_mm'], $pdf->GetY(), $metricas['margen_mm'] + $w, $pdf->GetY());
+    $pdf->Ln(1);
+
+    // ── DATOS CLIENTE ─────────────────────────────────────────────────────────
+    $wL = $w * 0.28; $wR = $w * 0.72;
+    $pdf->SetFont('helvetica', 'B', $fB);
+    $pdf->Cell($wL, $lh, 'Facturado a:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', 'B', $fB);
+    $pdf->MultiCell($wR, $lh, strtoupper($boleto['nombres_boleto'] ?? 'CLIENTE'), 0, 'L', false, 1);
+    $pdf->SetFont('helvetica', 'B', $fB);
+    $pdf->Cell($wL, $lh, 'RUC/CI:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', $fB);
+    $pdf->Cell($wR, $lh, $boleto['identificacion_boleto'] ?? '', 0, 1, 'L');
+    $pdf->SetFont('helvetica', 'B', $fB);
+    $pdf->Cell($wL, $lh, 'Teléfono:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', $fB);
+    $pdf->Cell($wR, $lh, !empty($boleto['celular_boleto']) ? $boleto['celular_boleto'] : '-', 0, 1, 'L');
+
+    // ── VIAJE ─────────────────────────────────────────────────────────────────
+    $fechaSalidaRaw = !empty($boleto['fecha_cierre']) ? $boleto['fecha_cierre'] : ($boleto['fecha_salida'] ?? null);
+    $fechaSalida = (!empty($fechaSalidaRaw) && $fechaSalidaRaw !== '0000-00-00') ? date('d/m/Y', strtotime($fechaSalidaRaw)) : date('d/m/Y');
+    $horaSalida  = !empty($boleto['hora_origen_salida']) ? $boleto['hora_origen_salida'] : ($boleto['hora_salida'] ?? '00:00');
+    $viajeMostrar = !empty($boleto['nombre_rutas']) ? $boleto['nombre_rutas'] : '—';
+    $busMostrar   = !empty($boleto['disco_buses']) ? $boleto['disco_buses'] : '—';
+    $andMostrar   = !empty($boleto['anden_sub_rutas']) && $boleto['anden_sub_rutas'] != '0' ? $boleto['anden_sub_rutas'] : (!empty($boleto['andes_rutas']) && $boleto['andes_rutas'] != '0' ? $boleto['andes_rutas'] : '—');
+    $pisoMostrar  = !empty($boleto['piso_sub_rutas']) && $boleto['piso_sub_rutas'] != 0 ? $boleto['piso_sub_rutas'] : (!empty($boleto['piso_rutas']) && $boleto['piso_rutas'] != 0 ? $boleto['piso_rutas'] : '1');
+
+    $pdf->SetFont('helvetica', '', $fB);
+    $pdf->Cell($wL, $lh, 'Viaje ' . ($boleto['id_fkviaje_boleto'] ?? ''), 0, 0, 'L');
+    $pdf->SetFont('helvetica', 'B', $fB);
+    $pdf->MultiCell($wR, $lh, strtoupper($viajeMostrar), 0, 'L', false, 1);
+
+    $fBus = round($fB * 1.2, 1);
+    $pdf->SetFont('helvetica', 'B', $fBus);
+    $pdf->Cell($w * 0.4, $lh * 1.2, 'Bus ' . $busMostrar, 0, 0, 'L');
+    $pdf->MultiCell($w * 0.6, $lh * 1.2, 'Sale Origen ' . $fechaSalida . ' ' . $horaSalida, 0, 'L', false, 1);
+
+    // Info piso/andén
+    $pdf->SetFont('helvetica', 'B', round($fB * 1.1, 1));
+    $pdf->Cell($w * 0.6, $lh, 'INFORMACIÓN DEL VIAJE', 0, 0, 'L');
+    $pdf->Cell($w * 0.2, $lh, 'Piso ' . $pisoMostrar, 0, 0, 'L');
+    $pdf->Cell($w * 0.2, $lh, 'Andén ' . $andMostrar, 0, 1, 'L');
+    $pdf->Ln(0.5);
+
+    // ── SEPARADOR ─────────────────────────────────────────────────────────────
+    $pdf->Line($metricas['margen_mm'], $pdf->GetY(), $metricas['margen_mm'] + $w, $pdf->GetY());
+    $pdf->Ln(1);
+
+    // ── DESTINO GENERAL (fallback) ────────────────────────────────────────────
+    $destinoGeneral = '';
+    foreach ([
+        $boleto['nombre_sub_rutas'] ?? '', $boleto['nombre_destino'] ?? '',
+        $boleto['destino_sr_nombre'] ?? '', $boleto['destino_sr_lugar'] ?? '',
+        $boleto['destino_bol_nombre'] ?? '', $boleto['destino_bol_lugar'] ?? '',
+        $boleto['destino_ruta_nombre'] ?? '', $boleto['destino_ruta_lugar'] ?? '',
+        $boleto['nombre_rutas'] ?? ''
+    ] as $cand) {
+        $dest = extraerDestinoLimpio($cand);
+        if (!empty($dest)) { $destinoGeneral = $dest; break; }
+    }
+
+    // ── DETALLES DE PASAJEROS ─────────────────────────────────────────────────
+    foreach ($detalles as $detalle) {
+        $nombrePasajero = strtoupper($detalle['nombre_cliente_boleto_detalle'] ?? ($boleto['nombres_boleto'] ?? 'PASAJERO'));
+        $destinoDetalle = '';
+        foreach ([
+            $detalle['subruta_detalle_nombre'] ?? '', $detalle['destino_det_nombre'] ?? '',
+            $detalle['destino_det_lugar'] ?? '', $detalle['destino_det_sr_nombre'] ?? '',
+            $detalle['destino_det_sr_lugar'] ?? ''
+        ] as $cand) {
+            $dest = extraerDestinoLimpio($cand);
+            if (!empty($dest)) { $destinoDetalle = $dest; break; }
+        }
+        $destinoMostrar = !empty($destinoDetalle) ? strtoupper($destinoDetalle) : (!empty($destinoGeneral) ? strtoupper($destinoGeneral) : '—');
+        $asientoVal     = isset($detalle['asiento_boleto_detalle']) ? str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) : '01';
+        $totalDetalle   = isset($detalle['total_boleto_detalle']) ? (float)$detalle['total_boleto_detalle'] : (float)($boleto['total_boleto'] ?? 0);
+        $tarifaDetalle  = !empty($detalle['tarifa_boleto_detalle']) ? $detalle['tarifa_boleto_detalle'] : 'Normal';
+
+        $pdf->SetFont('helvetica', 'B', round($fB * 1.1, 1));
+        $pdf->Cell($w * 0.6, $lh * 1.2, $nombrePasajero, 0, 0, 'L');
+        $pdf->SetFont('helvetica', 'B', $fO);
+        $pdf->Cell($w * 0.4, $lh * 1.2, 'Asiento ' . $asientoVal, 0, 1, 'R');
+
+        $pdf->SetFont('helvetica', 'B', $fT);
+        $pdf->Cell($w, $lh * 1.1, 'DESTINO: ' . $destinoMostrar, 0, 1, 'R');
+
+        $pdf->SetFont('helvetica', 'B', $fD);
+        $pdf->Cell($w, $lh * 1.3, 'Valor $' . number_format($totalDetalle, 2, ',', '.'), 0, 1, 'R');
+
+        $pdf->SetFont('helvetica', '', round($fB * 0.9, 1));
+        $pdf->Cell($w, $lh, 'Tarifa: ' . $tarifaDetalle, 0, 1, 'L');
+        $pdf->Ln(0.5);
+    }
+
+    // ── TOTAL ─────────────────────────────────────────────────────────────────
+    $totalBoleto = isset($boleto['total_boleto']) ? (float)$boleto['total_boleto'] : 0.0;
+    $pdf->Ln(1);
+    $pdf->SetFont('helvetica', 'B', $fO);
+    $pdf->Cell($w * 0.5, $lh * 1.5, 'TOTAL', 0, 0, 'L');
+    $pdf->Cell($w * 0.5, $lh * 1.5, '$' . number_format($totalBoleto, 2, ',', '.'), 0, 1, 'R');
+
+    // ── PIE ───────────────────────────────────────────────────────────────────
+    $fPie = round($fB * 0.9, 1);
+    $pdf->SetFont('helvetica', '', $fPie);
+    $pdf->Cell($w, $lh, 'Caducidad ' . $fechaSalida . ' ' . $horaSalida, 0, 1, 'L');
+    $pdf->Cell($w, $lh, 'F. Emisión ' . (!empty($boleto['fecha_creacion_boleto']) ? date('d/m/Y H:i:s', strtotime($boleto['fecha_creacion_boleto'])) : date('d/m/Y H:i:s')), 0, 1, 'L');
+    if (!empty($numero_boleto)) {
+        $pdf->Cell($w, $lh, 'Factura ' . $numero_boleto, 0, 1, 'L');
+    }
+    if (!empty($boleto['clave_acceso_boletos'])) {
+        $pdf->SetFont('helvetica', '', round($fB * 0.75, 1));
+        $pdf->MultiCell($w, $lh * 0.9, 'Aut. SRI ' . $boleto['clave_acceso_boletos'], 0, 'L', false, 1);
+    }
+
+    // ── SEPARADOR LIGERO ──────────────────────────────────────────────────────
+    $pdf->SetLineWidth(0.2);
+    $pdf->Line($metricas['margen_mm'], $pdf->GetY() + 0.5, $metricas['margen_mm'] + $w, $pdf->GetY() + 0.5);
+    $pdf->Ln(1.5);
+
+    // ── FOOTER EMPRESA ────────────────────────────────────────────────────────
+    $pdf->SetFont('helvetica', '', $fPie);
+    $pdf->MultiCell($w, $lh, strtoupper($vals_empresa['razon_social_empresa'] ?? ''), 0, 'C', false, 1);
+    $pdf->MultiCell($w, $lh, 'Dir. Matriz ' . ($vals_empresa['direccion_empresa'] ?? ''), 0, 'C', false, 1);
+    $pdf->MultiCell($w, $lh, 'Oficina ' . ($boleto['nombre_sucursal'] ?? ''), 0, 'C', false, 1);
+    $pdf->Cell($w, $lh, 'Registra ' . ($boleto['nombre_usuario'] ?? ''), 0, 1, 'L');
+    $pdf->Cell($w * 0.5, $lh, 'Impresión ' . date('d/m/Y'), 0, 0, 'L');
+    $pdf->Cell($w * 0.5, $lh, date('H:i'), 0, 1, 'L');
+    $pdf->Ln(0.5);
+    $pdf->SetFont('helvetica', 'B', $fB);
+    $pdf->Cell($w, $lh * 1.1, 'Vendido por: ' . ($boleto['nombre_usuario'] ?? ''), 0, 1, 'C');
+
+    $pdf->SetLineWidth(0.2);
+    $pdf->Line($metricas['margen_mm'], $pdf->GetY() + 1, $metricas['margen_mm'] + $w, $pdf->GetY() + 1);
+    $pdf->Ln(2);
+
+    $pdf->SetFont('helvetica', '', $fPie);
+    $pdf->MultiCell($w, $lh * 1.1, $leyenda_viaje, 0, 'C', false, 1);
+    // ── FIN RENDERIZADO NATIVO ────────────────────────────────────────────────
 
     $filename = 'boleto_' . $id_boleto . '.pdf';
     if (ob_get_length()) {
@@ -450,7 +541,18 @@ try {
     }
     $t2 = microtime(true);
     header('X-PDF-Time-Total: ' . round(($t2 - $t0) * 1000) . 'ms');
-    $pdf->Output($filename, 'I');
+    header('X-PDF-Cache: MISS');
+
+    // Guardar el PDF en disco para que la siguiente solicitud sea instantánea
+    $pdfContent = $pdf->Output($filename, 'S'); // 'S' = retornar como string
+    if (!empty($pdfContent) && strlen($pdfContent) > 500) {
+        @file_put_contents($pdfCacheFile, $pdfContent);
+    }
+
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $filename . '"');
+    header('Content-Length: ' . strlen($pdfContent));
+    echo $pdfContent;
     exit();
 
 } catch (Throwable $e) {
