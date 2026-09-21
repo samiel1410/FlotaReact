@@ -379,10 +379,10 @@ try {
 
     // ── LOGO ─────────────────────────────────────────────────────────────────
     if (!empty($rutaLogo) && file_exists($rutaLogo)) {
-        $logoW = max(14, round(18 * $metricas['factor']));
+        $logoW = max(10, round(11 * $metricas['factor'])); // ~11mm ≈ 30pt como en el HTML original
         $x = $metricas['margen_mm'] + ($w - $logoW) / 2;
         $pdf->Image($rutaLogo, $x, $pdf->GetY(), $logoW, 0, '', '', '', true, 96);
-        $pdf->Ln(round($logoW * 0.55) + 1);
+        $pdf->Ln($logoW + 1); // Avanzar el alto del logo + 1mm de margen
     }
 
     // ── EMPRESA ───────────────────────────────────────────────────────────────
