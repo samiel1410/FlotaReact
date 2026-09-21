@@ -226,7 +226,7 @@ try {
         if ($cachedData && !empty($cachedData['empresa'])) {
             $vals_empresa = $cachedData['empresa'];
             $vals_config = $cachedData['config'] ?? [];
-            $rutaLogo = (!empty($cachedData['logo_path']) && file_exists($cachedData['logo_path'])) ? $cachedData['logo_path'] : null;
+            $rutaLogo = (!empty($cachedData['logo_path']) && esImagenValidaParaTcpdf($cachedData['logo_path'])) ? $cachedData['logo_path'] : null;
         }
     }
 
@@ -249,19 +249,24 @@ try {
         $vals_config = $recuperar_config ? mysqli_fetch_assoc($recuperar_config) : [];
 
         // Obtener y cachear el logo en disco si aún no existe
-        $cachedLogoFile = $logosDir . 'logo_tenant_' . $dbKey . '.png';
-        if (file_exists($cachedLogoFile) && filesize($cachedLogoFile) > 0) {
-            $rutaLogo = $cachedLogoFile;
+        $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
+        $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
+        if (esImagenValidaParaTcpdf($cachedLogoPng)) {
+            $rutaLogo = $cachedLogoPng;
+        } else if (esImagenValidaParaTcpdf($cachedLogoJpg)) {
+            $rutaLogo = $cachedLogoJpg;
         } else {
             $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
             $res_img = mysqli_query($conn, $query_img);
             if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
                 $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa']);
-                if ($rawLogo && file_exists($rawLogo)) {
+                if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
                     $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
                     $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
-                    @copy($rawLogo, $targetLogo);
-                    $rutaLogo = $targetLogo;
+                    if ($rawLogo !== $targetLogo) {
+                        @copy($rawLogo, $targetLogo);
+                    }
+                    $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
                 }
             }
         }
@@ -273,7 +278,7 @@ try {
         ]));
     }
 
-    if (empty($rutaLogo) || !file_exists($rutaLogo)) {
+    if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
         $rutaLogo = obtenerRutaLogoEmpresa($conn);
     }
 
