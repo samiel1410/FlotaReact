@@ -164,7 +164,7 @@ export const BoleteriaPage = () => {
 
       // 2. Generar XML (vía PHP negocioXmlBoleto.php)
       const phpUrl = CONFIG.PHP_URL;
-      const xmlUrl = `${phpUrl}/negocioXmlBoleto.php?id_boleto=${item.id_boleto}`;
+      const xmlUrl = buildPdfUrl(`${phpUrl}/negocioXmlBoleto.php?id_boleto=${item.id_boleto}`);
       console.log('[SRI Reenviar] Paso 2: Solicitando XML a:', xmlUrl);
       const xmlRes = await fetch(xmlUrl);
       const xmlData = await xmlRes.json();

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { api, clienteApi } from '../../config/axios';
 import Swal from 'sweetalert2';
 import { useAuth } from '../../hooks/useAuth';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 export const FacturacionBoletoSriPage = () => {
   const { user } = useAuth();
@@ -295,7 +296,7 @@ export const FacturacionBoletoSriPage = () => {
       addLog('Paso 3: Generando XML...');
       try {
         const baseUrl = window.location.origin;
-        const xmlRes = await fetch(`${baseUrl}/php/negocioXmlBoleto.php?id_boleto=${idBoleto}`);
+        const xmlRes = await fetch(buildPdfUrl(`${baseUrl}/php/negocioXmlBoleto.php?id_boleto=${idBoleto}`));
         const xmlData = await xmlRes.json();
 
         if (xmlData.success) {

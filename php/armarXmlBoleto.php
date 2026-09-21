@@ -10,6 +10,9 @@ class metodoXmlBoleto
         try {
             // 1. Obtener datos del boleto y empresa
             $datosBoleto = $this->seleccionarBoleto($id_boleto);
+            if (empty($datosBoleto) || empty($datosBoleto[0])) {
+                throw new Exception("Boleto #{$id_boleto} no encontrado en la base de datos.");
+            }
             $detallesBoleto = $this->seleccionarDetallesBoleto($id_boleto);
             $datosEmpresa = $this->obtenerEmpresaInfo();
 
@@ -202,6 +205,8 @@ class metodoXmlBoleto
 
             $respuesta['comprobante'] = $comprobante;
             $respuesta['clave_acceso_boletos'] = $claveAcceso;
+            $respuesta['ruc_empresa'] = $rucEmpresa;
+            $respuesta['ruc'] = $rucEmpresa;
             $respuesta['p12_password'] = $datosEmpresa[0]['password_p12']; // Devuelve la contraseña del P12
 
             return ($respuesta);

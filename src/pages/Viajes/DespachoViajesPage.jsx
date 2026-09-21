@@ -375,7 +375,7 @@ export const DespachoViajesPage = () => {
       try {
         await api.post('/boleto/actualizarClaveAcceso', { id_boleto });
 
-        const xmlRes = await fetch(`${baseUrl}/php/negocioXmlBoleto.php?id_boleto=${id_boleto}`);
+        const xmlRes = await fetch(buildPdfUrl(`${baseUrl}/php/negocioXmlBoleto.php?id_boleto=${id_boleto}`));
         const xmlData = await xmlRes.json();
 
         if (xmlData.success && xmlData.xml) {

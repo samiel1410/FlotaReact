@@ -3,14 +3,9 @@
  * Utilidades para generación de PDFs con TCPDF
  */
 
-/**
- * Obtiene la ruta del logo de la empresa.
- * Si la imagen está en la base de datos como BLOB, crea un archivo temporal
- * para que TCPDF pueda leerlo correctamente y evitar el error "Unable to get the size of the image".
- * 
- * @param mysqli $conn Conexión a la base de datos
- * @return string|null Ruta al archivo de imagen o null si no hay imagen
- */
+// Aumentar límite de memoria para generación de PDFs y procesamiento de imágenes
+@ini_set('memory_limit', '512M');
+
 /**
  * Obtiene la ruta del logo de la empresa para TCPDF.
  * Soporta:
@@ -35,6 +30,22 @@ function obtenerRutaLogoEmpresa($conn, $imageData = null)
         }
     }
 
+    if (empty($imageData)) {
+        return null;
+    }
+
+    return procesarLogoParaTcpdf($imageData);
+}
+
+/**
+ * Procesa cualquier formato de imagen (WebP, PNG, JPG, Base64, URL, archivo local)
+ * y devuelve la ruta absoluta a un archivo PNG válido en disco para TCPDF.
+ * 
+ * @param mixed $imageData
+ * @return string|null
+ */
+function procesarLogoParaTcpdf($imageData)
+{
     if (empty($imageData)) {
         return null;
     }
@@ -133,14 +144,30 @@ function obtenerRutaLogoEmpresa($conn, $imageData = null)
         return $tempPath;
     }
 
-    // Convertir a PNG usando GD para que TCPDF lo maneje sin problemas
-    $im = @imagecreatefromstring($rawBinary);
-    if ($im !== false) {
-        imagealphablending($im, false);
-        imagesavealpha($im, true);
-        imagepng($im, $tempPath);
-        imagedestroy($im);
+    // Comprobar si ya es un formato nativo soportado por TCPDF (PNG o JPEG)
+    // Magic bytes PNG: \x89PNG\r\n\x1a\n
+    // Magic bytes JPEG: \xFF\xD8\xFF
+    $isPng = (strlen($rawBinary) >= 8 && substr($rawBinary, 0, 8) === "\x89PNG\r\n\x1a\n");
+    $isJpg = (strlen($rawBinary) >= 3 && substr($rawBinary, 0, 3) === "\xFF\xD8\xFF");
+
+    if ($isPng || $isJpg) {
+        // Guardar directamente sin pasar por GD para no consumir memoria descomprimiendo el mapa de bits
+        @file_put_contents($tempPath, $rawBinary);
         return $tempPath;
+    }
+
+    // Si es WebP u otro formato, convertir a PNG usando GD con manejo seguro de memoria
+    try {
+        $im = @imagecreatefromstring($rawBinary);
+        if ($im !== false) {
+            imagealphablending($im, false);
+            imagesavealpha($im, true);
+            imagepng($im, $tempPath);
+            imagedestroy($im);
+            return $tempPath;
+        }
+    } catch (Throwable $t) {
+        // En caso de cualquier excepción en GD, guardar binario directo
     }
 
     // Fallback: guardar binario directo
