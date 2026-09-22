@@ -1,510 +1,464 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+ob_start();
 require_once 'library/tcpdf.php';
 require_once "db.php";
 require_once "pdf_utils.php";
-//include "barcode.php";
+
 date_default_timezone_set('America/Guayaquil');
+
 try {
+    $t0 = microtime(true);
     $fecha_actual = date('Y-m-d H:i:s');
+    $id_caja = (int)($_GET['id_caja'] ?? 0);
 
-    $id_caja = $_GET['id_caja']; //76
+    if ($id_caja <= 0) {
+        throw new Exception("ID de caja no proporcionado o inválido");
+    }
 
-    // create new PDF document
-    $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(500, 200), true, 'UTF-8', false);
-    $pdf->setFontSubsetting(false);
-    $pdf->setPrintHeader(false);
-    $pdf->setPrintFooter(false);
+    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
+    $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
+    $dbKey       = md5($dbNameStr . '_t' . $tenantIdStr);
 
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa,
-razon_social_empresa FROM empresa LIMIT 1";
-    $recuperar_empresa = mysqli_query($conn, $query_empresa) or die(mysqli_error($conn));
-    $vals_empresa = mysqli_fetch_array($recuperar_empresa);
+    // ─── CONSULTA DATOS BÁSICOS CAJA ─────────────────────────────────────────
+    $query_caja = "SELECT s.nombre_sucursal, c.estado_solicitud, c.id_caja, c.fecha_caja,
+        c.apertura_total_caja, c.cierre_total_caja, c.id_fksucursal_caja, c.estado_caja, c.cuadre_caja,
+        CONCAT(u.nombre_usuario, ' ', u.apellido_usuario) as usuario,
+        c.fecha_hora_cierre, c.id_fkusuario_caja 
+    FROM caja c
+    JOIN usuario u ON c.id_fkusuario_caja = u.id_usuario
+    JOIN sucursal2 s ON c.id_fksucursal_caja = s.suc_codigo_sucursal
+    WHERE c.id_caja = $id_caja LIMIT 1";
 
-    $id_empresa = $vals_empresa["id_empresa"];
-    $imagen_empresa = $vals_empresa["imagen_empresa"];
-    $telefono_empresa = $vals_empresa["telefono_empresa"];
-    $correo_empresa = $vals_empresa["correo_empresa"];
-    $ruc_empresa = $vals_empresa["ruc_empresa"];
-    $direccion_empresa = $vals_empresa["direccion_empresa"];
-    $razon_social_empresa = $vals_empresa["razon_social_empresa"];
+    $recuperar_caja = mysqli_query($conn, $query_caja) or die(mysqli_error($conn));
+    $vals_caja = mysqli_fetch_assoc($recuperar_caja);
 
-    //CAJA
-
-    $query_caja = "SELECT nombre_sucursal,
-estado_solicitud,id_caja,fecha_caja,apertura_total_caja,cierre_total_caja,id_fksucursal_caja,estado_caja,cuadre_caja,CONCAT(nombre_usuario,'
-',apellido_usuario) as usuario,fecha_hora_cierre,id_fkusuario_caja FROM caja,usuario,sucursal2 WHERE 1=1 AND
-id_fkusuario_caja=id_usuario AND id_fksucursal_caja = suc_codigo_sucursal AND id_caja= $id_caja";
-    $recuperar_empresa = mysqli_query($conn, $query_caja) or die(mysqli_error($conn));
-    $vals_caja = mysqli_fetch_array($recuperar_empresa);
+    if (!$vals_caja) {
+        throw new Exception("No se encontró la caja con ID: $id_caja");
+    }
 
     $fecha_apertura = $vals_caja['fecha_caja'];
-    $total_apertura = $vals_caja['apertura_total_caja'];
-    $fecha_hora_cierre = $vals_caja['fecha_hora_cierre'];
-    $cierre_total_caja = $vals_caja['cierre_total_caja'];
+    $total_apertura = (float)$vals_caja['apertura_total_caja'];
+    $fecha_hora_cierre = !empty($vals_caja['fecha_hora_cierre']) && $vals_caja['fecha_hora_cierre'] !== '0000-00-00 00:00:00' ? $vals_caja['fecha_hora_cierre'] : 'EN PROCESO';
+    $cierre_total_caja = (float)$vals_caja['cierre_total_caja'];
+    $usuario = $vals_caja['usuario'] ?? 'OFICINISTA';
 
-    $usuario = $vals_caja['usuario'];
-    //GUIAS
+    // ─── CACHÉ NIVEL 2: PDF ESTÁTICO ─────────────────────────────────────────
+    $cajaHash = md5($vals_caja['cierre_total_caja'] . '_' . $vals_caja['fecha_hora_cierre'] . '_' . $vals_caja['estado_caja']);
+    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDir)) {
+        @mkdir($pdfCacheDir, 0777, true);
+    }
+    $pdfCacheFile = $pdfCacheDir . 'caja_guia_' . $id_caja . '_' . $cajaHash . '_t' . md5($tenantIdStr) . '.pdf';
+    $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
 
+    if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 500) {
+        $fileName = 'caja_impresion_' . $id_caja . '.pdf';
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $fileName . '"');
+        header('Content-Length: ' . filesize($pdfCacheFile));
+        header('X-PDF-Cache: HIT');
+        header('X-PDF-Time-Total: ' . round((microtime(true) - $t0) * 1000) . 'ms');
+        header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+        readfile($pdfCacheFile);
+        exit();
+    }
+
+    // ─── CACHÉ NIVEL 1: EMPRESA Y LOGO ────────────────────────────────────────
+    $cacheDir = __DIR__ . '/tmp/cache/';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0777, true);
+    }
+    $logosDir = __DIR__ . '/tmp/logos/';
+    if (!is_dir($logosDir)) {
+        @mkdir($logosDir, 0777, true);
+    }
+
+    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
+    $vals_empresa = null;
+    $vals_config = null;
+    $rutaLogo = null;
+
+    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
+        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
+        if ($cachedData && !empty($cachedData['empresa'])) {
+            $vals_empresa = $cachedData['empresa'];
+            $vals_config  = $cachedData['config'] ?? [];
+            $rutaLogo = (!empty($cachedData['logo_path']) && esImagenValidaParaTcpdf($cachedData['logo_path'])) ? $cachedData['logo_path'] : null;
+        }
+    }
+
+    if (!$vals_empresa) {
+        $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+        $rec_emp = mysqli_query($conn, $query_empresa);
+        $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
+        if (!$vals_empresa) {
+            $vals_empresa = [
+                'razon_social_empresa' => 'SISTEMA FLOTA',
+                'ruc_empresa' => ''
+            ];
+        }
+
+        $query_config = "SELECT formato_impresion FROM configuracion LIMIT 1";
+        $rec_cfg = mysqli_query($conn, $query_config);
+        $vals_config = $rec_cfg ? mysqli_fetch_assoc($rec_cfg) : [];
+
+        $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
+        $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
+        if (esImagenValidaParaTcpdf($cachedLogoPng)) {
+            $rutaLogo = $cachedLogoPng;
+        } else if (esImagenValidaParaTcpdf($cachedLogoJpg)) {
+            $rutaLogo = $cachedLogoJpg;
+        } else {
+            $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
+            $res_img = mysqli_query($conn, $query_img);
+            if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
+                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
+                if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
+                    $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
+                    $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
+                    if ($rawLogo !== $targetLogo) {
+                        @copy($rawLogo, $targetLogo);
+                    }
+                    $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
+                }
+            }
+        }
+
+        @file_put_contents($empresaCacheFile, json_encode([
+            'empresa' => $vals_empresa,
+            'config' => $vals_config,
+            'logo_path' => $rutaLogo
+        ]));
+    }
+
+    if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
+        $rutaLogo = obtenerRutaLogoEmpresa($conn);
+    }
+
+    $razon_social_empresa = $vals_empresa["razon_social_empresa"] ?? 'SISTEMA FLOTA';
+    $ruc_empresa          = $vals_empresa["ruc_empresa"] ?? '';
+
+    // ─── CONSULTA DE GUÍAS DE LA CAJA ─────────────────────────────────────────
     $query2 = "SELECT
-a.id_guia,
-a.punto_emision_guia,
-a.numero_guia,
-a.total_guia,
-f.punto_emision_sucursal,
-SUM(v.cantidad_detalle_guia) as cantidad,
-COALESCE(h.monto_comprobante_cobro, 0) as cobrado,
-COALESCE(a.total_guia, 0) - COALESCE(h.monto_comprobante_cobro, 0) as por_cobrar
-FROM guia as a
-INNER JOIN sucursal2 as f ON a.sucursal_guia = f.suc_codigo_sucursal
-LEFT JOIN detalle_guia as v ON a.id_guia = v.id_fkguia_detalle_envio
-LEFT JOIN (
-SELECT fa.id_fkguia_factura, SUM(cc.monto_comprobante_cobro) as monto_comprobante_cobro
-FROM comprobante_cobro cc
-JOIN factura fa ON cc.id_fkfactura_comprobante_cobro = fa.id_factura
-JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
-WHERE cc.estado_comprobante_cobro = 'COBRADA'
-AND fp.tipo_forma_pago = 2
-AND cc.id_fkcaja_comprobante_cobro = $id_caja
-GROUP BY fa.id_fkguia_factura
-) as h ON h.id_fkguia_factura = a.id_guia
-WHERE id_fkcaja_guia = $id_caja AND estado_guia = 1
-GROUP BY a.id_guia, a.punto_emision_guia, a.numero_guia, a.total_guia, f.punto_emision_sucursal, h.monto_comprobante_cobro
-ORDER BY a.id_guia DESC
-";
+        a.id_guia,
+        a.punto_emision_guia,
+        a.numero_guia,
+        a.total_guia,
+        f.punto_emision_sucursal,
+        SUM(v.cantidad_detalle_guia) as cantidad,
+        COALESCE(h.monto_comprobante_cobro, 0) as cobrado,
+        COALESCE(a.total_guia, 0) - COALESCE(h.monto_comprobante_cobro, 0) as por_cobrar
+    FROM guia as a
+    INNER JOIN sucursal2 as f ON a.sucursal_guia = f.suc_codigo_sucursal
+    LEFT JOIN detalle_guia as v ON a.id_guia = v.id_fkguia_detalle_envio
+    LEFT JOIN (
+        SELECT fa.id_fkguia_factura, SUM(cc.monto_comprobante_cobro) as monto_comprobante_cobro
+        FROM comprobante_cobro cc
+        JOIN factura fa ON cc.id_fkfactura_comprobante_cobro = fa.id_factura
+        JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
+        WHERE cc.estado_comprobante_cobro = 'COBRADA'
+        AND fp.tipo_forma_pago = 2
+        AND cc.id_fkcaja_comprobante_cobro = $id_caja
+        GROUP BY fa.id_fkguia_factura
+    ) as h ON h.id_fkguia_factura = a.id_guia
+    WHERE id_fkcaja_guia = $id_caja AND estado_guia = 1
+    GROUP BY a.id_guia, a.punto_emision_guia, a.numero_guia, a.total_guia, f.punto_emision_sucursal, h.monto_comprobante_cobro
+    ORDER BY a.id_guia DESC";
 
     $recuperar2 = mysqli_query($conn, $query2) or die(mysqli_error($conn));
-    $datos = "";
-    $datos_comprobantes = "";
-    $total_final = 0;
 
+    $guias = [];
+    $total_final = 0.0;
     $total_cantidad = 0;
+    $total_por_cobrar = 0.0;
 
-
-    $total_por_cobrar = 0;
-    while ($vals2 = mysqli_fetch_array($recuperar2)) {
-
+    while ($vals2 = mysqli_fetch_assoc($recuperar2)) {
         $resultado = sprintf("%09s", $vals2['numero_guia']);
-        $id_guia = $vals2['id_guia'];
         $numero_guia = $vals2['punto_emision_sucursal'] . "-" . $vals2['punto_emision_guia'] . "-" . $resultado;
+        $cobrado = (float)$vals2['cobrado'];
+        $cant = (int)$vals2['cantidad'];
 
-        //COMPROBANTES
+        $total_por_cobrar += (float)$vals2['por_cobrar'];
+        $total_final += $cobrado;
+        $total_cantidad += $cant;
 
-        $total_por_cobrar = $total_por_cobrar + $vals2['por_cobrar'];
-
-        $total_final = $total_final + $vals2['cobrado'];
-        $total_cantidad = $total_cantidad + $vals2['cantidad'];
-        $tabla = '
-<tr>
-    <td style=" border-bottom-style: dotted;"> ' . $numero_guia . '</td>
-    <td style="border-bottom-style: dotted;"> $' . number_format((float) $vals2['cobrado'], 2) . '</td>
-
-    <td style="border-bottom-style: dotted;"> ' . $vals2['cantidad'] . '</td>
-
-</tr>
-';
-
-        $datos .= $tabla;
-
-        //DATOS DE OTRAS GUIAS
-
+        $guias[] = [
+            'guia' => $numero_guia,
+            'cobrado' => $cobrado,
+            'cantidad' => $cant
+        ];
     }
-    ;
 
-    $total_otras_guias = 0;
-
-    $query_comprobantes = "SELECT sum(monto_comprobante_cobro) as
-monto_comprobante_cobro,id_guia,punto_emision_sucursal,punto_emision_guia,numero_guia FROM
-comprobante_cobro,factura,guia,sucursal2 WHERE comprobante_cobro.id_fkcaja_comprobante_cobro = $id_caja AND
-comprobante_cobro.id_fkfactura_comprobante_cobro = factura.id_factura AND factura.id_fkguia_factura = guia.id_guia AND
-factura.id_fkcaja_factura !=$id_caja AND guia.id_fkcaja_guia !=$id_caja AND guia.sucursal_guia =
-sucursal2.suc_codigo_sucursal AND estado_guia=1 GROUP by id_guia, punto_emision_sucursal, punto_emision_guia, numero_guia";
+    // ─── OTRAS GUÍAS (Comprobantes en esta caja para guías de otras cajas) ────
+    $query_comprobantes = "SELECT SUM(monto_comprobante_cobro) as monto_comprobante_cobro,
+        id_guia, punto_emision_sucursal, punto_emision_guia, numero_guia 
+    FROM comprobante_cobro, factura, guia, sucursal2 
+    WHERE comprobante_cobro.id_fkcaja_comprobante_cobro = $id_caja 
+      AND comprobante_cobro.id_fkfactura_comprobante_cobro = factura.id_factura 
+      AND factura.id_fkguia_factura = guia.id_guia 
+      AND factura.id_fkcaja_factura != $id_caja 
+      AND guia.id_fkcaja_guia != $id_caja 
+      AND guia.sucursal_guia = sucursal2.suc_codigo_sucursal 
+      AND estado_guia = 1 
+    GROUP BY id_guia, punto_emision_sucursal, punto_emision_guia, numero_guia";
 
     $recuperar_comprobantes = mysqli_query($conn, $query_comprobantes) or die(mysqli_error($conn));
+    $otrasGuias = [];
+    $total_otras_guias = 0.0;
 
-    if (mysqli_num_rows($recuperar_comprobantes) > 0) {
+    while ($vals_comprobantes = mysqli_fetch_assoc($recuperar_comprobantes)) {
+        $resultado_compro = sprintf("%09s", $vals_comprobantes['numero_guia']);
+        $num_compro = $vals_comprobantes['punto_emision_sucursal'] . "-" . $vals_comprobantes['punto_emision_guia'] . "-" . $resultado_compro;
+        $monto_c = (float)$vals_comprobantes['monto_comprobante_cobro'];
+        $total_otras_guias += $monto_c;
 
-        while ($vals_comprobantes = mysqli_fetch_array($recuperar_comprobantes)) {
-
-
-
-            if ($vals_comprobantes['numero_guia']) {
-                $resultado_compro = sprintf("%09s", $vals_comprobantes['numero_guia']);
-                $numero_guia_comprobantes = $vals_comprobantes['punto_emision_sucursal'] . "-" .
-                    $vals_comprobantes['punto_emision_guia'] . "-" . $resultado_compro;
-            } else {
-                $resultado_compro = "";
-                $numero_guia_comprobante = "";
-            }
-
-
-
-
-            $total_otras_guias = $total_otras_guias + $vals_comprobantes['monto_comprobante_cobro'];
-            $tabla_comprobantes = '
-<tr>
-    <td style=" border-bottom-style: dotted;"> ' . $numero_guia_comprobantes . '</td>
-
-    <td style=" border-bottom-style: dotted;"> $' . number_format(
-                (float) $vals_comprobantes['monto_comprobante_cobro'],
-                2
-            ) . '</td>
-
-
-</tr>
-';
-
-            $datos_comprobantes .= $tabla_comprobantes;
-
-        }
-
-    } else {
-
-        $tabla_comprobantes = '
-
-';
-
-        $datos_comprobantes .= $tabla_comprobantes;
-
-
-
+        $otrasGuias[] = [
+            'guia' => $num_compro,
+            'monto' => $monto_c
+        ];
     }
 
-
-    //EGRESOS/INGRESOS
-
-    $query_egresos_ingresos = "SELECT caja_detalle.tipo_caja_detalle, sum(caja_detalle.monto_caja_detalle) as total FROM
-caja_detalle WHERE id_fkcaja =$id_caja GROUP BY tipo_caja_detalle";
-
-    $datos_egresos = "";
+    // ─── EGRESOS / INGRESOS ──────────────────────────────────────────────────
+    $query_egresos_ingresos = "SELECT tipo_caja_detalle, SUM(monto_caja_detalle) as total 
+    FROM caja_detalle 
+    WHERE id_fkcaja = $id_caja 
+    GROUP BY tipo_caja_detalle";
 
     $recuperar_egresos = mysqli_query($conn, $query_egresos_ingresos) or die(mysqli_error($conn));
+    $egresos_ingresos = [];
+    $total_egresos = 0.0;
+    $total_ingresos = 0.0;
 
-    $total_egresos = 0;
-    $total_ingresos = 0;
-
-
-
-    while ($vals_egresos = mysqli_fetch_array($recuperar_egresos)) {
-
-
-
-        if (count($vals_egresos) > 0) {
-            if ($vals_egresos['tipo_caja_detalle'] == "Egreso") {
-                $total_egresos = $total_egresos + $vals_egresos['total'];
-            } else if ($vals_egresos['tipo_caja_detalle'] == "Ingreso") {
-                $total_ingresos = $total_ingresos + $vals_egresos['total'];
-            }
-
-            $tabla_egresos = '
-<tr>
-    <td style=" border-bottom-style: dotted;"> ' . $vals_egresos['tipo_caja_detalle'] . '</td>
-
-    <td style=" border-bottom-style: dotted;"> $' . number_format((float) $vals_egresos['total'], 2) . '</td>
-
-
-</tr>
-';
-
-            $datos_egresos .= $tabla_egresos;
-
-        } else {
-
-            $tabla_egresos = '
-<tr>
-    <td style=" border-bottom-style: dotted;"> EGRESO</td>
-
-    <td style=" border-bottom-style: dotted;"> $0.00</td>
-
-
-</tr>
-
-<tr>
-    <td style=" border-bottom-style: dotted;"> INGRESO</td>
-
-    <td style=" border-bottom-style: dotted;"> $0.00</td>
-
-
-</tr>
-';
-
-            $datos_egresos .= $tabla_egresos;
-
-
+    while ($vals_egresos = mysqli_fetch_assoc($recuperar_egresos)) {
+        $monto_ei = (float)$vals_egresos['total'];
+        if ($vals_egresos['tipo_caja_detalle'] === "Egreso") {
+            $total_egresos += $monto_ei;
+        } else if ($vals_egresos['tipo_caja_detalle'] === "Ingreso") {
+            $total_ingresos += $monto_ei;
         }
-
+        $egresos_ingresos[] = [
+            'tipo' => $vals_egresos['tipo_caja_detalle'],
+            'total' => $monto_ei
+        ];
     }
 
     $total_cobrado = $total_final + $total_otras_guias;
-
-
     $total_final_final = $total_cobrado + $total_ingresos - $total_egresos;
 
-
-
+    // ─── SALDO CAJA ─────────────────────────────────────────────────────────
     $sqlSaldoCaja = "CALL saldoCaja($id_caja)";
-
     $recuperar_saldo = mysqli_query($conn, $sqlSaldoCaja) or die(mysqli_error($conn));
+    $estado_cuadre = 'DESCONOCIDO';
+    $saldo = 0.0;
 
-    while ($vals_caja = mysqli_fetch_array($recuperar_saldo)) {
-        $estado_cuadre = $vals_caja['estado_cuadre'];
-        $saldo = $vals_caja['total_diferencia'];
+    while ($vals_saldo = mysqli_fetch_assoc($recuperar_saldo)) {
+        $estado_cuadre = $vals_saldo['estado_cuadre'] ?? '';
+        $saldo = (float)($vals_saldo['total_diferencia'] ?? 0);
     }
     mysqli_free_result($recuperar_saldo);
     while (mysqli_more_results($conn) && mysqli_next_result($conn)) {
         $extra = mysqli_store_result($conn);
         if ($extra) mysqli_free_result($extra);
     }
+    $conn->close();
 
-    $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 120);
-    $metricas = obtenerMetricasImpresion($ancho_impresion, 120);
+    // ─── CONFIGURACIÓN DE PÁGINA TCPDF NATIVA ────────────────────────────────
+    $anchoPapel = obtenerAnchoFormatoImpresion(null, 80, $vals_config['formato_impresion'] ?? null);
+    $margen = ($anchoPapel <= 60) ? 2.5 : 4.0;
+    $anchoUtil = $anchoPapel - ($margen * 2);
 
-    $html = '
-<!DOCTYPE html>
-<html lang="en">
+    $totalItems = count($guias) + count($otrasGuias) + count($egresos_ingresos);
+    $altoEstimado = max(240, 180 + ($totalItems * 4.5));
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<style>
-    .center {
-        text-align: center;
+    $pdf = new TCPDF('P', 'mm', array($anchoPapel, $altoEstimado), true, 'UTF-8', false);
+    $pdf->setFontSubsetting(false);
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->SetMargins($margen, 4, $margen);
+    $pdf->SetAutoPageBreak(true, 4);
+    $pdf->AddPage();
+
+    // ─── 1. CABECERA Y LOGO ──────────────────────────────────────────────────
+    if ($rutaLogo && file_exists($rutaLogo)) {
+        $logoW = 30;
+        $xLogo = $margen + ($anchoUtil - $logoW) / 2;
+        $pdf->Image($rutaLogo, $xLogo, $pdf->GetY(), $logoW, 0, '', '', '', true, 150);
+        $pdf->Ln(13);
     }
 
-    .borde_punto {
-        width: 200px;
-        /* Ajusta el ancho según tus necesidades */
-        height: 200px;
-        /* Ajusta la altura según tus necesidades */
-        border: 1px dotted #000;
-        /* Cambia el grosor y el color según tus necesidades */
-        padding: 20px;
-        /* Añade relleno para que el contenido no se pegue al borde */
+    $pdf->SetFont('helvetica', 'B', 10.5);
+    $pdf->Cell($anchoUtil, 4.5, strtoupper($razon_social_empresa), 0, 1, 'C');
+
+    if (!empty($ruc_empresa)) {
+        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
     }
 
-    .factura {
-        font-size: ' . $metricas['font_pequeno_px'] . 'px;
-        font-weight: bold;
-        color: gray
+    $pdf->SetFont('helvetica', 'B', 9.5);
+    $pdf->Cell($anchoUtil, 4.5, 'CIERRE DE CAJA', 0, 1, 'C');
+
+    // ─── 2. CUADRO DE APERTURA Y CIERRE ──────────────────────────────────────
+    $pdf->Ln(1);
+    $yBox = $pdf->GetY();
+    $pdf->SetFont('helvetica', '', 7.5);
+
+    $hLine = 3.6;
+    $pdf->SetXY($margen + 1, $yBox + 1);
+    $pdf->Cell($anchoUtil - 2, $hLine, 'Oficinista: ' . $usuario, 0, 1, 'L');
+    $pdf->SetX($margen + 1);
+    $pdf->Cell($anchoUtil - 2, $hLine, 'Fecha y Hora: ' . $fecha_apertura, 0, 1, 'L');
+    $pdf->SetX($margen + 1);
+    $pdf->Cell($anchoUtil - 2, $hLine, 'Fecha y Hora Cierre: ' . $fecha_hora_cierre, 0, 1, 'L');
+    $pdf->SetX($margen + 1);
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell($anchoUtil - 2, $hLine, 'APERTURA: $' . number_format($total_apertura, 2), 0, 1, 'L');
+    $pdf->SetX($margen + 1);
+    $pdf->Cell($anchoUtil - 2, $hLine, 'CIERRE: $' . number_format($cierre_total_caja, 2), 0, 1, 'L');
+    $pdf->SetX($margen + 1);
+    $pdf->Cell($anchoUtil - 2, $hLine, 'SALDO ==> $' . number_format($saldo, 2) . ' ' . $estado_cuadre, 0, 1, 'L');
+
+    $altoBox = ($pdf->GetY() - $yBox) + 1;
+    $pdf->SetLineStyle(['dash' => 2]);
+    $pdf->Rect($margen, $yBox, $anchoUtil, $altoBox, 'D');
+    $pdf->SetLineStyle(['dash' => 0]);
+    $pdf->Ln(2);
+
+    // ─── 3. SECCIÓN GUÍAS (CAJA) ─────────────────────────────────────────────
+    $pdf->SetFont('helvetica', 'B', 8.5);
+    $pdf->Cell($anchoUtil, 4.2, 'CAJA (GUÍAS)', 0, 1, 'C');
+
+    $wGuia = round($anchoUtil * 0.50, 1);
+    $wCob  = round($anchoUtil * 0.28, 1);
+    $wCant = $anchoUtil - ($wGuia + $wCob);
+
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell($wGuia, 4, 'GUIA', 'B', 0, 'L');
+    $pdf->Cell($wCob, 4, 'COBRADO', 'B', 0, 'R');
+    $pdf->Cell($wCant, 4, 'CANT.', 'B', 1, 'C');
+
+    $pdf->SetFont('courier', '', 7);
+    foreach ($guias as $g) {
+        $pdf->Cell($wGuia, 3.6, $g['guia'], 0, 0, 'L');
+        $pdf->Cell($wCob, 3.6, '$' . number_format($g['cobrado'], 2), 0, 0, 'R');
+        $pdf->Cell($wCant, 3.6, (string)$g['cantidad'], 0, 1, 'C');
     }
 
-    .titulo_inicio {
-        font-size: ' . $metricas['font_titulo_px'] . 'px;
-        font-weight: bold;
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell($wGuia, 4, 'TOTAL:', 'T', 0, 'L');
+    $pdf->Cell($wCob, 4, '$' . number_format($total_final, 2), 'T', 0, 'R');
+    $pdf->Cell($wCant, 4, '', 'T', 1, 'C');
+    $pdf->Ln(1.5);
+
+    // ─── 4. OTRAS GUÍAS ──────────────────────────────────────────────────────
+    if (count($otrasGuias) > 0) {
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->Cell($anchoUtil, 4, 'OTRAS GUÍAS', 0, 1, 'C');
+
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell($wGuia, 4, 'GUIA', 'B', 0, 'L');
+        $pdf->Cell($wCob + $wCant, 4, 'COBRADO', 'B', 1, 'R');
+
+        $pdf->SetFont('courier', '', 7);
+        foreach ($otrasGuias as $og) {
+            $pdf->Cell($wGuia, 3.6, $og['guia'], 0, 0, 'L');
+            $pdf->Cell($wCob + $wCant, 3.6, '$' . number_format($og['monto'], 2), 0, 1, 'R');
+        }
+
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell($wGuia, 4, 'TOTAL OTRAS:', 'T', 0, 'L');
+        $pdf->Cell($wCob + $wCant, 4, '$' . number_format($total_otras_guias, 2), 'T', 1, 'R');
+        $pdf->Ln(1.5);
     }
 
-    .linea {
-        border-top: 1px dotted #000;
-        /* 1px de ancho y puntos negros */
+    // ─── 5. EGRESOS / INGRESOS ───────────────────────────────────────────────
+    if (count($egresos_ingresos) > 0) {
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->Cell($anchoUtil, 4, 'EGRESOS / INGRESOS', 0, 1, 'C');
+
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell($anchoUtil * 0.6, 4, 'TIPO', 'B', 0, 'L');
+        $pdf->Cell($anchoUtil * 0.4, 4, 'TOTAL', 'B', 1, 'R');
+
+        $pdf->SetFont('helvetica', '', 7.5);
+        foreach ($egresos_ingresos as $ei) {
+            $pdf->Cell($anchoUtil * 0.6, 3.6, $ei['tipo'], 0, 0, 'L');
+            $pdf->Cell($anchoUtil * 0.4, 3.6, '$' . number_format($ei['total'], 2), 0, 1, 'R');
+        }
+        $pdf->Ln(1.5);
     }
 
-    body {
-        font-size: ' . $metricas['font_base_px'] . 'px;
-        margin: 0;
-        padding: 0;
+    // ─── 6. RESUMEN FINAL ────────────────────────────────────────────────────
+    $pdf->SetLineWidth(0.3);
+    $pdf->Line($margen, $pdf->GetY(), $margen + $anchoUtil, $pdf->GetY());
+    $pdf->Ln(1);
+
+    $wK = round($anchoUtil * 0.65, 1);
+    $wV = $anchoUtil - $wK;
+    $hTot = 3.6;
+
+    $totalesSummary = [
+        ['TOTAL COBRADO:', '$' . number_format($total_cobrado, 2)],
+        ['TOTAL POR COBRAR:', '$' . number_format($total_por_cobrar, 2)],
+        ['TOTAL EGRESOS:', '$' . number_format($total_egresos, 2)],
+        ['TOTAL CANTIDAD:', (string)$total_cantidad],
+        ['TOTAL CAJA:', '$' . number_format($total_final_final, 2)],
+        ['TOTAL GENERAL:', '$' . number_format($total_final_final + $total_por_cobrar, 2)],
+    ];
+
+    foreach ($totalesSummary as $idx => $ts) {
+        $pdf->SetFont('helvetica', ($idx >= 4) ? 'B' : '', 7.5);
+        $pdf->Cell($wK, $hTot, $ts[0], 0, 0, 'L');
+        $pdf->Cell($wV, $hTot, $ts[1], 0, 1, 'R');
     }
-</style>
 
-<body>
-
-    <p class="center">
-        ' . (($rutaLogo = obtenerRutaLogoEmpresa($conn, $imagen_empresa)) ? '<img width="' . $metricas['logo_width_px'] . 'px" class="center"
-            src="' . $rutaLogo . '" /><br>' : '') . '
-        <span class="titulo_inicio">' . $razon_social_empresa . '</span> <br>
-        <span class="titulo_inicio">RUC:' . $ruc_empresa . '</span> <br>
-        <span class="titulo_inicio">CAJA</span> <br>
-    </p>
-
-
-    <span class=""><b>Oficinista:</b>' . $usuario . '</span><br><span class=""><b>Fecha y Hora :</b>' . $fecha_apertura
-        . '</span>
-    <br><span class=""><b>Fecha y Hora Cierre :</b>' . $fecha_hora_cierre . '</span>
-    <br><span class=""><b>APERTURA:</b>$' . number_format((float) $total_apertura, 2) . '</span>
-    <br><span class=""><b>CIERRE:</b>$' . number_format((float) $cierre_total_caja, 2) . '</span>
-
-    <br><span class=""><b>SALDO ==></b>$' . number_format((float) $saldo, 2) . ' ' . $estado_cuadre . ' </span>
-
-    <p class="center">
-        <span class=""><b>CAJA</b></span>
-    </p>
-
-    <table>
-        <tr style="content-align: center;">
-            <th style=" border-bottom-style: dotted;">
-                <strong>GUIA</strong>
-            </th>
-            <th style="border-bottom-style: dotted;">
-                <strong>COBRADO</strong>
-            </th>
-            <th style="border-bottom-style: dotted;">
-                <strong>CANTIDAD</strong>
-            </th>
-
-        </tr>
-        ' . $datos . '
-
-        <tr style="content-align: center;">
-            <th style="border-bottom-style: dotted;">
-                <strong></strong>
-            </th>
-            <th style="border-bottom-style: dotted;">
-
-                <strong>TOTAL:$' . number_format((float) $total_final, 2) . '</strong>
-            </th>
-
-        </tr>
-    </table>
-
-    <div class="linea center">
-        <br>
-        <span class=""><b>OTRAS GUIAS</b></span>
-        <br>
-
-
-
-
-        <table>
-            <tr style="content-align: center;">
-                <th style=" border-bottom-style: dotted;">
-                    <strong>GUIA</strong>
-                </th>
-                <th style="border-bottom-style: dotted;">
-                    <strong>COBRADO</strong>
-                </th>
-
-            </tr>
-            ' . $datos_comprobantes . '
-
-            <tr style="content-align: center;">
-                <th style="border-bottom-style: dotted;">
-                    <strong></strong>
-                </th>
-                <th style="border-bottom-style: dotted;">
-                    <strong>TOTAL:$' . number_format((float) $total_otras_guias, 2) . '</strong>
-                </th>
-
-            </tr>
-        </table>
-
-
-        <br>
-
-        <div class="linea center">
-            <br>
-            <span class=""><b>EGRESOS/INGRESOS</b></span>
-            <br>
-
-
-            <table>
-                <tr style="content-align: center;">
-                    <th style=" border-bottom-style: dotted;">
-                        <strong>TIPO</strong>
-                    </th>
-
-
-                    <th style="border-bottom-style: dotted;">
-                        <strong>TOTAL</strong>
-                    </th>
-
-
-
-                </tr>
-                ' . $datos_egresos . '
-
-
-            </table>
-
-
-
-
-
-            <br>
-            <br>
-
-
-
-
-
-            <strong>TOTAL COBRADO:$' . number_format((float) $total_cobrado, 2) . '</strong>
-            <br><strong>TOTAL POR COBRAR:$' . number_format((float) $total_por_cobrar, 2) . '</strong>
-
-            <br><strong>TOTAL EGRESOS:$' . number_format((float) $total_egresos, 2) . '</strong>
-            <br><strong>TOTAL CANTIDAD:' . $total_cantidad . '</strong>
-
-            <br><strong>TOTAL CAJA:$' . number_format((float) $total_final_final, 2) . '</strong>
-            <br><strong>TOTAL GENERAL:$' . number_format((float) $total_final_final + (float) $total_por_cobrar, 2) .
-        '</strong>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-</body>
-
-</html>
-';
-
-    // set document information
-
-    // Print text using writeHTMLCell()
-
-    // set default monospaced font
-
-    // set auto page breaks
-
-    // set some language-dependent strings (optional)
-
-    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
-    $pdf->SetMargins($metricas['margen_mm'], 0, $metricas['margen_mm'], true);
-    $pdf->SetAutoPageBreak(FALSE, 0);
-
-    // add a page
-    $pdf->AddPage('P', array($ancho_impresion, 800));
-
-    $pdf->SetLineStyle(array('width' => 0.1, 'cap' => 'butt', 'join' => 'miter', 'dash' => 3, 'color' => array(0, 0, 0)));
-
-    // Dibujar un rectángulo con borde punteado
-    $pdf->Rect($metricas['margen_mm'], 17, $metricas['ancho_util_mm'], 25, 'D');
-
-    // Write HTML content
-
-    $pdf->writeHTML($html, true, false, true, false, '');
-
-    // Output PDF
-
-    $pdf->Output('guiaImpresion.pdf', 'I');
-    exit;
-
-} catch (Exception $e) {
-    $array = array(
+    $pdf->Ln(2);
+    $pdf->SetFont('helvetica', '', 6.5);
+    $pdf->Cell($anchoUtil, 3.2, 'Impresión: ' . $fecha_actual, 0, 1, 'C');
+
+    // ─── SALIDA Y CACHÉ ───────────────────────────────────────────────────────
+    $fileName = 'caja_impresion_' . $id_caja . '.pdf';
+    if (ob_get_length()) {
+        ob_clean();
+    }
+
+    $pdfContent = $pdf->Output($fileName, 'S');
+
+    if (!empty($pdfContent) && strlen($pdfContent) > 500) {
+        @file_put_contents($pdfCacheFile, $pdfContent);
+    }
+
+    $tTotal = round((microtime(true) - $t0) * 1000);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $fileName . '"');
+    header('Content-Length: ' . strlen($pdfContent));
+    header('X-PDF-Cache: MISS');
+    header('X-PDF-Time-Total: ' . $tTotal . 'ms');
+    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+    echo $pdfContent;
+    exit();
+
+} catch (Throwable $e) {
+    if (ob_get_length()) {
+        ob_clean();
+    }
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
         "error" => $e->getMessage(),
-        "success" => false,
-
-    );
-
-    echo json_encode($array);
+        "success" => false
+    ]);
+    exit();
 }
-
-// Guardar el archivo en el servidor
-
-// Limpiar el búfer de salida
-
-//============================================================+
-// END OF FILE
-//============================================================+

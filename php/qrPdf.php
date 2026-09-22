@@ -2,236 +2,195 @@
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+ob_start();
 require_once('library/tcpdf.php');
 require_once("db.php");
-//include "barcode.php";
+require_once("pdf_utils.php");
+
 date_default_timezone_set('America/Guayaquil');
+
 try {
-  $fecha_actual = date('Y-m-d H:i:s');
-  $id_usuario_global = $_GET['id_usuario_global']; //1
-  $id_guia = $_GET['id_guia']; //76
-  $impresiones = $_GET['impresiones']; //76
+    $t0 = microtime(true);
+    $id_guia = intval($_GET['id_guia'] ?? 0);
 
-  // create new PDF document
-  $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(500, 200), true, 'UTF-8', false);
+    if ($id_guia <= 0) {
+        throw new Exception("ID de guía no válido o no proporcionado");
+    }
 
-  $conn = conexion();
+    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
+    $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
+    $dbKey       = md5($dbNameStr . '_t' . $tenantIdStr);
 
-  // Output PDF
+    // ─── CACHÉ NIVEL 2: PDF ESTÁTICO ─────────────────────────────────────────
+    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDir)) {
+        @mkdir($pdfCacheDir, 0777, true);
+    }
+    $pdfCacheFile = $pdfCacheDir . 'qr_guia_' . $id_guia . '_t' . md5($tenantIdStr) . '.pdf';
+    $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
 
+    if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 500) {
+        $fileName = 'qr_guia_' . $id_guia . '.pdf';
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $fileName . '"');
+        header('Content-Length: ' . filesize($pdfCacheFile));
+        header('X-PDF-Cache: HIT');
+        header('X-PDF-Time-Total: ' . round((microtime(true) - $t0) * 1000) . 'ms');
+        header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+        readfile($pdfCacheFile);
+        exit();
+    }
 
+    $conn = conexion();
+    mysqli_query($conn, "SET SESSION sql_mode = ''");
 
+    // ─── CACHÉ NIVEL 1: EMPRESA ──────────────────────────────────────────────
+    $cacheDir = __DIR__ . '/tmp/cache/';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0777, true);
+    }
 
+    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
+    $vals_empresa = null;
 
-  // create new PDF document
+    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
+        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
+        if ($cachedData && !empty($cachedData['empresa'])) {
+            $vals_empresa = $cachedData['empresa'];
+        }
+    }
 
+    if (!$vals_empresa) {
+        $query_empresa = "SELECT id_empresa, ruc_empresa, razon_social_empresa FROM empresa LIMIT 1";
+        $rec_emp = mysqli_query($conn, $query_empresa);
+        $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
+        if (!$vals_empresa) {
+            $vals_empresa = [
+                'razon_social_empresa' => 'SISTEMA FLOTA',
+                'ruc_empresa' => ''
+            ];
+        }
 
+        @file_put_contents($empresaCacheFile, json_encode([
+            'empresa' => $vals_empresa
+        ]));
+    }
 
-  $query = "SELECT id_guia,nombre_sucursal,punto_emision_sucursal,destino_guia,id_fkusuario_guia,punto_emision_guia,numero_guia,sucursal_guia  FROM guia,sucursal2 WHERE sucursal_guia = suc_codigo_sucursal AND id_guia=  $id_guia";
-  $recuperar = mysqli_query($conn, $query) or die(mysqli_error($conn));
-  $vals = mysqli_fetch_array($recuperar);
+    $razon_social_empresa = $vals_empresa["razon_social_empresa"] ?? 'SISTEMA FLOTA';
+    $ruc_empresa = $vals_empresa["ruc_empresa"] ?? '';
 
+    // ─── CONSULTA GUÍA ───────────────────────────────────────────────────────
+    $query = "SELECT g.id_guia, s.nombre_sucursal, s.punto_emision_sucursal, g.destino_guia, 
+                     g.punto_emision_guia, g.numero_guia, g.sucursal_guia  
+              FROM guia g
+              JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal 
+              WHERE g.id_guia = $id_guia LIMIT 1";
 
-  $suc_codigo_sucursal = $vals["sucursal_guia"];
-  $id_guia = $vals["id_guia"];
-  $destino_guia = $vals["destino_guia"];
-  $query_sucural = "SELECT nombre_sucursal,punto_emision_sucursal FROM sucursal2 WHERE suc_codigo_sucursal = $suc_codigo_sucursal";
-  $recuperar_sucursal = mysqli_query($conn, $query_sucural) or die(mysqli_error($conn));
-  $vals_sucursal = mysqli_fetch_array($recuperar_sucursal);
+    $recuperar = mysqli_query($conn, $query) or die(mysqli_error($conn));
+    $vals = mysqli_fetch_assoc($recuperar);
+    $conn->close();
 
-  $resultado = sprintf("%09s", $vals['numero_guia']);
-  $numero_guia = $vals_sucursal["punto_emision_sucursal"] . '-' . $vals["punto_emision_guia"] . '-' . $resultado;
+    if (!$vals) {
+        throw new Exception("Guía #$id_guia no encontrada");
+    }
 
-  //EMPRESA
-  $query3 = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa WHERE 1";
-  $recuperar3 = mysqli_query($conn, $query3) or die(mysqli_error($conn));
-  $vals3 = mysqli_fetch_array($recuperar3);
+    $resultado = sprintf("%09s", $vals['numero_guia']);
+    $numero_guia = $vals["punto_emision_sucursal"] . '-' . $vals["punto_emision_guia"] . '-' . $resultado;
+    $destino_guia = $vals["destino_guia"] ?? '';
 
-  $id_empresa = $vals3["id_empresa"];
-  //$imagen_empresa = $vals2["imagen_empresa"];
-  $telefono_empresa = $vals3["telefono_empresa"];
-  $correo_empresa = $vals3["correo_empresa"];
-  $ruc_empresa = $vals3["ruc_empresa"];
-  $direccion_empresa = $vals3["direccion_empresa"];
-  $razon_social_empresa = $vals3["razon_social_empresa"];
+    $datosQr = json_encode([
+        'id_guia' => $id_guia,
+        'numero_guia' => $numero_guia,
+        'destino' => $destino_guia,
+    ]);
 
-  //OFICINA
-  $id_usuario = $vals["id_fkusuario_guia"];
+    // ─── CONFIGURACIÓN DE PÁGINA NATIVA TCPDF (Sticker) ──────────────────────
+    $anchoSticker = 80;
+    $altoSticker = 90;
+    $margen = 4;
+    $anchoUtil = $anchoSticker - ($margen * 2);
 
-  $query4 = "SELECT destino.lugar_destino FROM destino,usuario WHERE destino.id_destino = usuario.id_fkdestino_usuario AND usuario.id_usuario= $id_usuario;";
-  $recuperar4 = mysqli_query($conn, $query4) or die(mysqli_error($conn));
-  $vals4 = mysqli_fetch_array($recuperar4);
+    $pdf = new TCPDF('P', 'mm', array($anchoSticker, $altoSticker), true, 'UTF-8', false);
+    $pdf->setFontSubsetting(false);
+    $pdf->SetCreator('SistemaFlota');
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->SetMargins($margen, 4, $margen);
+    $pdf->SetAutoPageBreak(false, 0);
+    $pdf->AddPage();
 
-  $lugar_destino = $vals4["lugar_destino"];
+    // Texto de cabecera
+    $pdf->SetFont('helvetica', 'B', 10);
+    $pdf->Cell($anchoUtil, 4.5, strtoupper($razon_social_empresa), 0, 1, 'C');
 
+    if (!empty($ruc_empresa)) {
+        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
+    }
 
+    $pdf->SetFont('helvetica', 'B', 8.5);
+    $pdf->Cell($anchoUtil, 4, 'GUÍA: ' . $numero_guia, 0, 1, 'C');
 
+    if (!empty($destino_guia)) {
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->Cell($anchoUtil, 3.8, 'DESTINO: ' . strtoupper($destino_guia), 0, 1, 'C');
+    }
 
-  $datos = array(
-    'id_guia' => $id_guia,
-    'numero_guia' => $numero_guia,
-    'destino' => $destino_guia,
-  );
+    // Código QR 2D Nativo centrado
+    $qrSize = 52;
+    $xQr = $margen + ($anchoUtil - $qrSize) / 2;
+    $yQr = $pdf->GetY() + 1;
 
-  $cadena = '';
+    $qrStyle = [
+        'border' => 0,
+        'vpadding' => 0,
+        'hpadding' => 0,
+        'fgcolor' => [0, 0, 0],
+        'bgcolor' => false,
+        'module_width' => 1,
+        'module_height' => 1
+    ];
 
+    $pdf->write2DBarcode($datosQr, 'QRCODE,Q', $xQr, $yQr, $qrSize, $qrSize, $qrStyle, 'N');
 
-  // Eliminar la coma y el espacio extra al final
-  $cadena = json_encode($datos);
+    // ─── SALIDA Y CACHÉ ───────────────────────────────────────────────────────
+    $fileName = 'qr_guia_' . $id_guia . '.pdf';
+    if (ob_get_length()) {
+        ob_clean();
+    }
 
-  //<td class="td_table">  `+  result_detalles[index].punto_emision_sucursal+'-'+result_detalles[index].punto_emision_guia+'-'+resultado + `</td>
+    $pdfContent = $pdf->Output($fileName, 'S');
 
+    if (!empty($pdfContent) && strlen($pdfContent) > 500) {
+        @file_put_contents($pdfCacheFile, $pdfContent);
+    }
 
-  $html1 = '
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
-<style>
+    $tTotal = round((microtime(true) - $t0) * 1000);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $fileName . '"');
+    header('Content-Length: ' . strlen($pdfContent));
+    header('X-PDF-Cache: MISS');
+    header('X-PDF-Time-Total: ' . $tTotal . 'ms');
+    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+    echo $pdfContent;
+    exit();
 
-.poner_borde{
-
-
-  width: 50%;
-  border: 1px solid black;
- 
-
+} catch (Throwable $e) {
+    if (ob_get_length()) {
+        ob_clean();
+    }
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        "error" => $e->getMessage(),
+        "success" => false
+    ]);
+    exit();
 }
-.center{
-
-  text-align: center;
- 
-}
-
-.factura{
-
-  font-size:18px;
-  font-weight:bold;
-  color:gray
-}
-
-.rojo{
-  color:red
-}
-
-.titulos{
-    font-size: 15px;
-    font-weight:bold;
-}
-
-.despacho{
-    font-size: 15px;
-    font-weight:bold;
-}
-
-.contenidos{
-    font-size: 10px;
-}
-
-</style>
-<body>
-
-
-    <p class="titulos center" style="margin: 0px; padding: 0px;">
-    <br>
-    ' . $razon_social_empresa . ' <br>
-    RUC ' . $ruc_empresa . '
-    </p>
-
- 
-
-    
-
-
-    
-    
-   
-    </p>
-
-
-   
-    <p class="center">
-    </p>
-
-
-</body>
-</html>
-';
-
-  // set document information
-
-  // Print text using writeHTMLCell()
-
-
-
-
-  // set default monospaced font
-
-
-  // set auto page breaks
-
-
-  // set some language-dependent strings (optional)
-
-  // ---------------------------------------------------------
-
-  $pdf->SetFont('helvetica', '', 10);
-
-  // add a page
-  $pdf->AddPage('P', array(100, 210));
-
-
-
-
-  // Add a page
-
-  // Write HTML content
-
-  $pdf->writeHTML($html1, true, false, true, false, '');
-
-  $style = array(
-    'border' => 2,
-    'vpadding' => 'auto',
-    'hpadding' => 'auto',
-    'fgcolor' => array(0, 0, 0),
-    'bgcolor' => false, //array(255,255,255)
-    'module_width' => 5, // width of a single module in points
-    'module_height' => 5 // height of a single module in points
-  );
-
-  $pdf->write2DBarcode($cadena, 'QRCODE,Q', 10, 50, 150, 150, $style, 'N');
-  // $pdf->IncludeJS("print();"); // Comentado para evitar que se abra la pantalla de impresión
-
-  $pdf->Output('qrPdf.pdf', 'I');
-  exit();
-
-} catch (Exception $e) {
-  $array = array(
-    "error" => $e->getMessage(),
-    "success" => false,
-
-  );
-
-  echo json_encode($array);
-}
-
-
-
-// Guardar el archivo en el servidor
-
-
-// Limpiar el búfer de salida
-
-
-
-
-
-//============================================================+
-// END OF FILE
-//============================================================+
-
-
-?>

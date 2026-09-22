@@ -1,260 +1,285 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+ob_start();
 require_once('library/tcpdf.php');
 require_once("db.php");
-//include "barcode.php";
+require_once("pdf_utils.php");
+
 date_default_timezone_set('America/Guayaquil');
+
 try {
-    $fecha_actual = date('d-m-yy H:i:s');
-    $id_usuario = $_GET['id_usuario'];
-    $id_guia = $_GET['id_guia'];
+    $t0 = microtime(true);
+    $fecha_actual = date('d-m-Y H:i:s');
+    $id_usuario = intval($_GET['id_usuario'] ?? 0);
+    $id_guia = intval($_GET['id_guia'] ?? 0);
 
-
-    // create new PDF document
-    $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(500, 200), true, 'UTF-8', false);
-    $conn = conexion();
-
-    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa WHERE 1";
-    $recuperar_empresa = mysqli_query($conn, $query_empresa) or die(mysqli_error($conn));
-    $vals_empresa = mysqli_fetch_array($recuperar_empresa);
-
-    $id_empresa = $vals_empresa["id_empresa"];
-    $imagen_empresa = $vals_empresa["imagen_empresa"];
-    $telefono_empresa = $vals_empresa["telefono_empresa"];
-    $correo_empresa = $vals_empresa["correo_empresa"];
-    $ruc_empresa = $vals_empresa["ruc_empresa"];
-    $direccion_empresa = $vals_empresa["direccion_empresa"];
-    $razon_social_empresa = $vals_empresa["razon_social_empresa"];
-
-    $sql_verificar = "SELECT 
-    ge.numero_guia_guias_entregadas,
-    ge.ruc_destinatario_guias_entregadas,
-    ge.nombre_destinatario_guias_entregadas,
-    ge.punto_emision_guia_guias_entregadas,
-    ge.punto_emision_sucursal_guias_entregadas,
-    ge.fecha_hora_entrega,
-    u.nombre_usuario,
-    u.apellido_usuario
-FROM 
-    guias_entregadas ge
-LEFT JOIN 
-    usuario u ON ge.id_usuario_entrego = u.id_usuario
-WHERE 
-    ge.id_fkguia_guias_entregadas = $id_guia; ";
-
-
-
-
-    //BUSQUEDA CONTENIDO
-    $query_contenido = "SELECT contenido_guia,cantidad_detalle_guia FROM detalle_guia_nota_venta WHERE id_fkguia_detalle_envio =  $id_guia";
-
-
-    $recuperar_contenido = mysqli_query($conn, $query_contenido) or die(mysqli_error($conn));
-
-    $datos = "";
-
-    while ($vals_detalles = mysqli_fetch_array($recuperar_contenido)) {
-
-        $tabla = '
-  <tr> 
-  <td style="border: solid 1px #aaa999;height: 20px;width:20px;"> ' . $vals_detalles['cantidad_detalle_guia'] . '</td>
-      <td style="border: solid 1px #aaa999;height: 20px;width:250px;"> ' . $vals_detalles['contenido_guia'] . '</td>
-      
-    
-  </tr>
-  ';
-
-
-        $datos .= $tabla;
-
-
-
+    if ($id_guia <= 0) {
+        throw new Exception("ID de nota de venta no válido o no proporcionado");
     }
 
+    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
+    $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
+    $dbKey       = md5($dbNameStr . '_t' . $tenantIdStr);
+
+    // ─── CACHÉ NIVEL 2: PDF ESTÁTICO ─────────────────────────────────────────
+    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDir)) {
+        @mkdir($pdfCacheDir, 0777, true);
+    }
+    $pdfCacheFile = $pdfCacheDir . 'guia_entregada_nv_' . $id_guia . '_t' . md5($tenantIdStr) . '.pdf';
+    $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
+
+    if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 500) {
+        $fileName = 'guia_entregada_nv_' . $id_guia . '.pdf';
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $fileName . '"');
+        header('Content-Length: ' . filesize($pdfCacheFile));
+        header('X-PDF-Cache: HIT');
+        header('X-PDF-Time-Total: ' . round((microtime(true) - $t0) * 1000) . 'ms');
+        header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+        readfile($pdfCacheFile);
+        exit();
+    }
+
+    $conn = conexion();
+    mysqli_query($conn, "SET SESSION sql_mode = ''");
+
+    // ─── CACHÉ NIVEL 1: EMPRESA ──────────────────────────────────────────────
+    $cacheDir = __DIR__ . '/tmp/cache/';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0777, true);
+    }
+    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
+    $vals_empresa = null;
+
+    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
+        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
+        if ($cachedData && !empty($cachedData['empresa'])) {
+            $vals_empresa = $cachedData['empresa'];
+        }
+    }
+
+    if (!$vals_empresa) {
+        $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+        $rec_emp = mysqli_query($conn, $query_empresa);
+        $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
+        if (!$vals_empresa) {
+            $vals_empresa = ['razon_social_empresa' => 'SISTEMA FLOTA', 'ruc_empresa' => ''];
+        }
+        @file_put_contents($empresaCacheFile, json_encode(['empresa' => $vals_empresa]));
+    }
+
+    $razon_social_empresa = $vals_empresa["razon_social_empresa"] ?? 'SISTEMA FLOTA';
+    $ruc_empresa = $vals_empresa["ruc_empresa"] ?? '';
+    $rutaLogo = obtenerRutaLogoEmpresa($conn, $vals_empresa["imagen_empresa"] ?? null);
+
+    // ─── CONSULTAS ───────────────────────────────────────────────────────────
+    $sql_verificar = "SELECT 
+        ge.numero_guia_guias_entregadas,
+        ge.ruc_destinatario_guias_entregadas,
+        ge.nombre_destinatario_guias_entregadas,
+        ge.punto_emision_guia_guias_entregadas,
+        ge.punto_emision_sucursal_guias_entregadas,
+        ge.fecha_hora_entrega,
+        ge.id_fkguia_guias_entregadas,
+        u.nombre_usuario,
+        u.apellido_usuario
+    FROM guias_entregadas ge
+    LEFT JOIN usuario u ON ge.id_usuario_entrego = u.id_usuario
+    WHERE ge.id_fkguia_guias_entregadas = $id_guia LIMIT 1";
 
     $recuperar_guia = mysqli_query($conn, $sql_verificar) or die(mysqli_error($conn));
-    $vals_guia = mysqli_fetch_array($recuperar_guia);
+    $vals_guia = mysqli_fetch_assoc($recuperar_guia);
 
-    $id_guia = $vals_guia["id_fkguia_guias_entregadas"];
+    if (!$vals_guia) {
+        throw new Exception("No se encontró registro de entrega para la nota de venta #$id_guia");
+    }
 
-    $resultado = sprintf("%09s", $vals_guia["numero_guia_guias_entregadas"]);
-    $punto_emision_guia = $vals_guia["punto_emision_guia_guias_entregadas"];
-    $punto_emision_sucursal = $vals_guia["punto_emision_sucursal_guias_entregadas"];
-
-    $fecha_hora_entrega = $vals_guia["fecha_hora_entrega"];
-    $cliente = $vals_guia["nombre_destinatario_guias_entregadas"];
-    $cedual_cliente = $vals_guia["ruc_destinatario_guias_entregadas"];
-    $usuario_entrego = $vals_guia["nombre_usuario"] . ' ' . $vals_guia["apellido_usuario"];
-
-    $sql_odicinista = "SELECT nombre_usuario, apellido_usuario FROM usuario WHERE id_usuario = $id_usuario ";
-
-    $recuperar_oficinista = mysqli_query($conn, $sql_odicinista) or die(mysqli_error($conn));
-    $vals_oficina = mysqli_fetch_array($recuperar_oficinista);
-
-    $nombre_usuario = $vals_oficina["nombre_usuario"];
-    $apellido_usuario = $vals_oficina["apellido_usuario"];
-
+    $resultado = sprintf("%09s", $vals_guia["numero_guia_guias_entregadas"] ?? 0);
+    $punto_emision_guia = $vals_guia["punto_emision_guia_guias_entregadas"] ?? '';
+    $punto_emision_sucursal = $vals_guia["punto_emision_sucursal_guias_entregadas"] ?? '';
+    $fecha_hora_entrega = $vals_guia["fecha_hora_entrega"] ?? '';
+    $cliente = $vals_guia["nombre_destinatario_guias_entregadas"] ?? '';
+    $cedula_cliente = $vals_guia["ruc_destinatario_guias_entregadas"] ?? '';
+    $usuario_entrego = trim(($vals_guia["nombre_usuario"] ?? '') . ' ' . ($vals_guia["apellido_usuario"] ?? ''));
     $numero_guia = $punto_emision_sucursal . '-' . $punto_emision_guia . '-' . $resultado;
 
-    $query_ubicacion = "SELECT lugar_destino FROM destino,usuario WHERE id_fkdestino_usuario =  id_destino AND id_usuario= $id_usuario";
-    $recuperar_ubicacion = mysqli_query($conn, $query_ubicacion) or die(mysqli_error($conn));
-    $vals_ubicacion = mysqli_fetch_array($recuperar_ubicacion);
-    $ubicacion_usuaurio = $vals_ubicacion['lugar_destino'];
+    // Oficinista que imprime
+    $nombre_usuario = '';
+    $apellido_usuario = '';
+    if ($id_usuario > 0) {
+        $sql_ofic = "SELECT nombre_usuario, apellido_usuario FROM usuario WHERE id_usuario = $id_usuario LIMIT 1";
+        $rec_ofic = mysqli_query($conn, $sql_ofic);
+        if ($rec_ofic && $vals_ofic = mysqli_fetch_assoc($rec_ofic)) {
+            $nombre_usuario = $vals_ofic["nombre_usuario"] ?? '';
+            $apellido_usuario = $vals_ofic["apellido_usuario"] ?? '';
+        }
+    }
 
+    $ubicacion_usuario = '';
+    if ($id_usuario > 0) {
+        $query_ubicacion = "SELECT d.lugar_destino FROM destino d JOIN usuario u ON u.id_fkdestino_usuario = d.id_destino WHERE u.id_usuario = $id_usuario LIMIT 1";
+        $rec_ub = mysqli_query($conn, $query_ubicacion);
+        if ($rec_ub && $row_ub = mysqli_fetch_assoc($rec_ub)) {
+            $ubicacion_usuario = $row_ub['lugar_destino'] ?? '';
+        }
+    }
 
+    // Contenido
+    $query_contenido = "SELECT contenido_guia, cantidad_detalle_guia FROM detalle_guia_nota_venta WHERE id_fkguia_detalle_envio = $id_guia";
+    $recuperar_contenido = mysqli_query($conn, $query_contenido) or die(mysqli_error($conn));
+    $items = [];
+    while ($r = mysqli_fetch_assoc($recuperar_contenido)) {
+        $items[] = $r;
+    }
+    $conn->close();
 
+    // ─── INICIALIZACIÓN TCPDF NATIVO (Ticket 80mm) ───────────────────────────
+    $anchoTicket = 80;
+    $altoTicket = 200;
+    $margen = 4;
+    $anchoUtil = $anchoTicket - ($margen * 2);
 
+    $pdf = new TCPDF('P', 'mm', array($anchoTicket, $altoTicket), true, 'UTF-8', false);
+    $pdf->setFontSubsetting(false);
+    $pdf->SetCreator('SistemaFlota');
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->SetMargins($margen, 4, $margen);
+    $pdf->SetAutoPageBreak(false, 0);
+    $pdf->AddPage();
 
-    $html = '
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-</head>
-<style>
+    // Logo
+    if ($rutaLogo) {
+        $pdf->Image($rutaLogo, ($anchoTicket / 2) - 10, 4, 20, 0, '', '', 'T', false, 300, 'C');
+        $pdf->SetY(20);
+    } else {
+        $pdf->SetY(4);
+    }
 
-.poner_borde{
-  width: 50%;
-  border: 1px solid black;
-}
+    // Empresa
+    $pdf->SetFont('helvetica', 'B', 9);
+    $pdf->MultiCell($anchoUtil, 4, strtoupper($razon_social_empresa), 0, 'C', false, 1);
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
+    if (!empty($ubicacion_usuario)) {
+        $pdf->Cell($anchoUtil, 3.5, 'OFICINA - ' . $ubicacion_usuario, 0, 1, 'C');
+    }
 
-.center{
+    // Línea divisoria
+    $pdf->Ln(1);
+    $y = $pdf->GetY();
+    $pdf->SetLineStyle(array('width' => 0.2, 'dash' => 2));
+    $pdf->Line($margen, $y, $anchoTicket - $margen, $y);
+    $pdf->SetLineStyle(array('width' => 0.2, 'dash' => 0));
+    $pdf->SetY($y + 2);
 
-  text-align: center;
- 
-}
+    // Datos Entrega
+    $pdf->SetFont('helvetica', 'B', 8);
+    $pdf->Cell(32, 4, 'NOTA DE V. ENTREGADA:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell($anchoUtil - 32, 4, $numero_guia, 0, 1, 'L');
 
-.factura{
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell(22, 3.8, 'OFICINISTA:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->Cell($anchoUtil - 22, 3.8, $nombre_usuario . ' ' . $apellido_usuario, 0, 1, 'L');
 
-  font-size:10px;
-  font-weight:bold;
-  color:gray
-}
-</style>
-<body>
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell(18, 3.8, 'CLIENTE:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->Cell($anchoUtil - 18, 3.8, $cliente, 0, 1, 'L');
 
-   
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell(18, 3.8, 'CÉDULA:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->Cell($anchoUtil - 18, 3.8, $cedula_cliente, 0, 1, 'L');
 
-    <p class="center">
-	 <img width="64px"   class=" center" src="data:image/*;base64,' . $imagen_empresa . '"/><br>
-        <strong>' . $razon_social_empresa . '</strong> <br>
-        <strong>RUC ' . $ruc_empresa . '</strong> <br>
-       
-         <span class="center">OFICINA -  ' . $ubicacion_usuaurio . '</span>
-    </p>
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell(32, 3.8, 'F. HORA ENTREGA:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->Cell($anchoUtil - 32, 3.8, $fecha_hora_entrega, 0, 1, 'L');
 
-    <hr>
-	<br>
+    // Contenido
+    $pdf->Ln(2);
+    $pdf->SetFont('helvetica', 'B', 8);
+    $pdf->Cell($anchoUtil, 4, 'CONTENIDO', 0, 1, 'C');
 
-  
-        <strong>GUIA ENTREGADA:</strong> ' . $numero_guia . '<br>
-        <strong>OFICINISTA:</strong> ' . $nombre_usuario . ' ' . $apellido_usuario . '<br>
-        <strong>CLIENTE:</strong> ' . $cliente . '<br>
-        <strong>CEDULA:</strong> ' . $cedual_cliente . '<br>
-		<strong>FECHA Y HORA ENTREGA:</strong> ' . $fecha_hora_entrega . '<br>
-		
-    </p>
+    $pdf->SetFont('helvetica', 'B', 7);
+    $pdf->SetFillColor(240, 240, 240);
+    $pdf->Cell(12, 3.8, 'CANT', 1, 0, 'C', true);
+    $pdf->Cell($anchoUtil - 12, 3.8, 'DESCRIPCIÓN', 1, 1, 'L', true);
 
-     <p class="center">
-        <strong>CONTENIDO</strong> <br> 
+    $pdf->SetFont('helvetica', '', 7);
+    foreach ($items as $it) {
+        $pdf->Cell(12, 3.8, $it['cantidad_detalle_guia'], 1, 0, 'C');
+        $pdf->Cell($anchoUtil - 12, 3.8, ' ' . substr($it['contenido_guia'], 0, 38), 1, 1, 'L');
+    }
 
-            <table style="width:100%;">
-        ' . $datos . '
-           </table>
-    </p>
+    // Firmas
+    $pdf->Ln(5);
+    $wSig = ($anchoUtil - 4) / 2;
 
+    $pdf->SetFont('helvetica', '', 7);
+    $pdf->Cell($wSig, 3.5, '__________________', 0, 0, 'C');
+    $pdf->Cell(4, 3.5, '', 0, 0);
+    $pdf->Cell($wSig, 3.5, '__________________', 0, 1, 'C');
 
-    <table style="width:100%;">
-        <tr>
-            <td style="width:50%;">
-                <p class="center">
-                    ________________ <br>
-                   CLIENTE:' . $cliente . ' <br>
-                </p>
-            </td>
-            <td style="width:50%; text-align: center">
-                <p class="center">
-                    ________________ <br>
-                    RESPONSABLE:' . $usuario_entrego . ' <br>
-                </p>
-            </td>
-        </tr>
-        <tr>
-            <td style="width:50%;">
-                <p>Impreso Por:' . $nombre_usuario . ' ' . $apellido_usuario . '</p>
-            </td>
-            <td style="width:50%; text-align: center">
-                <p>' . $fecha_actual . '</p>
-            </td>
-        </tr>
-    </table>
+    $pdf->Cell($wSig, 3.5, 'CLIENTE', 0, 0, 'C');
+    $pdf->Cell(4, 3.5, '', 0, 0);
+    $pdf->Cell($wSig, 3.5, 'RESPONSABLE', 0, 1, 'C');
 
-</body>
-</html>
-';
+    $pdf->SetFont('helvetica', '', 6.5);
+    $pdf->Cell($wSig, 3.2, substr($cliente, 0, 22), 0, 0, 'C');
+    $pdf->Cell(4, 3.2, '', 0, 0);
+    $pdf->Cell($wSig, 3.2, substr($usuario_entrego, 0, 22), 0, 1, 'C');
 
-    // set document information
+    // Pie de página
+    $pdf->Ln(3);
+    $pdf->SetFont('helvetica', 'I', 6.5);
+    $pdf->Cell($anchoUtil * 0.6, 3.2, 'Impreso por: ' . $nombre_usuario . ' ' . $apellido_usuario, 0, 0, 'L');
+    $pdf->Cell($anchoUtil * 0.4, 3.2, $fecha_actual, 0, 1, 'R');
 
-    // Print text using writeHTMLCell()
+    // ─── SALIDA Y CACHÉ ───────────────────────────────────────────────────────
+    $fileName = 'guia_entregada_nv_' . $id_guia . '.pdf';
+    if (ob_get_length()) {
+        ob_clean();
+    }
 
+    $pdfContent = $pdf->Output($fileName, 'S');
 
+    if (!empty($pdfContent) && strlen($pdfContent) > 500) {
+        @file_put_contents($pdfCacheFile, $pdfContent);
+    }
 
+    $tTotal = round((microtime(true) - $t0) * 1000);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $fileName . '"');
+    header('Content-Length: ' . strlen($pdfContent));
+    header('X-PDF-Cache: MISS');
+    header('X-PDF-Time-Total: ' . $tTotal . 'ms');
+    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+    echo $pdfContent;
+    exit();
 
-    // set default monospaced font
-
-
-    // set auto page breaks
-
-
-    // set some language-dependent strings (optional)
-
-    // ---------------------------------------------------------
-
-    $pdf->SetFont('helvetica', '', 10);
-
-    // add a page
-    $pdf->AddPage('P', array(500, 120));
-
-
-
-
-
-
-    // Add a page
-
-    // Write HTML content
-
-    $pdf->writeHTML($html, true, false, true, false, '');
-    // Output PDF
-
-    $pdf->Output('entregado.pdf', 'I');
-    exit;
-
-} catch (Exception $e) {
-    $array = array(
+} catch (Throwable $e) {
+    if (ob_get_length()) {
+        ob_clean();
+    }
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
         "error" => $e->getMessage(),
-        "success" => false,
-
-    );
-
-    echo json_encode($array);
+        "success" => false
+    ]);
+    exit();
 }
-
-
-
-// Guardar el archivo en el servidor
-
-
-// Limpiar el búfer de salida
-
-
-
-
-
-//============================================================+
-// END OF FILE
-//============================================================+
-
-
-?>

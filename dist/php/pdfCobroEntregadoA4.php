@@ -1,37 +1,108 @@
 <?php
-error_reporting(0);
-ini_set('display_errors', '0');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+ob_start();
 require_once('library/tcpdf.php');
 require_once("db.php");
+require_once("pdf_utils.php");
 
-// Configuración de zona horaria
 date_default_timezone_set('America/Guayaquil');
 
 try {
+    $t0 = microtime(true);
     $fecha_actual = date('d/m/Y H:i:s');
-    
-    // Configuración A4 estándar
-    $pdf = new TCPDF('P', PDF_UNIT, 'A4', true, 'UTF-8', false);
-    $conn = conexion();
-    
-    // Datos empresa
-    $empresa = mysqli_fetch_array(mysqli_query($conn, "SELECT telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1"));
-    
-    // Datos cobro
     $id_cobros = intval($_GET['id_cobros'] ?? 0);
     $id_usuario = intval($_GET['id_usuario'] ?? 0);
-    
-    // Obtener datos del usuario
-    $nombre_usuario = '';
-    if ($id_usuario > 0) {
-        $query_usuario = "SELECT nombre_usuario, apellido_usuario FROM usuario WHERE id_usuario = $id_usuario";
-        $res_u = mysqli_query($conn, $query_usuario);
-        if ($res_u && $u = mysqli_fetch_array($res_u)) {
-            $nombre_usuario = trim(($u['nombre_usuario'] ?? '') . ' ' . ($u['apellido_usuario'] ?? ''));
+
+    if ($id_cobros <= 0) {
+        throw new Exception("ID de cobro no válido o no proporcionado");
+    }
+
+    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
+    $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
+    $dbKey       = md5($dbNameStr . '_t' . $tenantIdStr);
+
+    $conn = conexion();
+    mysqli_query($conn, "SET SESSION sql_mode = ''");
+
+    // ─── CACHÉ NIVEL 1: EMPRESA Y LOGO ────────────────────────────────────────
+    $cacheDir = __DIR__ . '/tmp/cache/';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0777, true);
+    }
+    $logosDir = __DIR__ . '/tmp/logos/';
+    if (!is_dir($logosDir)) {
+        @mkdir($logosDir, 0777, true);
+    }
+
+    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
+    $vals_empresa = null;
+    $rutaLogo = null;
+
+    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
+        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
+        if ($cachedData && !empty($cachedData['empresa'])) {
+            $vals_empresa = $cachedData['empresa'];
+            $rutaLogo = (!empty($cachedData['logo_path']) && esImagenValidaParaTcpdf($cachedData['logo_path'])) ? $cachedData['logo_path'] : null;
         }
     }
-  
+
+    if (!$vals_empresa) {
+        $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+        $rec_emp = mysqli_query($conn, $query_empresa);
+        $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
+        if (!$vals_empresa) {
+            $vals_empresa = [
+                'razon_social_empresa' => 'SISTEMA FLOTA',
+                'ruc_empresa' => '',
+                'direccion_empresa' => '',
+                'telefono_empresa' => '',
+                'correo_empresa' => ''
+            ];
+        }
+
+        $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
+        $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
+        if (esImagenValidaParaTcpdf($cachedLogoPng)) {
+            $rutaLogo = $cachedLogoPng;
+        } else if (esImagenValidaParaTcpdf($cachedLogoJpg)) {
+            $rutaLogo = $cachedLogoJpg;
+        } else {
+            $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
+            $res_img = mysqli_query($conn, $query_img);
+            if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
+                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
+                if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
+                    $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
+                    $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
+                    if ($rawLogo !== $targetLogo) {
+                        @copy($rawLogo, $targetLogo);
+                    }
+                    $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
+                }
+            }
+        }
+
+        @file_put_contents($empresaCacheFile, json_encode([
+            'empresa' => $vals_empresa,
+            'logo_path' => $rutaLogo
+        ]));
+    }
+
+    if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
+        $rutaLogo = obtenerRutaLogoEmpresa($conn);
+    }
+
+    $empresa = $vals_empresa;
+
+    // ─── CONSULTA COBRO ──────────────────────────────────────────────────────
     $query = "SELECT c.*, u.nombre_usuario, u.apellido_usuario, b.placa_buses, b.disco_buses, 
               s.nombre_sucursal, ca.id_caja_boleteria, tc.nombre_tipo_cobros,
               p.per_nombres_persona, p.per_apellidos_personal,
@@ -44,128 +115,55 @@ try {
               LEFT JOIN sucursal2 s ON c.id_fksucursal_cobros = s.suc_codigo_sucursal
               LEFT JOIN caja_boleteria ca ON c.id_fkcaja_cobros = ca.id_caja_boleteria
               LEFT JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
-              WHERE c.id_cobros = $id_cobros";
+              WHERE c.id_cobros = $id_cobros LIMIT 1";
+
     $res = mysqli_query($conn, $query);
-    $cobro = $res ? mysqli_fetch_array($res) : null;
+    $cobro = $res ? mysqli_fetch_assoc($res) : null;
 
     if (!$cobro) {
-        $pdf->SetCreator('Sistema Flota');
-        $pdf->SetMargins(15, 20, 15);
-        $pdf->SetAutoPageBreak(true, 20);
-        $pdf->AddPage();
-        $pdf->writeHTML('<h2 style="color:red;text-align:center;">Cobro #' . $id_cobros . ' no encontrado</h2>', true, false, true, false, '');
-        $pdf->Output('error.pdf', 'I');
-        exit;
+        throw new Exception("Cobro #$id_cobros no encontrado");
     }
 
+    // ─── CACHÉ NIVEL 2: PDF ESTÁTICO ─────────────────────────────────────────
+    $cobroHash = md5(($cobro['estado_cobros'] ?? '') . '_' . ($cobro['monto_cobros'] ?? '') . '_' . ($cobro['fecha_entrego'] ?? ''));
+    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDir)) {
+        @mkdir($pdfCacheDir, 0777, true);
+    }
+    $pdfCacheFile = $pdfCacheDir . 'cobro_a4_' . $id_cobros . '_' . $cobroHash . '_t' . md5($tenantIdStr) . '.pdf';
+    $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
+
+    if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 500) {
+        $fileName = 'ComprobanteCobroA4_' . $id_cobros . '.pdf';
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $fileName . '"');
+        header('Content-Length: ' . filesize($pdfCacheFile));
+        header('X-PDF-Cache: HIT');
+        header('X-PDF-Time-Total: ' . round((microtime(true) - $t0) * 1000) . 'ms');
+        header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+        readfile($pdfCacheFile);
+        exit();
+    }
+
+    $nombre_usuario = '';
+    if ($id_usuario > 0) {
+        $query_usuario = "SELECT nombre_usuario, apellido_usuario FROM usuario WHERE id_usuario = $id_usuario";
+        $res_u = mysqli_query($conn, $query_usuario);
+        if ($res_u && $u = mysqli_fetch_assoc($res_u)) {
+            $nombre_usuario = trim(($u['nombre_usuario'] ?? '') . ' ' . ($u['apellido_usuario'] ?? ''));
+        }
+    }
     if (empty($nombre_usuario)) {
         $nombre_usuario = trim(($cobro['nombre_usuario'] ?? '') . ' ' . ($cobro['apellido_usuario'] ?? ''));
     }
 
-    // Formatear fecha de creación del cobro
     $fecha_crea = $cobro['fecha_creacion_cobros'] ?? $cobro['fecha_cobros'] ?? null;
     $fecha_cobro = ($fecha_crea && $fecha_crea !== '0000-00-00' && $fecha_crea !== '0000-00-00 00:00:00')
         ? date('d/m/Y H:i:s', strtotime($fecha_crea))
         : $fecha_actual;
 
-    // Configuración PDF A4
-    $pdf->SetCreator('Sistema Flota');
-    $pdf->SetTitle('Comprobante de Cobro - ' . $cobro['id_cobros']);
-    $pdf->SetMargins(15, 20, 15);
-    $pdf->SetAutoPageBreak(true, 20);
-    $pdf->AddPage();
-
-    // Ajusta los estilos para reducir espacios y márgenes
-    $header_style = 'font-size:15pt;font-weight:bold;text-align:center;line-height:1.1;color:#2c3e50;margin-bottom:8px;';
-    $subheader_style = 'font-size:10pt;text-align:center;color:#7f8c8d;margin-bottom:8px;';
-    $section_title_style = 'font-size:12pt;font-weight:bold;color:#34495e;background-color:#ecf0f1;padding:4px;margin-top:8px;margin-bottom:6px;';
-    $label_style = 'font-size:10pt;font-weight:bold;color:#2c3e50;padding:2px 0;';
-    $value_style = 'font-size:10pt;color:#34495e;padding:2px 0;';
-    $table_header_style = 'font-size:9pt;font-weight:bold;background-color:#3498db;color:white;text-align:center;padding:4px;';
-    $table_cell_style = 'font-size:9pt;padding:3px;border:1px solid #bdc3c7;';
-    $amount_highlight_style = 'font-size:12pt;font-weight:bold;color:#27ae60;text-align:center;background-color:#e8f8f5;padding:6px;border:2px solid #27ae60;margin:10px 0;';
-    $footer_style = 'font-size:8pt;text-align:center;color:#7f8c8d;margin-top:18px;';
-
-    // Contenido HTML para A4
-    $html = '
-    <div style="'.$header_style.'">
-        '.$empresa['razon_social_empresa'].'
-    </div>
-    <div style="'.$subheader_style.'">
-        RUC: '.$empresa['ruc_empresa'].' | '.$empresa['direccion_empresa'].'<br>
-        Tel: '.$empresa['telefono_empresa'].' | Email: '.$empresa['correo_empresa'].'
-    </div>
-    
-    <div style="text-align:right;font-size:9pt;color:#7f8c8d;margin-bottom:8px;">
-        Documento generado: '.$fecha_actual.'
-    </div>
-
-    <div style="'.$section_title_style.'">
-        COMPROBANTE DE ENTREGA DE COBRO N° '.$cobro['id_cobros'].'
-    </div>
-
-    <table style="width:100%;margin-bottom:8px;" cellpadding="3" cellspacing="0">
-        <tr>
-            <td style="'.$label_style.';width:25%;">Recibido de:</td>
-            <td style="'.$value_style.';border-bottom:1px solid #bdc3c7;">'.$cobro['nombre_usuario'].' '.$cobro['apellido_usuario'].'</td>
-        </tr>
-        <tr>
-            <td style="'.$label_style.'">Sucursal:</td>
-            <td style="'.$value_style.';border-bottom:1px solid #bdc3c7;">'.$cobro['nombre_sucursal'].'</td>
-        </tr>
-        <tr>
-            <td style="'.$label_style.'">Bus asignado:</td>
-            <td style="'.$value_style.';border-bottom:1px solid #bdc3c7;">Disco: '.$cobro['disco_buses'].' - Placa: '.$cobro['placa_buses'].'</td>
-        </tr>
-        <tr>
-            <td style="'.$label_style.'">Tipo de cobro:</td>
-            <td style="'.$value_style.';border-bottom:1px solid #bdc3c7;">'.$cobro['nombre_tipo_cobros'].'</td>
-        </tr>
-        <tr>
-            <td style="'.$label_style.'">Personal responsable:</td>
-            <td style="'.$value_style.';border-bottom:1px solid #bdc3c7;">'.$cobro['per_nombres_persona'].' '.$cobro['per_apellidos_personal'].'</td>
-        </tr>
-        <tr>
-            <td style="'.$label_style.'">Estado del cobro:</td>
-            <td style="'.$value_style.';border-bottom:1px solid #bdc3c7;">'.(
-                $cobro['estado_cobros'] == 0 ? 'NO PAGADO' :
-                ($cobro['estado_cobros'] == 1 ? 'PAGADO' :
-                ($cobro['estado_cobros'] == 2 ? 'ANULADO' : $cobro['estado_cobros']))
-            ).'</td>
-        </tr>
-    </table>
-
-    <div style="'.$amount_highlight_style.'">
-        MONTO TOTAL: $'.number_format($cobro['monto_cobros'], 2).'
-    </div>
-
-    <table style="width:100%;margin-bottom:8px;" cellpadding="3" cellspacing="0">
-        <tr>
-            <td style="'.$label_style.';width:25%;">Fecha de creación:</td>
-            <td style="'.$value_style.';border-bottom:1px solid #bdc3c7;">'.$fecha_cobro.'</td>
-        </tr>
-        <tr>
-            <td style="'.$label_style.'">Usuario que entregó:</td>
-            <td style="'.$value_style.';border-bottom:1px solid #bdc3c7;">'.($cobro['nombre_usuario_entrego'].' '.$cobro['apellido_usuario_entrego']).'</td>
-        </tr>
-        <tr>
-            <td style="'.$label_style.'">Fecha de entrega:</td>
-            <td style="'.$value_style.';border-bottom:1px solid #bdc3c7;">'.($cobro['fecha_entrego'] ? date('d/m/Y', strtotime($cobro['fecha_entrego'])) : 'Pendiente').'</td>
-        </tr>
-        <tr>
-            <td style="'.$label_style.'">Observaciones:</td>
-            <td style="'.$value_style.';border-bottom:1px solid #bdc3c7;">'.$cobro['observacion_cobros'].'</td>
-        </tr>
-    </table>';
-    
-    // Motivo de anulación si aplica
-    if($cobro['estado_cobros'] == 2) {
-        $html .= '<div style="font-size:12pt;color:#e74c3c;margin:20px 0;border:2px solid #e74c3c;padding:15px;background-color:#fadbd8;">
-            <strong>MOTIVO DE ANULACIÓN:</strong><br>'.$cobro['motivo_anulacion_cobros'].'
-        </div>';
-    }
-    
-    // Consulta de comprobantes asociados al cobro SOLO COBRADOS
+    // Comprobantes asociados
     $query_comprobantes = "SELECT 
         cc.numero_comprobante_cobro,
         cc.monto_comprobante_cobro,
@@ -179,71 +177,227 @@ try {
       AND (cc.estado_comprobante_cobro = 'COBRADA' OR cc.estado_comprobante_cobro = 'COBRADO')";
 
     $res_comprobantes = mysqli_query($conn, $query_comprobantes);
+    $comprobantes = [];
+    $total_comprobantes = 0.0;
+    while ($comp = mysqli_fetch_assoc($res_comprobantes)) {
+        $comprobantes[] = $comp;
+        $total_comprobantes += (float)$comp['monto_comprobante_cobro'];
+    }
+    $conn->close();
 
-    // Verificar si hay comprobantes
-    if(mysqli_num_rows($res_comprobantes) > 0) {
-        $html .= '<div style="'.$section_title_style.'">
-            DETALLE DE COMPROBANTES COBRADOS
-        </div>
-        <table style="width:100%;border-collapse:collapse;margin-bottom:20px;" cellpadding="8" cellspacing="0">
-            <tr>
-                <th style="'.$table_header_style.';width:15%;">N° Comprobante</th>
-                <th style="'.$table_header_style.';width:15%;">Monto</th>
-                <th style="'.$table_header_style.';width:35%;">Sucursal</th>
-                <th style="'.$table_header_style.';width:35%;">Usuario que cobró</th>
-            </tr>';
+    // ─── CONFIGURACIÓN TCPDF A4 NATIVO ──────────────────────────────────────
+    $pdf = new TCPDF('P', 'mm', 'A4', true, 'UTF-8', false);
+    $pdf->setFontSubsetting(false);
+    $pdf->SetCreator('SistemaFlota');
+    $pdf->SetTitle('Comprobante de Cobro - ' . $id_cobros);
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->SetMargins(15, 12, 15);
+    $pdf->SetAutoPageBreak(true, 15);
+    $pdf->AddPage();
 
-        $total_comprobantes = 0;
-        while($comp = mysqli_fetch_array($res_comprobantes)) {
-            $total_comprobantes += $comp['monto_comprobante_cobro'];
-            $html .= '<tr>
-                <td style="'.$table_cell_style.';text-align:center;">'.$comp['numero_comprobante_cobro'].'</td>
-                <td style="'.$table_cell_style.';text-align:right;">$'.number_format($comp['monto_comprobante_cobro'],2).'</td>
-                <td style="'.$table_cell_style.'">'.$comp['nombre_sucursal'].'</td>
-                <td style="'.$table_cell_style.'">'.$comp['nombre_usuario'].' '.$comp['apellido_usuario'].'</td>
-            </tr>';
-        }
+    $wUtil = 180; // 210 - 30
 
-        $html .= '<tr>
-            <td colspan="3" style="'.$table_cell_style.';text-align:right;font-weight:bold;background-color:#ecf0f1;">TOTAL COMPROBANTES:</td>
-            <td style="'.$table_cell_style.';text-align:right;font-weight:bold;background-color:#ecf0f1;">$'.number_format($total_comprobantes,2).'</td>
-        </tr>';
-        
-        $html .= '</table>';
+    // ─── 1. CABECERA Y LOGO ──────────────────────────────────────────────────
+    $yTop = $pdf->GetY();
+    if ($rutaLogo && file_exists($rutaLogo)) {
+        $pdf->Image($rutaLogo, 15, $yTop, 28, 0, '', '', '', true, 150);
     }
 
-    // Espacios para firmas con diseño A4
-    $html .= '<div style="margin-top:50px;">
-        <table style="width:100%;" cellpadding="20" cellspacing="0">
-            <tr>
-                <td style="width:45%;text-align:center;vertical-align:bottom;">
-                    <div style="border-bottom:2px solid #2c3e50;margin-bottom:10px;height:50px;"></div>
-                    <div style="font-size:12pt;font-weight:bold;color:#2c3e50;">
-                        '.$cobro['per_nombres_persona'].' '.$cobro['per_apellidos_personal'].'<br>
-                        <span style="font-size:10pt;color:#7f8c8d;">PERSONAL RESPONSABLE</span>
-                    </div>
-                </td>
-                <td style="width:10%;"></td>
-                <td style="width:45%;text-align:center;vertical-align:bottom;">
-                    <div style="border-bottom:2px solid #2c3e50;margin-bottom:10px;height:50px;"></div>
-                    <div style="font-size:12pt;font-weight:bold;color:#2c3e50;">
-                        '.$nombre_usuario.'<br>
-                        <span style="font-size:10pt;color:#7f8c8d;">USUARIO DEL SISTEMA</span>
-                    </div>
-                </td>
-            </tr>
-        </table>
-    </div>';
+    $pdf->SetFont('helvetica', 'B', 14);
+    $pdf->SetTextColor(44, 62, 80);
+    $pdf->Cell($wUtil, 6, strtoupper($empresa['razon_social_empresa'] ?? 'SISTEMA FLOTA'), 0, 1, 'C');
 
-    $html .= '<div style="'.$footer_style.'">
-        Este documento fue generado automáticamente por el Sistema de Gestión de Flota<br>
-        Fecha y hora de generación: '.$fecha_actual.'
-    </div>';
+    $pdf->SetFont('helvetica', '', 9);
+    $pdf->SetTextColor(127, 140, 141);
+    $contacto = 'RUC: ' . ($empresa['ruc_empresa'] ?? '') . ' | ' . ($empresa['direccion_empresa'] ?? '');
+    $pdf->Cell($wUtil, 4.5, $contacto, 0, 1, 'C');
+    $subcontacto = 'Tel: ' . ($empresa['telefono_empresa'] ?? '') . ' | Email: ' . ($empresa['correo_empresa'] ?? '');
+    $pdf->Cell($wUtil, 4.5, $subcontacto, 0, 1, 'C');
 
-    $pdf->writeHTML($html, true, false, true, false, '');
-    $pdf->Output('ComprobanteCobroA4_'.$cobro['id_cobros'].'.pdf', 'I');
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell($wUtil, 4, 'Documento generado: ' . $fecha_actual, 0, 1, 'R');
+    $pdf->Ln(2);
 
-} catch(Exception $e) {
-    echo json_encode(["error" => $e->getMessage(), "success" => false]);
+    // ─── 2. TÍTULO DE SECCIÓN ────────────────────────────────────────────────
+    $pdf->SetFillColor(236, 240, 241);
+    $pdf->SetTextColor(52, 73, 94);
+    $pdf->SetFont('helvetica', 'B', 11);
+    $pdf->Cell($wUtil, 7, '  COMPROBANTE DE ENTREGA DE COBRO N° ' . $id_cobros, 0, 1, 'L', true);
+    $pdf->Ln(2);
+
+    // ─── 3. TABLA DE DETALLES PRINCIPALES ────────────────────────────────────
+    $estadoText = $cobro['estado_cobros'] == 0 ? 'NO PAGADO' :
+        ($cobro['estado_cobros'] == 1 ? 'PAGADO' :
+        ($cobro['estado_cobros'] == 2 ? 'ANULADO' : (string)$cobro['estado_cobros']));
+
+    $detalles1 = [
+        ['Recibido de:', trim(($cobro['nombre_usuario'] ?? '') . ' ' . ($cobro['apellido_usuario'] ?? ''))],
+        ['Sucursal:', (string)($cobro['nombre_sucursal'] ?? '')],
+        ['Bus asignado:', 'Disco: ' . ($cobro['disco_buses'] ?? '') . ' - Placa: ' . ($cobro['placa_buses'] ?? '')],
+        ['Tipo de cobro:', (string)($cobro['nombre_tipo_cobros'] ?? '')],
+        ['Personal responsable:', trim(($cobro['per_nombres_persona'] ?? '') . ' ' . ($cobro['per_apellidos_personal'] ?? ''))],
+        ['Estado del cobro:', $estadoText],
+    ];
+
+    $wLbl = 45;
+    $wVal = $wUtil - $wLbl;
+    $pdf->SetDrawColor(189, 195, 199);
+
+    foreach ($detalles1 as $d) {
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->SetTextColor(44, 62, 80);
+        $pdf->Cell($wLbl, 6, $d[0], 'B', 0, 'L');
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->SetTextColor(52, 73, 94);
+        $pdf->Cell($wVal, 6, $d[1], 'B', 1, 'L');
+    }
+
+    // ─── 4. MONTO DESTACADO ──────────────────────────────────────────────────
+    $pdf->Ln(3);
+    $yMonto = $pdf->GetY();
+    $pdf->SetFillColor(232, 248, 245);
+    $pdf->SetDrawColor(39, 174, 96);
+    $pdf->SetLineWidth(0.4);
+    $pdf->Rect(15, $yMonto, $wUtil, 10, 'DF');
+
+    $pdf->SetFont('helvetica', 'B', 12);
+    $pdf->SetTextColor(39, 174, 96);
+    $pdf->SetXY(15, $yMonto + 2);
+    $pdf->Cell($wUtil, 6, 'MONTO TOTAL: $' . number_format((float)($cobro['monto_cobros'] ?? 0), 2), 0, 1, 'C');
+    $pdf->SetTextColor(52, 73, 94);
+    $pdf->SetDrawColor(189, 195, 199);
+    $pdf->SetLineWidth(0.2);
+    $pdf->Ln(3);
+
+    // ─── 5. DETALLES ADICIONALES ─────────────────────────────────────────────
+    $detalles2 = [
+        ['Fecha de registro:', (string)$fecha_cobro],
+        ['Usuario que entregó:', trim(($cobro['nombre_usuario_entrego'] ?? '') . ' ' . ($cobro['apellido_usuario_entrego'] ?? ''))],
+        ['Fecha de entrega:', $cobro['fecha_entrego'] ? date('d/m/Y', strtotime($cobro['fecha_entrego'])) : ''],
+        ['Observaciones:', (string)($cobro['observacion_cobros'] ?? '')],
+    ];
+
+    foreach ($detalles2 as $d) {
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->SetTextColor(44, 62, 80);
+        $pdf->Cell($wLbl, 6, $d[0], 'B', 0, 'L');
+        $pdf->SetFont('helvetica', '', 9);
+        $pdf->SetTextColor(52, 73, 94);
+        $pdf->Cell($wVal, 6, $d[1], 'B', 1, 'L');
+    }
+
+    if ($cobro['estado_cobros'] == 2 && !empty($cobro['motivo_anulacion_cobros'])) {
+        $pdf->Ln(2);
+        $pdf->SetFont('helvetica', 'B', 9.5);
+        $pdf->SetTextColor(231, 76, 60);
+        $pdf->MultiCell($wUtil, 6, 'MOTIVO DE ANULACIÓN: ' . $cobro['motivo_anulacion_cobros'], 1, 'L', false, 1);
+        $pdf->SetTextColor(52, 73, 94);
+    }
+
+    // ─── 6. COMPROBANTES ASOCIADOS ───────────────────────────────────────────
+    if (count($comprobantes) > 0) {
+        $pdf->Ln(3);
+        $pdf->SetFont('helvetica', 'B', 10);
+        $pdf->Cell($wUtil, 6, 'Comprobantes cobrados asociados:', 0, 1, 'L');
+
+        $wN = 35;
+        $wM = 30;
+        $wS = 55;
+        $wU = 60;
+
+        $pdf->SetFillColor(52, 152, 219);
+        $pdf->SetTextColor(255, 255, 255);
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell($wN, 6, 'N° Comprobante', 1, 0, 'C', true);
+        $pdf->Cell($wM, 6, 'Monto', 1, 0, 'C', true);
+        $pdf->Cell($wS, 6, 'Sucursal', 1, 0, 'C', true);
+        $pdf->Cell($wU, 6, 'Usuario', 1, 1, 'C', true);
+
+        $pdf->SetTextColor(52, 73, 94);
+        $pdf->SetFont('helvetica', '', 8.5);
+        foreach ($comprobantes as $comp) {
+            $pdf->Cell($wN, 5.5, $comp['numero_comprobante_cobro'], 1, 0, 'C');
+            $pdf->Cell($wM, 5.5, '$' . number_format((float)$comp['monto_comprobante_cobro'], 2), 1, 0, 'R');
+            $pdf->Cell($wS, 5.5, substr($comp['nombre_sucursal'] ?? '', 0, 25), 1, 0, 'L');
+            $pdf->Cell($wU, 5.5, substr(($comp['nombre_usuario'] ?? '') . ' ' . ($comp['apellido_usuario'] ?? ''), 0, 28), 1, 1, 'L');
+        }
+
+        $pdf->SetFillColor(236, 240, 241);
+        $pdf->SetFont('helvetica', 'B', 9);
+        $pdf->Cell($wN + $wM + $wS, 6, 'TOTAL COMPROBANTES: ', 1, 0, 'R', true);
+        $pdf->Cell($wU, 6, '$' . number_format($total_comprobantes, 2), 1, 1, 'R', true);
+    }
+
+    // ─── 7. FIRMAS ───────────────────────────────────────────────────────────
+    $pdf->Ln(20);
+    $wF = 80;
+    $x1 = 15;
+    $x2 = 115;
+    $yFirma = $pdf->GetY();
+
+    $pdf->SetDrawColor(44, 62, 80);
+    $pdf->SetLineWidth(0.4);
+    $pdf->Line($x1, $yFirma, $x1 + $wF, $yFirma);
+    $pdf->Line($x2, $yFirma, $x2 + $wF, $yFirma);
+
+    $pdf->SetXY($x1, $yFirma + 2);
+    $pdf->SetFont('helvetica', 'B', 10);
+    $pdf->SetTextColor(44, 62, 80);
+    $nomPersonal = trim(($cobro['per_nombres_persona'] ?? '') . ' ' . ($cobro['per_apellidos_personal'] ?? ''));
+    $pdf->Cell($wF, 5, $nomPersonal, 0, 1, 'C');
+    $pdf->SetX($x1);
+    $pdf->SetFont('helvetica', '', 8.5);
+    $pdf->SetTextColor(127, 140, 141);
+    $pdf->Cell($wF, 4, 'PERSONAL RESPONSABLE', 0, 1, 'C');
+
+    $pdf->SetXY($x2, $yFirma + 2);
+    $pdf->SetFont('helvetica', 'B', 10);
+    $pdf->SetTextColor(44, 62, 80);
+    $pdf->Cell($wF, 5, $nombre_usuario, 0, 1, 'C');
+    $pdf->SetX($x2);
+    $pdf->SetFont('helvetica', '', 8.5);
+    $pdf->SetTextColor(127, 140, 141);
+    $pdf->Cell($wF, 4, 'USUARIO DEL SISTEMA', 0, 1, 'C');
+
+    // ─── 8. PIE DE PÁGINA ────────────────────────────────────────────────────
+    $pdf->Ln(10);
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->SetTextColor(127, 140, 141);
+    $pdf->Cell($wUtil, 3.5, 'Este documento fue generado automáticamente por el Sistema de Gestión de Flota', 0, 1, 'C');
+    $pdf->Cell($wUtil, 3.5, 'Fecha y hora de generación: ' . $fecha_actual, 0, 1, 'C');
+
+    // ─── SALIDA Y CACHÉ ───────────────────────────────────────────────────────
+    $fileName = 'ComprobanteCobroA4_' . $id_cobros . '.pdf';
+    if (ob_get_length()) {
+        ob_clean();
+    }
+
+    $pdfContent = $pdf->Output($fileName, 'S');
+
+    if (!empty($pdfContent) && strlen($pdfContent) > 500) {
+        @file_put_contents($pdfCacheFile, $pdfContent);
+    }
+
+    $tTotal = round((microtime(true) - $t0) * 1000);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $fileName . '"');
+    header('Content-Length: ' . strlen($pdfContent));
+    header('X-PDF-Cache: MISS');
+    header('X-PDF-Time-Total: ' . $tTotal . 'ms');
+    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+    echo $pdfContent;
+    exit();
+
+} catch (Throwable $e) {
+    if (ob_get_length()) {
+        ob_clean();
+    }
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        "error" => $e->getMessage(),
+        "success" => false
+    ]);
+    exit();
 }
-?>

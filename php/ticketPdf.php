@@ -15,19 +15,103 @@ require_once("pdf_utils.php");
 date_default_timezone_set('America/Guayaquil');
 
 try {
+  $t0 = microtime(true);
   $id_usuario_global = isset($_GET['id_usuario_global']) ? (int) $_GET['id_usuario_global'] : 0;
   $id_guia = isset($_GET['id_guia']) ? (int) $_GET['id_guia'] : 0;
 
   if ($id_guia <= 0) throw new Exception("ID de guía no válido");
 
+  $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
+  $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
+  $dbKey       = md5($dbNameStr . '_t' . $tenantIdStr);
+
+  $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+  if (!is_dir($pdfCacheDir)) {
+      @mkdir($pdfCacheDir, 0777, true);
+  }
+  $pdfCacheFile = $pdfCacheDir . 'ticketGuia_' . $id_guia . '_t' . md5($tenantIdStr) . '.pdf';
+  $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
+
+  if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 500) {
+      $fileName = 'ticketGuia_' . $id_guia . '.pdf';
+      header('Content-Type: application/pdf');
+      header('Content-Disposition: inline; filename="' . $fileName . '"');
+      header('Content-Length: ' . filesize($pdfCacheFile));
+      header('X-PDF-Cache: HIT');
+      header('X-PDF-Time-Total: ' . round((microtime(true) - $t0) * 1000) . 'ms');
+      header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+      readfile($pdfCacheFile);
+      exit();
+  }
+
   $conn = conexion();
 
-  // ─── 1. EMPRESA ────────────────────────────────────────────────────────────
-  $query_empresa = "SELECT razon_social_empresa, ruc_empresa, imagen_empresa FROM empresa LIMIT 1";
-  $vals_empresa  = mysqli_fetch_assoc(mysqli_query($conn, $query_empresa));
+  // ─── 1. EMPRESA Y LOGO (Caché Nivel 1) ──────────────────────────────────────
+  $cacheDir = __DIR__ . '/tmp/cache/';
+  if (!is_dir($cacheDir)) {
+      @mkdir($cacheDir, 0777, true);
+  }
+  $logosDir = __DIR__ . '/tmp/logos/';
+  if (!is_dir($logosDir)) {
+      @mkdir($logosDir, 0777, true);
+  }
 
-  $razon_social  = !empty($vals_empresa["razon_social_empresa"]) ? strtoupper($vals_empresa["razon_social_empresa"]) : 'GRUPO TRAMACO';
-  $rutaLogo      = obtenerRutaLogoEmpresa($conn, $vals_empresa["imagen_empresa"] ?? null);
+  $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
+  $vals_empresa = null;
+  $rutaLogo = null;
+
+  if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
+      $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
+      if ($cachedData && !empty($cachedData['empresa'])) {
+          $vals_empresa = $cachedData['empresa'];
+          $rutaLogo = (!empty($cachedData['logo_path']) && esImagenValidaParaTcpdf($cachedData['logo_path'])) ? $cachedData['logo_path'] : null;
+      }
+  }
+
+  if (!$vals_empresa) {
+      $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+      $rec_empresa = mysqli_query($conn, $query_empresa);
+      $vals_empresa = $rec_empresa ? mysqli_fetch_assoc($rec_empresa) : [];
+      if (!$vals_empresa) {
+          $vals_empresa = [
+              'razon_social_empresa' => 'GRUPO TRAMACO',
+              'ruc_empresa' => '9999999999001'
+          ];
+      }
+
+      $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
+      $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
+      if (esImagenValidaParaTcpdf($cachedLogoPng)) {
+          $rutaLogo = $cachedLogoPng;
+      } else if (esImagenValidaParaTcpdf($cachedLogoJpg)) {
+          $rutaLogo = $cachedLogoJpg;
+      } else {
+          $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
+          $res_img = mysqli_query($conn, $query_img);
+          if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
+              $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
+              if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
+                  $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
+                  $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
+                  if ($rawLogo !== $targetLogo) {
+                      @copy($rawLogo, $targetLogo);
+                  }
+                  $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
+              }
+          }
+      }
+
+      @file_put_contents($empresaCacheFile, json_encode([
+          'empresa' => $vals_empresa,
+          'logo_path' => $rutaLogo
+      ]));
+  }
+
+  if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
+      $rutaLogo = obtenerRutaLogoEmpresa($conn);
+  }
+
+  $razon_social = !empty($vals_empresa["razon_social_empresa"]) ? strtoupper($vals_empresa["razon_social_empresa"]) : 'GRUPO TRAMACO';
 
   // ─── 2. GUÍA ───────────────────────────────────────────────────────────────
   $query_guia = "SELECT g.origen_guia, g.destino_guia, g.numero_guia, g.observacion_guia,
@@ -277,9 +361,25 @@ try {
   $pdf->Cell(60, 6, $fecha_guia, 0, 0);
 
   $fileName = 'ticketGuia_' . $id_guia . '.pdf';
-  $pdf->Output($fileName, 'I');
+  $pdfContent = $pdf->Output($fileName, 'S');
+
+  if (!empty($pdfContent) && strlen($pdfContent) > 500) {
+      @file_put_contents($pdfCacheFile, $pdfContent);
+  }
+
+  $tTotal = round((microtime(true) - $t0) * 1000);
+  header('Content-Type: application/pdf');
+  header('Content-Disposition: inline; filename="' . $fileName . '"');
+  header('Content-Length: ' . strlen($pdfContent));
+  header('X-PDF-Cache: MISS');
+  header('X-PDF-Time-Total: ' . $tTotal . 'ms');
+  header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+  echo $pdfContent;
   exit();
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
+  http_response_code(500);
+  header('Content-Type: application/json');
   echo json_encode(["success" => false, "error" => $e->getMessage()]);
+  exit();
 }

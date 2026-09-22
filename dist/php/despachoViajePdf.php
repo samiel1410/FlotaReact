@@ -1,14 +1,22 @@
 <?php
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
 ob_start();
 require_once('library/tcpdf.php');
 require_once("db.php");
+require_once("pdf_utils.php");
+
 date_default_timezone_set('America/Guayaquil');
 
-// Configuración para impresora POS (80mm)
-$width = 80;
-$height = 250;
-
 try {
+    $t0 = microtime(true);
     $id_despacho_param = intval($_GET['id_despacho'] ?? $_GET['id_despacho_viaje'] ?? 0);
     $id_viajes_param = intval($_GET['id_viajes'] ?? $_GET['id_viaje'] ?? 0);
     $usuario_param = trim($_GET['usuario'] ?? '');
@@ -18,14 +26,76 @@ try {
         throw new Exception("Parámetros de viaje o despacho no válidos");
     }
 
+    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
+    $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
+    $dbKey       = md5($dbNameStr . '_t' . $tenantIdStr);
+
+    // ─── CACHÉ NIVEL 2: PDF ESTÁTICO ─────────────────────────────────────────
+    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDir)) {
+        @mkdir($pdfCacheDir, 0777, true);
+    }
+    $cacheKeyDesp = ($id_despacho_param > 0 ? 'd' . $id_despacho_param : '') . '_v' . $id_viajes_param . '_u' . md5($usuario_param . '_' . $id_sucursal_param);
+    $pdfCacheFile = $pdfCacheDir . 'despachoViaje_' . $cacheKeyDesp . '_t' . md5($tenantIdStr) . '.pdf';
+    $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
+
+    if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 500) {
+        $fileName = 'despacho_viaje_' . ($id_despacho_param ?: $id_viajes_param) . '.pdf';
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $fileName . '"');
+        header('Content-Length: ' . filesize($pdfCacheFile));
+        header('X-PDF-Cache: HIT');
+        header('X-PDF-Time-Total: ' . round((microtime(true) - $t0) * 1000) . 'ms');
+        header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+        readfile($pdfCacheFile);
+        exit();
+    }
+
     // Conexión MySQLi
     $conn = conexion();
     if ($conn->connect_error) {
         throw new Exception("Error de conexión: " . $conn->connect_error);
     }
+    mysqli_query($conn, "SET SESSION sql_mode = ''");
+
+    // ─── CACHÉ NIVEL 1: EMPRESA Y LOGO ────────────────────────────────────────
+    $cacheDir = __DIR__ . '/tmp/cache/';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0777, true);
+    }
+    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
+    $vals_empresa = null;
+
+    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
+        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
+        if ($cachedData && !empty($cachedData['empresa'])) {
+            $vals_empresa = $cachedData['empresa'];
+        }
+    }
+
+    if (!$vals_empresa) {
+        $query_empresa = "SELECT razon_social_empresa, nombre_comercial_empresa, ruc_empresa, direccion_empresa FROM empresa LIMIT 1";
+        $result_empresa = $conn->query($query_empresa);
+        $vals_empresa = $result_empresa ? $result_empresa->fetch_assoc() : [];
+        if (!$vals_empresa) {
+            $vals_empresa = [
+                'razon_social_empresa' => 'SISTEMA FLOTA',
+                'ruc_empresa' => '',
+                'direccion_empresa' => ''
+            ];
+        }
+
+        @file_put_contents($empresaCacheFile, json_encode([
+            'empresa' => $vals_empresa
+        ]));
+    }
+
+    $razon_social = !empty($vals_empresa['razon_social_empresa']) ? $vals_empresa['razon_social_empresa'] : (!empty($vals_empresa['nombre_comercial_empresa']) ? $vals_empresa['nombre_comercial_empresa'] : 'SISTEMA FLOTA');
+    $ruc_empresa = $vals_empresa['ruc_empresa'] ?? '';
+    $direccion_empresa = $vals_empresa['direccion_empresa'] ?? '';
 
     // 1. Identificar el despacho y viaje correspondiente
-    // Los despachos son por oficina/oficinista (un viaje puede tener varios despachos en distintas paradas/oficinas)
     if ($id_despacho_param > 0) {
         $query_despacho = "SELECT 
             dv.id_despacho_viaje,
@@ -70,7 +140,6 @@ try {
         $stmt = $conn->prepare($query_despacho);
         $stmt->bind_param("i", $id_despacho_param);
     } else {
-        // Buscar por id_viajes: priorizar el despacho de la oficina/usuario solicitante, o el más reciente
         $query_despacho = "SELECT 
             dv.id_despacho_viaje,
             dv.tarifa_despacho_viaje,
@@ -135,7 +204,6 @@ try {
     $id_usuario_aprueba = intval($despacho['id_fkusuario_aprueba'] ?? 0);
     $id_sucursal_despacho = intval($despacho['id_fksucursal_usuario'] ?? $id_sucursal_param);
 
-    // Resolver chofer si venía como texto en el viaje
     $nombre_chofer = trim($despacho['nombre_completo_chofer'] ?? '');
     if (empty($nombre_chofer) && !empty($despacho['chofer_viajes'])) {
         $nombre_chofer = trim($despacho['chofer_viajes']);
@@ -144,7 +212,7 @@ try {
         $nombre_chofer = 'N/A';
     }
 
-    // 2. Consulta de boletos correspondientes a ESTE despacho (por oficina/sucursal/usuario que despachó)
+    // 2. Consulta de boletos correspondientes a ESTE despacho
     $query_totales = "SELECT 
         IFNULL(SUM(bd.total_boleto_detalle), 0) AS total_boletos,
         COUNT(bd.id_boleto_detalle) AS cantidad_boletos
@@ -172,7 +240,7 @@ try {
 
     $total_boletos = floatval($totales_boletos['total_boletos'] ?? 0);
 
-    // 3. Consulta de cobros/retenciones descontados en este despacho específico
+    // 3. Consulta de cobros/retenciones
     $totalRetenciones = 0;
     $cobros = [];
 
@@ -180,7 +248,6 @@ try {
     $id_viaje_val = intval($despacho['id_viajes'] ?? $id_despacho_viaje);
 
     if ($id_desp_val > 0 || $id_viaje_val > 0) {
-        // A. Multas, deudas de socio y retenciones dinámicas (despacho_retencion_log)
         $query_log = "SELECT 
             drl.monto_aplicado as monto_cobros,
             COALESCE(d.concepto, td.nombre, drl.tipo, 'RETENCIÓN DESPACHO') as tipo_cobro
@@ -195,7 +262,6 @@ try {
         $cobros_log = $stmt_log->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt_log->close();
 
-        // B. Cobros de bus retenidos (despacho_viaje_reteciones)
         $query_cobros = "SELECT 
             dvr.total_cobrado_despacho_viaje_retenciones as monto_cobros,
             tc.nombre_tipo_cobros as tipo_cobro
@@ -222,24 +288,14 @@ try {
         $totalCobrosDespacho += floatval($cobro['monto_cobros']);
     }
 
-    // Si existen cobros detallados en despacho_viaje_reteciones o log, ese es el total exacto.
     if (count($cobros) > 0) {
         $totalRetenciones = $totalCobrosDespacho;
     } else {
         $totalRetenciones = $tarifaDespacho;
     }
 
-    // 4. Datos de la empresa
-    $query_empresa = "SELECT razon_social_empresa, nombre_comercial_empresa, ruc_empresa, direccion_empresa FROM empresa LIMIT 1";
-    $result_empresa = $conn->query($query_empresa);
-    $empresa = $result_empresa ? $result_empresa->fetch_assoc() : [];
-    $razon_social = !empty($empresa['razon_social_empresa']) ? $empresa['razon_social_empresa'] : (!empty($empresa['nombre_comercial_empresa']) ? $empresa['nombre_comercial_empresa'] : '');
-    $ruc_empresa = $empresa['ruc_empresa'] ?? '';
-    $direccion_empresa = $empresa['direccion_empresa'] ?? '';
-
     $total_entrega = max(0, $total_boletos - $totalRetenciones);
 
-    // Formatear fechas del viaje
     $raw_fecha = !empty($despacho['fecha_viaje']) ? $despacho['fecha_viaje'] : (!empty($despacho['dia_viajes']) ? $despacho['dia_viajes'] : $despacho['fecha_salida_despacho_viaje']);
     $fecha_salida = $raw_fecha ? date('d/m/Y', strtotime($raw_fecha)) : date('d/m/Y');
 
@@ -249,51 +305,12 @@ try {
             ? $despacho['hora_salida_estimado'] 
             : (!empty($despacho['hora_salida_despacho_viaje']) ? $despacho['hora_salida_despacho_viaje'] : ''));
 
-    // 5. Instanciar y configurar TCPDF optimizado para POS
-    $pdf = new TCPDF('P', 'mm', array($width, $height), true, 'UTF-8', false);
-    $pdf->setFontSubsetting(false);
-    $pdf->SetCreator('SistemaFlota');
-    $pdf->SetAuthor('Sistema Flota');
-    $pdf->SetTitle('Despacho #' . $id_despacho_num);
-    $pdf->setPrintHeader(false);
-    $pdf->setPrintFooter(false);
-    $pdf->SetMargins(4, 4, 4);
-    $pdf->SetAutoPageBreak(true, 4);
-    $pdf->SetFont('helvetica', '', 8);
-    $pdf->AddPage('P', array($width, $height));
-
     $nombre_oficinista = trim(($despacho['nombre_usuario'] ?? '') . ' ' . ($despacho['apellido_usuario'] ?? ''));
     if (empty($nombre_oficinista)) {
         $nombre_oficinista = !empty($despacho['username_usuario']) ? $despacho['username_usuario'] : ($usuario_param ?: 'DESPACHO AUTOMÁTICO');
     }
 
-    $content = '
-    <div style="text-align: center; line-height: 11px;">
-        <span style="font-size: 12px; font-weight: bold;">' . strtoupper($razon_social) . '</span><br>
-        <span style="font-size: 8px;">RUC ' . $ruc_empresa . '</span><br>
-        <span style="font-size: 8px;">' . htmlspecialchars($direccion_empresa) . '</span><br>
-        <span style="font-size: 11px; font-weight: bold;">DESPACHO N° ' . $id_despacho_num . '</span>
-    </div>
-    <hr style="border: 0; border-top: 1px solid #000; margin: 2px 0;">
-    
-    <div style="font-size: 9px; line-height: 11px;">
-        <table style="width: 100%;">
-            <tr><td style="width: 25%;"><b>N° VIAJE:</b></td><td style="width: 75%;"><b>' . $id_despacho_viaje . '</b></td></tr>
-            <tr><td><b>DISCO:</b></td><td>' . ($despacho['disco_buses'] ?? '') . '</td></tr>
-            <tr><td><b>RUTA:</b></td><td>' . ($despacho['nombre_rutas'] ?? '') . '</td></tr>
-            <tr><td><b>SALIDA:</b></td><td>' . $fecha_salida . ' ' . $hora_salida . '</td></tr>
-            <tr><td><b>PLACA:</b></td><td>' . ($despacho['placa_buses'] ?? '') . '</td></tr>
-            <tr><td><b>CHOFER:</b></td><td>' . strtoupper(htmlspecialchars($nombre_chofer)) . '</td></tr>
-        </table>
-    </div>
-    
-    <hr style="border: 0; border-top: 1px dashed #000; margin: 2px 0;">
-    
-    <div style="font-size: 9px;">
-        <b>OFICINISTA:</b> ' . strtoupper(htmlspecialchars($nombre_oficinista)) . '
-    </div>';
-
-    // 6. Sección de ventas por punto (origen) correspondientes a este despacho
+    // 4. Ventas por punto
     $query_origen = "SELECT 
         IFNULL(NULLIF(TRIM(b.nombre_origen), ''), IFNULL(s.nombre_sucursal, 'ORIGEN PRINCIPAL')) as origen, 
         COUNT(bd.id_boleto_detalle) as cantidad, 
@@ -320,110 +337,201 @@ try {
     );
     $stmt_origen->execute();
     $result_origen = $stmt_origen->get_result();
-
-    if ($result_origen->num_rows > 0) {
-        $content .= '
-        <div style="font-size: 9px; font-weight: bold; margin-top: 5px; border-bottom: 1px dashed #000;">VENTAS POR PUNTO:</div>
-        <table style="width:100%; font-size:8px; border-collapse: collapse;">
-            <tr>
-                <th style="text-align:left; width: 50%;">Punto</th>
-                <th style="text-align:center; width: 20%;">Cant.</th>
-                <th style="text-align:right; width: 30%;">Total</th>
-            </tr>';
-
-        while ($row_origen = $result_origen->fetch_assoc()) {
-            $content .= '
-            <tr>
-                <td style="text-align:left;">' . strtoupper(htmlspecialchars($row_origen['origen'])) . '</td>
-                <td style="text-align:center;">' . $row_origen['cantidad'] . '</td>
-                <td style="text-align:right;">$' . number_format($row_origen['total'], 2) . '</td>
-            </tr>';
-        }
-        $content .= '</table>';
+    $ventasPuntos = [];
+    while ($row_origen = $result_origen->fetch_assoc()) {
+        $ventasPuntos[] = $row_origen;
     }
     $stmt_origen->close();
+    $conn->close();
 
-    // 7. Sección Desglose de cobros
-    $content .= '
-    <div style="font-size: 9px; font-weight: bold; margin-top: 3px;">DETALLE DE COBROS:</div>
-    <table style="width:100%; font-size:8px; border-collapse: collapse;">
-        <tr>
-            <th style="text-align:left; border-bottom:1px solid #000; width: 70%;">Concepto</th>
-            <th style="text-align:right; border-bottom:1px solid #000; width: 30%;">Valor</th>
-        </tr>';
+    // ─── CONFIGURACIÓN TCPDF NATIVA (80mm) ──────────────────────────────────
+    $anchoPapel = 80;
+    $margen = 4;
+    $anchoUtil = $anchoPapel - ($margen * 2); // 72mm
 
+    $numFilasTotal = count($ventasPuntos) + count($cobros);
+    $altoEstimado = max(220, 160 + ($numFilasTotal * 5.5));
+
+    $pdf = new TCPDF('P', 'mm', array($anchoPapel, $altoEstimado), true, 'UTF-8', false);
+    $pdf->setFontSubsetting(false);
+    $pdf->SetCreator('SistemaFlota');
+    $pdf->SetAuthor('Sistema Flota');
+    $pdf->SetTitle('Despacho #' . $id_despacho_num);
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->SetMargins($margen, 4, $margen);
+    $pdf->SetAutoPageBreak(true, 4);
+    $pdf->AddPage();
+
+    // ─── 1. CABECERA EMPRESA ─────────────────────────────────────────────────
+    $pdf->SetFont('helvetica', 'B', 10);
+    $pdf->Cell($anchoUtil, 4.5, strtoupper($razon_social), 0, 1, 'C');
+
+    if (!empty($ruc_empresa)) {
+        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
+    }
+
+    if (!empty($direccion_empresa)) {
+        $pdf->SetFont('helvetica', '', 7);
+        $pdf->MultiCell($anchoUtil, 3.2, $direccion_empresa, 0, 'C', false, 1);
+    }
+
+    $pdf->SetFont('helvetica', 'B', 9.5);
+    $pdf->Cell($anchoUtil, 4.5, 'DESPACHO N° ' . $id_despacho_num, 0, 1, 'C');
+
+    $pdf->SetLineWidth(0.3);
+    $pdf->Line($margen, $pdf->GetY() + 0.5, $margen + $anchoUtil, $pdf->GetY() + 0.5);
+    $pdf->Ln(1.5);
+
+    // ─── 2. DATOS DEL VIAJE ──────────────────────────────────────────────────
+    $wKey = 20;
+    $wVal = $anchoUtil - $wKey;
+    $hRow = 3.8;
+
+    $infoRows = [
+        ['N° VIAJE:', (string)$id_despacho_viaje, true],
+        ['DISCO:', (string)($despacho['disco_buses'] ?? ''), false],
+        ['RUTA:', (string)($despacho['nombre_rutas'] ?? ''), false],
+        ['SALIDA:', $fecha_salida . ' ' . $hora_salida, false],
+        ['PLACA:', (string)($despacho['placa_buses'] ?? ''), false],
+        ['CHOFER:', strtoupper($nombre_chofer), false],
+    ];
+
+    foreach ($infoRows as $ir) {
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell($wKey, $hRow, $ir[0], 0, 0, 'L');
+        $pdf->SetFont('helvetica', $ir[2] ? 'B' : '', 7.5);
+        $pdf->Cell($wVal, $hRow, $ir[1], 0, 1, 'L');
+    }
+
+    $pdf->Ln(1);
+    $pdf->SetLineStyle(['dash' => 2]);
+    $pdf->Line($margen, $pdf->GetY(), $margen + $anchoUtil, $pdf->GetY());
+    $pdf->SetLineStyle(['dash' => 0]);
+    $pdf->Ln(1.5);
+
+    // OFICINISTA
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell(20, $hRow, 'OFICINISTA:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->Cell($anchoUtil - 20, $hRow, strtoupper($nombre_oficinista), 0, 1, 'L');
+
+    // ─── 3. VENTAS POR PUNTO ─────────────────────────────────────────────────
+    if (count($ventasPuntos) > 0) {
+        $pdf->Ln(1);
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell($anchoUtil, 4, 'VENTAS POR PUNTO:', 'B', 1, 'L');
+
+        $wPunto = 38;
+        $wCant = 14;
+        $wTot = 20;
+
+        $pdf->SetFont('helvetica', 'B', 7);
+        $pdf->Cell($wPunto, 3.8, 'Punto', 0, 0, 'L');
+        $pdf->Cell($wCant, 3.8, 'Cant.', 0, 0, 'C');
+        $pdf->Cell($wTot, 3.8, 'Total', 0, 1, 'R');
+
+        $pdf->SetFont('helvetica', '', 7);
+        foreach ($ventasPuntos as $vp) {
+            $pdf->Cell($wPunto, 3.6, strtoupper($vp['origen']), 0, 0, 'L');
+            $pdf->Cell($wCant, 3.6, (string)$vp['cantidad'], 0, 0, 'C');
+            $pdf->Cell($wTot, 3.6, '$' . number_format($vp['total'], 2), 0, 1, 'R');
+        }
+    }
+
+    // ─── 4. DETALLE DE COBROS / RETENCIONES ───────────────────────────────────
+    $pdf->Ln(1);
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell($anchoUtil, 4, 'DETALLE DE COBROS:', 0, 1, 'L');
+
+    $wConc = 48;
+    $wValC = 24;
+
+    $pdf->SetFont('helvetica', 'B', 7);
+    $pdf->Cell($wConc, 3.8, 'Concepto', 'B', 0, 'L');
+    $pdf->Cell($wValC, 3.8, 'Valor', 'B', 1, 'R');
+
+    $pdf->SetFont('helvetica', '', 7);
     if (count($cobros) === 0 && $tarifaDespacho > 0) {
         $label = 'RETENCIÓN ' . strtoupper($nombreSucursal);
         if ($porcentajeRetencion > 0) {
             $label .= ' (' . $porcentajeRetencion . '%)';
         }
-        $content .= '
-        <tr>
-            <td style="text-align:left;">' . $label . '</td>
-            <td style="text-align:right;">$' . number_format($tarifaDespacho, 2) . '</td>
-        </tr>';
+        $pdf->Cell($wConc, 3.6, $label, 0, 0, 'L');
+        $pdf->Cell($wValC, 3.6, '$' . number_format($tarifaDespacho, 2), 0, 1, 'R');
     }
 
     foreach ($cobros as $cobro) {
-        $content .= '
-        <tr>
-            <td style="text-align:left;">' . htmlspecialchars($cobro['tipo_cobro']) . '</td>
-            <td style="text-align:right;">$' . number_format($cobro['monto_cobros'], 2) . '</td>
-        </tr>';
+        $pdf->Cell($wConc, 3.6, $cobro['tipo_cobro'], 0, 0, 'L');
+        $pdf->Cell($wValC, 3.6, '$' . number_format($cobro['monto_cobros'], 2), 0, 1, 'R');
     }
 
-    $content .= '
-        <tr>
-            <td style="text-align:left; border-top:1px solid #000; font-weight:bold;">TOTAL RETENCIONES:</td>
-            <td style="text-align:right; border-top:1px solid #000; font-weight:bold;">$' . number_format($totalRetenciones, 2) . '</td>
-        </tr>
-    </table>';
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell($wConc, 4, 'TOTAL RETENCIONES:', 'T', 0, 'L');
+    $pdf->Cell($wValC, 4, '$' . number_format($totalRetenciones, 2), 'T', 1, 'R');
 
-    $content .= '
-    <div style="font-size: 9px; margin-top: 5px; line-height: 12px;">
-        <table style="width: 100%;">
-            <tr>
-                <td style="width: 70%;"><b>(+) VENTA BOLETOS:</b></td>
-                <td style="width: 30%; text-align: right;">$' . number_format($total_boletos, 2) . '</td>
-            </tr>
-            <tr>
-                <td><b>(-) RETENCIONES:</b></td>
-                <td style="text-align: right;">$' . number_format($totalRetenciones, 2) . '</td>
-            </tr>
-        </table>
-    </div>';
-    
-    $usuario_despacho = $nombre_oficinista;
+    // ─── 5. RESUMEN FINANCIERO ───────────────────────────────────────────────
+    $pdf->Ln(1);
+    $wResKey = 48;
+    $wResVal = 24;
 
-    $content .= '
-    <div style="font-size: 14px; font-weight: bold; margin-top: 5px; text-align: center; border: 1px dashed #000; padding: 5px;">
-        RECIBE: $' . number_format($total_entrega, 2) . '
-    </div>
-    
-    <div style="text-align: center; font-size: 8px; margin-top: 5px; line-height: 11px;">
-        F. Impresión: ' . date('d/m/Y H:i:s') . '<br>
-        <b>N° Viaje:</b> ' . $id_despacho_viaje . '<br>
-        <b>Despachado por:</b> ' . strtoupper(htmlspecialchars($usuario_despacho)) . '
-    </div>';
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell($wResKey, 3.8, '(+) VENTA BOLETOS:', 0, 0, 'L');
+    $pdf->Cell($wResVal, 3.8, '$' . number_format($total_boletos, 2), 0, 1, 'R');
 
-    // Cerrar conexión
-    $conn->close();
+    $pdf->Cell($wResKey, 3.8, '(-) RETENCIONES:', 0, 0, 'L');
+    $pdf->Cell($wResVal, 3.8, '$' . number_format($totalRetenciones, 2), 0, 1, 'R');
 
-    // Limpiar buffer de salida previo
+    // ─── 6. TOTAL A RECIBIR (Cuadro Destacado) ────────────────────────────────
+    $pdf->Ln(1.5);
+    $yBox = $pdf->GetY();
+    $pdf->SetLineStyle(['dash' => 2]);
+    $pdf->Rect($margen, $yBox, $anchoUtil, 9, 'D');
+    $pdf->SetLineStyle(['dash' => 0]);
+
+    $pdf->SetFont('helvetica', 'B', 11);
+    $pdf->SetXY($margen, $yBox + 1.8);
+    $pdf->Cell($anchoUtil, 6, 'RECIBE: $' . number_format($total_entrega, 2), 0, 1, 'C');
+
+    // ─── 7. PIE DE PÁGINA ────────────────────────────────────────────────────
+    $pdf->Ln(3);
+    $pdf->SetFont('helvetica', '', 7);
+    $pdf->Cell($anchoUtil, 3.2, 'F. Impresión: ' . date('d/m/Y H:i:s'), 0, 1, 'C');
+    $pdf->Cell($anchoUtil, 3.2, 'N° Viaje: ' . $id_despacho_viaje, 0, 1, 'C');
+    $pdf->Cell($anchoUtil, 3.2, 'Despachado por: ' . strtoupper($nombre_oficinista), 0, 1, 'C');
+
+    // ─── SALIDA Y CACHÉ ───────────────────────────────────────────────────────
+    $fileName = 'despacho_pos_' . $id_despacho_num . '.pdf';
     if (ob_get_length()) {
         ob_clean();
     }
 
-    // Generar PDF
-    $pdf->writeHTML($content, true, false, true, false, '');
+    $pdfContent = $pdf->Output($fileName, 'S');
 
-    // Salida para navegador / impresión directa
-    $pdf->Output('despacho_pos_' . $id_despacho_num . '.pdf', 'I');
+    if (!empty($pdfContent) && strlen($pdfContent) > 500) {
+        @file_put_contents($pdfCacheFile, $pdfContent);
+    }
 
-} catch (Exception $e) {
+    $tTotal = round((microtime(true) - $t0) * 1000);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $fileName . '"');
+    header('Content-Length: ' . strlen($pdfContent));
+    header('X-PDF-Cache: MISS');
+    header('X-PDF-Time-Total: ' . $tTotal . 'ms');
+    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+    echo $pdfContent;
+    exit();
+
+} catch (Throwable $e) {
     if (ob_get_length()) {
         ob_clean();
     }
-    die("Error: " . $e->getMessage());
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        "error" => $e->getMessage(),
+        "success" => false
+    ]);
+    exit();
 }
-?>
