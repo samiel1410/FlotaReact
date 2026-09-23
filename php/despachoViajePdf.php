@@ -34,17 +34,9 @@ try {
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
     // ─── CACHÉ NIVEL 1: EMPRESA Y LOGO ────────────────────────────────────────
-    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
     $vals_empresa = null;
 
-    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
-        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
-        if ($cachedData && !empty($cachedData['empresa'])) {
-            $vals_empresa = $cachedData['empresa'];
-        }
-    }
-
-    if (!$vals_empresa) {
+    
         $query_empresa = "SELECT razon_social_empresa, nombre_comercial_empresa, ruc_empresa, direccion_empresa FROM empresa LIMIT 1";
         $result_empresa = $conn->query($query_empresa);
         $vals_empresa = $result_empresa ? $result_empresa->fetch_assoc() : [];
@@ -56,10 +48,7 @@ try {
             ];
         }
 
-        @file_put_contents($empresaCacheFile, json_encode([
-            'empresa' => $vals_empresa
-        ]));
-    }
+        
 
     $razon_social = !empty($vals_empresa['razon_social_empresa']) ? $vals_empresa['razon_social_empresa'] : (!empty($vals_empresa['nombre_comercial_empresa']) ? $vals_empresa['nombre_comercial_empresa'] : 'SISTEMA FLOTA');
     $ruc_empresa = $vals_empresa['ruc_empresa'] ?? '';

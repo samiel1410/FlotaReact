@@ -34,21 +34,11 @@ try {
         @mkdir($logosDir, 0777, true);
     }
 
-    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
     $vals_empresa = null;
     $rutaLogo = null;
     $vals_config = null;
 
-    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
-        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
-        if ($cachedData && !empty($cachedData['empresa'])) {
-            $vals_empresa = $cachedData['empresa'];
-            $vals_config  = $cachedData['config'] ?? [];
-            $rutaLogo = (!empty($cachedData['logo_path']) && esImagenValidaParaTcpdf($cachedData['logo_path'])) ? $cachedData['logo_path'] : null;
-        }
-    }
-
-    if (!$vals_empresa) {
+    
         $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
         $rec_emp = mysqli_query($conn, $query_empresa);
         $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
@@ -87,12 +77,7 @@ try {
             }
         }
 
-        @file_put_contents($empresaCacheFile, json_encode([
-            'empresa' => $vals_empresa,
-            'config' => $vals_config,
-            'logo_path' => $rutaLogo
-        ]));
-    }
+        
 
     if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
         $rutaLogo = obtenerRutaLogoEmpresa($conn);

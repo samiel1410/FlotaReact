@@ -108,11 +108,6 @@ function obtenerCredencialesDb($isLocal)
     }
 
     $tenantIntentado = false;
-    $cacheDir = __DIR__ . '/tmp/tenants/';
-    if (!is_dir($cacheDir)) {
-        @mkdir($cacheDir, 0777, true);
-    }
-
     $tId = $_GET['tenantId'] ?? $_POST['tenantId'] ?? $_GET['tenant_id'] ?? $_POST['tenant_id'] ?? $_COOKIE['tenantId'] ?? $_COOKIE['tenant_id'] ?? $_SESSION['tenantId'] ?? $_SESSION['tenant_id'] ?? null;
 
     if (!empty($tId)) {

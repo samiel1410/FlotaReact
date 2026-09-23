@@ -224,21 +224,11 @@ try {
     if (!is_dir($logosDir)) {
         @mkdir($logosDir, 0777, true);
     }
-    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
     $vals_empresa = null;
     $vals_config = null;
     $rutaLogo = null;
 
-    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
-        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
-        if ($cachedData && !empty($cachedData['empresa'])) {
-            $vals_empresa = $cachedData['empresa'];
-            $vals_config = $cachedData['config'] ?? [];
-            $rutaLogo = (!empty($cachedData['logo_path']) && esImagenValidaParaTcpdf($cachedData['logo_path'])) ? $cachedData['logo_path'] : null;
-        }
-    }
-
-    if (!$vals_empresa) {
+    
         // Query liviana sin transferir el BLOB pesado de imagen_empresa
         $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
         $recuperar_empresa = mysqli_query($conn, $query_empresa);
@@ -280,12 +270,7 @@ try {
             }
         }
 
-        @file_put_contents($empresaCacheFile, json_encode([
-            'empresa' => $vals_empresa,
-            'config' => $vals_config,
-            'logo_path' => $rutaLogo
-        ]));
-    }
+        
 
     $t1 = microtime(true);
     header('X-PDF-Time-EmpresaCache: ' . round(($t1 - $t0) * 1000) . 'ms');
