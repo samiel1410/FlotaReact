@@ -388,4 +388,98 @@ function obtenerMetricasImpresion($ancho, $baseAncho = 110)
         'alto_barcode_mm'       => $alto_barcode_mm,
     ];
 }
+
+/**
+ * Limpia un texto proveniente de la BD para evitar imprimir 'null', 'NULL' o valores vacíos extraños.
+ *
+ * @param mixed $val
+ * @param string $default
+ * @return string
+ */
+function limpiarTextoPdf($val, $default = '')
+{
+    if ($val === null) {
+        return $default;
+    }
+    $str = trim((string)$val);
+    if ($str === '' || strtolower($str) === 'null' || strtolower($str) === 'undefined') {
+        return $default;
+    }
+    return $str;
+}
+
+/**
+ * Dibuja el logo centrado en un documento de ticket/POS respetando proporciones reales
+ * y actualiza la posición Y del PDF para que el texto siguiente NUNCA quede sobrepuesto.
+ *
+ * @param TCPDF $pdf
+ * @param string|null $rutaLogo
+ * @param float $anchoPapel
+ * @param float $margenMm
+ * @param float $maxW Ancho máximo permitido en mm
+ * @param float $maxH Alto máximo permitido en mm
+ * @param float $espacioAbajo Espacio vertical extra debajo del logo en mm
+ * @return float Altura real calculada del logo en mm
+ */
+function imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoPapel, $margenMm, $maxW = 28.0, $maxH = 22.0, $espacioAbajo = 2.0)
+{
+    if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
+        return 0;
+    }
+
+    $info = @getimagesize($rutaLogo);
+    $wImg = ($info && !empty($info[0])) ? (float)$info[0] : 100.0;
+    $hImg = ($info && !empty($info[1])) ? (float)$info[1] : 100.0;
+
+    $anchoUtil = max(10.0, $anchoPapel - ($margenMm * 2));
+    $targetW = min($maxW, $anchoUtil * 0.65);
+    $targetH = ($hImg / $wImg) * $targetW;
+
+    if ($targetH > $maxH) {
+        $targetH = $maxH;
+        $targetW = ($wImg / $hImg) * $targetH;
+    }
+
+    $xLogo = $margenMm + ($anchoUtil - $targetW) / 2.0;
+    $yLogo = $pdf->GetY();
+
+    $pdf->Image($rutaLogo, $xLogo, $yLogo, $targetW, $targetH, '', '', 'T', false, 300, 'C');
+    $pdf->SetY($yLogo + $targetH + $espacioAbajo);
+
+    return $targetH;
+}
+
+/**
+ * Dibuja el logo a la izquierda en un documento A4 respetando proporciones reales
+ * y devuelve el ancho y alto del logo colocado.
+ *
+ * @param TCPDF $pdf
+ * @param string|null $rutaLogo
+ * @param float $x
+ * @param float $y
+ * @param float $maxW
+ * @param float $maxH
+ * @return array ['w' => float, 'h' => float]
+ */
+function imprimirLogoTcpdfA4($pdf, $rutaLogo, $x = 15.0, $y = 12.0, $maxW = 35.0, $maxH = 22.0)
+{
+    if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
+        return ['w' => 0, 'h' => 0];
+    }
+
+    $info = @getimagesize($rutaLogo);
+    $wImg = ($info && !empty($info[0])) ? (float)$info[0] : 100.0;
+    $hImg = ($info && !empty($info[1])) ? (float)$info[1] : 100.0;
+
+    $targetW = $maxW;
+    $targetH = ($hImg / $wImg) * $targetW;
+
+    if ($targetH > $maxH) {
+        $targetH = $maxH;
+        $targetW = ($wImg / $hImg) * $targetH;
+    }
+
+    $pdf->Image($rutaLogo, $x, $y, $targetW, $targetH, '', '', 'T', false, 300, 'L');
+    return ['w' => $targetW, 'h' => $targetH];
+}
 ?>

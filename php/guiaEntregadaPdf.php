@@ -105,12 +105,12 @@ try {
     }
 
     $resultado = sprintf("%09s", $vals_guia["numero_guia_guias_entregadas"] ?? 0);
-    $punto_emision_guia = $vals_guia["punto_emision_guia_guias_entregadas"] ?? '';
-    $punto_emision_sucursal = $vals_guia["punto_emision_sucursal_guias_entregadas"] ?? '';
-    $fecha_hora_entrega = $vals_guia["fecha_hora_entrega"] ?? '';
-    $cliente = $vals_guia["nombre_destinatario_guias_entregadas"] ?? '';
-    $cedula_cliente = $vals_guia["ruc_destinatario_guias_entregadas"] ?? '';
-    $usuario_entrego = trim(($vals_guia["nombre_usuario"] ?? '') . ' ' . ($vals_guia["apellido_usuario"] ?? ''));
+    $punto_emision_guia = limpiarTextoPdf($vals_guia["punto_emision_guia_guias_entregadas"] ?? '', '001');
+    $punto_emision_sucursal = limpiarTextoPdf($vals_guia["punto_emision_sucursal_guias_entregadas"] ?? '', '001');
+    $fecha_hora_entrega = limpiarTextoPdf($vals_guia["fecha_hora_entrega"] ?? '');
+    $cliente = limpiarTextoPdf($vals_guia["nombre_destinatario_guias_entregadas"] ?? '');
+    $cedula_cliente = limpiarTextoPdf($vals_guia["ruc_destinatario_guias_entregadas"] ?? '');
+    $usuario_entrego = limpiarTextoPdf(trim(($vals_guia["nombre_usuario"] ?? '') . ' ' . ($vals_guia["apellido_usuario"] ?? '')));
     $numero_guia = $punto_emision_sucursal . '-' . $punto_emision_guia . '-' . $resultado;
 
     // Oficinista que imprime
@@ -120,8 +120,8 @@ try {
         $sql_ofic = "SELECT nombre_usuario, apellido_usuario FROM usuario WHERE id_usuario = $id_usuario LIMIT 1";
         $rec_ofic = mysqli_query($conn, $sql_ofic);
         if ($rec_ofic && $vals_ofic = mysqli_fetch_assoc($rec_ofic)) {
-            $nombre_usuario = $vals_ofic["nombre_usuario"] ?? '';
-            $apellido_usuario = $vals_ofic["apellido_usuario"] ?? '';
+            $nombre_usuario = limpiarTextoPdf($vals_ofic["nombre_usuario"] ?? '');
+            $apellido_usuario = limpiarTextoPdf($vals_ofic["apellido_usuario"] ?? '');
         }
     }
 
@@ -130,7 +130,7 @@ try {
         $query_ubicacion = "SELECT d.lugar_destino FROM destino d JOIN usuario u ON u.id_fkdestino_usuario = d.id_destino WHERE u.id_usuario = $id_usuario LIMIT 1";
         $rec_ub = mysqli_query($conn, $query_ubicacion);
         if ($rec_ub && $row_ub = mysqli_fetch_assoc($rec_ub)) {
-            $ubicacion_usuario = $row_ub['lugar_destino'] ?? '';
+            $ubicacion_usuario = limpiarTextoPdf($row_ub['lugar_destino'] ?? '');
         }
     }
 
@@ -139,7 +139,10 @@ try {
     $recuperar_contenido = mysqli_query($conn, $query_contenido) or die(mysqli_error($conn));
     $items = [];
     while ($r = mysqli_fetch_assoc($recuperar_contenido)) {
-        $items[] = $r;
+        $items[] = [
+            'contenido_guia' => limpiarTextoPdf($r['contenido_guia'] ?? ''),
+            'cantidad_detalle_guia' => $r['cantidad_detalle_guia'] ?? 1
+        ];
     }
     $conn->close();
 
@@ -159,19 +162,20 @@ try {
     $pdf->AddPage();
 
     // Logo
+    $pdf->SetY(4);
     if ($rutaLogo) {
-        $pdf->Image($rutaLogo, ($anchoTicket / 2) - 10, 4, 20, 0, '', '', 'T', false, 300, 'C');
-        $pdf->SetY(20);
-    } else {
-        $pdf->SetY(4);
+        imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoTicket, $margen, 24, 18, 1.5);
     }
 
     // Empresa
     $pdf->SetFont('helvetica', 'B', 9);
     $pdf->MultiCell($anchoUtil, 4, strtoupper($razon_social_empresa), 0, 'C', false, 1);
-    $pdf->SetFont('helvetica', '', 7.5);
-    $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
+    if (!empty($ruc_empresa)) {
+        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
+    }
     if (!empty($ubicacion_usuario)) {
+        $pdf->SetFont('helvetica', '', 7.5);
         $pdf->Cell($anchoUtil, 3.5, 'OFICINA - ' . $ubicacion_usuario, 0, 1, 'C');
     }
 

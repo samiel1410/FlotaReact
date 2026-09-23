@@ -1,38 +1,96 @@
 <?php
-// ─── IMPORTANTE: suprimir salida de errores para no corromper el PDF ────────
-error_reporting(0);
-ini_set('display_errors', '0');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+ob_start();
 require_once('library/tcpdf.php');
 require_once("db.php");
+require_once("pdf_utils.php");
 
 date_default_timezone_set('America/Guayaquil');
 
 try {
+    $t0 = microtime(true);
     $fecha_actual = date('d/m/Y H:i:s');
-
-    $pdf = new TCPDF('P', PDF_UNIT, array(80, 150), true, 'UTF-8', false);
-    $conn = conexion();
-
-    // Datos empresa
-    $empresa = mysqli_fetch_array(mysqli_query($conn,
-        "SELECT telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1"
-    ));
-
-    // Parámetros
     $id_cobros  = intval($_GET['id_cobros'] ?? 0);
     $id_usuario = intval($_GET['id_usuario'] ?? 0);
+
+    if ($id_cobros <= 0) {
+        throw new Exception("ID de cobro / retención no válido o no proporcionado");
+    }
+
+    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
+    $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
+    $dbKey       = md5($dbNameStr . '_t' . $tenantIdStr);
+
+    // ─── CACHÉ NIVEL 2: PDF ESTÁTICO ─────────────────────────────────────────
+    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDir)) {
+        @mkdir($pdfCacheDir, 0777, true);
+    }
+    $pdfCacheFile = $pdfCacheDir . 'retencion_' . $id_cobros . '_u' . $id_usuario . '_t' . md5($tenantIdStr) . '.pdf';
+    $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
+
+    if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 500) {
+        $fileName = 'retencion_' . $id_cobros . '.pdf';
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="' . $fileName . '"');
+        header('Content-Length: ' . filesize($pdfCacheFile));
+        header('X-PDF-Cache: HIT');
+        header('X-PDF-Time-Total: ' . round((microtime(true) - $t0) * 1000) . 'ms');
+        header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+        readfile($pdfCacheFile);
+        exit();
+    }
+
+    $conn = conexion();
+    mysqli_query($conn, "SET SESSION sql_mode = ''");
+
+    // ─── CACHÉ NIVEL 1: EMPRESA ──────────────────────────────────────────────
+    $cacheDir = __DIR__ . '/tmp/cache/';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0777, true);
+    }
+    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
+    $vals_empresa = null;
+
+    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
+        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
+        if ($cachedData && !empty($cachedData['empresa'])) {
+            $vals_empresa = $cachedData['empresa'];
+        }
+    }
+
+    if (!$vals_empresa) {
+        $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+        $rec_emp = mysqli_query($conn, $query_empresa);
+        $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
+        if (!$vals_empresa) {
+            $vals_empresa = ['razon_social_empresa' => 'SISTEMA FLOTA', 'ruc_empresa' => '', 'direccion_empresa' => ''];
+        }
+        @file_put_contents($empresaCacheFile, json_encode(['empresa' => $vals_empresa]));
+    }
+
+    $empresa = $vals_empresa;
+    $rutaLogo = obtenerRutaLogoEmpresa($conn, $empresa["imagen_empresa"] ?? null);
 
     // Datos del usuario (si viene por GET)
     $nombre_usuario = '';
     if ($id_usuario > 0) {
         $res_u = mysqli_query($conn, "SELECT nombre_usuario, apellido_usuario FROM usuario WHERE id_usuario = $id_usuario");
-        if ($res_u && $u = mysqli_fetch_array($res_u)) {
+        if ($res_u && $u = mysqli_fetch_assoc($res_u)) {
             $nombre_usuario = trim(($u['nombre_usuario'] ?? '') . ' ' . ($u['apellido_usuario'] ?? ''));
         }
     }
 
-    // Datos del cobro — JOIN con COALESCE para socio/personal
+    // Datos del cobro
     $query = "SELECT c.*,
                      u.nombre_usuario, u.apellido_usuario,
                      b.placa_buses, b.disco_buses,
@@ -48,28 +106,21 @@ try {
               LEFT JOIN sucursal2 s ON c.id_fksucursal_cobros = s.suc_codigo_sucursal
               LEFT JOIN caja_boleteria ca ON c.id_fkcaja_cobros = ca.id_caja_boleteria
               LEFT JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
-              WHERE c.id_cobros = $id_cobros";
+              WHERE c.id_cobros = $id_cobros LIMIT 1";
 
     $res = mysqli_query($conn, $query);
-    $cobro = $res ? mysqli_fetch_array($res) : null;
+    $cobro = $res ? mysqli_fetch_assoc($res) : null;
+    $conn->close();
 
     if (!$cobro) {
-        // No se encontró el cobro — mostrar mensaje de error en PDF
-        $pdf->SetCreator('Sistema Flota');
-        $pdf->SetMargins(5, 5, 5);
-        $pdf->SetAutoPageBreak(true, 5);
-        $pdf->AddPage();
-        $pdf->writeHTML('<h3 style="color:red;text-align:center;">Cobro #' . $id_cobros . ' no encontrado</h3>', true, false, true, false, '');
-        $pdf->Output('error.pdf', 'I');
-        exit;
+        throw new Exception("Cobro/Retención #$id_cobros no encontrado");
     }
 
-    // Si no vino id_usuario por GET, usar el que está en el cobro
     if (empty($nombre_usuario)) {
         $nombre_usuario = trim(($cobro['nombre_usuario'] ?? '') . ' ' . ($cobro['apellido_usuario'] ?? ''));
     }
 
-    // Fecha cobro con fallback
+    // Fecha cobro
     $fecha_str = $cobro['fecha_cobros'] ?? $cobro['fecha_creacion_cobros'] ?? null;
     if ($fecha_str && $fecha_str !== '0000-00-00' && $fecha_str !== '0000-00-00 00:00:00') {
         $ts = strtotime($fecha_str);
@@ -78,102 +129,148 @@ try {
         $fecha_cobro = $fecha_actual;
     }
 
-    // Helpers
-    $razon   = $empresa['razon_social_empresa'] ?? 'Empresa';
-    $ruc     = $empresa['ruc_empresa'] ?? '';
-    $dir     = $empresa['direccion_empresa'] ?? '';
-    $socio_n = trim(($cobro['per_nombres_persona'] ?? '') . ' ' . ($cobro['per_apellidos_personal'] ?? ''));
-    $bus_inf = ($cobro['disco_buses'] ?? '-') . ' - ' . ($cobro['placa_buses'] ?? '-');
-    $monto   = number_format(floatval($cobro['monto_cobros'] ?? 0), 2);
-    $tipo_c  = $cobro['nombre_tipo_cobros'] ?? 'Cobro';
-    $sucursal = $cobro['nombre_sucursal'] ?? '-';
-    $obs     = $cobro['observacion_cobros'] ?? '';
-    $recibido = $nombre_usuario ?: trim(($cobro['nombre_usuario'] ?? '') . ' ' . ($cobro['apellido_usuario'] ?? ''));
+    $razon    = limpiarTextoPdf($empresa['razon_social_empresa'] ?? '', 'SISTEMA FLOTA');
+    $ruc      = limpiarTextoPdf($empresa['ruc_empresa'] ?? '');
+    $dir      = limpiarTextoPdf($empresa['direccion_empresa'] ?? '');
+    $socio_n  = limpiarTextoPdf(trim(($cobro['per_nombres_persona'] ?? '') . ' ' . ($cobro['per_apellidos_personal'] ?? '')), '-');
+    $bus_inf  = ($cobro['disco_buses'] ?? '-') . ' - ' . ($cobro['placa_buses'] ?? '-');
+    $monto    = number_format(floatval($cobro['monto_cobros'] ?? 0), 2);
+    $tipo_c   = limpiarTextoPdf($cobro['nombre_tipo_cobros'] ?? '', 'Cobro');
+    $sucursal = limpiarTextoPdf($cobro['nombre_sucursal'] ?? '', '-');
+    $obs      = limpiarTextoPdf($cobro['observacion_cobros'] ?? '', '-');
+    $recibido = limpiarTextoPdf($nombre_usuario ?: trim(($cobro['nombre_usuario'] ?? '') . ' ' . ($cobro['apellido_usuario'] ?? '')), '-');
 
-    // Configuración PDF
-    $pdf->SetCreator('Sistema Flota');
-    $pdf->SetMargins(5, 5, 5);
-    $pdf->SetAutoPageBreak(true, 5);
+    // ─── CONFIGURACIÓN TCPDF (Ticket 80mm Nativo) ─────────────────────────────
+    $anchoPapel = 80;
+    $margen = 4;
+    $anchoUtil = $anchoPapel - ($margen * 2);
+    $altoEstimado = 185;
+
+    $pdf = new TCPDF('P', 'mm', array($anchoPapel, $altoEstimado), true, 'UTF-8', false);
+    $pdf->setFontSubsetting(false);
+    $pdf->SetCreator('SistemaFlota');
+    $pdf->setPrintHeader(false);
+    $pdf->setPrintFooter(false);
+    $pdf->SetMargins($margen, 4, $margen);
+    $pdf->SetAutoPageBreak(false, 0);
     $pdf->AddPage();
 
-    // Estilos
-    $header_style = 'font-size:11pt;font-style:bold;text-align:center;line-height:1.3;';
-    $label_style  = 'font-size:9pt;font-style:bold;';
-    $value_style  = 'font-size:9pt;';
-
-    // Contenido HTML
-    $html = '
-    <div style="' . $header_style . '">
-        ' . htmlspecialchars($razon) . '<br>
-        <span style="font-size:9pt;">RUC: ' . htmlspecialchars($ruc) . '</span><br>
-        <span style="font-size:9pt;">' . htmlspecialchars($dir) . '</span>
-    </div>
-
-    <hr style="height:0.5px;">
-    <div style="text-align:right;font-size:8pt;">Impreso: ' . $fecha_actual . '</div>
-
-    <table border="0" cellpadding="2" cellspacing="2" style="margin-bottom:8px; width:100%;">
-        <tr>
-            <td style="' . $label_style . '" width="35%">Recibido de:</td>
-            <td style="' . $value_style . '">' . htmlspecialchars($recibido) . '</td>
-        </tr>
-        <tr>
-            <td style="' . $label_style . '">Sucursal:</td>
-            <td style="' . $value_style . '">' . htmlspecialchars($sucursal) . '</td>
-        </tr>
-        <tr>
-            <td style="' . $label_style . '">Bus:</td>
-            <td style="' . $value_style . '">' . htmlspecialchars($bus_inf) . '</td>
-        </tr>
-        <tr>
-            <td style="' . $label_style . '">Tipo cobro:</td>
-            <td style="' . $value_style . '">' . htmlspecialchars($tipo_c) . '</td>
-        </tr>
-        <tr>
-            <td style="' . $label_style . '">Personal:</td>
-            <td style="' . $value_style . '">' . htmlspecialchars($socio_n ?: '-') . '</td>
-        </tr>
-    </table>
-
-    <table border="0" cellpadding="2" cellspacing="2" style="margin-bottom:8px; width:100%;">
-        <tr>
-            <td style="' . $label_style . '" width="35%">Fecha:</td>
-            <td style="' . $value_style . '">' . $fecha_cobro . '</td>
-        </tr>
-        <tr>
-            <td style="' . $label_style . '">Observación:</td>
-            <td style="' . $value_style . '">' . htmlspecialchars($obs) . '</td>
-        </tr>
-        <tr>
-            <td style="' . $label_style . '">Monto:</td>
-            <td style="' . $value_style . '">$' . $monto . '</td>
-        </tr>
-    </table>';
-
-    if (($cobro['estado_cobros'] ?? '') == 2) {
-        $motivo = htmlspecialchars($cobro['motivo_anulacion_cobros'] ?? '');
-        $html .= '<div style="font-size:9pt;color:red;margin-top:3px;border:1px solid #f00;padding:3px;"><b>Motivo Anulación:</b> ' . $motivo . '</div>';
+    // 1. Logo
+    $pdf->SetY(4);
+    if ($rutaLogo) {
+        imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoPapel, $margen, 28, 22, 1.5);
     }
 
-    // Firmas
-    $html .= '<br><br><table style="width:100%;margin-top:20px;" border="0">
-        <tr>
-            <td style="width:45%;text-align:center;font-size:8pt;">_________________________<br>'
-                . htmlspecialchars($socio_n ?: 'Personal') . '<br>Personal</td>
-            <td style="width:10%;"></td>
-            <td style="width:45%;text-align:center;font-size:8pt;">_________________________<br>'
-                . htmlspecialchars($nombre_usuario ?: 'Usuario') . '<br>Usuario</td>
-        </tr>
-    </table>';
+    // 2. Cabecera
+    $pdf->SetFont('helvetica', 'B', 9.5);
+    $pdf->Cell($anchoUtil, 4.2, strtoupper($razon), 0, 1, 'C');
 
-    $pdf->writeHTML($html, true, false, true, false, '');
-    $pdf->Output('retencion_' . $id_cobros . '.pdf', 'I');
-
-} catch (Exception $e) {
-    // Si aún no se envió nada al buffer, mostrar JSON de error
-    if (!headers_sent()) {
-        header('Content-Type: application/json');
+    if (!empty($ruc)) {
+        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc, 0, 1, 'C');
     }
-    echo json_encode(["error" => $e->getMessage(), "success" => false]);
+    if (!empty($dir)) {
+        $pdf->SetFont('helvetica', '', 7);
+        $pdf->MultiCell($anchoUtil, 3.2, $dir, 0, 'C', false, 1);
+    }
+
+    $pdf->SetLineWidth(0.3);
+    $pdf->Line($margen, $pdf->GetY() + 0.5, $margen + $anchoUtil, $pdf->GetY() + 0.5);
+    $pdf->Ln(1.5);
+
+    $pdf->SetFont('helvetica', 'B', 9);
+    $pdf->Cell($anchoUtil, 4, 'RECIBO DE RETENCIÓN #' . $id_cobros, 0, 1, 'C');
+
+    $pdf->SetFont('helvetica', '', 6.8);
+    $pdf->Cell($anchoUtil, 3.2, 'Impreso: ' . $fecha_actual, 0, 1, 'R');
+    $pdf->Ln(1);
+
+    // 3. Detalles en celdas nativas
+    $wK = round($anchoUtil * 0.35, 1);
+    $wV = $anchoUtil - $wK;
+    $hR = 3.6;
+
+    $rows = [
+        ['Recibido de:', $recibido],
+        ['Sucursal:', $sucursal],
+        ['Bus:', $bus_inf],
+        ['Tipo cobro:', $tipo_c],
+        ['Personal:', $socio_n],
+        ['Fecha:', $fecha_cobro],
+        ['Observación:', $obs],
+    ];
+
+    foreach ($rows as $r) {
+        $pdf->SetFont('helvetica', 'B', 7.2);
+        $pdf->Cell($wK, $hR, $r[0], 0, 0, 'L');
+        $pdf->SetFont('helvetica', '', 7.2);
+        $pdf->Cell($wV, $hR, $r[1], 0, 1, 'L');
+    }
+
+    // Monto Destacado
+    $pdf->Ln(1);
+    $pdf->SetFont('helvetica', 'B', 8.5);
+    $pdf->Cell($wK, 4.5, 'MONTO:', 0, 0, 'L');
+    $pdf->Cell($wV, 4.5, '$' . $monto, 0, 1, 'R');
+
+    // Motivo Anulación si aplica
+    if (($cobro['estado_cobros'] ?? '') == 2 && !empty($cobro['motivo_anulacion_cobros'])) {
+        $pdf->Ln(1);
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->SetTextColor(200, 0, 0);
+        $pdf->MultiCell($anchoUtil, 3.5, 'Motivo Anulación: ' . $cobro['motivo_anulacion_cobros'], 1, 'L', false, 1);
+        $pdf->SetTextColor(0, 0, 0);
+    }
+
+    // 4. Firmas
+    $pdf->Ln(6);
+    $wFirma = $anchoUtil / 2;
+    $yF = $pdf->GetY();
+
+    $pdf->SetLineWidth(0.2);
+    $pdf->Line($margen + 2, $yF, $margen + $wFirma - 2, $yF);
+    $pdf->Line($margen + $wFirma + 2, $yF, $margen + $anchoUtil - 2, $yF);
+
+    $pdf->SetXY($margen, $yF + 1);
+    $pdf->SetFont('helvetica', 'B', 7);
+    $pdf->Cell($wFirma, 3.2, 'PERSONAL', 0, 0, 'C');
+    $pdf->Cell($wFirma, 3.2, 'USUARIO', 0, 1, 'C');
+
+    $pdf->SetFont('helvetica', '', 6.5);
+    $pdf->Cell($wFirma, 3, substr($socio_n, 0, 22), 0, 0, 'C');
+    $pdf->Cell($wFirma, 3, substr($nombre_usuario, 0, 22), 0, 1, 'C');
+
+    // ─── SALIDA Y CACHÉ ───────────────────────────────────────────────────────
+    $fileName = 'retencion_' . $id_cobros . '.pdf';
+    if (ob_get_length()) {
+        ob_clean();
+    }
+
+    $pdfContent = $pdf->Output($fileName, 'S');
+
+    if (!empty($pdfContent) && strlen($pdfContent) > 500) {
+        @file_put_contents($pdfCacheFile, $pdfContent);
+    }
+
+    $tTotal = round((microtime(true) - $t0) * 1000);
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $fileName . '"');
+    header('Content-Length: ' . strlen($pdfContent));
+    header('X-PDF-Cache: MISS');
+    header('X-PDF-Time-Total: ' . $tTotal . 'ms');
+    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+    echo $pdfContent;
+    exit();
+
+} catch (Throwable $e) {
+    if (ob_get_length()) {
+        ob_clean();
+    }
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        "error" => $e->getMessage(),
+        "success" => false
+    ]);
+    exit();
 }
-?>

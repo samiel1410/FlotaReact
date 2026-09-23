@@ -206,11 +206,9 @@ try {
     $pdf->AddPage();
 
     // ─── 1. CABECERA ─────────────────────────────────────────────────────────
+    $pdf->SetY(4);
     if ($rutaLogo && file_exists($rutaLogo)) {
-        $logoW = 28;
-        $xLogo = $margen + ($anchoUtil - $logoW) / 2;
-        $pdf->Image($rutaLogo, $xLogo, $pdf->GetY(), $logoW, 0, '', '', '', true, 150);
-        $pdf->Ln(12);
+        imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoPapel, $margen, 28, 22, 1.5);
     }
 
     $pdf->SetFont('helvetica', 'B', 10);

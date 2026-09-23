@@ -170,20 +170,26 @@ try {
     $anchoUtil = 180; // 210 - 30
 
     // Logo & Header
+    $dimLogo = ['w' => 0, 'h' => 0];
     if ($rutaLogo) {
-        $pdf->Image($rutaLogo, 15, 12, 35, 0, '', '', 'T', false, 300, 'L');
-        $pdf->SetXY(55, 14);
-    } else {
-        $pdf->SetXY(15, 14);
+        $dimLogo = imprimirLogoTcpdfA4($pdf, $rutaLogo, 15, 12, 32, 22);
     }
+    $xEmp = ($dimLogo['w'] > 0) ? (15 + $dimLogo['w'] + 4) : 15;
+    $wEmp = 133 - $xEmp;
 
-    $pdf->SetFont('helvetica', 'B', 14);
-    $pdf->Cell(80, 6, strtoupper($nombre_empresa), 0, 1, 'L');
-    $pdf->SetX($rutaLogo ? 55 : 15);
-    $pdf->SetFont('helvetica', '', 9);
-    $pdf->Cell(80, 4.5, 'RUC: ' . $ruc_empresa, 0, 1, 'L');
-    $pdf->SetX($rutaLogo ? 55 : 15);
-    $pdf->Cell(80, 4.5, substr($direccion_empresa, 0, 50), 0, 1, 'L');
+    $pdf->SetXY($xEmp, 13);
+    $pdf->SetFont('helvetica', 'B', 13);
+    $pdf->MultiCell($wEmp, 5, strtoupper($nombre_empresa), 0, 'L', false, 1);
+    if (!empty($ruc_empresa)) {
+        $pdf->SetX($xEmp);
+        $pdf->SetFont('helvetica', '', 8.5);
+        $pdf->Cell($wEmp, 4, 'RUC: ' . $ruc_empresa, 0, 1, 'L');
+    }
+    if (!empty($direccion_empresa)) {
+        $pdf->SetX($xEmp);
+        $pdf->SetFont('helvetica', '', 8);
+        $pdf->MultiCell($wEmp, 3.5, substr($direccion_empresa, 0, 80), 0, 'L', false, 1);
+    }
 
     // Recuadro GUÍA No. (Lado derecho superior)
     $pdf->SetXY(135, 12);

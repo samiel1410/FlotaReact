@@ -144,15 +144,15 @@ try {
         throw new Exception("Guía no encontrada");
     }
 
-    $origen_guia = $vals_guia["origen_guia"] ?? '';
-    $observacion_guia = $vals_guia["observacion_guia"] ?? '';
-    $destino_guia = $vals_guia["destino_guia"] ?? '';
-    $nombre_cliente_remitente = $vals_guia["nombre_cliente_remitente"] ?? '';
-    $nombre_cliente_receptor = $vals_guia["nombre_cliente_receptor"] ?? '';
-    $cedula_cliente_remitente = $vals_guia["cedula_cliente_remitente"] ?? '';
-    $cedula_cliente_receptor = $vals_guia["cedula_cliente_receptor"] ?? '';
-    $telefono_cliente_emisor = $vals_guia["telefono_cliente_emisor"] ?? '';
-    $telefono_cliente_receptor = $vals_guia["telefono_cliente_receptor"] ?? '';
+    $origen_guia = limpiarTextoPdf($vals_guia["origen_guia"] ?? '');
+    $observacion_guia = limpiarTextoPdf($vals_guia["observacion_guia"] ?? '');
+    $destino_guia = limpiarTextoPdf($vals_guia["destino_guia"] ?? '');
+    $nombre_cliente_remitente = limpiarTextoPdf($vals_guia["nombre_cliente_remitente"] ?? '');
+    $nombre_cliente_receptor = limpiarTextoPdf($vals_guia["nombre_cliente_receptor"] ?? '');
+    $cedula_cliente_remitente = limpiarTextoPdf($vals_guia["cedula_cliente_remitente"] ?? '');
+    $cedula_cliente_receptor = limpiarTextoPdf($vals_guia["cedula_cliente_receptor"] ?? '');
+    $telefono_cliente_emisor = limpiarTextoPdf($vals_guia["telefono_cliente_emisor"] ?? '');
+    $telefono_cliente_receptor = limpiarTextoPdf($vals_guia["telefono_cliente_receptor"] ?? '');
     $subtotal_12_guia = (float)($vals_guia["subtotal_12_guia"] ?? 0);
     $subtotal_0_guia = (float)($vals_guia["subtotal_0_guia"] ?? 0);
     $subtotal_guia = (float)($vals_guia["subtotal_guia"] ?? 0);
@@ -160,12 +160,12 @@ try {
     $descuento_guia = (float)($vals_guia["descuento_guia"] ?? 0);
     $valor_tarifa_adicional_guia = (float)($vals_guia["valor_tarifa_adicional_guia"] ?? 0);
     $impuesto_iva_guia = (float)($vals_guia["impuesto_iva_guia"] ?? 0);
-    $punto_emision_sucursal_guia = $vals_guia["punto_emision_sucursal"] ?? '';
-    $punto_emision_guia = $vals_guia["punto_emision_usuario"] ?? '';
+    $punto_emision_sucursal_guia = limpiarTextoPdf($vals_guia["punto_emision_sucursal"] ?? '', '001');
+    $punto_emision_guia = limpiarTextoPdf($vals_guia["punto_emision_usuario"] ?? '', '001');
     $id_fkcompania_asociada = (int)($vals_guia["id_fkcompania_asociada"] ?? 0);
-    $usuario = $vals_guia["usuario"] ?? '';
-    $numero_manual_guia = $vals_guia["numero_manual_guia"] ?? '';
-    $ubicacion_usuario = !empty($vals_guia["ubicacion_usuario"]) ? $vals_guia["ubicacion_usuario"] : ($vals_guia["nombre_sucursal"] ?? '');
+    $usuario = limpiarTextoPdf($vals_guia["usuario"] ?? '');
+    $numero_manual_guia = limpiarTextoPdf($vals_guia["numero_manual_guia"] ?? '');
+    $ubicacion_usuario = limpiarTextoPdf(!empty($vals_guia["ubicacion_usuario"]) ? $vals_guia["ubicacion_usuario"] : ($vals_guia["nombre_sucursal"] ?? ''));
 
     // Compañía asociada
     $nombre_compania = '';
@@ -184,9 +184,9 @@ try {
         LIMIT 1";
         $rec_comp = mysqli_query($conn, $query_datos_compania);
         if ($rec_comp && $row_comp = mysqli_fetch_assoc($rec_comp)) {
-            $nombre_compania = $row_comp['nombre_compania_asociada'] ?? '';
-            $direccion_compania_asociada = $row_comp['direccion_compania_asociada'] ?? '';
-            $numero_contacto = $row_comp['numero_contacto'] ?? '';
+            $nombre_compania = limpiarTextoPdf($row_comp['nombre_compania_asociada'] ?? '');
+            $direccion_compania_asociada = limpiarTextoPdf($row_comp['direccion_compania_asociada'] ?? '');
+            $numero_contacto = limpiarTextoPdf($row_comp['numero_contacto'] ?? '');
         }
     }
 
@@ -209,11 +209,13 @@ try {
 
     while ($vals_detalle = mysqli_fetch_assoc($rec_det)) {
         $cant = max(1, (int)$vals_detalle["cantidad_detalle_guia"]);
-        $lista_contenido[] = $cant . ' ' . ($vals_detalle["nombre_envio"] ?? '') . ' ' . ($vals_detalle["contenido_guia"] ?? '');
+        $nomEnv = limpiarTextoPdf($vals_detalle["nombre_envio"] ?? '');
+        $contGuia = limpiarTextoPdf($vals_detalle["contenido_guia"] ?? '');
+        $lista_contenido[] = $cant . ' ' . $nomEnv . ' ' . $contGuia;
         for ($ci = 1; $ci <= $cant; $ci++) {
             $items_detalle[] = [
-                'nombre_envio' => $vals_detalle['nombre_envio'] ?? '',
-                'contenido'    => $vals_detalle['contenido_guia'] ?? '',
+                'nombre_envio' => $nomEnv,
+                'contenido'    => $contGuia,
                 'cantidad'     => $cant,
                 'unidad'       => $ci,
             ];
@@ -246,10 +248,10 @@ try {
 
     if ($id_factura > 0) {
         $total_factura = (float)$vals_datos_factura["total_factura"];
-        $clave_acceso = $vals_datos_factura["clave_acceso_factura"] ?? '';
-        $punto_emision_factura = $vals_datos_factura["punto_emision_factura"] ?? '';
-        $punto_emision_sucursal = $vals_datos_factura["punto_emision_sucursal"] ?? '';
-        $fecha_factura = $vals_datos_factura["fecha_creacion_factura"] ?? '';
+        $clave_acceso = limpiarTextoPdf($vals_datos_factura["clave_acceso_factura"] ?? '');
+        $punto_emision_factura = limpiarTextoPdf($vals_datos_factura["punto_emision_factura"] ?? '', '001');
+        $punto_emision_sucursal = limpiarTextoPdf($vals_datos_factura["punto_emision_sucursal"] ?? '', '001');
+        $fecha_factura = limpiarTextoPdf($vals_datos_factura["fecha_creacion_factura"] ?? '');
         $resultado_factura = sprintf("%09s", $vals_datos_factura['numero_factura'] ?? 0);
         $numero_factura = $punto_emision_sucursal . '-' . $punto_emision_factura . '-' . $resultado_factura;
 
@@ -267,7 +269,7 @@ try {
         if ($rec_pagos) {
             while ($vPago = mysqli_fetch_assoc($rec_pagos)) {
                 $monto_pago = (float)$vPago["total"];
-                $detalles_forma_pago .= $vPago["nombre_forma_pago"] . ': $' . number_format($monto_pago, 2) . ' ';
+                $detalles_forma_pago .= ($vPago["nombre_forma_pago"] ?? '') . ': $' . number_format($monto_pago, 2) . ' ';
                 if ((int)$vPago["tipo_forma_pago"] != 4) {
                     $suma_cobrada += $monto_pago;
                 }
@@ -304,12 +306,9 @@ try {
     $pdf->AddPage();
 
     // ─── PÁGINA 1: TICKET GUÍA DE DESPACHO ────────────────────────────────────
-    // 1. Logo
+    $pdf->SetY(4);
     if ($rutaLogo) {
-        $pdf->Image($rutaLogo, ($ancho_impresion / 2) - 12, 4, 24, 0, '', '', 'T', false, 300, 'C');
-        $pdf->SetY(22);
-    } else {
-        $pdf->SetY(4);
+        imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $ancho_impresion, $metricas['margen_mm'], 30, 24, 2.0);
     }
 
     // 2. Encabezado Empresa y Guía
@@ -317,7 +316,9 @@ try {
     $pdf->MultiCell($lw, 4.5, strtoupper($razon_social_empresa), 0, 'C', false, 1);
 
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 3.8, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
+    if (!empty($ruc_empresa)) {
+        $pdf->Cell($lw, 3.8, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
+    }
     $pdf->Cell($lw, 4, 'GUÍA DE DESPACHO ELECTRÓNICA', 0, 1, 'C');
 
     $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.05, 1));
@@ -327,8 +328,10 @@ try {
         $pdf->Cell($lw, 3.8, 'N° MANUAL: ' . $numero_manual_guia, 0, 1, 'C');
     }
 
-    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 3.8, 'OFICINA - ' . $ubicacion_usuario, 0, 1, 'C');
+    if (!empty($ubicacion_usuario)) {
+        $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
+        $pdf->Cell($lw, 3.8, 'OFICINA - ' . $ubicacion_usuario, 0, 1, 'C');
+    }
 
     // Función auxiliar para línea divisoria
     $drawLine = function() use ($pdf, $metricas, $ancho_impresion) {
@@ -366,14 +369,16 @@ try {
     $pdf->MultiCell($lw, 3.5, $txtDest, 0, 'L', false, 1);
 
     // 6. RETIRAR EN
-    $drawLine();
-    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 3.8, 'RETIRAR EN:', 0, 1, 'C');
-    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->MultiCell($lw, 3.5, 'DIRECCIÓN: ' . $direccion_compania_asociada . "\n" . 'EMPRESA: ' . $nombre_compania . "\n" . 'CONTACTO: ' . $numero_contacto, 0, 'L', false, 1);
+    if (!empty($direccion_compania_asociada) || !empty($nombre_compania)) {
+        $drawLine();
+        $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
+        $pdf->Cell($lw, 3.8, 'RETIRAR EN:', 0, 1, 'C');
+        $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+        $pdf->MultiCell($lw, 3.5, 'DIRECCIÓN: ' . $direccion_compania_asociada . "\n" . 'EMPRESA: ' . $nombre_compania . "\n" . 'CONTACTO: ' . $numero_contacto, 0, 'L', false, 1);
+    }
 
     // 7. OBSERVACIÓN (si existe)
-    if (!empty($observacion_guia) && trim($observacion_guia) !== '' && strtolower(trim($observacion_guia)) !== 'null') {
+    if (!empty($observacion_guia)) {
         $drawLine();
         $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
         $pdf->Cell($lw, 3.8, 'OBSERVACIÓN', 0, 1, 'C');
@@ -481,16 +486,14 @@ try {
             $pdf->SetAutoPageBreak(false, 0);
 
             // LOGO
+            $pdf->SetY(4);
             if ($rutaLogo) {
-                $pdf->Image($rutaLogo, ($ancho_impresion / 2) - 9, 4, 18, 0, '', '', 'T', false, 300, 'C');
-                $pdf->SetY(23);
-            } else {
-                $pdf->SetY(5);
+                imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $ancho_impresion, $metricas['margen_mm'], 24, 18, 1.5);
             }
 
             // EMPRESA
             $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
-            $pdf->Cell($lw, 6, strtoupper($razon_social_empresa), 0, 1, 'C');
+            $pdf->Cell($lw, 5, strtoupper($razon_social_empresa), 0, 1, 'C');
 
             $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
             $pdf->Cell($lw, 4, $numero_guia, 0, 1, 'C');
@@ -517,32 +520,34 @@ try {
             $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
             $pdf->Cell($lw, 4, 'Remitente', 0, 1, 'C');
             $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
-            $pdf->MultiCell($lw, 6, $nombre_cliente_remitente, 0, 'C', false, 1);
+            $pdf->MultiCell($lw, 5, $nombre_cliente_remitente, 0, 'C', false, 1);
             $pdf->Ln(1);
 
             // DESTINATARIO
             $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
             $pdf->Cell($lw, 4, 'Destinatario', 0, 1, 'C');
             $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
-            $pdf->MultiCell($lw, 6, $nombre_cliente_receptor, 0, 'C', false, 1);
+            $pdf->MultiCell($lw, 5, $nombre_cliente_receptor, 0, 'C', false, 1);
             $pdf->Ln(1);
 
             // DESTINO
             $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
             $pdf->Cell($lw, 4, 'Destino', 0, 1, 'C');
             $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.15, 1));
-            $pdf->Cell($lw, 7, strtoupper($destino_guia), 0, 1, 'C');
+            $pdf->Cell($lw, 6, strtoupper($destino_guia), 0, 1, 'C');
             $pdf->Ln(1);
 
             // TELÉFONO
-            $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
-            $pdf->Cell($lw, 5, 'Fono: ' . $telefono_cliente_receptor, 0, 1, 'C');
-            $pdf->Ln(1);
+            if (!empty($telefono_cliente_receptor)) {
+                $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
+                $pdf->Cell($lw, 5, 'Fono: ' . $telefono_cliente_receptor, 0, 1, 'C');
+                $pdf->Ln(1);
+            }
 
             // CONTENIDO
             $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-            $desc = strtoupper($item['nombre_envio']) . ': ' . strtoupper($item['contenido']);
-            $pdf->MultiCell($lw, 6, $desc, 0, 'C', false, 1);
+            $desc = trim(strtoupper($item['nombre_envio']) . ' ' . strtoupper($item['contenido']));
+            $pdf->MultiCell($lw, 5, $desc, 0, 'C', false, 1);
             $pdf->Ln(2);
 
             // LÍNEA DOBLE

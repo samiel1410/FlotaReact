@@ -245,16 +245,28 @@ try {
     // ─── RECUADRO SUPERIOR IZQUIERDO: EMPRESA ─────────────────────────────────
     $pdf->Rect(10, 10, 92, 92, 'D');
 
-    if ($rutaLogo) {
-        $pdf->Image($rutaLogo, 10 + (92 - 32) / 2, 12, 32, 0, '', '', 'T', false, 300, 'C');
-        $pdf->SetXY(12, 32);
+    $hLogo = 0;
+    if ($rutaLogo && esImagenValidaParaTcpdf($rutaLogo)) {
+        $infoImg = @getimagesize($rutaLogo);
+        $wI = ($infoImg && !empty($infoImg[0])) ? (float)$infoImg[0] : 100.0;
+        $hI = ($infoImg && !empty($infoImg[1])) ? (float)$infoImg[1] : 100.0;
+        $wTarget = 34.0;
+        $hTarget = ($hI / $wI) * $wTarget;
+        if ($hTarget > 22.0) {
+            $hTarget = 22.0;
+            $wTarget = ($wI / $hI) * $hTarget;
+        }
+        $xLogo = 10 + (92 - $wTarget) / 2.0;
+        $pdf->Image($rutaLogo, $xLogo, 12, $wTarget, $hTarget, '', '', 'T', false, 300, 'C');
+        $hLogo = $hTarget;
+        $pdf->SetXY(12, 12 + $hTarget + 2.0);
     } else {
         $pdf->SetXY(12, 14);
     }
 
-    $pdf->SetFont('helvetica', 'B', 11);
-    $pdf->MultiCell(88, 4.5, strtoupper($nombre_empresa), 0, 'C', false, 1);
-    $pdf->Ln(2);
+    $pdf->SetFont('helvetica', 'B', 10.5);
+    $pdf->MultiCell(88, 4.2, strtoupper($nombre_empresa), 0, 'C', false, 1);
+    $pdf->Ln(1.5);
 
     $pdf->SetX(12);
     $pdf->SetFont('helvetica', 'B', 8);
