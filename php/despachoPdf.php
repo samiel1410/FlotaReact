@@ -84,6 +84,13 @@ try {
         dm.fecha_despacho_maestro,
         dm.nombre_oficinista,
         dm.nombre_bus,
+        dm.tipo_despacho,
+        dm.tipo_vehiculo,
+        dm.placa_vehiculo,
+        dm.numero_vehiculo,
+        dm.id_fkorigen_despacho,
+        dm.nombre_origen,
+        dm.responsable_despacho,
         dm.id_fkusuario_despacho_maestro,
         dm.id_fkviaje_despacho_maestro,
         CONCAT(p.per_nombres_persona, ' ', p.per_apellidos_personal) as nombre_busero,
@@ -108,6 +115,12 @@ try {
     $numero_viaje            = $vals["id_fkviaje_despacho_maestro"] ?? '';
     $nombre_destino          = $vals["nombre_destino"];
     $fecha_despacho_maestro  = $vals["fecha_despacho_maestro"];
+    $tipo_despacho           = strtoupper($vals["tipo_despacho"] ?? 'BUS');
+    $tipo_vehiculo           = $vals["tipo_vehiculo"] ?? '';
+    $placa_vehiculo          = $vals["placa_vehiculo"] ?? '';
+    $numero_vehiculo         = $vals["numero_vehiculo"] ?? '';
+    $nombre_origen           = $vals["nombre_origen"] ?? '';
+    $responsable_despacho    = $vals["responsable_despacho"] ?? '';
     $nombre_busero           = !empty(trim($vals["nombre_busero"] ?? '')) ? trim($vals["nombre_busero"]) : "N/A";
     $nombre_bus              = $vals["nombre_bus"];
     $id_fkusuario_despacho_maestro = $vals["id_fkusuario_despacho_maestro"];
@@ -218,14 +231,33 @@ try {
     $wVal = $anchoUtil - $wLabel;
     $hRow = 4.0;
 
-    $infoRows = [
-        ['N° VIAJE:', (string)($numero_viaje ?: 'N/A'), true],
-        ['DESTINO:', (string)$nombre_destino, false],
-        ['BUS:', (string)$nombre_bus, false],
-        ['CONDUCTOR:', (string)$nombre_busero, false],
-        ['OFICINISTA:', (string)$nombre_oficinista_real, false],
-        ['FECHA:', (string)$fecha_despacho_maestro, false],
-    ];
+    $infoRows = [];
+    if ($tipo_despacho === 'VEHICULO' || $tipo_despacho === 'VEHÍCULO') {
+        $infoRows[] = ['TIPO:', 'VEHÍCULO (' . ($tipo_vehiculo ?: 'General') . ')', true];
+        if (!empty($numero_vehiculo)) $infoRows[] = ['N° VEHÍCULO:', (string)$numero_vehiculo, true];
+        if (!empty($placa_vehiculo)) $infoRows[] = ['PLACA:', (string)$placa_vehiculo, true];
+        $rutaStr = (!empty($nombre_origen) ? $nombre_origen . ' → ' : '') . $nombre_destino;
+        $infoRows[] = ['RUTA:', $rutaStr, false];
+        $infoRows[] = ['RESPONSABLE:', (string)($responsable_despacho ?: 'N/A'), false];
+        $infoRows[] = ['OFICINISTA:', (string)$nombre_oficinista_real, false];
+        $infoRows[] = ['FECHA:', (string)$fecha_despacho_maestro, false];
+    } else if ($tipo_despacho === 'OFICINA') {
+        $infoRows[] = ['TIPO:', 'TRASPASO ENTRE OFICINAS', true];
+        $rutaStr = (!empty($nombre_origen) ? $nombre_origen . ' → ' : '') . $nombre_destino;
+        $infoRows[] = ['RUTA:', $rutaStr, false];
+        $infoRows[] = ['RESPONSABLE:', (string)($responsable_despacho ?: 'N/A'), false];
+        $infoRows[] = ['OFICINISTA:', (string)$nombre_oficinista_real, false];
+        $infoRows[] = ['FECHA:', (string)$fecha_despacho_maestro, false];
+    } else {
+        // BUS
+        $infoRows[] = ['TIPO:', 'BUS', true];
+        if (!empty($numero_viaje)) $infoRows[] = ['N° VIAJE:', (string)$numero_viaje, true];
+        $infoRows[] = ['DESTINO:', (string)$nombre_destino, false];
+        $infoRows[] = ['BUS:', (string)$nombre_bus, false];
+        $infoRows[] = ['CONDUCTOR:', (string)$nombre_busero, false];
+        $infoRows[] = ['OFICINISTA:', (string)$nombre_oficinista_real, false];
+        $infoRows[] = ['FECHA:', (string)$fecha_despacho_maestro, false];
+    }
 
     foreach ($infoRows as $ir) {
         $pdf->SetFont('helvetica', 'B', 8);

@@ -156,10 +156,33 @@ export const DespachoPage = () => {
 
   const renderEstado = (estado) => {
     if (String(estado) === '1')
-      return <i className="fas fa-circle text-green-500 text-xs" title="ESTADO ACTIVO"></i>;
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">ACTIVO</span>;
     if (String(estado) === '2')
-      return <i className="fas fa-circle text-red-500 text-xs" title="ESTADO FINALIZADO"></i>;
-    return <i className="fas fa-circle text-gray-300 text-xs"></i>;
+      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">FINALIZADO</span>;
+    return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-400">N/A</span>;
+  };
+
+  const renderTipoDespacho = (tipo) => {
+    const t = (tipo || 'BUS').toUpperCase();
+    if (t === 'VEHICULO' || t === 'VEHÍCULO') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200/60">
+          <i className="fas fa-truck-moving text-[10px]"></i> VEHÍCULO
+        </span>
+      );
+    }
+    if (t === 'OFICINA') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200/60">
+          <i className="fas fa-building text-[10px]"></i> OFICINA
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-100 text-blue-700 border border-blue-200/60">
+        <i className="fas fa-bus text-[10px]"></i> BUS
+      </span>
+    );
   };
 
   return (
@@ -305,75 +328,122 @@ export const DespachoPage = () => {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">#</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Tipo</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Fecha</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Transporte / Detalle</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Ruta / Destino</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Oficinista</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Bus</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Busero</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Destino</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider"># Encom.</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-16">Estado</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Estado</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {despachos.map((d, idx) => (
-                  <tr key={d.id_despacho_maestro || idx} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-4 py-3 text-sm font-bold text-slate-700">
-                      {d.numero_despacho_maestro || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
-                      {formatDate(d.fecha_despacho_maestro)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
-                      {d.nombre_oficinista || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-700 font-medium">
-                      {d.nombre_bus || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
-                      {d.nombre_busero || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-600">
-                      {d.nombre_destino || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
-                        {d.encomiendas || 0}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {renderEstado(d.estado_despacho_maestro)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-1">
-                        {/* PDF */}
-                        <button
-                          onClick={() => handlePdf(d)}
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                          title="PDF"
-                        >
-                          <i className="fas fa-file-pdf text-sm"></i>
-                        </button>
-                        {/* Editar */}
-                        <button
-                          onClick={() => handleEditarDespacho(d)}
-                          className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                          title="Editar Despacho"
-                        >
-                          <i className="fas fa-edit text-sm"></i>
-                        </button>
-                        {/* Agregar Guía */}
-                        <button
-                          onClick={() => handleAgregarGuia(d)}
-                          className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
-                          title="Agregar Guía"
-                        >
-                          <i className="fas fa-plus-circle text-sm"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {despachos.map((d, idx) => {
+                  const tipoU = (d.tipo_despacho || 'BUS').toUpperCase();
+                  const esVehiculo = tipoU === 'VEHICULO' || tipoU === 'VEHÍCULO';
+                  const esOficina = tipoU === 'OFICINA';
+
+                  return (
+                    <tr key={d.id_despacho_maestro || idx} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="px-4 py-3 text-sm font-bold text-slate-700">
+                        {d.numero_despacho_maestro || '-'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {renderTipoDespacho(d.tipo_despacho)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                        {formatDate(d.fecha_despacho_maestro)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {esVehiculo ? (
+                          <div>
+                            <div className="text-sm font-bold text-indigo-900 flex items-center gap-1.5">
+                              <i className="fas fa-truck text-indigo-500 text-xs"></i>
+                              {d.tipo_vehiculo || 'Vehículo'} {d.numero_vehiculo ? `#${d.numero_vehiculo}` : ''}
+                            </div>
+                            <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
+                              {d.placa_vehiculo && <span className="font-semibold text-slate-700">Placa: {d.placa_vehiculo}</span>}
+                              {(d.responsable_despacho || d.nombre_busero) && (
+                                <span>• Resp: {d.responsable_despacho || d.nombre_busero}</span>
+                              )}
+                            </div>
+                          </div>
+                        ) : esOficina ? (
+                          <div>
+                            <div className="text-sm font-bold text-amber-900 flex items-center gap-1.5">
+                              <i className="fas fa-building text-amber-500 text-xs"></i>
+                              Traspaso Interno
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">
+                              Resp: {d.responsable_despacho || d.nombre_oficinista || '-'}
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="text-sm font-bold text-blue-900 flex items-center gap-1.5">
+                              <i className="fas fa-bus text-blue-500 text-xs"></i>
+                              {d.nombre_bus || '-'}
+                            </div>
+                            <div className="text-xs text-slate-500 mt-0.5">
+                              Conductor: {d.nombre_busero || '-'}
+                            </div>
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-700 font-medium">
+                        {d.nombre_origen ? (
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <span className="text-slate-600 font-semibold">{d.nombre_origen}</span>
+                            <i className="fas fa-arrow-right text-[10px] text-slate-400"></i>
+                            <span className="text-slate-900 font-bold">{d.nombre_destino || '-'}</span>
+                          </div>
+                        ) : (
+                          <span>{d.nombre_destino || '-'}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600">
+                        {d.nombre_oficinista || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
+                          {d.encomiendas || 0}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {renderEstado(d.estado_despacho_maestro)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center justify-center gap-1">
+                          {/* PDF */}
+                          <button
+                            onClick={() => handlePdf(d)}
+                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                            title="PDF"
+                          >
+                            <i className="fas fa-file-pdf text-sm"></i>
+                          </button>
+                          {/* Editar */}
+                          <button
+                            onClick={() => handleEditarDespacho(d)}
+                            className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                            title="Editar Despacho"
+                          >
+                            <i className="fas fa-edit text-sm"></i>
+                          </button>
+                          {/* Agregar Guía */}
+                          <button
+                            onClick={() => handleAgregarGuia(d)}
+                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
+                            title="Agregar Guía"
+                          >
+                            <i className="fas fa-plus-circle text-sm"></i>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

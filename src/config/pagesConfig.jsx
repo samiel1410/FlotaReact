@@ -296,7 +296,39 @@ export const PAGES_CONFIG = {
       },
       { key: 'nombre_rol', label: 'Rol Web' },
       { key: 'nombre_sucursal', label: 'Sucursal' },
-      { key: 'telefono_usuario', label: 'Teléfono' },
+      {
+        key: 'puntos_emision',
+        label: 'Ptos. Emisión',
+        render: (_, r) => {
+          const pGuia = r.punto_emision_usuario ? String(r.punto_emision_usuario).trim() : '';
+          const pBol = r.punto_emision_boleteria ? String(r.punto_emision_boleteria).trim() : '';
+
+          if (!pGuia && !pBol) return <span className="text-slate-300 font-mono text-xs">—</span>;
+
+          return (
+            <div className="flex flex-wrap items-center gap-1.5 py-0.5">
+              {pGuia && (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200/80 font-mono text-[11px] font-bold shadow-xs"
+                  title="Punto de Emisión Guías / Encomiendas"
+                >
+                  <span className="text-[9px] font-sans font-black text-blue-500 uppercase tracking-tight">G:</span>
+                  <span>{pGuia}</span>
+                </span>
+              )}
+              {pBol && (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200/80 font-mono text-[11px] font-bold shadow-xs"
+                  title="Punto de Emisión Boletería / Pasajes"
+                >
+                  <span className="text-[9px] font-sans font-black text-emerald-500 uppercase tracking-tight">B:</span>
+                  <span>{pBol}</span>
+                </span>
+              )}
+            </div>
+          );
+        }
+      },
       { key: 'fecha_creacion_usuario', label: 'F. Creación', render: v => v ? v.split(' ')[0] : '' },
       { key: 'estado_usuario', label: 'Estado', renderType: 'status' },
     ],
