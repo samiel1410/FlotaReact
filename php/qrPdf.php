@@ -3,7 +3,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
@@ -23,40 +23,10 @@ try {
         throw new Exception("ID de guía no válido o no proporcionado");
     }
 
-    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
-    $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
-    $dbKey       = md5($dbNameStr . '_t' . $tenantIdStr);
-
-    // ─── CACHÉ NIVEL 2: PDF ESTÁTICO ─────────────────────────────────────────
-    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
-    if (!is_dir($pdfCacheDir)) {
-        @mkdir($pdfCacheDir, 0777, true);
-    }
-    $pdfCacheFile = $pdfCacheDir . 'qr_guia_' . $id_guia . '_t' . md5($tenantIdStr) . '.pdf';
-    $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
-
-    if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 500) {
-        $fileName = 'qr_guia_' . $id_guia . '.pdf';
-        if (ob_get_length()) ob_clean();
-        header('Content-Type: application/pdf');
-        header('Content-Disposition: inline; filename="' . $fileName . '"');
-        header('Content-Length: ' . filesize($pdfCacheFile));
-        header('X-PDF-Cache: HIT');
-        header('X-PDF-Time-Total: ' . round((microtime(true) - $t0) * 1000) . 'ms');
-        header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
-        readfile($pdfCacheFile);
-        exit();
-    }
-
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
     // ─── CACHÉ NIVEL 1: EMPRESA ──────────────────────────────────────────────
-    $cacheDir = __DIR__ . '/tmp/cache/';
-    if (!is_dir($cacheDir)) {
-        @mkdir($cacheDir, 0777, true);
-    }
-
     $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
     $vals_empresa = null;
 
@@ -160,26 +130,15 @@ try {
 
     $pdf->write2DBarcode($datosQr, 'QRCODE,Q', $xQr, $yQr, $qrSize, $qrSize, $qrStyle, 'N');
 
-    // ─── SALIDA Y CACHÉ ───────────────────────────────────────────────────────
+    // ─── SALIDA DIRECTA DEL PDF (SIN CACHÉ) ───────────────────────────────────
     $fileName = 'qr_guia_' . $id_guia . '.pdf';
     if (ob_get_length()) {
         ob_clean();
     }
-
-    $pdfContent = $pdf->Output($fileName, 'S');
-
-    if (!empty($pdfContent) && strlen($pdfContent) > 500) {
-        @file_put_contents($pdfCacheFile, $pdfContent);
-    }
-
-    $tTotal = round((microtime(true) - $t0) * 1000);
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: inline; filename="' . $fileName . '"');
-    header('Content-Length: ' . strlen($pdfContent));
-    header('X-PDF-Cache: MISS');
-    header('X-PDF-Time-Total: ' . $tTotal . 'ms');
-    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
-    echo $pdfContent;
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    $pdf->Output($fileName, 'I');
     exit();
 
 } catch (Throwable $e) {

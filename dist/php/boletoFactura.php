@@ -201,23 +201,7 @@ try {
     // Un boleto es inmutable: una vez emitido, su PDF no cambia.
     // Si ya existe en disco lo servimos directamente (evita los 7s de TCPDF).
     $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
-    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
-    if (!is_dir($pdfCacheDir)) {
-        @mkdir($pdfCacheDir, 0777, true);
-    }
-    $pdfCacheFile = $pdfCacheDir . 'boleto_' . $id_boleto . '_t' . md5($tenantIdStr) . '.pdf';
-    $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
-
-    if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 500) {
-        // Servir PDF desde caché → respuesta instantánea
-        $filename = 'boleto_' . $id_boleto . '.pdf';
-        header('Content-Type: application/pdf');
-        header('Content-Disposition: inline; filename="' . $filename . '"');
-        header('Content-Length: ' . filesize($pdfCacheFile));
-        header('X-PDF-Cache: HIT');
-        readfile($pdfCacheFile);
-        exit();
-    }
+    
     // ────────────────────────────────────────────────────────────────────────
 
     $datos_factura = obtener_datos_factura($id_boleto, $conn);
@@ -236,10 +220,6 @@ try {
 
     // Timing para diagnosticar lentitud en producción (visible en headers de respuesta)
     $t0 = microtime(true);
-    $cacheDir = __DIR__ . '/tmp/cache/';
-    if (!is_dir($cacheDir)) {
-        @mkdir($cacheDir, 0777, true);
-    }
     $logosDir = __DIR__ . '/tmp/logos/';
     if (!is_dir($logosDir)) {
         @mkdir($logosDir, 0777, true);
@@ -539,20 +519,10 @@ try {
     if (ob_get_length()) {
         ob_end_clean();
     }
-    $t2 = microtime(true);
-    header('X-PDF-Time-Total: ' . round(($t2 - $t0) * 1000) . 'ms');
-    header('X-PDF-Cache: MISS');
-
-    // Guardar el PDF en disco para que la siguiente solicitud sea instantánea
-    $pdfContent = $pdf->Output($filename, 'S'); // 'S' = retornar como string
-    if (!empty($pdfContent) && strlen($pdfContent) > 500) {
-        @file_put_contents($pdfCacheFile, $pdfContent);
-    }
-
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: inline; filename="' . $filename . '"');
-    header('Content-Length: ' . strlen($pdfContent));
-    echo $pdfContent;
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    $pdf->Output($filename, 'I');
     exit();
 
 } catch (Throwable $e) {

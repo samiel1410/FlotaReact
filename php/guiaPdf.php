@@ -3,7 +3,7 @@ header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     http_response_code(200);
     exit();
 }
@@ -24,58 +24,14 @@ try {
         throw new Exception("ID de guía inválido");
     }
 
-    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
-    $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
-    $dbKey       = md5($dbNameStr . '_t' . $tenantIdStr);
-
-    // ─── CACHÉ NIVEL 2: PDF ESTÁTICO ─────────────────────────────────────────
-    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
-    if (!is_dir($pdfCacheDir)) {
-        @mkdir($pdfCacheDir, 0777, true);
-    }
-    $reimpHash = $reimpreso_por ? md5($reimpreso_por) : '0';
-    $pdfCacheFile = $pdfCacheDir . 'guia_a4_' . $id_guia . '_r' . $reimpHash . '_t' . md5($tenantIdStr) . '.pdf';
-    $noCache = !empty($_GET['nocache']) || !empty($_GET['refresh']);
-
-    if (!$noCache && file_exists($pdfCacheFile) && filesize($pdfCacheFile) > 1000) {
-        $fileName = 'guia_' . $id_guia . '.pdf';
-        if (ob_get_length()) ob_clean();
-        header('Content-Type: application/pdf');
-        header('Content-Disposition: inline; filename="' . $fileName . '"');
-        header('Content-Length: ' . filesize($pdfCacheFile));
-        header('X-PDF-Cache: HIT');
-        header('X-PDF-Time-Total: ' . round((microtime(true) - $t0) * 1000) . 'ms');
-        header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
-        readfile($pdfCacheFile);
-        exit();
-    }
-
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    // ─── CACHÉ NIVEL 1: EMPRESA ──────────────────────────────────────────────
-    $cacheDir = __DIR__ . '/tmp/cache/';
-    if (!is_dir($cacheDir)) {
-        @mkdir($cacheDir, 0777, true);
-    }
-    $empresaCacheFile = $cacheDir . 'empresa_cfg_' . $dbKey . '.json';
-    $vals_empresa = null;
-
-    if (file_exists($empresaCacheFile) && (time() - filemtime($empresaCacheFile) < 300)) {
-        $cachedData = @json_decode(file_get_contents($empresaCacheFile), true);
-        if ($cachedData && !empty($cachedData['empresa'])) {
-            $vals_empresa = $cachedData['empresa'];
-        }
-    }
-
+    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+    $rec_emp = mysqli_query($conn, $query_empresa);
+    $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
     if (!$vals_empresa) {
-        $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
-        $rec_emp = mysqli_query($conn, $query_empresa);
-        $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
-        if (!$vals_empresa) {
-            $vals_empresa = ['razon_social_empresa' => 'SISTEMA FLOTA', 'ruc_empresa' => ''];
-        }
-        @file_put_contents($empresaCacheFile, json_encode(['empresa' => $vals_empresa]));
+        $vals_empresa = ['razon_social_empresa' => 'SISTEMA FLOTA', 'ruc_empresa' => ''];
     }
 
     $nombre_empresa = $vals_empresa['razon_social_empresa'] ?? '';
@@ -289,26 +245,15 @@ try {
         $pdf->Cell($anchoUtil, 4, 'Reimpreso por: ' . $reimpreso_por, 0, 1, 'R');
     }
 
-    // ─── SALIDA Y CACHÉ ───────────────────────────────────────────────────────
+    // ─── SALIDA DIRECTA DEL PDF (SIN CACHÉ) ───────────────────────────────────
     $fileName = 'guia_' . $id_guia . '.pdf';
     if (ob_get_length()) {
         ob_clean();
     }
-
-    $pdfContent = $pdf->Output($fileName, 'S');
-
-    if (!empty($pdfContent) && strlen($pdfContent) > 1000) {
-        @file_put_contents($pdfCacheFile, $pdfContent);
-    }
-
-    $tTotal = round((microtime(true) - $t0) * 1000);
-    header('Content-Type: application/pdf');
-    header('Content-Disposition: inline; filename="' . $fileName . '"');
-    header('Content-Length: ' . strlen($pdfContent));
-    header('X-PDF-Cache: MISS');
-    header('X-PDF-Time-Total: ' . $tTotal . 'ms');
-    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
-    echo $pdfContent;
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+    $pdf->Output($fileName, 'I');
     exit();
 
 } catch (Throwable $e) {
