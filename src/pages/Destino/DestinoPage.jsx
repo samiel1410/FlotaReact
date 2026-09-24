@@ -1,42 +1,61 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import DestinoList from './components/DestinoList';
 import DestinoSearchBar from './components/DestinoSearchBar';
 import NewDestinoForm from './components/NewDestinoForm';
 import Modal from '../../components/common/Modal';
 import Swal from 'sweetalert2';
+import toast from 'react-hot-toast';
 import { getDestinos, createDestino, updateDestino, deleteDestino } from '../../services/destino.service';
 
 const DestinoPage = () => {
   const [destinos, setDestinos] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
   const [error, setError] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editingDestino, setEditingDestino] = useState(null);
-  const [filters, setFilters] = useState({ nombre: '', estado: '2' });
+  const [filters, setFilters] = useState({
+    nombre: '',
+    estado: '2',
+    id_compania: '',
+    lugar: '',
+  });
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, pageSize: 25 });
 
-  const fetchDestinos = async (currentFilters, currentPage) => {
+  const fetchDestinos = useCallback(async (currentFilters, currentPage) => {
     setLoading(true);
+    setError(null);
     try {
       const params = {
-        nombre: currentFilters.nombre,
-        estado: currentFilters.estado === '2' ? '' : currentFilters.estado,
+        nombre: currentFilters.nombre || undefined,
+        estado: currentFilters.estado === '2' || currentFilters.estado === '' ? undefined : currentFilters.estado,
+        id_compania: currentFilters.id_compania || undefined,
+        lugar: currentFilters.lugar || undefined,
         page: currentPage,
         limit: pagination.pageSize,
       };
       const response = await getDestinos(params);
-      setDestinos(response.data);
-      setPagination((prev) => ({ ...prev, totalPages: Math.ceil(response.total / prev.pageSize) }));
+      if (response && response.success !== false) {
+        setDestinos(Array.isArray(response.data) ? response.data : []);
+        const total = response.total || 0;
+        setTotalCount(total);
+        setPagination((prev) => ({ ...prev, totalPages: Math.ceil(total / prev.pageSize) || 1 }));
+      } else {
+        setDestinos([]);
+        setTotalCount(0);
+      }
     } catch (err) {
+      console.error('Error fetching destinos:', err);
       setError(err);
+      toast.error('Error al cargar la lista de destinos');
     } finally {
       setLoading(false);
     }
-  };
+  }, [pagination.pageSize]);
 
   useEffect(() => {
     fetchDestinos(filters, pagination.currentPage);
-  }, [filters, pagination.currentPage]);
+  }, [filters, pagination.currentPage, fetchDestinos]);
 
   const handleSearch = (newFilters) => {
     setFilters(newFilters);
@@ -44,8 +63,8 @@ const DestinoPage = () => {
   };
 
   const handleRefresh = () => {
-    setFilters({ nombre: '', estado: '2' });
-    setPagination({ currentPage: 1, totalPages: 1, pageSize: 25 });
+    setFilters({ nombre: '', estado: '2', id_compania: '', lugar: '' });
+    setPagination((prev) => ({ ...prev, currentPage: 1 }));
   };
 
   const handlePageChange = (newPage) => {
@@ -66,34 +85,38 @@ const DestinoPage = () => {
 
   const handleDeleteDestino = async (id) => {
     const result = await Swal.fire({
-      title: 'Confirmar',
-      text: '¿Está seguro de que desea eliminar este destino?',
+      title: '¿Eliminar destino?',
+      text: 'Esta acción no se puede deshacer.',
       icon: 'warning',
       showCancelButton: true,
       confirmButtonText: 'Sí, eliminar',
-      cancelButtonText: 'Cancelar'
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#ef4444',
     });
     if (result.isConfirmed) {
       try {
         await deleteDestino(id);
+        toast.success('Destino eliminado correctamente');
         fetchDestinos(filters, pagination.currentPage);
       } catch (err) {
-        setError(err);
+        toast.error('Error al eliminar destino: ' + (err.message || ''));
       }
     }
   };
 
   const handleSubmitForm = async (formData) => {
     try {
-      if (formData.id) {
-        await updateDestino(formData.id, formData);
+      if (formData.id || formData.id_destino) {
+        await updateDestino(formData.id || formData.id_destino, formData);
+        toast.success('Destino actualizado con éxito');
       } else {
         await createDestino(formData);
+        toast.success('Destino creado con éxito');
       }
       setShowModal(false);
       fetchDestinos(filters, pagination.currentPage);
     } catch (err) {
-      setError(err);
+      toast.error('Error al guardar destino: ' + (err.message || ''));
     }
   };
 
@@ -102,28 +125,55 @@ const DestinoPage = () => {
     setEditingDestino(null);
   };
 
-  if (loading) return <p>Cargando destinos...</p>;
-  if (error) return <p>Error: {error.message}</p>;
-
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-4">Gestión de Destinos</h1>
-      <button
-        onClick={handleNewDestinoClick}
-        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded mb-4"
-      >
-        Nuevo Destino
-      </button>
-      <DestinoSearchBar onSearch={handleSearch} onRefresh={handleRefresh} />
+    <div className="p-6 max-w-[1600px] mx-auto min-h-screen bg-slate-50/50">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-lg shadow-indigo-200">
+            <i className="fas fa-map-marker-alt text-xl" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-extrabold text-slate-800 tracking-tight">Gestión de Destinos</h1>
+              <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-0.5 rounded-full border border-indigo-200/60">
+                {totalCount} {totalCount === 1 ? 'destino' : 'destinos'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 font-medium">Administra los puntos de llegada, terminales y agencias por compañía</p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleNewDestinoClick}
+          className="h-10 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-md shadow-indigo-100 active:scale-95 shrink-0"
+        >
+          <i className="fas fa-plus text-xs" />
+          <span>Nuevo Destino</span>
+        </button>
+      </div>
+
+      {/* Barra de Filtros */}
+      <DestinoSearchBar
+        filters={filters}
+        onSearch={handleSearch}
+        onRefresh={handleRefresh}
+        loading={loading}
+      />
+
+      {/* Listado de Destinos */}
       <DestinoList
         destinos={destinos}
+        loading={loading}
         onEdit={handleEditDestino}
         onDelete={handleDeleteDestino}
         onPageChange={handlePageChange}
         currentPage={pagination.currentPage}
         totalPages={pagination.totalPages}
+        totalCount={totalCount}
       />
 
+      {/* Modal Crear / Editar */}
       {showModal && (
         <Modal title={editingDestino ? 'Editar Destino' : 'Nuevo Destino'} onClose={handleCloseModal}>
           <NewDestinoForm
