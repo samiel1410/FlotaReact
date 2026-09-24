@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { api } from '../../config/axios';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
 import Modal from '../../components/common/Modal';
@@ -148,15 +148,6 @@ export const VehiculosPage = () => {
     }
   };
 
-  // Resumen de estadísticas rápidas
-  const stats = useMemo(() => {
-    const camiones = vehiculos.filter(v => (v.tipo_vehiculo || '').toLowerCase().includes('camión') || (v.tipo_vehiculo || '').toLowerCase().includes('camion')).length;
-    const camionetas = vehiculos.filter(v => (v.tipo_vehiculo || '').toLowerCase().includes('camioneta')).length;
-    const autos = vehiculos.filter(v => (v.tipo_vehiculo || '').toLowerCase().includes('auto')).length;
-    const activos = vehiculos.filter(v => Number(v.estado_vehiculo) === 1).length;
-    return { camiones, camionetas, autos, activos };
-  }, [vehiculos]);
-
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const renderBadgeTipo = (tipo) => {
@@ -213,49 +204,6 @@ export const VehiculosPage = () => {
             >
               <i className={`fas fa-sync-alt text-xs ${loading ? 'fa-spin text-indigo-600' : ''}`}></i>
             </button>
-          </div>
-        </div>
-
-        {/* ─── MINI DASHBOARD / STATS CARDS ─── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
-              <i className="fas fa-truck"></i>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase">Camiones</div>
-              <div className="text-base font-black text-slate-800">{stats.camiones}</div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center font-black">
-              <i className="fas fa-truck-pickup"></i>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase">Camionetas</div>
-              <div className="text-base font-black text-slate-800">{stats.camionetas}</div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-black">
-              <i className="fas fa-car"></i>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase">Automóviles</div>
-              <div className="text-base font-black text-slate-800">{stats.autos}</div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-sm flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-black">
-              <i className="fas fa-check-circle"></i>
-            </div>
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase">Activos en Lista</div>
-              <div className="text-base font-black text-slate-800">{stats.activos}</div>
-            </div>
           </div>
         </div>
 
