@@ -372,7 +372,7 @@ try {
 
     // 9. TABLA DE TOTALES
     $pdf->Ln(1);
-    $wTotL = $lw * 0.50;
+    $wTotL = $lw * 0.30;
     $wTotV = $lw * 0.50;
 
     $fontTotal = round($metricas['font_tcpdf_bold'] * 1.45, 1);
