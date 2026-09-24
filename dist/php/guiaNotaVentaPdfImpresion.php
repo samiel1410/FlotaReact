@@ -214,14 +214,14 @@ try {
         }
     }
 
-    // Determinar ESTADO (COBRADA / POR COBRAR / AL COBRO)
+    // Determinar ESTADO (COBRADA / POR COBRAR)
     $estado_cobro_raw = strtoupper(trim((string)($vals_guia['estado_cobro_guia'] ?? '')));
     $cancelado_por_raw = strtoupper(trim((string)($vals_guia['cancelado_por_guia'] ?? '')));
 
     $esDestinatario = ($cancelado_por_raw === '1' || $cancelado_por_raw === 'DESTINATARIO' || $cancelado_por_raw === 'DESTINO' || $estado_cobro_raw === 'AL COBRO');
 
     if ($esDestinatario) {
-        $estado_nota_venta = "AL COBRO";
+        $estado_nota_venta = "POR COBRAR";
         $total_cobrado = max(0.0, $total_guia - $suma_cobrada);
     } else if ($total_guia > 0 && $suma_cobrada >= ($total_guia - 0.001)) {
         $estado_nota_venta = "COBRADA";
@@ -243,8 +243,6 @@ try {
     if (empty(trim($detalles_forma_pago))) {
         if ($estado_nota_venta === 'COBRADA') {
             $detalles_forma_pago = "EFECTIVO: $" . number_format($total_guia, 2);
-        } else if ($estado_nota_venta === 'AL COBRO') {
-            $detalles_forma_pago = "AL COBRO EN DESTINO";
         } else {
             $detalles_forma_pago = "PENDIENTE";
         }

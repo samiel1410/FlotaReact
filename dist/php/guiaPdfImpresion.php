@@ -242,7 +242,7 @@ try {
     $esDestinatario = ($cancelado_por_raw === '1' || $cancelado_por_raw === 'DESTINATARIO' || $cancelado_por_raw === 'DESTINO' || $estado_cobro_raw === 'AL COBRO');
 
     if ($esDestinatario) {
-        $estado_factura = "AL COBRO";
+        $estado_factura = "POR COBRAR";
         $total_cobrado = max(0.0, $total_factura - $suma_cobrada);
     } else if ($id_factura > 0) {
         $estado_factura = ($total_cobrado <= 0.001 && $total_factura > 0) ? "COBRADA" : "POR COBRAR";
@@ -265,8 +265,6 @@ try {
     if (empty(trim($detalles_forma_pago))) {
         if ($estado_factura === 'COBRADA') {
             $detalles_forma_pago = "EFECTIVO: $" . number_format($total_factura, 2);
-        } else if ($estado_factura === 'AL COBRO') {
-            $detalles_forma_pago = "AL COBRO EN DESTINO";
         } else {
             $detalles_forma_pago = "PENDIENTE";
         }
