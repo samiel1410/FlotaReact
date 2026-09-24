@@ -24,6 +24,7 @@ const RecaudadoPage = lazy(() => import('./pages/Recaudado/RecaudadoPage').then(
 const AsientosPage = lazy(() => import('./pages/Asientos/AsientosPage').then(m => ({ default: m.AsientosPage })));
 const MonitoreoPage = lazy(() => import('./pages/Monitoreo/MonitoreoPage').then(m => ({ default: m.MonitoreoPage })));
 const BusesPage = lazy(() => import('./pages/Buses/BusesPage').then(m => ({ default: m.BusesPage })));
+const VehiculosPage = lazy(() => import('./pages/Vehiculos/VehiculosPage').then(m => ({ default: m.VehiculosPage })));
 const EstadisticasPage = lazy(() => import('./pages/Estadisticas/EstadisticasPage').then(m => ({ default: m.EstadisticasPage })));
 const ConfigRutasPage = lazy(() => import('./pages/ConfigRutas/ConfigRutasPage').then(m => ({ default: m.ConfigRutasPage })));
 const ImpresorasPage = lazy(() => import('./pages/Impresoras/ImpresorasPage').then(m => ({ default: m.ImpresorasPage })));
@@ -148,7 +149,7 @@ function App() {
 
           {/* Administración (Páginas Dinámicas vía pagesConfig) — key fuerza remount al navegar */}
           <Route path="buses" element={<BusesPage />} />
-          <Route path="vehiculos" element={<DynamicPage key="vehiculos" configKey="vehiculos" />} />
+          <Route path="vehiculos" element={<VehiculosPage />} />
           <Route path="agencias" element={<DynamicPage key="sucursales" configKey="sucursales" />} />
           <Route path="perfil" element={<ProfilePage />} />
           <Route path="roles" element={<RolesPage />} />
