@@ -290,117 +290,128 @@ try {
     }
 
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
-    $pdf->MultiCell($lw, 4.5, strtoupper($razon_social_empresa), 0, 'C', false, 1);
+    $pdf->MultiCell($lw, 5.0, strtoupper($razon_social_empresa), 0, 'C', false, 1);
 
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
     if (!empty($ruc_empresa)) {
-        $pdf->Cell($lw, 3.8, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
+        $pdf->Cell($lw, 4.2, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
     }
-    $pdf->Cell($lw, 4, 'NOTA DE VENTA ELECTRÓNICA', 0, 1, 'C');
+    $pdf->Cell($lw, 4.5, 'NOTA DE VENTA ELECTRÓNICA', 0, 1, 'C');
 
     $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.05, 1));
-    $pdf->Cell($lw, 4.5, 'N° ' . $numero_guia, 0, 1, 'C');
+    $pdf->Cell($lw, 5.0, 'N° ' . $numero_guia, 0, 1, 'C');
     if (!empty($numero_manual_guia)) {
         $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-        $pdf->Cell($lw, 3.8, 'N° MANUAL: ' . $numero_manual_guia, 0, 1, 'C');
+        $pdf->Cell($lw, 4.2, 'N° MANUAL: ' . $numero_manual_guia, 0, 1, 'C');
     }
 
     if (!empty($ubicacion_usuario)) {
-        $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
-        $pdf->Cell($lw, 3.8, 'OFICINA - ' . $ubicacion_usuario, 0, 1, 'C');
+        $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
+        $pdf->Cell($lw, 4.2, 'OFICINA - ' . $ubicacion_usuario, 0, 1, 'C');
     }
 
     $drawLine = function() use ($pdf, $metricas, $ancho_impresion) {
         $pdf->Ln(1);
         $y = $pdf->GetY();
-        $pdf->SetLineStyle(array('width' => 0.2, 'cap' => 'butt', 'join' => 'miter', 'dash' => 2, 'color' => array(0, 0, 0)));
+        $pdf->SetLineStyle(array('width' => 0.35, 'cap' => 'butt', 'join' => 'miter', 'dash' => 2, 'color' => array(0, 0, 0)));
         $pdf->Line($metricas['margen_mm'], $y, $ancho_impresion - $metricas['margen_mm'], $y);
-        $pdf->SetLineStyle(array('width' => 0.2, 'dash' => 0));
-        $pdf->SetY($y + 1.5);
+        $pdf->SetLineStyle(array('width' => 0.35, 'dash' => 0));
+        $pdf->SetY($y + 1.8);
     };
 
     // CLIENTE
     $drawLine();
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 3.8, 'CLIENTE', 0, 1, 'C');
+    $pdf->Cell($lw, 4.2, 'CLIENTE', 0, 1, 'C');
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->MultiCell($lw, 3.5, 'RUC/CI: ' . $cedula_cliente_remitente . "\n" . 'Nombre: ' . $nombre_cliente_remitente, 0, 'L', false, 1);
+    $pdf->MultiCell($lw, 4.0, 'RUC/CI: ' . $cedula_cliente_remitente . "\n" . 'Nombre: ' . $nombre_cliente_remitente, 0, 'L', false, 1);
 
     // ORIGEN
     $drawLine();
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 3.8, 'ORIGEN', 0, 1, 'C');
+    $pdf->Cell($lw, 4.2, 'ORIGEN', 0, 1, 'C');
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->MultiCell($lw, 3.5, 'UBICACIÓN: ' . $origen_guia . "\n" . 'CI: ' . $cedula_cliente_remitente . "\n" . 'ENVÍA: ' . $nombre_cliente_remitente . "\n" . 'TELÉFONO: ' . $telefono_cliente_emisor, 0, 'L', false, 1);
+    $pdf->MultiCell($lw, 4.0, 'UBICACIÓN: ' . $origen_guia . "\n" . 'CI: ' . $cedula_cliente_remitente . "\n" . 'ENVÍA: ' . $nombre_cliente_remitente . "\n" . 'TELÉFONO: ' . $telefono_cliente_emisor, 0, 'L', false, 1);
 
     // DESTINO
     $drawLine();
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 3.8, 'DESTINO', 0, 1, 'C');
+    $pdf->Cell($lw, 4.2, 'DESTINO', 0, 1, 'C');
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
     $txtDest = 'UBICACIÓN: ' . $destino_guia . "\n" . 'CI: ' . $cedula_cliente_receptor . "\n" . 'RECIBE: ' . $nombre_cliente_receptor . "\n" . 'TELÉFONO: ' . $telefono_cliente_receptor;
     foreach ($lista_contenido as $cnt) {
         $txtDest .= "\n" . 'CONTENIDO: ' . $cnt;
     }
-    $pdf->MultiCell($lw, 3.5, $txtDest, 0, 'L', false, 1);
+    $pdf->MultiCell($lw, 4.0, $txtDest, 0, 'L', false, 1);
 
     // RETIRAR EN
     if (!empty($direccion_compania_asociada) || !empty($nombre_compania)) {
         $drawLine();
         $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-        $pdf->Cell($lw, 3.8, 'RETIRAR EN:', 0, 1, 'C');
+        $pdf->Cell($lw, 4.2, 'RETIRAR EN:', 0, 1, 'C');
         $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-        $pdf->MultiCell($lw, 3.5, 'DIRECCIÓN: ' . $direccion_compania_asociada . "\n" . 'EMPRESA: ' . $nombre_compania . "\n" . 'CONTACTO: ' . $numero_contacto, 0, 'L', false, 1);
+        $pdf->MultiCell($lw, 4.0, 'DIRECCIÓN: ' . $direccion_compania_asociada . "\n" . 'EMPRESA: ' . $nombre_compania . "\n" . 'CONTACTO: ' . $numero_contacto, 0, 'L', false, 1);
     }
 
     // OBSERVACIÓN
     if (!empty($observacion_guia)) {
         $drawLine();
         $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-        $pdf->Cell($lw, 3.8, 'OBSERVACIÓN', 0, 1, 'C');
+        $pdf->Cell($lw, 4.2, 'OBSERVACIÓN', 0, 1, 'C');
         $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-        $pdf->MultiCell($lw, 3.5, $observacion_guia, 0, 'L', false, 1);
+        $pdf->MultiCell($lw, 4.0, $observacion_guia, 0, 'L', false, 1);
     }
 
     // DETALLE DEL PAGO
     $drawLine();
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 3.8, 'DETALLE DEL PAGO', 0, 1, 'C');
+    $pdf->Cell($lw, 4.2, 'DETALLE DEL PAGO', 0, 1, 'C');
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->MultiCell($lw, 3.5, 'OFICINISTA: ' . $usuario . "\n" . 'GUÍA N° ' . $numero_guia, 0, 'L', false, 1);
+    $pdf->MultiCell($lw, 4.0, 'OFICINISTA: ' . $usuario . "\n" . 'GUÍA N° ' . $numero_guia, 0, 'L', false, 1);
 
     // TOTALES
     $pdf->Ln(1);
     $wTotL = $lw * 0.65;
     $wTotV = $lw * 0.35;
 
+    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotL, 4.0, 'SUBTOTAL:', 0, 0, 'L');
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotL, 3.5, 'SUBTOTAL:', 0, 0, 'L');
-    $pdf->Cell($wTotV, 3.5, '$' . number_format($subtotal_12_guia, 2), 0, 1, 'R');
+    $pdf->Cell($wTotV, 4.0, '$' . number_format($subtotal_12_guia, 2), 0, 1, 'R');
 
-    $pdf->Cell($wTotL, 3.5, 'SUBTOTAL 0%:', 0, 0, 'L');
-    $pdf->Cell($wTotV, 3.5, '$' . number_format($subtotal_0_guia, 2), 0, 1, 'R');
+    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotL, 4.0, 'SUBTOTAL 0%:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotV, 4.0, '$' . number_format($subtotal_0_guia, 2), 0, 1, 'R');
 
-    $pdf->Cell($wTotL, 3.5, 'SUBTOTAL:', 0, 0, 'L');
-    $pdf->Cell($wTotV, 3.5, '$' . number_format($subtotal_guia, 2), 0, 1, 'R');
+    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotL, 4.0, 'SUBTOTAL:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotV, 4.0, '$' . number_format($subtotal_guia, 2), 0, 1, 'R');
 
-    $pdf->Cell($wTotL, 3.5, 'DESCUENTO:', 0, 0, 'L');
-    $pdf->Cell($wTotV, 3.5, '$' . number_format($descuento_guia, 2), 0, 1, 'R');
+    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotL, 4.0, 'DESCUENTO:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotV, 4.0, '$' . number_format($descuento_guia, 2), 0, 1, 'R');
 
-    $pdf->Cell($wTotL, 3.5, 'TARIFA ESPECIAL:', 0, 0, 'L');
-    $pdf->Cell($wTotV, 3.5, '$' . number_format($valor_tarifa_adicional_guia, 2), 0, 1, 'R');
+    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotL, 4.0, 'TARIFA ESPECIAL:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotV, 4.0, '$' . number_format($valor_tarifa_adicional_guia, 2), 0, 1, 'R');
 
-    $pdf->Cell($wTotL, 3.5, 'IVA:', 0, 0, 'L');
-    $pdf->Cell($wTotV, 3.5, '$' . number_format($impuesto_iva_guia, 2), 0, 1, 'R');
+    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotL, 4.0, 'IVA:', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+    $pdf->Cell($wTotV, 4.0, '$' . number_format($impuesto_iva_guia, 2), 0, 1, 'R');
 
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-    $pdf->Cell($wTotL, 4.2, 'TOTAL', 0, 0, 'L');
-    $pdf->Cell($wTotV, 4.2, '$' . number_format($total_guia, 2), 0, 1, 'R');
+    $pdf->Cell($wTotL, 4.8, 'TOTAL', 0, 0, 'L');
+    $pdf->Cell($wTotV, 4.8, '$' . number_format($total_guia, 2), 0, 1, 'R');
 
     // ESTADO Y METADATA EMISIÓN
     $pdf->Ln(1);
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 4, 'ESTADO: ' . $estado_nota_venta, 0, 1, 'L');
+    $pdf->Cell($lw, 4.5, 'ESTADO: ' . $estado_nota_venta, 0, 1, 'L');
 
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
     $txtMeta = 'FORMAS DE PAGO: ' . $detalles_forma_pago . "\n" .
@@ -409,22 +420,23 @@ try {
                'USUARIO: ' . $cedula_cliente_remitente . "\n" .
                'CONTRASEÑA: ' . $cedula_cliente_remitente . "\n" .
                'IMPRESIÓN: ' . $fecha_actual;
-    $pdf->MultiCell($lw, 3.5, $txtMeta, 0, 'L', false, 1);
+    $pdf->MultiCell($lw, 4.0, $txtMeta, 0, 'L', false, 1);
 
     // FIRMA CLIENTE
     $pdf->Ln(4);
-    $pdf->Cell($lw, 3.8, '_____________________', 0, 1, 'C');
-    $pdf->MultiCell($lw, 3.5, $nombre_cliente_remitente, 0, 'C', false, 1);
+    $pdf->Cell($lw, 4.0, '_____________________', 0, 1, 'C');
+    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
+    $pdf->MultiCell($lw, 4.0, $nombre_cliente_remitente, 0, 'C', false, 1);
 
     // LEYENDA Y REIMPRESIÓN
     if (!empty($leyenda)) {
         $drawLine();
         $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-        $pdf->MultiCell($lw, 3.5, $leyenda, 0, 'C', false, 1);
+        $pdf->MultiCell($lw, 4.0, $leyenda, 0, 'C', false, 1);
     }
     if ($reimpreso_por) {
-        $pdf->SetFont('helvetica', 'I', $metricas['font_tcpdf_sub']);
-        $pdf->Cell($lw, 4, 'Reimpreso por: ' . $reimpreso_por, 0, 1, 'C');
+        $pdf->SetFont('helvetica', 'BI', $metricas['font_tcpdf_sub']);
+        $pdf->Cell($lw, 4.5, 'Reimpreso por: ' . $reimpreso_por, 0, 1, 'C');
     }
 
     // ─── PÁGINAS EXTRA: SLIPS / TICKETS POR BULTO ────────────────────────────
@@ -446,10 +458,10 @@ try {
             $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
             $pdf->Cell($lw, 5, strtoupper($razon_social_empresa), 0, 1, 'C');
 
-            $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
-            $pdf->Cell($lw, 4, $numero_guia, 0, 1, 'C');
+            $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
+            $pdf->Cell($lw, 4.5, $numero_guia, 0, 1, 'C');
             if (!empty($numero_manual_guia)) {
-                $pdf->Cell($lw, 4, 'MANUAL: ' . $numero_manual_guia, 0, 1, 'C');
+                $pdf->Cell($lw, 4.2, 'MANUAL: ' . $numero_manual_guia, 0, 1, 'C');
             }
 
             $pdf->Ln(2);
@@ -461,23 +473,23 @@ try {
             $pdf->Line($metricas['margen_mm'], $y0 + 1.5, $ancho_impresion - $metricas['margen_mm'], $y0 + 1.5);
             $pdf->SetY($y0 + 4);
 
-            $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
+            $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
             $pdf->Cell($lw, 5, $fecha_slip, 0, 1, 'C');
             $pdf->Ln(1);
 
-            $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+            $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
             $pdf->Cell($lw, 4, 'Remitente', 0, 1, 'C');
             $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
             $pdf->MultiCell($lw, 5, $nombre_cliente_remitente, 0, 'C', false, 1);
             $pdf->Ln(1);
 
-            $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+            $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
             $pdf->Cell($lw, 4, 'Destinatario', 0, 1, 'C');
             $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
             $pdf->MultiCell($lw, 5, $nombre_cliente_receptor, 0, 'C', false, 1);
             $pdf->Ln(1);
 
-            $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+            $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
             $pdf->Cell($lw, 4, 'Destino', 0, 1, 'C');
             $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.15, 1));
             $pdf->Cell($lw, 6, strtoupper($destino_guia), 0, 1, 'C');

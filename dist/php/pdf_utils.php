@@ -363,9 +363,9 @@ function obtenerMetricasImpresion($ancho, $baseAncho = 110)
     $ancho_util_mm   = max(10, $ancho - ($margen_mm * 2));
 
     // Tipografías para TCPDF directo (pt)
-    $font_tcpdf_base = round(8.0 * $factor, 1);
-    $font_tcpdf_bold = round(10.5 * $factor, 1);
-    $font_tcpdf_sub  = round(7.0 * $factor, 1);
+    $font_tcpdf_base = round(9.0 * $factor, 1);
+    $font_tcpdf_bold = round(11.5 * $factor, 1);
+    $font_tcpdf_sub  = round(8.0 * $factor, 1);
 
     return [
         'ancho'                 => $ancho,
