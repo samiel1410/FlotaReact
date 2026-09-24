@@ -81,6 +81,7 @@ try {
         g.valor_tarifa_adicional_guia,
         g.impuesto_iva_guia,
         g.estado_cobro_guia,
+        g.cancelado_por_guia,
         CONCAT(u.nombre_usuario, ' ', u.apellido_usuario) AS usuario,
         du.lugar_destino AS ubicacion_usuario
     FROM guia g
@@ -235,15 +236,40 @@ try {
         $clave_acceso = "";
     }
 
-    $total_cobrado = $total_factura - $suma_cobrada;
-    if ($id_factura > 0) {
-        $estado_factura = ($total_cobrado <= 0.001) ? "COBRADA" : "POR COBRAR";
+    $total_cobrado = max(0.0, $total_factura - $suma_cobrada);
+    $estado_cobro_raw = strtoupper(trim((string)($vals_guia['estado_cobro_guia'] ?? '')));
+    $cancelado_por_raw = strtoupper(trim((string)($vals_guia['cancelado_por_guia'] ?? '')));
+    $esDestinatario = ($cancelado_por_raw === '1' || $cancelado_por_raw === 'DESTINATARIO' || $cancelado_por_raw === 'DESTINO' || $estado_cobro_raw === 'AL COBRO');
+
+    if ($esDestinatario) {
+        $estado_factura = "AL COBRO";
+        $total_cobrado = max(0.0, $total_factura - $suma_cobrada);
+    } else if ($id_factura > 0) {
+        $estado_factura = ($total_cobrado <= 0.001 && $total_factura > 0) ? "COBRADA" : "POR COBRAR";
+    } else if ($suma_cobrada >= ($total_guia - 0.001) && $total_guia > 0) {
+        $estado_factura = "COBRADA";
+        $total_cobrado = 0.00;
+    } else if ($suma_cobrada > 0.001) {
+        $estado_factura = "POR COBRAR";
+        $total_cobrado = max(0.0, $total_guia - $suma_cobrada);
+    } else if ($estado_cobro_raw === 'NO COBRADA' || $estado_cobro_raw === 'POR COBRAR' || $estado_cobro_raw === 'PENDIENTE') {
+        $estado_factura = "POR COBRAR";
+        $total_cobrado = $total_guia;
+    } else if ($suma_cobrada <= 0.001 && $total_guia > 0) {
+        $estado_factura = "POR COBRAR";
+        $total_cobrado = $total_guia;
     } else {
         $estado_factura = (($vals_guia['estado_cobro_guia'] ?? '') == 'COBRADA') ? "COBRADA" : "POR COBRAR";
     }
 
     if (empty(trim($detalles_forma_pago))) {
-        $detalles_forma_pago = "NINGUNA";
+        if ($estado_factura === 'COBRADA') {
+            $detalles_forma_pago = "EFECTIVO: $" . number_format($total_factura, 2);
+        } else if ($estado_factura === 'AL COBRO') {
+            $detalles_forma_pago = "AL COBRO EN DESTINO";
+        } else {
+            $detalles_forma_pago = "PENDIENTE";
+        }
     }
     $conn->close();
 
@@ -348,47 +374,19 @@ try {
 
     // 9. TABLA DE TOTALES
     $pdf->Ln(1);
-    $wTotL = $lw * 0.65;
-    $wTotV = $lw * 0.35;
+    $wTotL = $lw * 0.50;
+    $wTotV = $lw * 0.50;
 
-    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotL, 4.0, 'SUBTOTAL:', 0, 0, 'L');
-    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotV, 4.0, '$' . number_format($subtotal_12_guia, 2), 0, 1, 'R');
-
-    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotL, 4.0, 'SUBTOTAL 0%:', 0, 0, 'L');
-    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotV, 4.0, '$' . number_format($subtotal_0_guia, 2), 0, 1, 'R');
-
-    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotL, 4.0, 'SUBTOTAL:', 0, 0, 'L');
-    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotV, 4.0, '$' . number_format($subtotal_guia, 2), 0, 1, 'R');
-
-    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotL, 4.0, 'DESCUENTO:', 0, 0, 'L');
-    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotV, 4.0, '$' . number_format($descuento_guia, 2), 0, 1, 'R');
-
-    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotL, 4.0, 'TARIFA ESPECIAL:', 0, 0, 'L');
-    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotV, 4.0, '$' . number_format($valor_tarifa_adicional_guia, 2), 0, 1, 'R');
-
-    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotL, 4.0, 'IVA:', 0, 0, 'L');
-    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $pdf->Cell($wTotV, 4.0, '$' . number_format($impuesto_iva_guia, 2), 0, 1, 'R');
-
-    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-    $pdf->Cell($wTotL, 4.8, 'TOTAL', 0, 0, 'L');
-    $pdf->Cell($wTotV, 4.8, '$' . number_format($total_guia, 2), 0, 1, 'R');
+    $fontTotal = round($metricas['font_tcpdf_bold'] * 1.45, 1);
+    $pdf->SetFont('helvetica', 'B', $fontTotal);
+    $pdf->Cell($wTotL, 6.8, 'TOTAL:', 0, 0, 'L');
+    $pdf->Cell($wTotV, 6.8, '$ ' . number_format($total_guia, 2), 0, 1, 'R');
 
     // 10. ESTADO Y METADATA EMISIÓN
-    $pdf->Ln(1);
-    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 4.5, 'ESTADO: ' . $estado_factura, 0, 1, 'L');
+    $pdf->Ln(1.5);
+    $fontEstado = round($metricas['font_tcpdf_bold'] * 1.30, 1);
+    $pdf->SetFont('helvetica', 'B', $fontEstado);
+    $pdf->Cell($lw, 6.2, 'ESTADO: ' . $estado_factura, 0, 1, 'L');
 
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
     $txtMeta = 'FORMAS DE PAGO: ' . $detalles_forma_pago . "\n" .
