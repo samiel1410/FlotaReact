@@ -104,21 +104,6 @@ const DestinoPage = () => {
     }
   };
 
-  const handleSubmitForm = async (formData) => {
-    try {
-      if (formData.id || formData.id_destino) {
-        await updateDestino(formData.id || formData.id_destino, formData);
-        toast.success('Destino actualizado con éxito');
-      } else {
-        await createDestino(formData);
-        toast.success('Destino creado con éxito');
-      }
-      setShowModal(false);
-      fetchDestinos(filters, pagination.currentPage);
-    } catch (err) {
-      toast.error('Error al guardar destino: ' + (err.message || ''));
-    }
-  };
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -175,10 +160,18 @@ const DestinoPage = () => {
 
       {/* Modal Crear / Editar */}
       {showModal && (
-        <Modal title={editingDestino ? 'Editar Destino' : 'Nuevo Destino'} onClose={handleCloseModal}>
+        <Modal
+          isOpen={showModal}
+          title={editingDestino ? 'Editar Destino' : 'Nuevo Destino'}
+          onClose={handleCloseModal}
+        >
           <NewDestinoForm
             initialData={editingDestino}
-            onSubmit={handleSubmitForm}
+            onSubmit={() => {
+              setShowModal(false);
+              setEditingDestino(null);
+              fetchDestinos(filters, pagination.currentPage);
+            }}
             onCancel={handleCloseModal}
           />
         </Modal>
