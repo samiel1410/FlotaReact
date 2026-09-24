@@ -1734,9 +1734,40 @@ export const PAGES_CONFIG = {
       { key: 'nombre_compania_asociada', label: 'Compañía' },
       { key: 'estado_destino', label: 'Estado', renderType: 'status' },
     ],
-    filters: [{ key: 'nombre_busqueda', label: 'Nombre', type: 'text' }],
+    filters: [
+      { key: 'nombre_busqueda', label: 'Nombre', type: 'text' },
+      {
+        key: 'id_compania',
+        label: 'Compañía',
+        type: 'select',
+        endpoint: '/companiaasociada/companiaasociadaSeleccionPaginadoCombo',
+        optionValue: 'id_compania_asociada',
+        optionLabel: 'nombre_compania_asociada'
+      },
+      {
+        key: 'lugar',
+        label: 'Lugar',
+        type: 'select',
+        endpoint: '/locacion/seleccionarCiudad',
+        optionValue: 'nombre_canton',
+        optionLabel: 'nombre_canton'
+      },
+      {
+        key: 'estado',
+        label: 'Estado',
+        type: 'select',
+        options: [
+          { value: '', label: 'Todos' },
+          { value: '1', label: 'Activo' },
+          { value: '0', label: 'Inactivo' }
+        ]
+      }
+    ],
     customParams: (page, pageSize, filters) => ({
       nombre: filters.nombre_busqueda || '',
+      id_compania: filters.id_compania || '',
+      lugar: filters.lugar || '',
+      estado: filters.estado || '',
       page: page + 1,
       limit: pageSize,
     }),

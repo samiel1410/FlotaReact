@@ -65,6 +65,7 @@ const CierreCobrosPage = lazy(() => import('./pages/CierreCobros/CierreCobrosPag
 const FacturasPage = lazy(() => import('./pages/Facturas/FacturasPage').then(m => ({ default: m.FacturasPage })));
 const CierreViajesPage = lazy(() => import('./pages/ReportesBoleteria/CierreViajesPage').then(m => ({ default: m.CierreViajesPage })));
 const NotificacionesPage = lazy(() => import('./pages/Notificaciones/NotificacionesPage').then(m => ({ default: m.NotificacionesPage })));
+const DestinoPage = lazy(() => import('./pages/Destino/DestinoPage'));
 
 // Componente Wrapper para rutas protegidas
 const ProtectedRoute = ({ children }) => {
@@ -163,7 +164,8 @@ function App() {
           <Route path="socios" element={<DynamicPage key="socios" configKey="socios" />} />
           <Route path="rutas" element={<DynamicPage key="rutas" configKey="rutas" />} />
           <Route path="bancos" element={<DynamicPage key="bancos" configKey="bancos" />} />
-          <Route path="destino" element={<DynamicPage key="destinos" configKey="destinos" />} />
+          <Route path="destino" element={<DestinoPage />} />
+          <Route path="destinos" element={<DestinoPage />} />
           <Route path="provincia" element={<DynamicPage key="provincias" configKey="provincias" />} />
           <Route path="lugares" element={<DynamicPage key="lugares" configKey="lugares" />} />
           <Route path="inventario" element={<DynamicPage key="inventario" configKey="inventario" />} />
