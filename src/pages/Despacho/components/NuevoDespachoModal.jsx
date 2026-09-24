@@ -20,7 +20,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
     oficinistas: [],
     buses: [],
     personal: [],
-    destinos: [],
+    sucursales: [],
     vehiculos: []
   });
 
@@ -46,7 +46,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
     // OFICINA & COMUNES
     id_fkorigen_despacho: '',
     nombre_origen: '',
-    oficina_usuario: '', // ID Destino
+    oficina_usuario: '', // ID Destino / Sucursal
     nombre_destino_raw: ''
   });
 
@@ -68,37 +68,46 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
         const u = userRes.data.data;
         idUsuario = u.id_usuario;
         nombreUsuario = `${u.nombre_usuario || ''} ${u.apellido_usuario || ''}`.trim() || u.username_usuario || 'Usuario en sesión';
-        idOficinaUsuario = u.id_fkdestino_usuario || u.sucursal_usuario || '';
+        idOficinaUsuario = String(u.id_fksucursal_usuario || u.sucursal_usuario || u.id_fkdestino_usuario || '');
         nombreOficinaUsuario = u.nombre_sucursal || u.suc_nombre || '';
       }
 
-      // 2. Cargar combos en paralelo
-      const [ofiRes, busRes, perRes, desRes, vehRes] = await Promise.all([
+      // 2. Cargar combos en paralelo (Sucursales en lugar de destinos genéricos)
+      const [ofiRes, busRes, perRes, sucRes, vehRes] = await Promise.all([
         api.get('/usuario/usuarioSeleccionarOficinista'),
         api.get('/buses/seleccionarBuses', { params: { numero_bloque: 1, tamanio_bloque: 500 } }),
         api.get('/personal/personalSelectCombo'),
-        api.get('/destino/destinoSeleccionCombo'),
+        api.get('/sucursal/comboSucursal'),
         vehiculoService.combo()
       ]);
 
-      const destinos = desRes.data?.data || [];
+      const sucursalesRaw = sucRes.data?.data || [];
+      const sucursales = sucursalesRaw.filter(s => s.id_sucursal !== 0 && s.id_sucursal !== '0');
       const vehiculos = vehRes.data || [];
 
       setDatosCombo({
         oficinistas: ofiRes.data?.data || [],
         buses: busRes.data?.data || [],
         personal: perRes.data?.data || [],
-        destinos: destinos,
+        sucursales: sucursales,
         vehiculos: vehiculos
       });
 
-      // Auto-set oficinista y oficina de origen por defecto
+      // Encontrar sucursal de origen del usuario
+      const sucOrigenEncontrada = sucursales.find(s => 
+        String(s.suc_codigo_sucursal) === idOficinaUsuario || String(s.id_sucursal) === idOficinaUsuario
+      );
+      const origenIdFinal = sucOrigenEncontrada ? String(sucOrigenEncontrada.suc_codigo_sucursal || sucOrigenEncontrada.id_sucursal) : (sucursales.length > 0 ? String(sucursales[0].suc_codigo_sucursal || sucursales[0].id_sucursal) : '');
+      const origenNombreFinal = sucOrigenEncontrada?.nombre_sucursal || nombreOficinaUsuario;
+
+      // Auto-set oficinista, responsable y sucursal de origen por defecto
       setFormData(prev => ({
         ...prev,
         id_fkoficinista_despacho_maestro: idUsuario,
         nombre_oficinista: nombreUsuario,
-        id_fkorigen_despacho: idOficinaUsuario || (destinos.length > 0 ? destinos[0].id_destino : ''),
-        nombre_origen: nombreOficinaUsuario
+        responsable_despacho: nombreUsuario,
+        id_fkorigen_despacho: origenIdFinal,
+        nombre_origen: origenNombreFinal
       }));
 
     } catch (err) {
@@ -109,13 +118,20 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
     }
   };
 
+  // Manejar cambio de tipo de despacho y asegurar que el responsable sea el usuario en OFICINA
+  const handleCambioTipo = (nuevoTipo) => {
+    setTipoDespacho(nuevoTipo);
+    if (nuevoTipo === 'OFICINA' && !formData.responsable_despacho) {
+      setFormData(prev => ({ ...prev, responsable_despacho: prev.nombre_oficinista || '' }));
+    }
+  };
+
   // Manejar selección de bus
   const handleSelectBus = async (busDisco) => {
     setFormData(prev => ({ ...prev, id_fkbus_despacho_maestro: busDisco }));
     if (!busDisco) return;
 
     try {
-      // Auto-cargar personal asignado al bus
       const res = await api.get('/personal/buscarPorBus', { params: { id_bus: busDisco } });
       if (res.data?.success && res.data?.data?.length > 0) {
         const personal = res.data.data[0];
@@ -144,7 +160,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
         id_fkvehiculo_despacho: '',
         numero_vehiculo: '',
         placa_vehiculo: '',
-        responsable_despacho: ''
+        responsable_despacho: prev.nombre_oficinista || ''
       }));
       return;
     }
@@ -157,7 +173,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
         tipo_vehiculo: veh.tipo_vehiculo || 'Camión',
         numero_vehiculo: veh.numero_vehiculo || '',
         placa_vehiculo: veh.placa_vehiculo || '',
-        responsable_despacho: veh.nombre_responsable || ''
+        responsable_despacho: veh.nombre_responsable || prev.nombre_oficinista || ''
       }));
       setModoManualVehiculo(false);
     }
@@ -202,13 +218,14 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
     try {
       const busSel = datosCombo.buses.find(b => String(b.bus_disco || b.disco_buses || b.id_buses) === String(formData.id_fkbus_despacho_maestro));
       const perSel = datosCombo.personal.find(p => String(p.per_codigo_personal || p.id_personal) === String(formData.id_personal));
-      const desSel = datosCombo.destinos.find(d => String(d.id_destino) === String(formData.oficina_usuario));
-      const oriSel = datosCombo.destinos.find(d => String(d.id_destino) === String(formData.id_fkorigen_despacho));
+      const sucDestinoSel = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(formData.oficina_usuario));
+      const sucOrigenSel = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(formData.id_fkorigen_despacho));
       const ofiSel = datosCombo.oficinistas.find(o => String(o.id_usuario) === String(formData.id_fkoficinista_despacho_maestro));
 
       const ofiNombre = ofiSel ? `${ofiSel.nombre_usuario || ''} ${ofiSel.apellido_usuario || ''}`.trim() : (formData.nombre_oficinista || '');
-      const origenNombre = oriSel?.lugar_destino || formData.nombre_origen || '';
-      const destinoNombre = desSel?.lugar_destino || formData.nombre_destino_raw || '';
+      const origenNombre = sucOrigenSel?.nombre_sucursal || formData.nombre_origen || '';
+      const destinoNombre = sucDestinoSel?.nombre_sucursal || formData.nombre_destino_raw || '';
+      const responsableFinal = (formData.responsable_despacho || ofiNombre).trim();
 
       let payload = {
         tipo_despacho: tipoDespacho,
@@ -244,12 +261,12 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
           ...payload,
           id_fkbus_despacho_maestro: formData.numero_vehiculo || formData.placa_vehiculo || 'VEH',
           nombre_bus: nomBusVeh,
-          nombre_busero: formData.responsable_despacho || '',
+          nombre_busero: responsableFinal,
           id_fkvehiculo_despacho: formData.id_fkvehiculo_despacho || null,
           tipo_vehiculo: formData.tipo_vehiculo,
           numero_vehiculo: formData.numero_vehiculo,
           placa_vehiculo: formData.placa_vehiculo,
-          responsable_despacho: formData.responsable_despacho
+          responsable_despacho: responsableFinal
         };
       } else if (tipoDespacho === 'OFICINA') {
         const nomDespOfi = `Traspaso: ${origenNombre} → ${destinoNombre}`;
@@ -258,8 +275,8 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
           ...payload,
           id_fkbus_despacho_maestro: 'OFICINA',
           nombre_bus: nomDespOfi,
-          nombre_busero: formData.responsable_despacho || ofiNombre,
-          responsable_despacho: formData.responsable_despacho || ofiNombre
+          nombre_busero: responsableFinal,
+          responsable_despacho: responsableFinal
         };
       }
 
@@ -291,9 +308,9 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
     label: `${p.per_cedula_personal ? `[${p.per_cedula_personal}] ` : ''}${p.per_nombres_persona || ''} ${p.per_apellidos_personal || ''}`.trim()
   }));
 
-  const opcionesDestinos = datosCombo.destinos.map(d => ({
-    value: String(d.id_destino),
-    label: d.lugar_destino || d.nombre_destino || `Destino #${d.id_destino}`
+  const opcionesSucursales = datosCombo.sucursales.map(s => ({
+    value: String(s.suc_codigo_sucursal || s.id_sucursal),
+    label: `${s.nombre_sucursal || `Sucursal #${s.id_sucursal}`}${s.suc_codigo_sucursal ? ` (Cód. ${s.suc_codigo_sucursal})` : ''}`
   }));
 
   const opcionesVehiculos = datosCombo.vehiculos.map(v => ({
@@ -315,7 +332,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
             </div>
             <div>
               <h2 className="text-white font-black text-base tracking-tight">Nuevo Despacho</h2>
-              <p className="text-slate-400 text-xs">Seleccione el modo de transporte y destino</p>
+              <p className="text-slate-400 text-xs">Seleccione el modo de transporte y sucursal destino</p>
             </div>
           </div>
           <button
@@ -331,7 +348,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
           <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl">
             <button
               type="button"
-              onClick={() => setTipoDespacho('BUS')}
+              onClick={() => handleCambioTipo('BUS')}
               className={`py-2 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 uppercase tracking-wider ${
                 tipoDespacho === 'BUS'
                   ? 'bg-white text-indigo-700 shadow-sm'
@@ -344,7 +361,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
 
             <button
               type="button"
-              onClick={() => setTipoDespacho('VEHICULO')}
+              onClick={() => handleCambioTipo('VEHICULO')}
               className={`py-2 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 uppercase tracking-wider ${
                 tipoDespacho === 'VEHICULO'
                   ? 'bg-white text-indigo-700 shadow-sm'
@@ -357,7 +374,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
 
             <button
               type="button"
-              onClick={() => setTipoDespacho('OFICINA')}
+              onClick={() => handleCambioTipo('OFICINA')}
               className={`py-2 px-3 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-2 uppercase tracking-wider ${
                 tipoDespacho === 'OFICINA'
                   ? 'bg-white text-indigo-700 shadow-sm'
@@ -365,7 +382,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
               }`}
             >
               <i className="fas fa-building text-xs"></i>
-              <span>3. Oficina</span>
+              <span>3. Sucursal</span>
             </button>
           </div>
         </div>
@@ -404,16 +421,19 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
                 />
               </div>
 
-              {/* Destino */}
+              {/* Destino (Sucursal) */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  Oficina de Destino <span className="text-red-500">*</span>
+                  Sucursal de Destino <span className="text-red-500">*</span>
                 </label>
                 <SearchableSelect
-                  options={opcionesDestinos}
+                  options={opcionesSucursales}
                   value={formData.oficina_usuario}
-                  onChange={(val) => setFormData(p => ({ ...p, oficina_usuario: val }))}
-                  placeholder="Seleccionar oficina de destino..."
+                  onChange={(val) => {
+                    const suc = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(val));
+                    setFormData(p => ({ ...p, oficina_usuario: val, nombre_destino_raw: suc?.nombre_sucursal || '' }));
+                  }}
+                  placeholder="Seleccionar sucursal de destino..."
                 />
               </div>
             </div>
@@ -462,7 +482,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
                             <span className="ml-2 font-mono font-normal text-slate-600">[{vehiculoSeleccionadoObj.placa_vehiculo || 'S/P'}]</span>
                           </div>
                           <div className="text-[11px] text-slate-500">
-                            Resp: {vehiculoSeleccionadoObj.nombre_responsable || 'Sin asignar'}
+                            Resp: {vehiculoSeleccionadoObj.nombre_responsable || formData.nombre_oficinista || 'Sin asignar'}
                           </div>
                         </div>
                       </div>
@@ -532,36 +552,42 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
                       type="text"
                       value={formData.responsable_despacho}
                       onChange={e => setFormData(p => ({ ...p, responsable_despacho: e.target.value }))}
-                      placeholder="Nombre del conductor..."
+                      placeholder="Nombre del conductor o responsable..."
                       className="w-full h-8 px-2.5 border border-slate-300 rounded-lg text-xs outline-none focus:border-indigo-500"
                     />
                   </div>
                 </div>
               )}
 
-              {/* Oficinas Origen y Destino */}
+              {/* Sucursales Origen y Destino */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Oficina Origen
+                    Sucursal Origen
                   </label>
                   <SearchableSelect
-                    options={opcionesDestinos}
+                    options={opcionesSucursales}
                     value={formData.id_fkorigen_despacho}
-                    onChange={(val) => setFormData(p => ({ ...p, id_fkorigen_despacho: val }))}
-                    placeholder="Oficina de origen..."
+                    onChange={(val) => {
+                      const suc = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(val));
+                      setFormData(p => ({ ...p, id_fkorigen_despacho: val, nombre_origen: suc?.nombre_sucursal || '' }));
+                    }}
+                    placeholder="Sucursal de origen..."
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Oficina Destino <span className="text-red-500">*</span>
+                    Sucursal Destino <span className="text-red-500">*</span>
                   </label>
                   <SearchableSelect
-                    options={opcionesDestinos}
+                    options={opcionesSucursales}
                     value={formData.oficina_usuario}
-                    onChange={(val) => setFormData(p => ({ ...p, oficina_usuario: val }))}
-                    placeholder="Oficina de destino..."
+                    onChange={(val) => {
+                      const suc = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(val));
+                      setFormData(p => ({ ...p, oficina_usuario: val, nombre_destino_raw: suc?.nombre_sucursal || '' }));
+                    }}
+                    placeholder="Sucursal de destino..."
                   />
                 </div>
               </div>
@@ -569,31 +595,37 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
           )}
 
           {/* ═══════════════════════════════════════════════════════════════════
-              MODO 3: OFICINA (Traspaso Directo)
+              MODO 3: SUCURSAL (Traspaso Directo entre Sucursales)
              ═══════════════════════════════════════════════════════════════════ */}
           {tipoDespacho === 'OFICINA' && (
             <div className="flex flex-col gap-3.5 animate-in fade-in duration-150">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Oficina Origen <span className="text-red-500">*</span>
+                    Sucursal Origen <span className="text-red-500">*</span>
                   </label>
                   <SearchableSelect
-                    options={opcionesDestinos}
+                    options={opcionesSucursales}
                     value={formData.id_fkorigen_despacho}
-                    onChange={(val) => setFormData(p => ({ ...p, id_fkorigen_despacho: val }))}
+                    onChange={(val) => {
+                      const suc = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(val));
+                      setFormData(p => ({ ...p, id_fkorigen_despacho: val, nombre_origen: suc?.nombre_sucursal || '' }));
+                    }}
                     placeholder="Seleccionar origen..."
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Oficina Destino <span className="text-red-500">*</span>
+                    Sucursal Destino <span className="text-red-500">*</span>
                   </label>
                   <SearchableSelect
-                    options={opcionesDestinos}
+                    options={opcionesSucursales}
                     value={formData.oficina_usuario}
-                    onChange={(val) => setFormData(p => ({ ...p, oficina_usuario: val }))}
+                    onChange={(val) => {
+                      const suc = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(val));
+                      setFormData(p => ({ ...p, oficina_usuario: val, nombre_destino_raw: suc?.nombre_sucursal || '' }));
+                    }}
                     placeholder="Seleccionar destino..."
                   />
                 </div>
@@ -603,13 +635,19 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
                 <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
                   Responsable del Traslado <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={formData.responsable_despacho}
-                  onChange={e => setFormData(p => ({ ...p, responsable_despacho: e.target.value }))}
-                  placeholder="Persona o encargado que traslada las encomiendas..."
-                  className="w-full h-9 px-3 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={formData.responsable_despacho}
+                    onChange={e => setFormData(p => ({ ...p, responsable_despacho: e.target.value }))}
+                    placeholder="Nombre del usuario o responsable que traslada las encomiendas..."
+                    className="w-full h-9 pl-9 pr-3 border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none"
+                  />
+                  <i className="fas fa-user absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Asignado por defecto al usuario en sesión ({formData.nombre_oficinista || 'Usuario actual'}).
+                </p>
               </div>
             </div>
           )}

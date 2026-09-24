@@ -3,27 +3,26 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { api } from '../../../config/axios';
 import { despachoService } from '../../../services/despacho.service';
+import { SearchableSelect } from '../../../components/common/SearchableSelect';
 
 /**
  * Modal para editar despacho existente
  * Recrea DespachoEditar del ExtJS
- * Muestra el formulario para cambiar bus/oficina + lista de guías + eliminar
+ * Muestra el formulario para cambiar bus/sucursal + lista de guías + eliminar
  */
 export const EditarDespachoModal = ({ despacho, onClose, onSuccess }) => {
   const [detalles, setDetalles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [buses, setBuses] = useState([]);
-  const [destinos, setDestinos] = useState([]);
+  const [sucursales, setSucursales] = useState([]);
 
   const [formData, setFormData] = useState({
     id_bus: despacho.id_fkbus_despacho_maestro || '',
     nombre_bus: despacho.nombre_bus || '',
-    id_oficina: despacho.id_destino || '',
+    id_oficina: despacho.id_destino || despacho.id_fkdestino_despacho || '',
     nombre_oficina: despacho.nombre_destino || ''
   });
-
-
 
   useEffect(() => {
     initData();
@@ -32,9 +31,9 @@ export const EditarDespachoModal = ({ despacho, onClose, onSuccess }) => {
   const initData = async () => {
     setLoading(true);
     try {
-      const [busRes, desRes, detRes] = await Promise.all([
+      const [busRes, sucRes, detRes] = await Promise.all([
         api.get('/buses/seleccionarBuses', { params: { numero_bloque: 1, tamanio_bloque: 500 } }),
-        api.get('/destino/destinoSeleccionCombo'),
+        api.get('/sucursal/comboSucursal'),
         despachoService.listarDetalle({
           id_maestro: despacho.id_despacho_maestro,
           page: 1,
@@ -42,19 +41,22 @@ export const EditarDespachoModal = ({ despacho, onClose, onSuccess }) => {
         })
       ]);
 
-      setBuses(busRes.data?.data || []);
-      setDestinos(desRes.data?.data || []);
+      const busesData = busRes.data?.data || [];
+      const sucursalesData = (sucRes.data?.data || []).filter(s => s.id_sucursal !== 0 && s.id_sucursal !== '0');
+
+      setBuses(busesData);
+      setSucursales(sucursalesData);
       setDetalles(detRes?.data || []);
 
       // Pre-set values
-      const busSel = busRes.data?.data?.find(b => String(b.bus_codigo) === String(despacho.id_fkbus_despacho_maestro));
-      const desSel = desRes.data?.data?.find(d => String(d.id_destino) === String(despacho.id_destino));
+      const busSel = busesData.find(b => String(b.bus_disco || b.disco_buses || b.id_buses || b.bus_codigo) === String(despacho.id_fkbus_despacho_maestro));
+      const sucSel = sucursalesData.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(despacho.id_destino || despacho.id_fkdestino_despacho));
 
       setFormData({
         id_bus: despacho.id_fkbus_despacho_maestro || '',
-        nombre_bus: busSel?.codigo_buses || despacho.nombre_bus || '',
-        id_oficina: despacho.id_destino || '',
-        nombre_oficina: desSel?.lugar_destino || despacho.nombre_destino || ''
+        nombre_bus: busSel ? `Bus #${busSel.bus_disco || busSel.disco_buses || ''} (${busSel.bus_placa || busSel.placa_buses || ''})` : (despacho.nombre_bus || ''),
+        id_oficina: despacho.id_destino || despacho.id_fkdestino_despacho || '',
+        nombre_oficina: sucSel?.nombre_sucursal || despacho.nombre_destino || ''
       });
     } catch (err) {
       console.error('Error cargando datos:', err);
@@ -67,15 +69,15 @@ export const EditarDespachoModal = ({ despacho, onClose, onSuccess }) => {
   const handleGuardar = async () => {
     setSaving(true);
     try {
-      const busSel = buses.find(b => String(b.bus_codigo) === String(formData.id_bus));
-      const desSel = destinos.find(d => String(d.id_destino) === String(formData.id_oficina));
+      const busSel = buses.find(b => String(b.bus_disco || b.disco_buses || b.id_buses || b.bus_codigo) === String(formData.id_bus));
+      const sucSel = sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(formData.id_oficina));
 
       const res = await despachoService.editar({
         id_maestro: despacho.id_despacho_maestro,
         id_bus: formData.id_bus,
-        nombre_bus: busSel?.codigo_buses || formData.nombre_bus || '',
+        nombre_bus: busSel ? `Bus #${busSel.bus_disco || busSel.disco_buses || ''} (${busSel.bus_placa || busSel.placa_buses || ''})` : (formData.nombre_bus || ''),
         id_oficina: formData.id_oficina,
-        nombre_oficina: desSel?.lugar_destino || formData.nombre_oficina || ''
+        nombre_oficina: sucSel?.nombre_sucursal || formData.nombre_oficina || ''
       });
 
       if (res?.success) {
@@ -92,6 +94,16 @@ export const EditarDespachoModal = ({ despacho, onClose, onSuccess }) => {
       setSaving(false);
     }
   };
+
+  const opcionesBuses = buses.map(b => ({
+    value: String(b.bus_disco || b.disco_buses || b.id_buses || b.bus_codigo),
+    label: `Bus #${b.bus_disco || b.disco_buses || '?'} — Placa: ${b.bus_placa || b.placa_buses || 'S/P'}`
+  }));
+
+  const opcionesSucursales = sucursales.map(s => ({
+    value: String(s.suc_codigo_sucursal || s.id_sucursal),
+    label: `${s.nombre_sucursal || `Sucursal #${s.id_sucursal}`}${s.suc_codigo_sucursal ? ` (Cód. ${s.suc_codigo_sucursal})` : ''}`
+  }));
 
   const handleQuitarGuia = async (idDetalle) => {
     const confirmQuitar = await Swal.fire({ title: '¿Quitar guía?', text: '¿Está seguro que desea quitar esta guía del despacho?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, quitar', cancelButtonText: 'Cancelar' });
@@ -157,42 +169,38 @@ export const EditarDespachoModal = ({ despacho, onClose, onSuccess }) => {
 
           <div className="p-6 overflow-y-auto flex flex-col gap-5">
             {/* Formulario edición */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Bus</label>
-                <select
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Bus</label>
+                <SearchableSelect
+                  options={opcionesBuses}
                   value={formData.id_bus}
-                  onChange={e => {
-                    const bus = buses.find(b => String(b.bus_codigo) === String(e.target.value));
-                    setFormData(p => ({ ...p, id_bus: e.target.value, nombre_bus: bus?.codigo_buses || '' }));
+                  onChange={val => {
+                    const bus = buses.find(b => String(b.bus_disco || b.disco_buses || b.id_buses || b.bus_codigo) === String(val));
+                    setFormData(p => ({
+                      ...p,
+                      id_bus: val,
+                      nombre_bus: bus ? `Bus #${bus.bus_disco || bus.disco_buses || ''} (${bus.bus_placa || bus.placa_buses || ''})` : ''
+                    }));
                   }}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="">Seleccionar...</option>
-                  {buses.map((b, idx) => (
-                    <option key={b.bus_codigo || idx} value={b.bus_codigo}>
-                      {b.codigo_buses || b.bus_placa || ''}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Seleccionar bus..."
+                />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Oficina / Destino</label>
-                <select
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Sucursal Destino</label>
+                <SearchableSelect
+                  options={opcionesSucursales}
                   value={formData.id_oficina}
-                  onChange={e => {
-                    const d = destinos.find(dst => String(dst.id_destino) === String(e.target.value));
-                    setFormData(p => ({ ...p, id_oficina: e.target.value, nombre_oficina: d?.lugar_destino || '' }));
+                  onChange={val => {
+                    const suc = sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(val));
+                    setFormData(p => ({
+                      ...p,
+                      id_oficina: val,
+                      nombre_oficina: suc?.nombre_sucursal || ''
+                    }));
                   }}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
-                >
-                  <option value="">Seleccionar...</option>
-                  {destinos.map((d, idx) => (
-                    <option key={d.id_destino || idx} value={d.id_destino}>
-                      {d.lugar_destino || d.nombre_destino || ''}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Seleccionar sucursal destino..."
+                />
               </div>
             </div>
 

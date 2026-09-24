@@ -17,7 +17,11 @@ export const BusquedaGuiaDespachoModal = ({ idDespachoMaestro, bus, onClose, onS
       // Buscar guías disponibles para despacho
       const { api } = await import('../../../config/axios');
       const guiasRes = await api.get('/guia/guialistadoDespacho', {
-        params: { page, limit: 50 }
+        params: {
+          numeroguia: numeroGuia.trim(),
+          numero_bloque: page,
+          tamanio_bloque: 50
+        }
       });
 
       if (guiasRes.data?.success) {
