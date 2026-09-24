@@ -95,11 +95,19 @@ const DestinoPage = () => {
     });
     if (result.isConfirmed) {
       try {
-        await deleteDestino(id);
-        toast.success('Destino eliminado correctamente');
+        const res = await deleteDestino(id);
+        if (res && res.tipo === 3) {
+          toast.error(res.mensaje || 'Este destino no se puede eliminar porque está vinculado a otros registros.');
+          return;
+        }
+        if (res && res.success === false) {
+          toast.error(res.mensaje || 'No se pudo eliminar el destino.');
+          return;
+        }
+        toast.success(res?.mensaje || 'Destino eliminado correctamente');
         fetchDestinos(filters, pagination.currentPage);
       } catch (err) {
-        toast.error('Error al eliminar destino: ' + (err.message || ''));
+        toast.error('Error al eliminar destino: ' + (err.response?.data?.mensaje || err.message || ''));
       }
     }
   };
