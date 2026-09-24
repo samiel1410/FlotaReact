@@ -53,11 +53,14 @@ try {
         dm.id_fkusuario_despacho_maestro,
         CONCAT(p.per_nombres_persona, ' ', p.per_apellidos_personal) as nombre_busero,
         u.nombre_usuario,
-        u.apellido_usuario 
+        u.apellido_usuario,
+        d.lugar_destino
     FROM despacho_maestro dm
     LEFT JOIN usuario u ON dm.id_fkusuario_despacho_maestro = u.id_usuario
+    LEFT JOIN destino d ON u.id_fkdestino_usuario = d.id_destino
     LEFT JOIN personal p ON dm.id_fkbus_despacho_maestro = p.per_codigo_personal
-    WHERE dm.id_despacho_maestro = $id_maestro";
+    WHERE dm.id_despacho_maestro = $id_maestro 
+    LIMIT 1";
 
     $recuperar = mysqli_query($conn, $query) or die(mysqli_error($conn));
     $vals = mysqli_fetch_array($recuperar);
@@ -81,19 +84,9 @@ try {
     $responsable_despacho    = $vals["responsable_despacho"] ?? '';
     $nombre_busero           = !empty(trim($vals["nombre_busero"] ?? '')) ? trim($vals["nombre_busero"]) : "N/A";
     $nombre_bus              = $vals["nombre_bus"];
-    $id_fkusuario_despacho_maestro = $vals["id_fkusuario_despacho_maestro"];
+    $lugar_destino           = $vals["lugar_destino"] ?? '';
 
-    // Lugar Destino
-    $query4 = "SELECT d.lugar_destino FROM destino d
-    JOIN usuario u ON d.id_destino = u.id_fkdestino_usuario 
-    WHERE u.id_usuario = $id_fkusuario_despacho_maestro LIMIT 1";
-    $recuperar4 = mysqli_query($conn, $query4);
-    $lugar_destino = "";
-    if ($recuperar4 && $vals4 = mysqli_fetch_array($recuperar4)) {
-        $lugar_destino = $vals4["lugar_destino"];
-    }
-
-    // ─── DETALLE DE ENCOMIENDAS / GUÍAS (Optimizado sin N+1) ─────────────────
+    // ─── DETALLE DE ENCOMIENDAS / GUÍAS (Indexado y Ultra Rápido) ─────────────
     $query2 = "SELECT 
         dd.id_despacho_detalle,
         dd.observacion_despacho_detalle,
@@ -102,17 +95,12 @@ try {
         g.punto_emision_guia,
         s.punto_emision_sucursal, 
         g.total_guia,
-        COALESCE(dg_sum.cantidad, 0) AS cant_item
+        COALESCE((SELECT SUM(dg.cantidad_detalle_guia) FROM detalle_guia dg WHERE dg.id_fkguia_detalle_envio = g.id_guia), 1) AS cant_item
     FROM despacho_detalle dd
     JOIN guia g ON dd.id_fkguia_despacho_detalle = g.id_guia 
     JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal 
-    LEFT JOIN (
-        SELECT id_fkguia_detalle_envio, SUM(cantidad_detalle_guia) as cantidad
-        FROM detalle_guia
-        GROUP BY id_fkguia_detalle_envio
-    ) dg_sum ON dg_sum.id_fkguia_detalle_envio = g.id_guia
     WHERE dd.id_fkdespacho_maestro = $id_maestro 
-    GROUP BY dd.id_despacho_detalle";
+    ORDER BY dd.id_despacho_detalle ASC";
 
     $recuperar2 = mysqli_query($conn, $query2) or die(mysqli_error($conn));
 
@@ -131,7 +119,7 @@ try {
         $total_final += (float)$vals2['total_guia'];
         $resultado = sprintf("%09s", $vals2['numero_guia']);
         $codigoGuia = $vals2['punto_emision_sucursal'] . '-' . $vals2['punto_emision_guia'] . '-' . $resultado;
-        $cantItem = (int)($vals2['cant_item'] ?? 0);
+        $cantItem = (int)($vals2['cant_item'] ?? 1);
         $total_cantidad += $cantItem;
 
         $guias[] = [
@@ -306,14 +294,18 @@ try {
 
 
 
-    // ─── SALIDA DIRECTA DEL PDF (SIN CACHÉ) ───────────────────────────────────
+    // ─── SALIDA DIRECTA DEL PDF ──────────────────────────────────────────────
     $fileName = 'despacho_' . $id_maestro . '.pdf';
+    $tiempoTotal = round((microtime(true) - $t0) * 1000, 2);
     if (ob_get_length()) {
         ob_clean();
     }
     header('Cache-Control: no-cache, no-store, must-revalidate');
     header('Pragma: no-cache');
     header('Expires: 0');
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $fileName . '"');
+    header('X-PDF-Time: ' . $tiempoTotal . 'ms');
     $pdf->Output($fileName, 'I');
     exit();
 
