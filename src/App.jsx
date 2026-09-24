@@ -148,6 +148,7 @@ function App() {
 
           {/* Administración (Páginas Dinámicas vía pagesConfig) — key fuerza remount al navegar */}
           <Route path="buses" element={<BusesPage />} />
+          <Route path="vehiculos" element={<DynamicPage key="vehiculos" configKey="vehiculos" />} />
           <Route path="agencias" element={<DynamicPage key="sucursales" configKey="sucursales" />} />
           <Route path="perfil" element={<ProfilePage />} />
           <Route path="roles" element={<RolesPage />} />

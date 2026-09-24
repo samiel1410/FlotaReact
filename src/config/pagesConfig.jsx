@@ -1,5 +1,6 @@
 import UsuarioForm from '../pages/Usuarios/components/UsuarioForm';
 import { BusForm } from '../pages/Buses/components/BusForm';
+import { VehiculoForm } from '../pages/Vehiculos/components/VehiculoForm';
 import SucursalForm from '../pages/Agencias/components/SucursalForm';
 import BancoForm from '../pages/Bancos/components/BancoForm';
 import ConvenioForm from '../pages/Convenios/components/ConvenioForm';
@@ -29,6 +30,72 @@ import { buildPdfUrl } from '../utils/pdfUrlUtils';
 export const PAGES_CONFIG = {
 
   // ─── ADMINISTRACIÓN ─────────────────────────────────────────────────────────
+
+  vehiculos: {
+    title: 'Vehículos', subtitle: 'Gestión de vehículos de la cooperativa (Camión, Camioneta, Automóvil)',
+    icon: 'fas fa-truck-pickup', iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600',
+    endpoint: '/vehiculo/seleccionarVehiculos',
+    idField: 'id_vehiculo',
+    deleteEndpoint: '/vehiculo/eliminarVehiculo',
+    actions: {
+      create: true, edit: true, delete: true
+    },
+    formComponent: VehiculoForm,
+    columns: [
+      { key: 'numero_vehiculo', label: 'N° Vehículo', render: v => <span className="font-bold text-slate-800">#{v || '-'}</span> },
+      { 
+        key: 'tipo_vehiculo', label: 'Tipo', 
+        render: v => {
+          const t = (v || 'Camión').toUpperCase();
+          if (t === 'CAMIÓN' || t === 'CAMION') {
+            return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200/60"><i className="fas fa-truck text-[9px]"></i> Camión</span>;
+          }
+          if (t === 'CAMIONETA') {
+            return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black bg-teal-50 text-teal-700 border border-teal-200/60"><i className="fas fa-truck-pickup text-[9px]"></i> Camioneta</span>;
+          }
+          return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200/60"><i className="fas fa-car text-[9px]"></i> Automóvil</span>;
+        }
+      },
+      { key: 'placa_vehiculo', label: 'Placa', render: v => <span className="font-mono font-bold text-slate-700">{v || '-'}</span> },
+      { key: 'marca_vehiculo', label: 'Marca', render: v => v || '-' },
+      { key: 'modelo_vehiculo', label: 'Modelo', render: v => v || '-' },
+      { 
+        key: 'responsable_vehiculo', label: 'Responsable', 
+        render: (_, r) => r.personal_nombre || r.nombre_responsable || '-'
+      },
+      { key: 'telefono_responsable', label: 'Teléfono', render: (_, r) => r.per_celular_personal || r.telefono_responsable || '-' },
+      { key: 'estado_vehiculo', label: 'Estado', renderType: 'status' }
+    ],
+    filters: [
+      {
+        key: 'tipo', label: 'Tipo de Vehículo', type: 'select', options: [
+          { value: '', label: 'Todos los tipos' },
+          { value: 'Camión', label: 'Camión' },
+          { value: 'Camioneta', label: 'Camioneta' },
+          { value: 'Automóvil', label: 'Automóvil' }
+        ]
+      },
+      { key: 'busqueda', label: 'Buscar (Número, Placa, Responsable)', type: 'text' },
+      {
+        key: 'estado', label: 'Estado', type: 'select', options: [
+          { value: '', label: 'Todos' },
+          { value: '1', label: 'Activo' },
+          { value: '0', label: 'Inactivo' }
+        ]
+      }
+    ],
+    customParams: (page, pageSize, filters) => ({
+      tipo: filters.tipo || '',
+      busqueda: filters.busqueda || '',
+      estado: filters.estado !== undefined ? filters.estado : '',
+      numero_bloque: page + 1,
+      tamanio_bloque: pageSize
+    }),
+    saveHandler: async (formData) => {
+      const res = await api.post('/vehiculo/insertarActualizarVehiculo', formData);
+      return res.data;
+    }
+  },
 
   buses: {
     title: 'Buses', subtitle: 'Gestión de flota de buses',

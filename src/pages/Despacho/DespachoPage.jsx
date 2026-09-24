@@ -1,37 +1,62 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { despachoService } from '../../services/despacho.service';
-import { BusquedaBusModal } from './components/BusquedaBusModal';
+import ViajesService from '../../services/viajes.service';
 import { NuevoDespachoModal } from './components/NuevoDespachoModal';
 import { EditarDespachoModal } from './components/EditarDespachoModal';
 import { BusquedaGuiaDespachoModal } from './components/BusquedaGuiaDespachoModal';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
+import { SearchableSelect } from '../../components/common/SearchableSelect';
+import { DateRangePicker } from '../../components/common/DateRangePicker';
 import { CONFIG } from '../../config/env';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 const PAGE_SIZE = 25;
+const inputCls = 'w-full h-9 px-3 text-xs font-semibold border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none bg-white';
+const labelCls = 'block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1';
 
 export const DespachoPage = () => {
   // ─── Estado Principal ──────────────────────────────────────
   const [despachos, setDespachos] = useState([]);
+  const [buses, setBuses] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
-  // ─── Filtros (fiel al ExtJS: bus, rango fechas, número) ───
+  // ─── Filtros Unificados ────────────────────────────────────
   const [filtros, setFiltros] = useState({
     id_bus: '',
-    bus_placa: '',
     desde: '',
     hasta: '',
-    numero: ''
+    numero: '',
+    tipo_despacho: ''
   });
 
   // ─── Modales ───────────────────────────────────────────────
   const [showNuevo, setShowNuevo] = useState(false);
-  const [showBusSearch, setShowBusSearch] = useState(false);
   const [showEditar, setShowEditar] = useState(false);
   const [showAgregarGuia, setShowAgregarGuia] = useState(false);
   const [selectedDespacho, setSelectedDespacho] = useState(null);
+
+  // ─── Modal PDF ─────────────────────────────────────────────
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
+  const [pdfTitle, setPdfTitle] = useState('');
+
+  // ─── Cargar Buses para Filtro ──────────────────────────────
+  useEffect(() => {
+    const fetchBuses = async () => {
+      try {
+        const res = await ViajesService.getBuses();
+        if (res.success) {
+          setBuses(res.data || []);
+        }
+      } catch (err) {
+        console.error('Error cargando buses para filtro:', err);
+      }
+    };
+    fetchBuses();
+  }, []);
 
   // ─── Cargar despachos ──────────────────────────────────────
   const cargarDespachos = useCallback(async (pageNum = 1, filtrosActuales = null) => {
@@ -44,7 +69,8 @@ export const DespachoPage = () => {
         id_bus: f.id_bus || '',
         desde: f.desde || '',
         hasta: f.hasta || '',
-        numero: f.numero || ''
+        numero: f.numero || '',
+        tipo_despacho: f.tipo_despacho || ''
       };
       const res = await despachoService.listar(params);
       if (res?.success) {
@@ -66,10 +92,13 @@ export const DespachoPage = () => {
   useEffect(() => { cargarDespachos(1); }, []);
 
   // ─── Handlers filtros ──────────────────────────────────────
-  const handleBuscar = () => cargarDespachos(1, filtros);
+  const handleBuscar = (e) => {
+    e?.preventDefault?.();
+    cargarDespachos(1, filtros);
+  };
 
   const handleLimpiar = () => {
-    const limpio = { id_bus: '', bus_placa: '', desde: '', hasta: '', numero: '' };
+    const limpio = { id_bus: '', desde: '', hasta: '', numero: '', tipo_despacho: '' };
     setFiltros(limpio);
     cargarDespachos(1, limpio);
   };
@@ -77,13 +106,6 @@ export const DespachoPage = () => {
   const handlePageChange = (newPage) => {
     if (newPage < 1 || newPage > totalPages) return;
     cargarDespachos(newPage);
-  };
-
-  const handleBusSelectForFilter = (busId, placa) => {
-    const newFiltros = { ...filtros, id_bus: busId, bus_placa: placa };
-    setFiltros(newFiltros);
-    setShowBusSearch(false);
-    cargarDespachos(1, newFiltros);
   };
 
   // ─── Acción: Nuevo Despacho ───────────────────────────────
@@ -136,13 +158,15 @@ export const DespachoPage = () => {
   };
 
   // ─── Acción: PDF ──────────────────────────────────────────
-  const handlePdf = async (despacho) => {
+  const handlePdf = (despacho) => {
     try {
-      const url = buildPdfUrl(`${CONFIG.PHP_URL}/despachoPdf.php?id_maestro=${despacho.id_despacho_maestro}`);
-      window.open(url, 'PDF_Despacho', 'width=800,height=600');
+      const url = `${CONFIG.PHP_URL}/despachoPdf.php?id_maestro=${despacho.id_despacho_maestro}`;
+      setPdfUrl(url);
+      setPdfTitle(`Despacho N° ${despacho.numero_despacho_maestro || despacho.id_despacho_maestro}`);
+      setPdfModalOpen(true);
     } catch (err) {
       console.error('Error PDF:', err);
-      toast.error('Error al generar PDF');
+      toast.error('Error al abrir PDF');
     }
   };
 
@@ -156,355 +180,358 @@ export const DespachoPage = () => {
 
   const renderEstado = (estado) => {
     if (String(estado) === '1')
-      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">ACTIVO</span>;
+      return <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">ACTIVO</span>;
     if (String(estado) === '2')
-      return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">FINALIZADO</span>;
-    return <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-400">N/A</span>;
+      return <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-600">FINALIZADO</span>;
+    return <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black bg-gray-100 text-gray-500">N/A</span>;
   };
 
   const renderTipoDespacho = (tipo) => {
     const t = (tipo || 'BUS').toUpperCase();
     if (t === 'VEHICULO' || t === 'VEHÍCULO') {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-100 text-indigo-700 border border-indigo-200/60">
-          <i className="fas fa-truck-moving text-[10px]"></i> VEHÍCULO
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+          <i className="fas fa-truck-moving text-[9px]"></i> VEHÍCULO
         </span>
       );
     }
     if (t === 'OFICINA') {
       return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200/60">
-          <i className="fas fa-building text-[10px]"></i> OFICINA
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200/60">
+          <i className="fas fa-building text-[9px]"></i> OFICINA
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-100 text-blue-700 border border-blue-200/60">
-        <i className="fas fa-bus text-[10px]"></i> BUS
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200/60">
+        <i className="fas fa-bus text-[9px]"></i> BUS
       </span>
     );
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      {/* ─── TITLE ─── */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-          <i className="fas fa-truck-loading text-blue-500"></i>
-          DESPACHO GENERAL
-          <span className="text-sm font-normal text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
-            {total} registro{total !== 1 ? 's' : ''}
-          </span>
-        </h1>
-        <button
-          onClick={() => cargarDespachos(page)}
-          disabled={loading}
-          className="h-8 w-8 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-lg transition-all shadow-sm flex items-center justify-center"
-          title="Actualizar"
-        >
-          <i className={`fas fa-sync-alt text-[11px] ${loading ? 'fa-spin text-blue-500' : ''}`}></i>
-        </button>
-      </div>
-
-      {/* ─── FILTROS (Bus, Rango Fechas, N° Despacho, Buscar/Limpiar) ─── */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
-        <div className="px-5 py-3 border-b border-slate-100">
-          <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2">
-            <i className="fas fa-search text-blue-500 text-xs"></i>
-            Búsqueda de Despachos
-          </h3>
-        </div>
-        <div className="p-5">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Bus */}
+    <div className="absolute inset-0 overflow-y-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-4 pb-32">
+        {/* ─── HEADER ─── */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-11 w-11 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-sm">
+              <i className="fas fa-truck-loading text-lg"></i>
+            </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Bus</label>
-              <div className="flex gap-2">
+              <h1 className="text-lg font-black text-slate-800 tracking-tight">Despacho General</h1>
+              <p className="text-xs font-medium text-slate-500">{total} despacho{total !== 1 ? 's' : ''} registrado{total !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowNuevo(true)}
+              className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest shadow-sm"
+            >
+              <i className="fas fa-plus-circle text-xs"></i> NUEVO DESPACHO
+            </button>
+            <button
+              onClick={() => cargarDespachos(page)}
+              disabled={loading}
+              className="h-9 w-9 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 rounded-lg transition-all flex items-center justify-center shadow-sm"
+              title="Actualizar listado"
+            >
+              <i className={`fas fa-sync-alt text-xs ${loading ? 'fa-spin text-indigo-600' : ''}`}></i>
+            </button>
+          </div>
+        </div>
+
+        {/* ─── FILTROS DE BÚSQUEDA ─── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+          <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Filtros de Búsqueda</div>
+          
+          {/* Fila 1: 3 Selectores Principales */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-3">
+            {/* Rango de Fechas Unificado */}
+            <div>
+              <label className={labelCls}>Rango de Fechas (Desde - Hasta)</label>
+              <DateRangePicker
+                startDate={filtros.desde}
+                endDate={filtros.hasta}
+                onChange={({ startDateStr, endDateStr }) => {
+                  setFiltros(f => ({ ...f, desde: startDateStr, hasta: endDateStr }));
+                }}
+              />
+            </div>
+
+            {/* Bus con Buscador Integrado */}
+            <div>
+              <label className={labelCls}>Bus</label>
+              <SearchableSelect
+                options={buses.map(b => ({
+                  value: String(b.id_buses || b.bus_id || b.id_bus),
+                  label: `${b.disco_buses || b.codigo_buses || b.numero_bus || ''} ${b.placa_buses ? `(${b.placa_buses})` : ''}`.trim()
+                }))}
+                value={filtros.id_bus}
+                onChange={val => setFiltros(f => ({ ...f, id_bus: val }))}
+                placeholder="Todos los buses"
+              />
+            </div>
+
+            {/* Tipo de Despacho con Buscador Integrado */}
+            <div>
+              <label className={labelCls}>Tipo de Despacho</label>
+              <SearchableSelect
+                options={[
+                  { value: '', label: 'Todos los tipos' },
+                  { value: 'BUS', label: 'BUS' },
+                  { value: 'VEHICULO', label: 'VEHÍCULO' },
+                  { value: 'OFICINA', label: 'OFICINA' }
+                ]}
+                value={filtros.tipo_despacho}
+                onChange={val => setFiltros(f => ({ ...f, tipo_despacho: val }))}
+                placeholder="Todos los tipos"
+              />
+            </div>
+          </div>
+
+          {/* Fila 2: N° Despacho / Criterio + Botones Buscar / Limpiar */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
+            <div className="lg:col-span-9">
+              <label className={labelCls}>N° Despacho o Criterio</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 text-xs">
+                  <i className="fas fa-search"></i>
+                </div>
                 <input
                   type="text"
-                  value={filtros.bus_placa}
-                  readOnly
-                  placeholder="Seleccionar..."
-                  className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-50 text-slate-600"
+                  value={filtros.numero}
+                  placeholder="Escriba el N° de despacho o criterio de búsqueda..."
+                  onChange={e => setFiltros(f => ({ ...f, numero: e.target.value }))}
+                  onKeyDown={e => { if (e.key === 'Enter') handleBuscar(); }}
+                  className={`${inputCls} pl-8`}
                 />
-                <button
-                  onClick={() => setShowBusSearch(true)}
-                  className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm transition-colors"
-                  title="Buscar bus"
-                >
-                  <i className="fas fa-search"></i>
-                </button>
               </div>
             </div>
 
-            {/* Rango Desde */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Desde</label>
-              <input
-                type="date"
-                value={filtros.desde}
-                onChange={e => setFiltros(p => ({ ...p, desde: e.target.value }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Rango Hasta */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Hasta</label>
-              <input
-                type="date"
-                value={filtros.hasta}
-                onChange={e => setFiltros(p => ({ ...p, hasta: e.target.value }))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* N° Despacho */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase mb-1"># Despacho</label>
-              <input
-                type="text"
-                value={filtros.numero}
-                onChange={e => setFiltros(p => ({ ...p, numero: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && handleBuscar()}
-                placeholder="Número de despacho"
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Botones */}
-            <div className="flex items-end gap-2 col-span-full">
-              <button onClick={handleBuscar}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 shadow-sm text-sm">
-                <i className="fas fa-search"></i> Buscar
+            <div className="lg:col-span-3 flex gap-2">
+              <button
+                onClick={handleBuscar}
+                className="flex-1 h-9 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest shadow-sm"
+              >
+                <i className="fas fa-search text-xs"></i> BUSCAR
               </button>
-              <button onClick={() => setShowBusSearch(true)}
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm">
-                <i className="fas fa-bus"></i> Buscar Bus
-              </button>
-              <button onClick={() => {
-                  const nuevosFiltros = { ...filtros, desde: '', hasta: '' };
-                  setFiltros(nuevosFiltros);
-                  cargarDespachos(1, nuevosFiltros);
-                }}
-                className="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 text-sm">
-                <i className="fas fa-calendar-week"></i> Ver Rango
-              </button>
-              <button onClick={handleLimpiar}
-                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm">
-                <i className="fas fa-eraser"></i> Limpiar
+              <button
+                onClick={handleLimpiar}
+                className="h-9 px-4 bg-white hover:bg-slate-100 text-slate-600 border border-slate-200 text-[10px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest"
+              >
+                <i className="fas fa-eraser text-xs"></i> LIMPIAR
               </button>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* ─── BOTÓN NUEVO ─── */}
-      <div className="flex justify-between items-center">
-        <button
-          onClick={() => setShowNuevo(true)}
-          className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-sm transition-all shadow-sm flex items-center gap-2"
-        >
-          <i className="fas fa-plus-circle"></i> Nuevo Despacho
-        </button>
-      </div>
-
-      {/* ─── GRID ─── */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-            <span className="ml-3 text-sm text-slate-500 font-medium">Cargando despachos...</span>
-          </div>
-        ) : despachos.length === 0 ? (
-          <div className="text-center py-16 text-slate-400">
-            <i className="fas fa-truck-loading text-5xl mb-4"></i>
-            <p className="text-base font-semibold">No se encontraron despachos</p>
-            <p className="text-sm mt-1">Cree un nuevo despacho o ajuste los filtros de búsqueda</p>
-          </div>
-        ) : (
+        {/* ─── GRID DE DESPACHOS ─── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">#</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Tipo</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Fecha</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Transporte / Detalle</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Ruta / Destino</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Oficinista</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider"># Encom.</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Estado</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Acciones</th>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-slate-100 text-slate-600 text-[10px] font-black uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center w-24">N° DESPACHO</th>
+                  <th className="px-4 py-3 text-center w-28">TIPO</th>
+                  <th className="px-4 py-3 text-center w-28">FECHA</th>
+                  <th className="px-4 py-3 text-left">TRANSPORTE / DETALLE</th>
+                  <th className="px-4 py-3 text-left">RUTA / DESTINO</th>
+                  <th className="px-4 py-3 text-left">OFICINISTA</th>
+                  <th className="px-4 py-3 text-center w-20"># ENCOM.</th>
+                  <th className="px-4 py-3 text-center w-24">ESTADO</th>
+                  <th className="px-4 py-3 text-center w-28">ACCIONES</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {despachos.map((d, idx) => {
-                  const tipoU = (d.tipo_despacho || 'BUS').toUpperCase();
-                  const esVehiculo = tipoU === 'VEHICULO' || tipoU === 'VEHÍCULO';
-                  const esOficina = tipoU === 'OFICINA';
+                {loading ? (
+                  <tr>
+                    <td colSpan="9" className="text-center py-16 text-slate-400">
+                      <div className="flex items-center justify-center gap-2">
+                        <i className="fas fa-spinner fa-spin text-indigo-600 text-lg"></i>
+                        <span className="font-semibold text-slate-500">Cargando despachos...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : despachos.length === 0 ? (
+                  <tr>
+                    <td colSpan="9" className="text-center py-16 text-slate-400">
+                      <i className="fas fa-truck-loading text-4xl mb-3 block text-slate-300"></i>
+                      <p className="font-bold text-slate-600 text-sm">No se encontraron despachos</p>
+                      <p className="text-xs text-slate-400 mt-0.5">Cree un nuevo despacho o ajuste los filtros de búsqueda</p>
+                    </td>
+                  </tr>
+                ) : (
+                  despachos.map((d, idx) => {
+                    const tipoU = (d.tipo_despacho || 'BUS').toUpperCase();
+                    const esVehiculo = tipoU === 'VEHICULO' || tipoU === 'VEHÍCULO';
+                    const esOficina = tipoU === 'OFICINA';
 
-                  return (
-                    <tr key={d.id_despacho_maestro || idx} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="px-4 py-3 text-sm font-bold text-slate-700">
-                        {d.numero_despacho_maestro || '-'}
-                      </td>
-                      <td className="px-4 py-3">
-                        {renderTipoDespacho(d.tipo_despacho)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
-                        {formatDate(d.fecha_despacho_maestro)}
-                      </td>
-                      <td className="px-4 py-3">
-                        {esVehiculo ? (
-                          <div>
-                            <div className="text-sm font-bold text-indigo-900 flex items-center gap-1.5">
-                              <i className="fas fa-truck text-indigo-500 text-xs"></i>
-                              {d.tipo_vehiculo || 'Vehículo'} {d.numero_vehiculo ? `#${d.numero_vehiculo}` : ''}
+                    return (
+                      <tr key={d.id_despacho_maestro || idx} className="hover:bg-slate-50 transition-colors">
+                        <td className="px-4 py-3 text-center font-bold text-slate-700 font-mono">
+                          #{d.numero_despacho_maestro || d.id_despacho_maestro || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {renderTipoDespacho(d.tipo_despacho)}
+                        </td>
+                        <td className="px-4 py-3 text-center text-slate-600 whitespace-nowrap font-medium">
+                          {formatDate(d.fecha_despacho_maestro)}
+                        </td>
+                        <td className="px-4 py-3">
+                          {esVehiculo ? (
+                            <div>
+                              <div className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                                <i className="fas fa-truck text-indigo-500 text-[11px]"></i>
+                                {d.tipo_vehiculo || 'Vehículo'} {d.numero_vehiculo ? `#${d.numero_vehiculo}` : ''}
+                              </div>
+                              <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                                {d.placa_vehiculo && <span className="font-semibold text-slate-700">Placa: {d.placa_vehiculo}</span>}
+                                {(d.responsable_despacho || d.nombre_busero) && (
+                                  <span>• Resp: {d.responsable_despacho || d.nombre_busero}</span>
+                                )}
+                              </div>
                             </div>
-                            <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-                              {d.placa_vehiculo && <span className="font-semibold text-slate-700">Placa: {d.placa_vehiculo}</span>}
-                              {(d.responsable_despacho || d.nombre_busero) && (
-                                <span>• Resp: {d.responsable_despacho || d.nombre_busero}</span>
-                              )}
+                          ) : esOficina ? (
+                            <div>
+                              <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                                <i className="fas fa-building text-amber-500 text-[11px]"></i>
+                                Traspaso Interno
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                Resp: {d.responsable_despacho || d.nombre_oficinista || '-'}
+                              </div>
                             </div>
+                          ) : (
+                            <div>
+                              <div className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+                                <i className="fas fa-bus text-blue-500 text-[11px]"></i>
+                                {d.nombre_bus || '-'}
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                Conductor: {d.nombre_busero || '-'}
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-slate-700 font-medium">
+                          {d.nombre_origen ? (
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <span className="text-slate-600 font-semibold">{d.nombre_origen}</span>
+                              <i className="fas fa-arrow-right text-[10px] text-slate-400"></i>
+                              <span className="text-slate-900 font-bold">{d.nombre_destino || '-'}</span>
+                            </div>
+                          ) : (
+                            <span className="text-xs">{d.nombre_destino || '-'}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-600">
+                          {d.nombre_oficinista || '-'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-50 text-indigo-700 text-xs font-black">
+                            {d.encomiendas || 0}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {renderEstado(d.estado_despacho_maestro)}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1">
+                            {/* Ver / Imprimir PDF */}
+                            <button
+                              onClick={() => handlePdf(d)}
+                              className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                              title="Ver / Imprimir PDF"
+                            >
+                              <i className="fas fa-file-pdf text-sm"></i>
+                            </button>
+                            {/* Editar */}
+                            <button
+                              onClick={() => handleEditarDespacho(d)}
+                              className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                              title="Editar Despacho"
+                            >
+                              <i className="fas fa-edit text-sm"></i>
+                            </button>
+                            {/* Agregar Guía */}
+                            <button
+                              onClick={() => handleAgregarGuia(d)}
+                              className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                              title="Agregar Guías al Despacho"
+                            >
+                              <i className="fas fa-plus-circle text-sm"></i>
+                            </button>
                           </div>
-                        ) : esOficina ? (
-                          <div>
-                            <div className="text-sm font-bold text-amber-900 flex items-center gap-1.5">
-                              <i className="fas fa-building text-amber-500 text-xs"></i>
-                              Traspaso Interno
-                            </div>
-                            <div className="text-xs text-slate-500 mt-0.5">
-                              Resp: {d.responsable_despacho || d.nombre_oficinista || '-'}
-                            </div>
-                          </div>
-                        ) : (
-                          <div>
-                            <div className="text-sm font-bold text-blue-900 flex items-center gap-1.5">
-                              <i className="fas fa-bus text-blue-500 text-xs"></i>
-                              {d.nombre_bus || '-'}
-                            </div>
-                            <div className="text-xs text-slate-500 mt-0.5">
-                              Conductor: {d.nombre_busero || '-'}
-                            </div>
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-700 font-medium">
-                        {d.nombre_origen ? (
-                          <div className="flex items-center gap-1.5 text-xs">
-                            <span className="text-slate-600 font-semibold">{d.nombre_origen}</span>
-                            <i className="fas fa-arrow-right text-[10px] text-slate-400"></i>
-                            <span className="text-slate-900 font-bold">{d.nombre_destino || '-'}</span>
-                          </div>
-                        ) : (
-                          <span>{d.nombre_destino || '-'}</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">
-                        {d.nombre_oficinista || '-'}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-700 text-xs font-bold">
-                          {d.encomiendas || 0}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {renderEstado(d.estado_despacho_maestro)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1">
-                          {/* PDF */}
-                          <button
-                            onClick={() => handlePdf(d)}
-                            className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                            title="PDF"
-                          >
-                            <i className="fas fa-file-pdf text-sm"></i>
-                          </button>
-                          {/* Editar */}
-                          <button
-                            onClick={() => handleEditarDespacho(d)}
-                            className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                            title="Editar Despacho"
-                          >
-                            <i className="fas fa-edit text-sm"></i>
-                          </button>
-                          {/* Agregar Guía */}
-                          <button
-                            onClick={() => handleAgregarGuia(d)}
-                            className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-all"
-                            title="Agregar Guía"
-                          >
-                            <i className="fas fa-plus-circle text-sm"></i>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
-        )}
 
-        {/* ─── PAGINACIÓN ─── */}
-        {totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-slate-200 flex justify-between items-center bg-slate-50/50">
-            <span className="text-xs text-slate-500">
-              Página {page} de {totalPages}
-            </span>
-            <div className="flex gap-2">
-              <button
-                onClick={() => handlePageChange(page - 1)} disabled={page <= 1}
-                className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                <i className="fas fa-chevron-left mr-1"></i>Anterior
-              </button>
-              <button
-                onClick={() => handlePageChange(page + 1)} disabled={page >= totalPages}
-                className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                Siguiente<i className="fas fa-chevron-right ml-1"></i>
-              </button>
+          {/* ─── PAGINACIÓN ESTÁNDAR ─── */}
+          {totalPages > 1 && (
+            <div className="px-4 py-3 border-t border-slate-200 flex justify-between items-center bg-slate-50/50">
+              <span className="text-xs text-slate-500 font-medium">
+                Página <span className="font-bold text-slate-700">{page}</span> de <span className="font-bold text-slate-700">{totalPages}</span> ({total} registros)
+              </span>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handlePageChange(page - 1)}
+                  disabled={page <= 1}
+                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  <i className="fas fa-chevron-left mr-1"></i> Anterior
+                </button>
+                <button
+                  onClick={() => handlePageChange(page + 1)}
+                  disabled={page >= totalPages}
+                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-black uppercase tracking-wider text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  Siguiente <i className="fas fa-chevron-right ml-1"></i>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
+        </div>
+
+        {/* ─── MODALES DE DESPACHO ─── */}
+        {showNuevo && (
+          <NuevoDespachoModal
+            onClose={() => setShowNuevo(false)}
+            onSuccess={handleNuevoSuccess}
+          />
         )}
+
+        {showEditar && selectedDespacho && (
+          <EditarDespachoModal
+            despacho={selectedDespacho}
+            onClose={() => { setShowEditar(false); setSelectedDespacho(null); }}
+            onSuccess={() => cargarDespachos(page)}
+          />
+        )}
+
+        {showAgregarGuia && selectedDespacho && (
+          <BusquedaGuiaDespachoModal
+            idDespachoMaestro={selectedDespacho.id_despacho_maestro}
+            bus={selectedDespacho.id_fkbus_despacho_maestro || ''}
+            onClose={() => { setShowAgregarGuia(false); setSelectedDespacho(null); }}
+            onSelect={() => cargarDespachos(page)}
+          />
+        )}
+
+        {/* ─── MODAL VISOR PDF ─── */}
+        <PdfViewerModal
+          open={pdfModalOpen}
+          url={pdfUrl}
+          title={pdfTitle}
+          onClose={() => setPdfModalOpen(false)}
+          showPrintButton={true}
+        />
       </div>
-
-      {/* ─── MODALES ─── */}
-      {showNuevo && (
-        <NuevoDespachoModal
-          onClose={() => setShowNuevo(false)}
-          onSuccess={handleNuevoSuccess}
-        />
-      )}
-
-      {showBusSearch && (
-        <BusquedaBusModal
-          filterMode={true}
-          onSelect={handleBusSelectForFilter}
-          onClose={() => setShowBusSearch(false)}
-        />
-      )}
-
-      {showEditar && selectedDespacho && (
-        <EditarDespachoModal
-          despacho={selectedDespacho}
-          onClose={() => { setShowEditar(false); setSelectedDespacho(null); }}
-          onSuccess={() => cargarDespachos(page)}
-        />
-      )}
-
-      {showAgregarGuia && selectedDespacho && (
-        <BusquedaGuiaDespachoModal
-          idDespachoMaestro={selectedDespacho.id_despacho_maestro}
-          bus={selectedDespacho.id_fkbus_despacho_maestro || ''}
-          onClose={() => { setShowAgregarGuia(false); setSelectedDespacho(null); }}
-          onSelect={() => cargarDespachos(page)}
-        />
-      )}
     </div>
   );
 };

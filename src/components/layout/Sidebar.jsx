@@ -41,6 +41,7 @@ const MENU = [
     icon: 'fas fa-tools',
     items: [
       { to: '/buses', icon: 'fas fa-bus', label: 'Buses', permission: 'administracion.gestion_buses' },
+      { to: '/vehiculos', icon: 'fas fa-truck-pickup', label: 'Vehículos', permission: 'administracion.gestion_buses' },
       { to: '/socios', icon: 'fas fa-users', label: 'Socios', permission: 'administracion.gestion_socios' },
       { to: '/clientes', icon: 'fas fa-user-tie', label: 'Clientes', permission: 'administracion.gestion_clientes' },
       { to: '/rutas', icon: 'fas fa-route', label: 'Rutas', permission: 'administracion.config_rutas' },
