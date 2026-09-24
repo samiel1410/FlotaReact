@@ -95,6 +95,11 @@ function cargarEnvBack() {
 
 function obtenerCredencialesDb($isLocal)
 {
+    $cacheDir = __DIR__ . '/tmp/';
+    if (!is_dir($cacheDir)) {
+        @mkdir($cacheDir, 0777, true);
+    }
+
     if ($isLocal) {
         cargarEnvBack();
         $target = strtolower(trim(getenv('USE_DB_TARGET') ?: ''));

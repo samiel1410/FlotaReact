@@ -26,56 +26,15 @@ try {
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    // ─── CACHÉ NIVEL 1: EMPRESA Y LOGO ────────────────────────────────────────
-    $logosDir = __DIR__ . '/tmp/logos/';
-    if (!is_dir($logosDir)) {
-        @mkdir($logosDir, 0777, true);
-    }
-
-    $vals_empresa = null;
-    $rutaLogo = null;
-
+    // ─── EMPRESA Y LOGO ──────────────────────────────────────────────────────
+    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+    $rec_empresa = mysqli_query($conn, $query_empresa);
+    $vals_empresa = $rec_empresa ? mysqli_fetch_assoc($rec_empresa) : [];
     
-        $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
-        $rec_empresa = mysqli_query($conn, $query_empresa);
-        $vals_empresa = $rec_empresa ? mysqli_fetch_assoc($rec_empresa) : [];
-        if (!$vals_empresa) {
-            $vals_empresa = [
-                'razon_social_empresa' => 'SISTEMA FLOTA',
-                'ruc_empresa' => ''
-            ];
-        }
-
-        $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
-        $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
-        if (esImagenValidaParaTcpdf($cachedLogoPng)) {
-            $rutaLogo = $cachedLogoPng;
-        } else if (esImagenValidaParaTcpdf($cachedLogoJpg)) {
-            $rutaLogo = $cachedLogoJpg;
-        } else {
-            $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
-            $res_img = mysqli_query($conn, $query_img);
-            if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
-                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
-                if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
-                    $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
-                    $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
-                    if ($rawLogo !== $targetLogo) {
-                        @copy($rawLogo, $targetLogo);
-                    }
-                    $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
-                }
-            }
-        }
-
-        
-
-    if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
-        $rutaLogo = obtenerRutaLogoEmpresa($conn);
-    }
-
+    $imagen_empresa       = $vals_empresa["imagen_empresa"] ?? null;
     $razon_social_empresa = $vals_empresa["razon_social_empresa"] ?? "SISTEMA FLOTA";
     $ruc_empresa          = $vals_empresa["ruc_empresa"] ?? "";
+    $rutaLogo             = obtenerRutaLogoEmpresa($conn, $imagen_empresa);
 
     // ─── QUERY DESPACHO MAESTRO ──────────────────────────────────────────────
     $query = "SELECT 
@@ -92,7 +51,6 @@ try {
         dm.nombre_origen,
         dm.responsable_despacho,
         dm.id_fkusuario_despacho_maestro,
-        dm.id_fkviaje_despacho_maestro,
         CONCAT(p.per_nombres_persona, ' ', p.per_apellidos_personal) as nombre_busero,
         u.nombre_usuario,
         u.apellido_usuario 
@@ -112,7 +70,7 @@ try {
     if (empty($nombre_oficinista_real)) $nombre_oficinista_real = $vals["nombre_oficinista"] ?? '';
 
     $numero_despacho_maestro = $vals["numero_despacho_maestro"];
-    $numero_viaje            = $vals["id_fkviaje_despacho_maestro"] ?? '';
+    $numero_viaje            = '';
     $nombre_destino          = $vals["nombre_destino"];
     $fecha_despacho_maestro  = $vals["fecha_despacho_maestro"];
     $tipo_despacho           = strtoupper($vals["tipo_despacho"] ?? 'BUS');
@@ -346,7 +304,7 @@ try {
     $pdf->Cell($wFirma, 3, $nombre_oficinista_real, 0, 0, 'C');
     $pdf->Cell($wFirma, 3, $nombre_busero, 0, 1, 'C');
 
-    $pdf->IncludeJS("print();");
+
 
     // ─── SALIDA DIRECTA DEL PDF (SIN CACHÉ) ───────────────────────────────────
     $fileName = 'despacho_' . $id_maestro . '.pdf';

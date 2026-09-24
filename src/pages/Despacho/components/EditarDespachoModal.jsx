@@ -85,7 +85,8 @@ export const EditarDespachoModal = ({ despacho, onClose, onSuccess }) => {
         if (onSuccess) onSuccess();
         onClose();
       } else {
-        toast.error(res?.mensaje || 'Error al actualizar');
+        const msgErr = typeof res?.mensaje === 'string' ? res.mensaje : 'Error al actualizar';
+        toast.error(msgErr);
       }
     } catch (err) {
       console.error('Error editando:', err);

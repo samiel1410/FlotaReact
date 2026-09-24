@@ -56,7 +56,8 @@ export const BusquedaGuiaDespachoModal = ({ idDespachoMaestro, bus, onClose, onS
         }
         buscarGuias();
       } else {
-        toast.error(res?.mensaje || 'Error al agregar guía');
+        const msgErr = typeof res?.mensaje === 'string' ? res.mensaje : 'Error al agregar guía';
+        toast.error(msgErr);
       }
     } catch (err) {
       console.error('Error agregando guía:', err);

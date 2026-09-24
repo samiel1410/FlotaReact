@@ -283,11 +283,13 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
       const res = await despachoService.insertarActualizar(payload);
 
       if (res?.success) {
-        toast.success(res.mensaje || 'Despacho creado exitosamente');
+        const msg = typeof res.mensaje === 'string' ? res.mensaje : 'Despacho creado exitosamente';
+        toast.success(msg);
         onSuccess?.();
         onClose?.();
       } else {
-        toast.error(res?.mensaje || 'Error al guardar el despacho');
+        const msgErr = typeof res?.mensaje === 'string' ? res.mensaje : 'Error al guardar el despacho';
+        toast.error(msgErr);
       }
     } catch (err) {
       console.error('Error guardando despacho:', err);
