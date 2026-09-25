@@ -7,6 +7,7 @@ import ConvenioForm from '../pages/Convenios/components/ConvenioForm';
 import LugarForm from '../pages/Lugares/components/LugarForm';
 import TipoEnvioForm from '../pages/TipoEnvio/components/TipoEnvioForm';
 import SocioForm from '../pages/Socios/components/SocioForm';
+import { SocioFotoCell } from '../pages/Socios/components/SocioFotoCell';
 import RutaForm from '../pages/Rutas/components/RutaForm';
 import SubRutaForm from '../pages/SubRutas/components/SubRutaForm';
 import InventarioForm from '../pages/Inventario/components/InventarioForm';
@@ -598,6 +599,7 @@ export const PAGES_CONFIG = {
       ]
     },
     columns: [
+      { key: 'foto', label: 'Foto', render: (_, r) => <SocioFotoCell socio={r} /> },
       { key: 'per_cedula_personal', label: 'Cédula', render: (v, r) => v || r.soc_cedula || '' },
       { key: 'per_nombres_persona', label: 'Nombres', render: (v, r) => v || r.soc_nombres || '' },
       { key: 'per_apellidos_personal', label: 'Apellidos', render: (v, r) => v || r.soc_apellidos || '' },

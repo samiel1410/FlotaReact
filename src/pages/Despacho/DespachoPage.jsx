@@ -195,6 +195,13 @@ export const DespachoPage = () => {
         </span>
       );
     }
+    if (t === 'CONVENIO') {
+      return (
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+          <i className="fas fa-handshake text-[9px]"></i> CONVENIO
+        </span>
+      );
+    }
     if (t === 'OFICINA') {
       return (
         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200/60">
@@ -281,6 +288,7 @@ export const DespachoPage = () => {
                   { value: '', label: 'Todos los tipos' },
                   { value: 'BUS', label: 'BUS' },
                   { value: 'VEHICULO', label: 'VEHÍCULO' },
+                  { value: 'CONVENIO', label: 'CONVENIO' },
                   { value: 'OFICINA', label: 'OFICINA' }
                 ]}
                 value={filtros.tipo_despacho}
@@ -365,6 +373,7 @@ export const DespachoPage = () => {
                   despachos.map((d, idx) => {
                     const tipoU = (d.tipo_despacho || 'BUS').toUpperCase();
                     const esVehiculo = tipoU === 'VEHICULO' || tipoU === 'VEHÍCULO';
+                    const esConvenio = tipoU === 'CONVENIO';
                     const esOficina = tipoU === 'OFICINA';
 
                     return (
@@ -390,6 +399,16 @@ export const DespachoPage = () => {
                                 {(d.responsable_despacho || d.nombre_busero) && (
                                   <span>• Resp: {d.responsable_despacho || d.nombre_busero}</span>
                                 )}
+                              </div>
+                            </div>
+                          ) : esConvenio ? (
+                            <div>
+                              <div className="text-xs font-bold text-emerald-900 flex items-center gap-1.5">
+                                <i className="fas fa-handshake text-emerald-600 text-[11px]"></i>
+                                Cía. Convenio: {d.nombre_destino || 'Compañía Asociada'}
+                              </div>
+                              <div className="text-[11px] text-slate-500 mt-0.5">
+                                Resp: {d.responsable_despacho || d.nombre_oficinista || '-'}
                               </div>
                             </div>
                           ) : esOficina ? (

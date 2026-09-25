@@ -226,9 +226,47 @@ export const ConfigRutasPage = () => {
     }
   };
   const handleDeleteSubruta = async (i) => {
-    const confirmDel = await Swal.fire({ title: '¿Eliminar sub ruta?', text: '¿Eliminar esta sub ruta?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar' });
+    const target = subrutas[i];
+    if (!target) return;
+
+    const nombreSubRuta = target.nombre_sub_rutas || `${getCantonNombre(target.id_fkorigen_sub_rutas)} - ${getCantonNombre(target.id_fkdestino_sub_rutas)}`;
+    const confirmDel = await Swal.fire({
+      title: '¿Eliminar sub ruta?',
+      text: `¿Está seguro de eliminar la sub ruta "${nombreSubRuta}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#64748b',
+    });
+
     if (!confirmDel.isConfirmed) return;
-    setSubrutas(prev => prev.filter((_, idx) => idx !== i));
+
+    const idSubRuta = target.id_sub_rutas;
+    // Si tiene un ID de base de datos numérico válido
+    if (idSubRuta && !isNaN(Number(idSubRuta)) && !String(idSubRuta).includes('SubRuta')) {
+      try {
+        const res = await api.post('/sub_rutas/eliminarSubRuta', { id_sub_rutas: idSubRuta });
+        if (res.data?.success) {
+          toast.success(res.data?.message || 'Sub ruta eliminada correctamente');
+          if (selectedRoute?.id_rutas) {
+            await fetchSubrutas(selectedRoute.id_rutas);
+          } else {
+            setSubrutas(prev => prev.filter((_, idx) => idx !== i));
+          }
+        } else {
+          toast.error(res.data?.error || res.data?.message || 'Error al eliminar la sub ruta');
+        }
+      } catch (error) {
+        console.error('Error al eliminar subruta:', error);
+        toast.error('Error al conectar con el servidor para eliminar la sub ruta');
+      }
+    } else {
+      // Es una subruta local aún no persistida en BD
+      setSubrutas(prev => prev.filter((_, idx) => idx !== i));
+      toast.success('Sub ruta eliminada');
+    }
   };
   const handleMoveUp = async (idx) => {
     if (idx <= 0) return;
@@ -394,7 +432,6 @@ export const ConfigRutasPage = () => {
               <span className="font-semibold text-indigo-800">{selectedRoute.nombre_rutas || selectedRoute.rut_nombre}</span>
               <span className="text-indigo-500">|</span>
               <span className="text-indigo-600">{selectedRoute.origen_nombre || selectedRoute.rut_origen || getCantonNombre(selectedRoute.id_fkorigen_rutas) || '-'} → {selectedRoute.destino_nombre || selectedRoute.rut_destino || getCantonNombre(selectedRoute.id_fkdestino_rutas) || '-'}</span>
-              <span className="text-indigo-400 text-xs">${parseFloat(selectedRoute.valor_rutas || 0).toFixed(2)}</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-600">{subrutas.length} subrutas</span>
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-600">{itinerarios.length} horarios</span>
             </div>
@@ -428,7 +465,6 @@ export const ConfigRutasPage = () => {
                   <th className="text-left px-4 py-2.5">Origen</th>
                   <th className="text-left px-4 py-2.5">Destino</th>
                   <th className="text-left px-4 py-2.5">Nombre Ruta</th>
-                  <th className="text-right px-4 py-2.5">Valor</th>
                   <th className="text-center px-4 py-2.5 w-12">Act</th>
                   <th className="text-center px-4 py-2.5 w-12">Piso</th>
                   <th className="text-center px-4 py-2.5 w-12">Andén</th>
@@ -437,7 +473,7 @@ export const ConfigRutasPage = () => {
               </thead>
               <tbody>
                 {routes.length === 0 && (
-                  <tr><td colSpan={8} className="text-center py-8 text-slate-400 text-sm">No hay rutas registradas</td></tr>
+                  <tr><td colSpan={7} className="text-center py-8 text-slate-400 text-sm">No hay rutas registradas</td></tr>
                 )}
                 {routes.map((r, idx) => (
                   <tr key={r.id_rutas || idx}
@@ -447,7 +483,6 @@ export const ConfigRutasPage = () => {
                     <td className="px-4 py-2.5 font-semibold text-slate-800">{r.origen_nombre || r.rut_origen || getCantonNombre(r.id_fkorigen_rutas) || '-'}</td>
                     <td className="px-4 py-2.5 font-semibold text-slate-800">{r.destino_nombre || r.rut_destino || getCantonNombre(r.id_fkdestino_rutas) || '-'}</td>
                     <td className="px-4 py-2.5 text-slate-500">{r.nombre_rutas || r.rut_nombre}</td>
-                    <td className="px-4 py-2.5 text-right font-mono text-slate-700">${parseFloat(r.valor_rutas || 0).toFixed(2)}</td>
                     <td className="px-4 py-2.5 text-center">
                       {(r.estado_rutas == 1 || r.estado_ruta == 1)
                         ? <i className="fas fa-check-circle text-emerald-500 text-sm" />

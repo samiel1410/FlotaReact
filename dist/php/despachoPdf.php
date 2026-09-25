@@ -187,6 +187,13 @@ try {
         $infoRows[] = ['RESPONSABLE:', (string)($responsable_despacho ?: 'N/A'), false];
         $infoRows[] = ['OFICINISTA:', (string)$nombre_oficinista_real, false];
         $infoRows[] = ['FECHA:', (string)$fecha_despacho_maestro, false];
+    } else if ($tipo_despacho === 'CONVENIO') {
+        $infoRows[] = ['TIPO:', 'CONVENIO (CÍA. ASOCIADA)', true];
+        $rutaStr = (!empty($nombre_origen) ? $nombre_origen . ' → ' : '') . $nombre_destino;
+        $infoRows[] = ['RUTA / DESTINO:', $rutaStr, false];
+        $infoRows[] = ['RESPONSABLE:', (string)($responsable_despacho ?: 'N/A'), false];
+        $infoRows[] = ['OFICINISTA:', (string)$nombre_oficinista_real, false];
+        $infoRows[] = ['FECHA:', (string)$fecha_despacho_maestro, false];
     } else if ($tipo_despacho === 'OFICINA') {
         $infoRows[] = ['TIPO:', 'TRASPASO ENTRE OFICINAS', true];
         $rutaStr = (!empty($nombre_origen) ? $nombre_origen . ' → ' : '') . $nombre_destino;

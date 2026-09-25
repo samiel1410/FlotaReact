@@ -10,9 +10,9 @@ const SUBGROUPS_ADMIN = [
     label: 'Seguridad',
     icon: 'fas fa-shield-alt',
     permisos: {
-      gestion_usuarios: 'Gestión de Usuarios',
-      gestion_roles: 'Gestión de Roles',
-      ver_auditoria: 'Auditoría del Sistema',
+      gestion_usuarios: 'Usuarios',
+      gestion_roles: 'Roles',
+      ver_auditoria: 'Auditoría',
       monitoreo_vivo: 'Monitoreo en Vivo',
       graficos_dashboard: 'Estadísticas',
     }
@@ -21,29 +21,32 @@ const SUBGROUPS_ADMIN = [
     label: 'Catálogos',
     icon: 'fas fa-book',
     permisos: {
-      gestion_sucursales: 'Gestión de Agencias',
-      gestion_ciudades: 'Gestión de Ciudades',
-      gestion_provincias: 'Gestión de Provincias',
-      gestion_lugares: 'Gestión de Lugares',
-      gestion_destinos: 'Gestión de Destinos',
-      gestion_convenios: 'Gestión de Convenios',
-      gestion_tipos_envios: 'Gestión de Tipos de Envíos',
-      gestion_formas_pago: 'Gestión de Formas de Pago',
-      gestion_bancos: 'Gestión de Bancos',
+      gestion_sucursales: 'Agencias',
+      gestion_ciudades: 'Ciudades',
+      gestion_provincias: 'Provincias',
+      gestion_lugares: 'Lugares',
+      gestion_destinos: 'Destinos',
+      gestion_convenios: 'Convenios',
+      gestion_tipos_envios: 'Tipo de Envíos',
+      gestion_formas_pago: 'Forma de Pago',
+      gestion_bancos: 'Banco',
     }
   },
   {
     label: 'Operaciones',
     icon: 'fas fa-tools',
     permisos: {
-      gestion_buses: 'Gestión de Buses',
-      gestion_socios: 'Gestión de Socios',
-      gestion_clientes: 'Gestión de Clientes',
-      config_rutas: 'Configuración de Rutas',
-      auditoria_rutas: 'Auditoría de Rutas',
-      gestion_alimentos: 'Gestión de Alimentos',
-      gestion_inventario: 'Gestión de Inventario',
-      gestion_impresoras: 'Gestión de Impresoras',
+      gestion_buses: 'Buses',
+      gestion_vehiculos: 'Vehículos',
+      gestion_socios: 'Socios',
+      gestion_clientes: 'Clientes',
+      gestion_rutas: 'Rutas',
+      gestion_sub_rutas: 'Sub-Rutas',
+      config_rutas: 'Config. Rutas',
+      auditoria_rutas: 'Auditoría Rutas',
+      gestion_alimentos: 'Alimentos',
+      gestion_inventario: 'Inventario',
+      gestion_impresoras: 'Impresoras',
     }
   }
 ];
@@ -65,127 +68,123 @@ const ALL_PERMISSIONS = {
     label: 'Aprobaciones',
     icon: 'fas fa-check-circle',
     permisos: {
-      listado_aprobaciones: 'Listado de Aprobaciones'
+      listado_aprobaciones: 'Listado Aprobaciones'
     }
   },
   viajes: {
     label: 'Viajes',
     icon: 'fas fa-road',
     permisos: {
-      listado_viajes: 'Listado de Viajes',
-      crear_viaje: 'Crear Viaje',
-      planificacion_viajes: 'Planificación de Viajes',
-      despacho_viaje: 'Despacho de Viaje',
-      cierre_viajes: 'Cierre de Viajes',
-      config_itinerarios: 'Configuración de Itinerarios'
+      listado_viajes: 'Listado Viajes',
+      crear_viaje: 'Creación Viajes',
+      planificacion_viajes: 'Planificación',
+      despacho_viaje: 'Despacho Viajes',
+      cierre_viajes: 'Cierre Viajes',
     }
   },
   guias: {
     label: 'Guías',
     icon: 'fas fa-box',
     permisos: {
-      crear_guia: 'Crear Guía',
-      listado_guias: 'Listado de Guías',
-      despacho_guia: 'Despacho de Guía',
-      entrega_guia: 'Entrega de Guía',
-      seguimiento_guia: 'Seguimiento de Guía',
-      guias_companias: 'Guías de Compañías',
-      despacho_guias: 'Despacho de Guías',
-      busqueda_oficina: 'Búsqueda en Oficina',
-      reimpresion: 'Reimpresión'
+      crear_guia: 'Nueva Guía',
+      listado_guias: 'Listado Guías',
+      busqueda_oficina: 'Buscar Guía Oficina',
+      guias_companias: 'Guías Compañías',
+      despacho_guias: 'Desp. Guías Compañías',
+      despacho_guia: 'Despacho',
+      entrega_guia: 'Entrega de Guías',
+      seguimiento_guia: 'Seguimientos',
+      reimpresion: 'Reimpresión de Guías',
     }
   },
   notas_venta: {
     label: 'Notas de Venta',
     icon: 'fas fa-receipt',
     permisos: {
-      crear_nota_venta: 'Crear Nota de Venta',
-      listado_notas_venta: 'Listado de Notas de Venta',
-      despacho_notas_venta: 'Despachos de Notas de Venta',
-      seguimiento_notas_venta: 'Seguimiento de Notas de Venta',
-      entrega_notas_venta: 'Entrega de Notas de Venta'
+      crear_nota_venta: 'Nueva Nota Venta',
+      listado_notas_venta: 'Listado Notas Venta',
+      despacho_notas_venta: 'Despachos Notas Venta',
+      seguimiento_notas_venta: 'Seguimiento Notas Venta',
+      entrega_notas_venta: 'Entrega Notas Venta',
     }
   },
   cajas: {
-    label: 'Cajas',
+    label: 'Cajas & Comprobantes',
     icon: 'fas fa-cash-register',
     permisos: {
-      listado_cajas: 'Listado de Cajas',
+      listado_cajas: 'Listado Cajas',
+      cajas_comprobantes: 'Cajas Comprobantes',
       comprobantes: 'Comprobantes',
-      cajas_comprobantes: 'Cajas de Comprobantes',
-      caja_notas_venta: 'Cajas de Notas de Venta',
-      solicitar_edicion_caja: 'Solicitar Edición de Caja',
-      aprobar_edicion_caja: 'Aprobar Edición de Caja'
+      caja_notas_venta: 'Cajas Notas Venta',
     }
   },
   cobros: {
     label: 'Cobros',
     icon: 'fas fa-dollar-sign',
     permisos: {
-      listado_cobros: 'Listado de Cobros',
-      tipos_cobros: 'Tipos de Cobros',
-      caja_cobros: 'Caja de Cobros',
+      listado_cobros: 'Listado Cobros',
+      tipos_cobros: 'Tipo Cobros',
+      caja_cobros: 'Caja Cobros',
       cartera_socio: 'Cartera Socio',
       multas: 'Multas',
       creditos_admin: 'Créditos Admin.',
       bonos: 'Bonos',
       cuota_admin: 'Cuota Admin.',
-      cierre_cobros: 'Cierre x Concepto'
+      cierre_cobros: 'Cierre x Concepto',
     }
   },
   boletos: {
     label: 'Boletos',
     icon: 'fas fa-ticket-alt',
     permisos: {
+      listado_boletos: 'Listado Boletos',
       nuevo_boleto: 'Nuevo Boleto',
-      listado_boletos: 'Listado de Boletos',
       reagendamientos: 'Reagendamientos',
-      caja_boleteria: 'Caja de Boletería',
-      despachos: 'Despachos',
-      reportes_boleteria: 'Reportes de Boletería',
+      facturacion_boletos: 'Facturación',
+      caja_boleteria: 'Caja Boletería',
+      reportes_boleteria: 'Reportes Boletería',
       reservaciones: 'Reservaciones',
       pasajeros: 'Pasajeros',
-      facturacion_boletos: 'Facturación de Boletos'
     }
   },
   anulaciones: {
     label: 'Anulaciones',
     icon: 'fas fa-ban',
     permisos: {
-      listado_anulaciones: 'Listado de Anulaciones',
-      anulacion_boleteria: 'Anulación de Boletería',
-      verificacion_boleteria: 'Verificación Boletería/Encomiendas'
+      listado_anulaciones: 'Listado Anulaciones',
+      anulacion_boleteria: 'Anulación Boletería',
+      verificacion_boleteria: 'Verificaciones',
     }
   },
   facturas: {
     label: 'Facturas',
     icon: 'fas fa-file-invoice',
     permisos: {
-      listado_facturas: 'Listado de Facturas'
+      listado_facturas: 'Listado Facturas',
     }
   },
   buseros: {
     label: 'Buseros / Socios',
     icon: 'fas fa-id-card',
     permisos: {
-      gestion_buseros: 'Gestión de Buseros',
-      gestion_asientos: 'Gestión de Asientos',
-      recaudado: 'Recaudado'
+      gestion_buseros: 'Facturación Socio',
+      gestion_asientos: 'Asientos',
+      recaudado: 'Recaudado',
     }
   },
   notificaciones: {
     label: 'Notificaciones',
     icon: 'fas fa-bell',
     permisos: {
-      notificaciones: 'Acceso a Notificaciones'
+      notificaciones: 'Notificaciones Push',
     }
   },
   reportes: {
     label: 'Reportes',
     icon: 'fas fa-chart-bar',
     permisos: {
-      reportes: 'Acceso a Reportes',
-      ranking_ventas: 'Ranking de Ventas'
+      ranking_ventas: 'Ranking Ventas',
+      reportes: 'Reportes',
     }
   }
 };

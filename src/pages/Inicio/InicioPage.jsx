@@ -14,7 +14,7 @@ const ACCIONES = [
   { label: 'Despacho',           icon: 'fas fa-truck-loading',   iconClass: 'icon-despacho',  path: '/despacho',             permission: 'guias.despacho_guia' },
   { label: 'Seguimientos',       icon: 'fas fa-box-open',        iconClass: 'icon-seguim',    path: '/seguimiento',          permission: 'guias.seguimiento_guia' },
   { label: 'Cobros',             icon: 'fas fa-dollar-sign',     iconClass: 'icon-cobros',    path: '/cobros',               permission: 'cobros.listado_cobros' },
-  { label: 'Recaudado',          icon: 'fas fa-coins',           iconClass: 'icon-recaudado', path: '/recaudado',            permission: 'facturas.listado_facturas' },
+  { label: 'Recaudado',          icon: 'fas fa-coins',           iconClass: 'icon-recaudado', path: '/recaudado',            permission: 'buseros.recaudado' },
   { label: 'Caja Boletería',     icon: 'fas fa-cash-register',   iconClass: 'icon-caja-bol',  path: '/caja-boleteria',       permission: 'boletos.caja_boleteria' },
   { label: 'Usuarios',           icon: 'fas fa-users',           iconClass: 'icon-usuarios',  path: '/usuarios',             permission: 'administracion.gestion_usuarios' },
   { label: 'Reportes',           icon: 'fas fa-chart-bar',       iconClass: 'icon-reportes',  path: '/reportes',             permission: 'reportes.reportes' },
