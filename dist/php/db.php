@@ -100,14 +100,15 @@ function obtenerCredencialesDb($isLocal)
         @mkdir($cacheDir, 0777, true);
     }
 
+    cargarEnvBack();
+
     if ($isLocal) {
-        cargarEnvBack();
         $target = strtolower(trim(getenv('USE_DB_TARGET') ?: ''));
         if ($target === 'remota') {
             $rHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
-            $rUser = getenv('REMOTE_DB_USER') ?: 'adminroot';
-            $rPass = getenv('REMOTE_DB_PASSWORD') ?: 'Latacunga14';
-            $rDb   = getenv('REMOTE_DB_NAME') ?: 'admin_pruebas';
+            $rUser = getenv('REMOTE_DB_USER') ?: 'admin_flotapelileo';
+            $rPass = getenv('REMOTE_DB_PASSWORD') ?: 'Latacunga.14';
+            $rDb   = getenv('REMOTE_DB_NAME') ?: 'admin_flotapelileo';
             return [$rHost, $rUser, $rPass, $rDb, 'Back/.env (USE_DB_TARGET=remota)'];
         }
     }
@@ -150,29 +151,48 @@ function obtenerCredencialesDb($isLocal)
             }
         }
 
-        $authUrl = $isLocal ? 'http://localhost:4000' : 'https://usuarioeasys.easysplus.com';
-        $endpoint = "{$authUrl}/auth/tenant-db/{$tId}";
+        $authBaseUrls = $isLocal 
+            ? ['http://localhost:4000', 'https://usuarioeasys.easysplus.com'] 
+            : ['https://usuarioeasys.easysplus.com', 'http://localhost:4000'];
         
         $json = null;
 
-        if (function_exists('curl_init')) {
-            $ch = curl_init();
-            curl_setopt($ch, CURLOPT_URL, $endpoint);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 2);
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 1);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-            $json = curl_exec($ch);
-            curl_close($ch);
-        }
-        
-        if (!$json) {
-            $ctx = stream_context_create([
-                "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
-                "http" => ["timeout" => 1.5]
-            ]);
-            $json = @file_get_contents($endpoint, false, $ctx);
+        foreach ($authBaseUrls as $authUrl) {
+            $endpoints = [
+                "{$authUrl}/auth/tenant-db/{$tId}",
+                "{$authUrl}/public/tenant-db/{$tId}"
+            ];
+
+            foreach ($endpoints as $endpoint) {
+                if (function_exists('curl_init')) {
+                    $ch = curl_init();
+                    curl_setopt($ch, CURLOPT_URL, $endpoint);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+                    $json = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+
+                    if ($httpCode === 200 && !empty($json)) {
+                        break 2;
+                    }
+                }
+                
+                $ctx = stream_context_create([
+                    "ssl" => ["verify_peer" => false, "verify_peer_name" => false],
+                    "http" => ["timeout" => 3.0]
+                ]);
+                $json = @file_get_contents($endpoint, false, $ctx);
+                if (!empty($json)) {
+                    $testData = @json_decode($json, true);
+                    if (!empty($testData['success'])) {
+                        break 2;
+                    }
+                }
+            }
         }
 
         if ($json) {
@@ -217,7 +237,7 @@ function obtenerCredencialesDb($isLocal)
                 error_log("[TenantDB Error] Respuesta no válida: " . $json);
             }
         } else {
-            error_log("[TenantDB Error] No se pudo obtener respuesta de {$endpoint}");
+            error_log("[TenantDB Error] No se pudo obtener respuesta de endpoints de AuthService para tenant {$tId}");
         }
     }
 
@@ -422,9 +442,9 @@ function conexion()
     // Fallback con credenciales remotas estándar si la conexión a localhost o tenant falló
     if (!$conn) {
         $remoteHost = getenv('REMOTE_DB_HOST') ?: '216.225.204.245';
-        $remoteUser = getenv('REMOTE_DB_USER') ?: 'adminroot';
-        $remotePass = getenv('REMOTE_DB_PASSWORD') ?: 'Latacunga14';
-        $targetDb = !empty($db_name) ? $db_name : (getenv('REMOTE_DB_NAME') ?: 'flotapelileo_produccion');
+        $remoteUser = getenv('REMOTE_DB_USER') ?: 'admin_flotapelileo';
+        $remotePass = getenv('REMOTE_DB_PASSWORD') ?: 'Latacunga.14';
+        $targetDb = !empty($db_name) ? $db_name : (getenv('REMOTE_DB_NAME') ?: 'admin_flotapelileo');
         try {
             $conn = @mysqli_connect($remoteHost, $remoteUser, $remotePass, $targetDb);
             if ($conn) {

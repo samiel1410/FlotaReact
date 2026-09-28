@@ -14,11 +14,11 @@ export const buildPdfUrl = (url) => {
   }
 
   let tenantId = '';
-  const userDataStr = sessionStorage.getItem('user_data') || localStorage.getItem('user_data');
+  const userDataStr = sessionStorage.getItem('user_data') || localStorage.getItem('user_data') || sessionStorage.getItem('user') || localStorage.getItem('user');
   if (userDataStr) {
     try {
       const u = JSON.parse(userDataStr);
-      tenantId = u.tenant_id || u.tenantId || '';
+      tenantId = u.tenant_id || u.id_tenant || u.tenantId || '';
     } catch (e) {}
   }
 

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GuiaService } from '../../services/guia.service';
 import { CONFIG } from '../../config/env';
-import { api } from '../../config/axios';
+import { useAuth } from '../../context/AuthContext';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
@@ -16,6 +17,7 @@ import { PdfViewerModal } from '../../components/PdfViewerModal';
  */
 export const BuscarGuiaOficinaPage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [numeroGuia, setNumeroGuia] = useState('');
   const [resultados, setResultados] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -97,11 +99,11 @@ export const BuscarGuiaOficinaPage = () => {
     try {
       toast.loading('Generando ticket...', { id: 'pdf-guia' });
       
-      const userResp = await api.get('/buscarUsuario');
-      const idUsuario = userResp.data?.data?.id_usuario || 0;
-      const tenantId = userResp.data?.data?.tenant_id || userResp.data?.data?.id_tenant || 1;
+      const idUsuario = user?.id_usuario || user?.id || 0;
+      const tenantId = user?.tenant_id || user?.id_tenant || user?.tenantId || 1;
 
-      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&tenantId=${encodeURIComponent(tenantId)}`;
+      const rawUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&tenantId=${encodeURIComponent(tenantId)}`;
+      const phpUrl = buildPdfUrl(rawUrl);
       const res = await fetch(phpUrl);
 
       toast.dismiss('pdf-guia');
@@ -142,12 +144,12 @@ export const BuscarGuiaOficinaPage = () => {
     try {
       toast.loading('Generando reimpresión...', { id: 'reimp-guia' });
       
-      const userResp = await api.get('/buscarUsuario');
-      const idUsuario = userResp.data?.data?.id_usuario || 0;
-      const nombreUsuario = userResp.data?.data?.nombre_usuario || '';
-      const tenantId = userResp.data?.data?.tenant_id || userResp.data?.data?.id_tenant || 1;
+      const idUsuario = user?.id_usuario || user?.id || 0;
+      const nombreUsuario = user?.nombre_usuario || user?.username || '';
+      const tenantId = user?.tenant_id || user?.id_tenant || user?.tenantId || 1;
 
-      const phpUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&reimpreso_por=${encodeURIComponent(nombreUsuario)}&tenantId=${encodeURIComponent(tenantId)}`;
+      const rawUrl = `${CONFIG.PHP_URL}/guiaPdfImpresion.php?id_guia=${encodeURIComponent(guia.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&reimpreso_por=${encodeURIComponent(nombreUsuario)}&tenantId=${encodeURIComponent(tenantId)}`;
+      const phpUrl = buildPdfUrl(rawUrl);
       const res = await fetch(phpUrl);
 
       toast.dismiss('reimp-guia');

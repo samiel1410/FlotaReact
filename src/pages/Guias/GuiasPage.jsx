@@ -193,7 +193,8 @@ export const GuiasPage = () => {
     const item = selectedPrintItem;
     setPrintSelectorOpen(false);
     const idUsuario = user?.id_usuario || 0;
-    const phpUrl = `${CONFIG.PHP_URL}/ticketPdf.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}`;
+    const tenantId = user?.tenant_id || user?.id_tenant || user?.tenantId || 1;
+    const phpUrl = `${CONFIG.PHP_URL}/ticketPdf.php?id_guia=${encodeURIComponent(item.id_guia)}&id_usuario_global=${encodeURIComponent(idUsuario)}&tenantId=${encodeURIComponent(tenantId)}`;
     openPhpPdf(phpUrl, `Ticket Guía ${item.numero_guia_final || item.id_guia}`);
   };
 
