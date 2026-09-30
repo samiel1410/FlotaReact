@@ -65,10 +65,16 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
         setCompanias(resCompanias.data.data);
       }
 
-      // Cargar Destinos (activos)
-      const resDestinos = await api.get('/destino/destinoSeleccionCombo');
-      if (resDestinos.data?.data) {
-        setDestinos(resDestinos.data.data);
+      // Cargar Destinos (solo los de MI cooperativa; fallback a todos si
+      // aún no hay ninguna compañía marcada como propia)
+      const resDestinos = await api.get('/destino/destinoSeleccionCombo', { params: { propia: 1 } });
+      const destPropios = resDestinos.data?.data || [];
+      if (destPropios.length > 0) {
+        setDestinos(destPropios);
+      } else {
+        const resTodos = await api.get('/destino/destinoSeleccionCombo');
+        setDestinos(resTodos.data?.data || []);
+        toast('No hay compañía marcada como propia: se muestran todos los destinos', { icon: '⚠️' });
       }
     } catch (error) {
       console.error("Error al cargar combos:", error);
@@ -76,19 +82,33 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
     }
   };
 
-  const handleCompaniaChange = (e) => {
+  const handleCompaniaChange = async (e) => {
     const companiaId = e.target.value;
     const compania = companias.find(c => String(c.id_compania_asociada) === String(companiaId));
     
     let porcentaje = '';
-    if (compania && compania.porcentaje_comision) {
+    if (compania && compania.porcentaje_comision !== null && compania.porcentaje_comision !== undefined && compania.porcentaje_comision !== '') {
       porcentaje = parseFloat(compania.porcentaje_comision).toString();
     } else if (compania) {
-      toast.error('Esta compañía no tiene un porcentaje de comisión asignado');
+      porcentaje = '0';
+      toast('Esta compañía tiene 0% de comisión asignado', { icon: '⚠️' });
+    }
+
+    // Recargar destinos de la compañía elegida (o los propios si se limpia)
+    try {
+      const params = companiaId ? { id_compania: companiaId } : { propia: 1 };
+      const resDest = await api.get('/destino/destinoSeleccionCombo', { params });
+      const destFiltrados = resDest.data?.data || [];
+      setDestinos(destFiltrados);
+      if (companiaId && destFiltrados.length === 0) {
+        toast('Esta compañía no tiene destinos registrados', { icon: '⚠️' });
+      }
+    } catch (err) {
+      console.error('Error cargando destinos de la compañía:', err);
     }
 
     setFormData(prev => {
-      const newForm = { ...prev, compania_id: companiaId, porcentaje_comision: porcentaje };
+      const newForm = { ...prev, compania_id: companiaId, id_destino: '', porcentaje_comision: porcentaje };
       // Recalcular comisión si hay valor neto
       if (newForm.valor_neto && porcentaje) {
         newForm.valor_comision = ((parseFloat(newForm.valor_neto) * parseFloat(porcentaje)) / 100).toFixed(2);
@@ -159,17 +179,14 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
       mostrarError("Por favor complete todos los campos obligatorios (*)");
       return;
     }
-    if (!formData.valor_comision || parseFloat(formData.valor_comision) <= 0) {
-      mostrarError("La comisión debe ser mayor a 0");
-      return;
-    }
+    // La comisión puede ser 0% (compañías sin retención): se permite continuar
     setStep(2);
   };
 
   const handleSubmit = async () => {
     setErrorMsg('');
-    // Validaciones Paso 2
-    if (!formData.monto_cobro || !formData.id_forma_pago) {
+    // Validaciones Paso 2 (el monto puede ser 0 si la comisión es 0%)
+    if (formData.monto_cobro === '' || formData.monto_cobro === null || formData.monto_cobro === undefined || !formData.id_forma_pago) {
       mostrarError("Complete los datos de cobro");
       return;
     }
@@ -375,7 +392,6 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
                   className="w-full p-2 border rounded focus:ring-blue-500 focus:border-blue-500 uppercase"
                   value={formData.detalle_pago}
                   onChange={e => setFormData({ ...formData, detalle_pago: e.target.value.toUpperCase() })}
-                  disabled={formData.id_forma_pago === '1'}
                 />
               </div>
 

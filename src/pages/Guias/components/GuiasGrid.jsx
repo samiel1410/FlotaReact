@@ -2,7 +2,7 @@ import { useState } from 'react';
 import './GuiasGrid.css';
 
 export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onReload,
-  onViewPdf, onPrint, onCharge, onCharges, onTrack, onAnular, onFacturar,
+  onViewPdf, onPrint, onEdit, onCharge, onCharges, onTrack, onAnular, onFacturar,
   onNuevaGuia, onAnularSeleccionadas, onAnularPendientes
 }) => {
   const [activeMenu, setActiveMenu] = useState(null);
@@ -39,6 +39,22 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
     if (val === 1) return <i className="fas fa-flag-checkered" style={{color: 'blue'}} title="LLEGÓ"></i>;
     return null;
   };
+
+  // Regla de edición: solo si la guía NO está anulada/pendiente
+  // y NO tiene factura AUTORIZADA (AUTORIZADO/AUTORIZADA/FIRMADO)
+  const isFacturaAutorizada = (item) => {
+    const est = String(item.estado_autorizacion_factura || '').toUpperCase();
+    return est === 'AUTORIZADO' || est === 'AUTORIZADA' || est === 'FIRMADO';
+  };
+
+  const getMotivoNoEditable = (item) => {
+    if (Number(item.estado_guia) === 2) return 'La guía está anulada';
+    if (Number(item.estado_guia) === 3) return 'La guía está pendiente de anulación';
+    if (isFacturaAutorizada(item)) return 'Tiene factura autorizada por el SRI';
+    return '';
+  };
+
+  const canEdit = (item) => getMotivoNoEditable(item) === '';
 
   const getBadgeEstadoSri = (estadoFactura) => {
     if (!estadoFactura) {
@@ -153,6 +169,10 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
                         <div className="action-menu">
                           {onViewPdf && <button onClick={() => { setActiveMenu(null); onViewPdf(item); }}><i className="far fa-file-pdf" style={{color: 'red'}}></i> Visualizar Pdf</button>}
                           {onPrint && <button onClick={() => { setActiveMenu(null); onPrint(item); }}><i className="fas fa-print" style={{color: 'gray'}}></i> Imprimir</button>}
+                          {onEdit && (canEdit(item)
+                            ? <button onClick={() => { setActiveMenu(null); onEdit(item); }}><i className="fas fa-edit" style={{color: '#f39c12'}}></i> Editar</button>
+                            : <button disabled title={getMotivoNoEditable(item)} style={{opacity: 0.45, cursor: 'not-allowed'}}><i className="fas fa-edit" style={{color: '#999'}}></i> Editar ({getMotivoNoEditable(item)})</button>
+                          )}
                           {onCharge && item.estado_cobro_guia !== 'COBRADA' && parseFloat(item.por_cobrar) > 0 && <button onClick={() => { setActiveMenu(null); onCharge(item); }}><i className="fas fa-hand-holding-usd" style={{color: 'green'}}></i> Cobrar</button>}
                           {onCharges && <button onClick={() => { setActiveMenu(null); onCharges(item); }}><i className="fas fa-money-bill-wave" style={{color: 'blue'}}></i> Cobros Realizados</button>}
                           {onTrack && <button onClick={() => { setActiveMenu(null); onTrack(item); }}><i className="fas fa-eye" style={{color: '#333'}}></i> Seguimiento</button>}

@@ -183,24 +183,41 @@ export const GuiasNotaVentaPage = () => {
 
   const handleEdit = async (item) => {
     try {
-      // 1. Verificar estado de anulación (ExtJS: verificacionanulacion)
+      // 1. Verificar estado de anulación
       const verif = await GuiaService.verificarAnulacion(item.id_guia);
       const msg = verif.message ?? verif.data?.message;
 
       if (msg === 2) {
-        toast.error('La guía se encuentra anulada');
+        toast.error('La nota se encuentra anulada');
         return;
       }
       if (msg === 3) {
-        toast.error('La guía está pendiente a anular');
+        toast.error('La nota está pendiente a anular');
         return;
       }
 
-      // 3. Navegar a edición (No se verifica factura porque es Nota de Venta)
-      navigate(`/guias/editar/${item.id_guia}`);
+      // 2. Verificar si tiene factura autorizada (bloquea edición SRI)
+      try {
+        let factVerif = null;
+        try {
+          factVerif = await GuiaService.autorizadoFacturaPorGuia(item.id_guia);
+        } catch (err) {
+          factVerif = await GuiaService.verificarFacturaAutorizada(item.id_guia);
+        }
+
+        if (factVerif && (factVerif.tipo === 0 || (factVerif.data && factVerif.data.length > 0))) {
+          toast.error('Esta nota se encuentra vinculada a una factura autorizada');
+          return;
+        }
+      } catch (e) {
+        console.warn('No se pudo verificar factura autorizada', e);
+      }
+
+      // 3. Navegar a edición de nota de venta
+      navigate(`/notas-venta/editar/${item.id_guia}`);
     } catch (err) {
       console.error(err);
-      toast.error('No se pudo cargar la guía para editar');
+      toast.error('No se pudo cargar la nota para editar');
     }
   };
 

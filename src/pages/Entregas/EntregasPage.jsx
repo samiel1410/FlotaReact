@@ -14,6 +14,9 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
 
+  // ─── Resumen por oficina (tarjetas del header, solo guías normales) ──
+  const [resumen, setResumen] = useState({ registradas: 0, entregadas: 0, por_entregar: 0 });
+
   // ─── Filtros ───────────────────────────────────────────────
   const [filtros, setFiltros] = useState({
     cedula_remitente: '',
@@ -72,7 +75,45 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
 
   useEffect(() => {
     cargarGuias(1);
+    if (!isNotaVenta) cargarResumen(filtros);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ─── Resumen para las tarjetas (mismos filtros, sin estado) ─────
+  const cargarResumen = async (filtrosActuales = null) => {
+    if (isNotaVenta) return;
+    try {
+      const f = filtrosActuales || filtros;
+      const params = {
+        rucremitente: f.cedula_remitente || '',
+        rucreceptor: f.cedula_destinatario || '',
+        nombreremitente: f.nombre_remitente || '',
+        nombrereceptor: f.nombre_destinatario || '',
+        fechaini: f.fechaini || '',
+        fechalast: f.fechalast || '',
+        mes: f.mes || '',
+        anio: f.anio || '',
+        numeroguia: f.numeroguia || ''
+      };
+      const res = await EntregaService.resumen(params);
+      if (res?.success && res.data) {
+        setResumen({
+          registradas: Number(res.data.registradas || 0),
+          entregadas: Number(res.data.entregadas || 0),
+          por_entregar: Number(res.data.por_entregar || 0)
+        });
+      }
+    } catch (error) {
+      console.warn('Error cargando resumen de entregas:', error);
+    }
+  };
+
+  // ─── Click en tarjeta: filtra por estado ──────────────────────
+  const handleCardFilter = (estado) => {
+    const nuevos = { ...filtros, estado };
+    setFiltros(nuevos);
+    cargarGuias(1, nuevos);
+  };
 
   // ─── Handlers de filtros ───────────────────────────────────
   const handleFilterChange = (key, value) => {
@@ -81,6 +122,7 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
 
   const handleBuscar = () => {
     cargarGuias(1, filtros);
+    if (!isNotaVenta) cargarResumen(filtros);
   };
 
   const handleRefrescar = () => {
@@ -91,6 +133,7 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
     };
     setFiltros(limpio);
     cargarGuias(1, limpio);
+    if (!isNotaVenta) cargarResumen(limpio);
   };
 
   const handlePageChange = (newPage) => {
@@ -192,6 +235,7 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
 
   const handleModalSuccess = () => {
     cargarGuias(page);
+    if (!isNotaVenta) cargarResumen(filtros);
   };
 
   // ─── Paginación ────────────────────────────────────────────
@@ -247,6 +291,51 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
           </span>
         </h1>
       </div>
+
+      {/* ─── TARJETAS RESUMEN POR OFICINA (clic = filtrar) ─── */}
+      {!isNotaVenta && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <button
+            onClick={() => handleCardFilter('0')}
+            title="Ver todas"
+            className={`bg-white border-2 rounded-xl shadow-sm px-5 py-4 flex items-center gap-4 text-left transition-all hover:shadow-md active:scale-[0.99] ${filtros.estado === '0' ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-200'}`}
+          >
+            <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+              <i className="fas fa-clipboard-list text-lg"></i>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Registradas</div>
+              <div className="text-2xl font-black text-slate-800 leading-none mt-1">{resumen.registradas}</div>
+            </div>
+          </button>
+          <button
+            onClick={() => handleCardFilter('2')}
+            title="Ver entregadas"
+            className={`bg-white border-2 rounded-xl shadow-sm px-5 py-4 flex items-center gap-4 text-left transition-all hover:shadow-md active:scale-[0.99] ${filtros.estado === '2' ? 'border-green-500 ring-2 ring-green-100' : 'border-slate-200'}`}
+          >
+            <div className="w-11 h-11 rounded-xl bg-green-100 text-green-600 flex items-center justify-center shrink-0">
+              <i className="fas fa-check-double text-lg"></i>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Entregadas</div>
+              <div className="text-2xl font-black text-slate-800 leading-none mt-1">{resumen.entregadas}</div>
+            </div>
+          </button>
+          <button
+            onClick={() => handleCardFilter('1')}
+            title="Ver por entregar"
+            className={`bg-white border-2 rounded-xl shadow-sm px-5 py-4 flex items-center gap-4 text-left transition-all hover:shadow-md active:scale-[0.99] ${filtros.estado === '1' ? 'border-amber-500 ring-2 ring-amber-100' : 'border-slate-200'}`}
+          >
+            <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
+              <i className="fas fa-truck-loading text-lg"></i>
+            </div>
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Por entregar</div>
+              <div className="text-2xl font-black text-slate-800 leading-none mt-1">{resumen.por_entregar}</div>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* ─── FILTROS ─── */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm">

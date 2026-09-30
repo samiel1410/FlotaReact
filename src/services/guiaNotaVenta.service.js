@@ -28,10 +28,14 @@ export const GuiaNotaVentaService = {
   },
 
   /**
-   * Actualiza una guía existente
+   * Actualiza una nota de venta existente (edición restringida).
+   * Se envía como JSON string para que el interceptor no lo convierta
+   * a form-urlencoded (destruiría los objetos anidados).
    */
   actualizarGuia: async (parametros) => {
-    const response = await api.post('/guia_nota_venta/actualizarGuia', parametros);
+    const response = await api.post('/guia_nota_venta/actualizarGuia', JSON.stringify(parametros), {
+      headers: { 'Content-Type': 'application/json' }
+    });
     return response.data;
   },
 

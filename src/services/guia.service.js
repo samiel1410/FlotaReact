@@ -30,10 +30,14 @@ export const GuiaService = {
   },
 
   /**
-   * Actualiza una guía existente
+   * Actualiza una guía existente (+ factura y comprobantes asociados).
+   * Se envía como JSON string igual que insertarGuia para que el
+   * interceptor no lo convierta a form-urlencoded (destruiría los arrays).
    */
   actualizarGuia: async (parametros) => {
-    const response = await api.post('/guia/actualizarGuia', parametros);
+    const response = await api.post('/guia/actualizarGuia', JSON.stringify(parametros), {
+      headers: { 'Content-Type': 'application/json' }
+    });
     return response.data;
   },
 

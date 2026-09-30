@@ -78,13 +78,15 @@ export const BoleteriaService = {
   },
 
   /**
-   * Obtiene asientos del bus para un viaje (con ocupación)
+   * Obtiene asientos del bus para un viaje (con ocupación por tramo)
    * @param {number} idViaje
-   * @param {number} [idOrigen] - Para filtrar ocupación por tramo
+   * @param {number} [idOrigen] - Lugar/cantón de venta (punto del tramo)
+   * @param {number} [idDestino] - id_sub_rutas del destino a vender (solape exacto)
    */
-  getAsientosBusViaje: async (idViaje, idOrigen) => {
+  getAsientosBusViaje: async (idViaje, idOrigen, idDestino) => {
     const params = { id_viaje: idViaje };
     if (idOrigen) params.id_origen = idOrigen;
+    if (idDestino) params.id_destino = idDestino;
     const response = await api.post('/viajes/asientosBusViaje', params);
     return response.data;
   },

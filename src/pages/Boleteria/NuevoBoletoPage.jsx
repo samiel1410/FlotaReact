@@ -96,6 +96,8 @@ export const NuevoBoletoPage = () => {
   const lastRealActionRef = useRef(null);
   useEffect(() => { lastRealActionRef.current = Date.now(); }, []);
   const [tiempoRestante, setTiempoRestante] = useState(null);
+  // Para no resetear el tramo al recargar ocupación por cambio de tramo
+  const viajeCargadoRef = useRef(null);
 
   // Validación de Caja
   const [localCajaId, setLocalCajaId] = useState(null);
@@ -425,6 +427,7 @@ export const NuevoBoletoPage = () => {
   // Cargar asientos y destinos al seleccionar viaje
   useEffect(() => {
     if (!formData.idViaje) {
+      viajeCargadoRef.current = null;
       setAsientosOcupados([]);
       setDestinosViaje([]);
       setMapaAsientos(null);
@@ -437,8 +440,11 @@ export const NuevoBoletoPage = () => {
     const cargarAsientos = async () => {
       try {
         const sucursalId = activeSucursalId || getSessionUser().id_sucursal || usuario?.id_sucursal;
+        // Tramo de venta: origen actual + destino seleccionado (para ocupación exacta)
+        const origenTramo = formData.origen || undefined;
+        const destinoTramo = subrutaSeleccionada || undefined;
         const [asientosRes, destinosViajeRes] = await Promise.all([
-          BoleteriaService.getAsientosBusViaje(formData.idViaje).catch(e => {
+          BoleteriaService.getAsientosBusViaje(formData.idViaje, origenTramo, destinoTramo).catch(e => {
             console.error('[cargarAsientos] Error en getAsientosBusViaje:', e);
             return { success: false };
           }),
@@ -497,10 +503,14 @@ export const NuevoBoletoPage = () => {
       }
     };
 
-    setSubrutaSeleccionada('');
-    setPrecioUnitario(0);
+    // Solo resetear el tramo al cambiar de viaje (no al recargar ocupación)
+    if (viajeCargadoRef.current !== formData.idViaje) {
+      viajeCargadoRef.current = formData.idViaje;
+      setSubrutaSeleccionada('');
+      setPrecioUnitario(0);
+    }
     cargarAsientos();
-  }, [formData.idViaje, refreshAsientosKey, activeSucursalId]);
+  }, [formData.idViaje, formData.origen, subrutaSeleccionada, refreshAsientosKey, activeSucursalId]);
 
   // Sockets: Bloqueo/Liberación en tiempo real
   useEffect(() => {

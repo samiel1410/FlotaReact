@@ -202,6 +202,11 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
         toast.error('Debe seleccionar o ingresar un vehículo (número o placa)');
         return;
       }
+      // Si es ingreso manual, número Y placa son obligatorios (los pide la tabla vehiculo)
+      if (modoManualVehiculo && (!formData.numero_vehiculo?.trim() || !formData.placa_vehiculo?.trim())) {
+        toast.error('Para registrar el vehículo debe ingresar número y placa');
+        return;
+      }
       if (!formData.oficina_usuario) {
         toast.error('Debe seleccionar la sucursal de destino');
         return;
@@ -215,6 +220,55 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
 
     setSaving(true);
     try {
+      // ── Si es vehículo manual (o sin ID), primero registrarlo en tabla vehiculo ──
+      let idVehiculoFinal = formData.id_fkvehiculo_despacho || null;
+      if (tipoDespacho === 'VEHICULO' && (modoManualVehiculo || !idVehiculoFinal)) {
+        // Evitar duplicados: si la placa ya existe en el combo, reutilizarla
+        const placaNorm = (formData.placa_vehiculo || '').trim().toUpperCase();
+        const existente = datosCombo.vehiculos.find(v => String(v.placa_vehiculo || '').toUpperCase() === placaNorm);
+        if (existente && !modoManualVehiculo) {
+          idVehiculoFinal = existente.id_vehiculo;
+        } else if (existente && modoManualVehiculo) {
+          idVehiculoFinal = existente.id_vehiculo;
+          setFormData(p => ({ ...p, id_fkvehiculo_despacho: existente.id_vehiculo }));
+        } else {
+        try {
+          const resVeh = await vehiculoService.guardar({
+            tipo_vehiculo: formData.tipo_vehiculo || 'Camión',
+            numero_vehiculo: (formData.numero_vehiculo || '').trim(),
+            placa_vehiculo: (formData.placa_vehiculo || '').trim().toUpperCase(),
+            nombre_responsable: (formData.responsable_despacho || formData.nombre_oficinista || '').trim(),
+            estado_vehiculo: 1
+          });
+          if (resVeh?.success) {
+            idVehiculoFinal = resVeh.id_vehiculo || resVeh.data?.id_vehiculo || idVehiculoFinal;
+            // Refrescar combo local para que aparezca sin recargar
+            if (resVeh.id_vehiculo) {
+              setDatosCombo(prev => ({
+                ...prev,
+                vehiculos: [...prev.vehiculos, {
+                  id_vehiculo: resVeh.id_vehiculo,
+                  tipo_vehiculo: formData.tipo_vehiculo,
+                  numero_vehiculo: formData.numero_vehiculo,
+                  placa_vehiculo: formData.placa_vehiculo?.toUpperCase(),
+                  nombre_responsable: formData.responsable_despacho
+                }]
+              }));
+            }
+          } else {
+            toast.error(resVeh?.mensaje || 'No se pudo registrar el vehículo');
+            setSaving(false);
+            return;
+          }
+        } catch (eVeh) {
+          console.error('Error registrando vehículo:', eVeh);
+          toast.error('No se pudo registrar el vehículo en el sistema');
+          setSaving(false);
+          return;
+        }
+        }
+      }
+
       const busSel = datosCombo.buses.find(b => String(b.bus_disco || b.disco_buses || b.id_buses) === String(formData.id_fkbus_despacho_maestro));
       const perSel = datosCombo.personal.find(p => String(p.per_codigo_personal || p.id_personal) === String(formData.id_personal));
       const sucDestinoSel = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(formData.oficina_usuario));
@@ -262,10 +316,10 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
 
         payload = {
           ...payload,
-          id_fkbus_despacho_maestro: formData.numero_vehiculo || formData.placa_vehiculo || 'VEH',
+          id_fkbus_despacho_maestro: 0,
           nombre_bus: nomBusVeh,
           nombre_busero: responsableFinal,
-          id_fkvehiculo_despacho: formData.id_fkvehiculo_despacho || null,
+          id_fkvehiculo_despacho: idVehiculoFinal || null,
           tipo_vehiculo: formData.tipo_vehiculo,
           numero_vehiculo: formData.numero_vehiculo,
           placa_vehiculo: formData.placa_vehiculo,
@@ -276,7 +330,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
 
         payload = {
           ...payload,
-          id_fkbus_despacho_maestro: 'CONVENIO',
+          id_fkbus_despacho_maestro: 0,
           nombre_bus: nomDespConv,
           nombre_busero: responsableFinal,
           responsable_despacho: responsableFinal

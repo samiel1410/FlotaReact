@@ -49,6 +49,7 @@ const ListaViajes = lazy(() => import('./pages/Viajes/ListaViajes').then(m => ({
 const PlanificacionViajesPage = lazy(() => import('./pages/Viajes/PlanificacionViajesPage').then(m => ({ default: m.PlanificacionViajesPage })));
 const CobrosRealizadosPage = lazy(() => import('./pages/Guias/CobrosRealizadosPage').then(m => ({ default: m.CobrosRealizadosPage })));
 const EditarGuiaPage = lazy(() => import('./pages/Guias/EditarGuiaPage').then(m => ({ default: m.EditarGuiaPage })));
+const EditarNotaVentaPage = lazy(() => import('./pages/Guias/EditarNotaVentaPage').then(m => ({ default: m.EditarNotaVentaPage })));
 const EntregasPage = lazy(() => import('./pages/Entregas/EntregasPage').then(m => ({ default: m.EntregasPage })));
 const CajaNotaVentaPage = lazy(() => import('./pages/Guias/CajaNotaVentaPage').then(m => ({ default: m.CajaNotaVentaPage })));
 
@@ -227,6 +228,7 @@ function App() {
         <Route path="/notas-venta/nueva" element={<ProtectedRoute><NuevaGuiaNotaVentaPage /></ProtectedRoute>} />
         <Route path="/boleteria/nuevo" element={<ProtectedRoute><NuevoBoletoPage /></ProtectedRoute>} />
         <Route path="/guias/editar/:id" element={<ProtectedRoute><EditarGuiaPage /></ProtectedRoute>} />
+        <Route path="/notas-venta/editar/:id" element={<ProtectedRoute><EditarNotaVentaPage /></ProtectedRoute>} />
         <Route path="/guias/cobros/:id" element={<ProtectedRoute><CobrosRealizadosPage /></ProtectedRoute>} />
 
       </Routes>

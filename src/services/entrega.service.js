@@ -106,5 +106,14 @@ export const EntregaService = {
     const prefix = isNotaVenta ? '/guia_nota_venta' : '/guia';
     const response = await api.get(`${prefix}/buscarGuiaId`, { params: { id_guia: idGuia } });
     return response.data;
+  },
+
+  /**
+   * Resumen de entregas por oficina (registradas / entregadas / por entregar).
+   * Solo disponible para guías normales.
+   */
+  resumen: async (params = {}) => {
+    const response = await api.get('/guia/resumenEntregas', { params });
+    return response.data;
   }
 };

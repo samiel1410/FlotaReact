@@ -7,7 +7,7 @@ import toast from 'react-hot-toast';
  * CompaniaPanel - Muestra la Compañía Asociada con sus botones de acción (Destinos, Buscar, Limpiar)
  * y el Nombre de la Compañía destacado en grande.
  */
-export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCompania, error, destinos = [], onSeleccionarDestino }) => {
+export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCompania, error, destinos = [], onSeleccionarDestino, readOnly = false }) => {
   const [rucBusqueda, setRucBusqueda] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [showModalCompanias, setShowModalCompanias] = useState(false);
@@ -90,7 +90,8 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
         <span>Compañía Asociada</span>
       </div>
 
-      {/* Fila de Búsqueda y Botones de Acción */}
+      {/* Fila de Búsqueda y Botones de Acción (oculta en solo lectura) */}
+      {!readOnly && (
       <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
         <div style={{ flex: 1 }}>
           <label className={labelClass}>RUC Compañía</label>
@@ -140,6 +141,7 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
           </button>
         </div>
       </div>
+      )}
 
       {/* Visualización del Nombre en Grande */}
       {nombreCompania ? (
@@ -155,6 +157,7 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
               </span>
             </div>
           </div>
+          {!readOnly && (
           <button
             type="button"
             onClick={handleClear}
@@ -163,10 +166,11 @@ export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCo
           >
             <i className="fas fa-times text-xs"></i>
           </button>
+          )}
         </div>
       ) : (
         <div
-          onClick={handleOpenModal}
+          onClick={readOnly ? undefined : handleOpenModal}
           className="bg-slate-50 border border-dashed border-slate-200 hover:border-indigo-300 rounded-xl p-2.5 flex items-center justify-between gap-3 cursor-pointer hover:bg-indigo-50/40 transition-all group"
         >
           <div className="flex items-center gap-2 min-w-0">

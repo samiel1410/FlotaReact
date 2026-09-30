@@ -19,6 +19,7 @@ import NewAlimentoForm from '../pages/Alimentos/components/NewAlimentoForm';
 import NewDestinoForm from '../pages/Destino/components/NewDestinoForm';
 import ClienteForm from '../pages/Clientes/components/ClienteForm';
 import { TipoCobroForm } from '../pages/TipoCobros/components/TipoCobroForm';
+import { SucursalesBadgeCell } from '../pages/TipoCobros/components/SucursalesBadgeCell';
 import { NuevaGuiaCompaniaForm } from '../pages/Guias/components/NuevaGuiaCompaniaForm';
 import { createAperturaAction, createBuscarCajaAction, createCerrarAction } from './cajaUtils';
 import { api, authApi } from '../config/axios';
@@ -502,6 +503,7 @@ export const PAGES_CONFIG = {
     columns: [
       { key: 'nombre_compania_asociada', label: 'Nombre' },
       { key: 'direccion_compania_asociada', label: 'Dirección' },
+      { key: 'es_propia', label: 'Mi Coop.', render: v => Number(v) === 1 ? '★ MÍA' : '-' },
       { key: 'estado_compania_asociada', label: 'Estado', renderType: 'status' },
     ],
     filters: [
@@ -2528,6 +2530,9 @@ export const PAGES_CONFIG = {
         key: 'cobro_total_despacho', label: 'Cobro en Despacho', render: v => v == 1
           ? <span className="bg-rose-100 text-rose-700 px-2 py-0.5 rounded text-[9px] font-bold">100% Boletos</span>
           : <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[9px] font-medium">Tope % Agencia</span>
+      },
+      {
+        key: 'sucursales_nombres', label: 'Oficinas / Sucursales', render: (v, r) => <SucursalesBadgeCell value={v} row={r} />
       },
       { key: 'estado_tipo_cobros', label: 'Estado', renderType: 'status' },
     ],

@@ -127,8 +127,8 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, costoEnvioPorDe
             {detalles.length === 0 ? (
               <tr><td colSpan="10" style={{ textAlign: 'center', padding: '20px', color: '#94a3b8', fontStyle: 'italic', fontSize: '11px' }}>No hay bultos agregados</td></tr>
             ) : (
-              detalles.map(d => (
-                <tr key={d.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+              detalles.map((d, idx) => (
+                <tr key={d.id ?? `row-${idx}`} style={{ borderBottom: '1px solid #f1f5f9' }}>
                   <td style={{ padding: '4px 6px', textAlign: 'center', fontFamily: 'monospace' }}>{d.cantidad}</td>
                   <td style={{ padding: '4px 6px', textAlign: 'center' }}>{d.tipoEnvio}</td>
                   <td style={{ padding: '4px 6px', textAlign: 'left' }}>{d.contenido}</td>

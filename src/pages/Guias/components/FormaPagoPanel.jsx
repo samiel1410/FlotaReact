@@ -17,10 +17,11 @@ import { GuiaService } from '../../../services/guia.service';
  *   un pago en la grilla con la forma de pago por defecto y el total
  * - El monto del pago automático se actualiza al cambiar el total
  */
-export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPorChange, defaultFormaPagoId }) => {
+export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPorChange, defaultFormaPagoId, initialPagos = null, isEditing = false, readOnly = false }) => {
   const [formasPago, setFormasPago] = useState([]);
   const [pagos, setPagos] = useState([]);
   const autoDeletedRef = useRef(false);
+  const seededRef = useRef(false);
   
   // Form
   const [formaPagoId, setFormaPagoId] = useState('');
@@ -41,6 +42,16 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
     }
   };
 
+  // ── Precargar cobros existentes en modo edición (solo una vez) ──
+  useEffect(() => {
+    if (isEditing && !seededRef.current && Array.isArray(initialPagos) && initialPagos.length > 0) {
+      seededRef.current = true;
+      setPagos(initialPagos);
+      onPagosChange?.(initialPagos);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, initialPagos]);
+
   // Calcular totales
   const totalGeneral = detalles.reduce((sum, d) => {
     const sub = d.subtotal || d.sub_total || 0;
@@ -59,8 +70,10 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
     }
   }, [defaultFormaPagoId, formasPago]);
 
-  // ── Auto-agregar pago cuando hay detalles ──
+  // ── Auto-agregar pago cuando hay detalles (desactivado en edición:
+  // en edición los cobros se cargan desde el servidor y se editan a mano) ──
   useEffect(() => {
+    if (isEditing) return;
     // No hay detalles o no hay forma de pago por defecto → no crear
     if (detalles.length === 0 || !defaultFormaPagoId || pagadoPor === '2') return;
 
@@ -151,7 +164,9 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
         Forma de Pago
       </h3>
 
-      {/* Pagado por: Remitente / Destinatario */}
+      {/* Pagado por: Remitente / Destinatario (oculto en edición/lectura para no
+          borrar los cobros cargados por accidente) */}
+      {!isEditing && !readOnly && (
       <div style={{ marginBottom: '10px' }}>
         <label className={labelClass}>Pagado por</label>
         <div style={{ display: 'flex', gap: '16px', fontSize: '11px', color: '#475569' }}>
@@ -173,8 +188,10 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
           </label>
         </div>
       </div>
+      )}
 
-      {/* Forma de Pago + Monto + Detalle */}
+      {/* Forma de Pago + Monto + Detalle (oculto en solo lectura) */}
+      {!readOnly && (
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr auto', gap: '6px', alignItems: 'end', marginBottom: '10px' }}>
         <div>
           <label className={labelClass}>Forma de Pago</label>
@@ -203,6 +220,7 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
           <i className="fas fa-plus mr-1"></i> Agregar
         </button>
       </div>
+      )}
 
       {/* Grid de pagos */}
       {pagos.length > 0 && (
@@ -225,9 +243,11 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
                   <td style={{ padding: '6px 8px', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>{fmt(p.monto)}</td>
                   <td style={{ padding: '6px 8px', color: '#64748b' }}>{p.detalle || '-'}</td>
                   <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                    {!readOnly && (
                     <button onClick={() => handleRemovePago(p.id)} className="text-red-400 hover:text-red-600">
                       <i className="fas fa-minus-circle text-sm"></i>
                     </button>
+                    )}
                   </td>
                 </tr>
               ))}

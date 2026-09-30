@@ -125,6 +125,8 @@ export const NuevaGuiaNotaVentaPage = () => {
   // ── NUEVO: Pagos (ExtJS: pagos store) ───────────────
   const [pagos, setPagos] = useState([]);
   const [pagadoPor, setPagadoPor] = useState('1'); // 1=Remitente, 2=Destinatario → canceladopor
+  // Cobros existentes precargados en modo edición (solo lectura)
+  const [comprobantesIni, setComprobantesIni] = useState(null);
 
   // ── Modal PDF ────────────────────────────────────────
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
@@ -349,12 +351,29 @@ export const NuevaGuiaNotaVentaPage = () => {
         setOtrosDireccion(cabecera.direccion_otros || cabecera.direccion_cliente_otros || '');
       }
 
+      // Compañía asociada
+      const idComp = cabecera.id_fkcompania_asociada || cabecera.id_compania || cabecera.idcompania;
+      if (idComp) {
+        setCompania({
+          id: idComp,
+          id_compania: idComp,
+          id_compania_asociada: idComp,
+          nombre: cabecera.nombre_compania_asociada || cabecera.nombre_compania || '',
+          ruc: cabecera.ruc_compania_asociada || cabecera.ruc_compania || '',
+          telefono: cabecera.telefono_compania_asociada || cabecera.telefono_compania || '',
+          correo: cabecera.correo_compania_asociada || cabecera.correo_compania || ''
+        });
+      } else {
+        setCompania(null);
+      }
+
       // Detalles
       if (detallesArr.length > 0) {
         const idTipo = detallesArr[0].id_fktipo_envio_detalle_guia || detallesArr[0].id_tipo_envio;
         if (idTipo) setTipoEnvio(String(idTipo));
 
-        const mapDetalles = detallesArr.map(d => ({
+        const mapDetalles = detallesArr.map((d, idx) => ({
+          id: d.id_detalle_guia || d.id || `edit-${idx}-${Date.now()}`,
           contenido: d.contenido_guia || d.contenido_detalle_guia || '',
           peso: parseFloat(d.peso_guia || d.peso_detalle_guia) || 0,
           precioUnitario: parseFloat(d.costo_detalle_guia || d.subtotal_detalle_guia) || 0,
@@ -379,12 +398,44 @@ export const NuevaGuiaNotaVentaPage = () => {
       }
 
       const numMan = cabecera.numero_manual || cabecera.si_numero_manual || 0;
-      if (numMan === 1 || numMan === '1' || numMan === true) {
+      if (numMan === 1 || numMan === '1' || numMan === true || (cabecera.numero_manual_guia && String(cabecera.numero_manual_guia).trim() !== '')) {
         setNumeroManual(true);
         setNumeroManualGuia(cabecera.numero_manual_guia || '');
       }
     }
   }, [isEditing, editarGuiaObj, loading, destinos, tiposEnvio]);
+
+  // ── Cargar cobros existentes en modo edición (una vez, solo lectura) ──
+  useEffect(() => {
+    if (!isEditing || !idGuiaEdit || comprobantesIni !== null) return;
+    let vivo = true;
+    (async () => {
+      try {
+        const r = await GuiaService.getComprobantesPorCaja(idGuiaEdit);
+        const rows = Array.isArray(r?.data) ? r.data : [];
+        const mapped = rows
+          .filter(c => String(c.estado_comprobante_cobro || '').toUpperCase() !== 'ANULADA')
+          .map(c => ({
+            id: c.id_comprobante_cobro,
+            _existing: true,
+            id_comprobante_cobro: c.id_comprobante_cobro,
+            id_forma_pago: String(c.id_fkforma_pago ?? ''),
+            nombre: c.nombre_forma_pago || 'Pago',
+            monto: parseFloat(c.monto_comprobante_cobro) || 0,
+            pagado_por: pagadoPor,
+            detalle: c.observacion_comprobante_cobro || ''
+          }));
+        if (!vivo) return;
+        setComprobantesIni(mapped);
+        if (mapped.length > 0) setPagos(mapped);
+      } catch (e) {
+        console.warn('No se pudieron cargar los cobros de la nota', e);
+        if (vivo) setComprobantesIni([]);
+      }
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, idGuiaEdit]);
 
   // ── Handler crear/aperturar caja ────────────────────
   const handleCrearCaja = async (data) => {
@@ -584,22 +635,25 @@ export const NuevaGuiaNotaVentaPage = () => {
   // ── Handler Guardar ──────────────────────────────────
   const handleGuardar = async () => {
     // ── Validaciones completas con errores en rojo ANTES de confirmación ──
+    // En edición solo se exigen remitente, destinatario y destino (los valores van bloqueados)
     const errors = {};
     if (!remitente || !remitente.cedula || !remitente.nombres) errors.remitente = true;
     if (!destinatario || !destinatario.cedula || !destinatario.nombres) errors.destinatario = true;
     if (!origen) errors.origen = true;
     if (!destino || !destinoTexto) errors.destino = true;
-    if (!compania) errors.compania = true;
-    if (!tipoEnvio) errors.tipoEnvio = true;
-    if (facturarA === '3') {
-      if (!otrosIdentidad || !otrosNombre || !otrosTelefono || !otrosCorreo) {
-        errors.otros = true;
-        toast.error('Debe completar el correo y teléfono en la sección "Otros"');
+    if (!isEditing) {
+      if (!compania) errors.compania = true;
+      if (!tipoEnvio) errors.tipoEnvio = true;
+      if (facturarA === '3') {
+        if (!otrosIdentidad || !otrosNombre || !otrosTelefono || !otrosCorreo) {
+          errors.otros = true;
+          toast.error('Debe completar el correo y teléfono en la sección "Otros"');
+        }
       }
+      if (detalles.length === 0) errors.detalles = true;
+      const detalleInvalido = detalles.find(d => !d.contenido || (parseFloat(d.precioUnitario) <= 0 && parseFloat(d.subtotal) <= 0));
+      if (detalleInvalido) errors.detalles = true;
     }
-    if (detalles.length === 0) errors.detalles = true;
-    const detalleInvalido = detalles.find(d => !d.contenido || (parseFloat(d.precioUnitario) <= 0 && parseFloat(d.subtotal) <= 0));
-    if (detalleInvalido) errors.detalles = true;
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -618,6 +672,57 @@ export const NuevaGuiaNotaVentaPage = () => {
     // Confirmación (ExtJS behavior)
     const confirmGuardar = await Swal.fire({ title: '¿Guardar guía?', text: '¿Está seguro de guardar la guía?', icon: 'question', showCancelButton: true, confirmButtonText: 'Sí, guardar', cancelButtonText: 'Cancelar' });
     if (!confirmGuardar.isConfirmed) return;
+
+    // ── EDICIÓN RESTRINGIDA: solo destino + remitente + destinatario ──
+    if (isEditing) {
+      if (!remitente?.cedula || !remitente?.nombres || !destinatario?.cedula || !destinatario?.nombres || !destinoTexto) {
+        toast.error('Complete remitente, destinatario y destino antes de guardar');
+        return;
+      }
+      setSaving(true);
+      try {
+        const editParams = {
+          id_guia: parseInt(idGuiaEdit),
+          destino_guia: destinoTexto || '',
+          destino: destinoTexto || '',
+          idclienterem: remitente.id_cliente || 0,
+          id_remitente: remitente.id_cliente || null,
+          cedula_remitente: remitente.cedula,
+          nombre_remitente: remitente.nombres,
+          direccion_remitente: remitente.direccion,
+          direccionemisor: remitente.direccion,
+          telefono_remitente: remitente.telefono,
+          telefonoemisor: remitente.telefono,
+          email_remitente: remitente.email,
+          correoemisor: remitente.email,
+          idclienterec: destinatario.id_cliente || 0,
+          id_destinatario: destinatario.id_cliente || null,
+          cedula_destinatario: destinatario.cedula,
+          cedula_receptor: destinatario.cedula,
+          nombre_destinatario: destinatario.nombres,
+          nombre_receptor: destinatario.nombres,
+          direccion_destinatario: destinatario.direccion,
+          direccionreceptor: destinatario.direccion,
+          telefono_destinatario: destinatario.telefono,
+          telefonoreceptor: destinatario.telefono,
+          email_destinatario: destinatario.email,
+          correorecptor: destinatario.email,
+        };
+        const editResult = await GuiaService.actualizarGuia(editParams);
+        if (editResult && editResult.success) {
+          toast.success('Nota de venta actualizada correctamente');
+          navigate('/notas-venta');
+        } else {
+          toast.error(editResult?.message || 'No se pudo actualizar la nota de venta');
+        }
+      } catch (err) {
+        console.error(err);
+        toast.error('Error al actualizar la nota de venta');
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
 
     // Totales calculados
     const totalSubtotal = detalles.reduce((sum, d) => sum + (d.subtotal || 0), 0);
@@ -780,16 +885,9 @@ export const NuevaGuiaNotaVentaPage = () => {
       estado: 'Pendiente'
     };
 
-    // Si es edición, pasamos el id_guia
-    if (isEditing) {
-      parametros.id_guia = parseInt(idGuiaEdit);
-    }
-
     setSaving(true);
     try {
-      const result = isEditing
-        ? await GuiaService.actualizarGuia(parametros)
-        : await GuiaService.insertarGuia(parametros);
+      const result = await GuiaService.insertarGuia(parametros);
 
       if (result && result.success) {
         // Verificar tipo de respuesta (tipo 3 = no hay caja aperturada)
@@ -1151,17 +1249,17 @@ export const NuevaGuiaNotaVentaPage = () => {
                   </div>
                 )}
               </div>
-              {/* A quién se factura */}
+              {/* A quién se factura (bloqueado en edición) */}
               <div>
                 <label className={labelClass}>A quién se factura</label>
-                <select className={inputClass} value={facturarA} onChange={(e) => setFacturarA(e.target.value)}>
+                <select className={inputClass} value={facturarA} onChange={(e) => setFacturarA(e.target.value)} disabled={isEditing}>
                   <option value="1">Remitente</option>
                   <option value="2">Destinatario</option>
                   <option value="3">Otros</option>
                 </select>
               </div>
             </div>
-            {/* Observación - dentro de Info Básica como en ExtJS */}
+            {/* Observación - dentro de Info Básica como en ExtJS (bloqueada en edición) */}
             <div style={{ marginTop: '10px' }}>
               <label className={labelClass}>Observación</label>
               <textarea
@@ -1169,12 +1267,13 @@ export const NuevaGuiaNotaVentaPage = () => {
                 placeholder="Observaciones de la guía (opcional)..."
                 value={observacion}
                 onChange={(e) => setObservacion(e.target.value)}
+                disabled={isEditing}
                 style={{ resize: 'vertical', minHeight: '36px', paddingTop: '6px' }}
               ></textarea>
             </div>
           </div>
 
-          {/* Compañía */}
+          {/* Compañía (solo lectura en edición) */}
           <CompaniaPanel
             cliente={remitente}
             compania={compania}
@@ -1182,6 +1281,7 @@ export const NuevaGuiaNotaVentaPage = () => {
             error={fieldErrors.compania}
             destinos={destinos}
             onSeleccionarDestino={(id, txt) => handleSetDestino(id, txt)}
+            readOnly={isEditing}
           />
         </div>
 
@@ -1206,13 +1306,15 @@ export const NuevaGuiaNotaVentaPage = () => {
             error={fieldErrors.destinatario}
           />
 
-          {/* ── OTROS (tercera persona) ──────────────────── */}
+          {/* ── OTROS (tercera persona) — bloqueado en edición ── */}
+          <fieldset disabled={isEditing} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
           <div className={cardClass} style={{ padding: '16px', opacity: facturarA !== '3' ? 0.5 : 1 }}>
             <h3 style={sectionTitle}>
               <div style={{ ...sectionIcon, background: 'linear-gradient(135deg, #fef3c7, #fde68a)' }}>
                 <i className="fas fa-user-friends" style={{ color: '#d97706', fontSize: '11px' }}></i>
               </div>
               Otros
+              {isEditing && <span style={{ fontSize: '9px', fontWeight: 700, color: '#94a3b8', background: '#f1f5f9', padding: '2px 8px', borderRadius: '10px' }}>SOLO LECTURA</span>}
             </h3>
 
             {/* Identidad + Botones */}
@@ -1315,6 +1417,7 @@ export const NuevaGuiaNotaVentaPage = () => {
               </>
             )}
           </div>
+          </fieldset>
         </div>
 
         {/* ═══════════════════════════════════════════════════
@@ -1343,10 +1446,10 @@ export const NuevaGuiaNotaVentaPage = () => {
                 </span>
               </div>
             </div>
-            {/* Tipo de Envío - dentro de ENCOMIENDA como en ExtJS */}
+            {/* Tipo de Envío - dentro de ENCOMIENDA como en ExtJS (bloqueado en edición) */}
             <div style={{ marginBottom: '10px' }}>
               <label className={labelClass}>Tipo de Envío *</label>
-              <select className={fieldErrors.tipoEnvio ? `${inputClass} border-2 border-red-400` : inputClass} value={tipoEnvio} onChange={(e) => {
+              <select className={fieldErrors.tipoEnvio ? `${inputClass} border-2 border-red-400` : inputClass} value={tipoEnvio} disabled={isEditing} onChange={(e) => {
                 const val = e.target.value;
                 handleSetTipoEnvio(val);
                 const obj = tiposEnvio.find(t => String(t.id || t.value) === val);
@@ -1369,9 +1472,11 @@ export const NuevaGuiaNotaVentaPage = () => {
               tipoEnvioId={tipoEnvio}
               error={fieldErrors.detalles}
               cobrarIvaGuia={cobrarIvaGuia}
+              isEditing={isEditing}
             />
 
-            {/* ── Número Manual ──────────────────────────── */}
+            {/* ── Número Manual (bloqueado en edición) ── */}
+            <fieldset disabled={isEditing} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
             <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', fontSize: '11px', color: '#475569', fontWeight: 600 }}>
                 <input type="checkbox" checked={numeroManual} onChange={(e) => setNumeroManual(e.target.checked)}
@@ -1384,8 +1489,10 @@ export const NuevaGuiaNotaVentaPage = () => {
                   placeholder="# Guía" />
               )}
             </div>
+            </fieldset>
 
-            {/* ── Valor Declarado ────────────────────────── */}
+            {/* ── Valor Declarado (bloqueado en edición) ── */}
+            <fieldset disabled={isEditing} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
             <div style={{ marginTop: '10px', padding: '10px 12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <label style={{ fontSize: '10px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', display: 'block' }}>
                 Valor Declarado
@@ -1421,11 +1528,13 @@ export const NuevaGuiaNotaVentaPage = () => {
                 )}
               </div>
             </div>
+            </fieldset>
           </div>
 
           {/* ── Columna Derecha: Descuento + Forma de Pago ── */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Descuento */}
+            {/* Descuento (bloqueado en edición) */}
+            <fieldset disabled={isEditing} style={{ border: 'none', margin: 0, padding: 0, minWidth: 0 }}>
             <div className={cardClass} style={{ padding: '16px' }}>
               <h3 style={sectionTitle}>
                 <div style={{ ...sectionIcon, background: 'linear-gradient(135deg, #fce7f3, #fbcfe8)' }}>
@@ -1451,8 +1560,9 @@ export const NuevaGuiaNotaVentaPage = () => {
                 </label>
               </div>
             </div>
+            </fieldset>
 
-            {/* ── Forma de Pago ───────────────────────────── */}
+            {/* ── Forma de Pago (solo lectura en edición) ── */}
             {!isEditing ? (
               <FormaPagoPanel
                 detalles={detalles}
@@ -1464,13 +1574,18 @@ export const NuevaGuiaNotaVentaPage = () => {
                 configTipoTarifa={configTipoTarifa}
               />
             ) : (
-              <div className={cardClass} style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8fafc' }}>
-                <div className="text-center text-slate-400">
-                  <i className="fas fa-lock text-2xl mb-2"></i>
-                  <p className="text-xs font-semibold uppercase tracking-wider mt-2">Pagos deshabilitados en edición</p>
-                  <p className="text-[10px] opacity-75">Para modificar los pagos, anule y genere una nueva guía.</p>
-                </div>
-              </div>
+              <FormaPagoPanel
+                detalles={detalles}
+                convenio={convenio}
+                onPagosChange={setPagos}
+                pagadoPor={pagadoPor}
+                onPagadoPorChange={setPagadoPor}
+                defaultFormaPagoId={defaultFormaPagoId}
+                configTipoTarifa={configTipoTarifa}
+                initialPagos={comprobantesIni}
+                isEditing={true}
+                readOnly={true}
+              />
             )}
           </div>
         </div>

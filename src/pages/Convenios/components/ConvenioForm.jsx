@@ -19,6 +19,7 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
       correo: '',
       estado: true,
       observacion: '',
+      es_propia: false,
     }
   });
 
@@ -35,6 +36,7 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
         correo: initialData.correo_compania_asociada || '',
         estado: initialData.estado_compania_asociada == 1 || initialData.estado_compania_asociada === '1',
         observacion: initialData.observacion_compania_asociada || initialData.observacion_compania_asoc || '',
+        es_propia: Number(initialData.es_propia) === 1,
       });
     } else {
       reset({
@@ -47,6 +49,7 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
         correo: '',
         estado: true,
         observacion: '',
+        es_propia: false,
       });
     }
   }, [initialData, reset]);
@@ -119,7 +122,19 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
       if (isEditing) {
         await api.post('/companiaasociada/companiaasociadainsertarActualizar', { ...payload, id: initialData.id_compania_asociada });
       } else {
-        await api.post('/companiaasociada/companiaasociadainsertarActualizar', payload);
+        const resSave = await api.post('/companiaasociada/companiaasociadainsertarActualizar', payload);
+        var idNueva = resSave?.data?.id || null;
+      }
+      // Si se marcó como propia, registrar la marca (solo puede haber una)
+      const idComp = isEditing ? initialData.id_compania_asociada : (typeof idNueva !== 'undefined' ? idNueva : null);
+      if (data.es_propia && idComp) {
+        try {
+          await api.post('/companiaasociada/marcarPropia', { id_compania_asociada: idComp });
+          toast.success('Compañía marcada como mi cooperativa');
+        } catch (e) {
+          console.error('Error marcando propia:', e);
+          toast.error('Se guardó, pero no se pudo marcar como propia');
+        }
       }
       toast.success(isEditing ? 'Convenio actualizado correctamente' : 'Convenio creado correctamente');
       onSubmit(data);
@@ -295,6 +310,17 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
             <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
             <span className="ml-3 text-sm font-semibold text-slate-700">Activo</span>
           </label>
+        </div>
+
+        {/* Es mi cooperativa */}
+        <div>
+          <label className={labelClass}>Mi Cooperativa</label>
+          <label className="relative inline-flex items-center cursor-pointer mt-1">
+            <input type="checkbox" className="sr-only peer" {...register('es_propia')} />
+            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+            <span className="ml-3 text-sm font-semibold text-slate-700">Es mi cooperativa</span>
+          </label>
+          <p className="text-[11px] text-slate-400 mt-1">Solo una compañía puede ser la propia. Sus destinos se usan en Guías de Compañía.</p>
         </div>
 
         {/* Observación */}
