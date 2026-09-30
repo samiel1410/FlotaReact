@@ -1,5 +1,6 @@
 import React from 'react';
 import DespachoTripCard from './DespachoTripCard';
+import './despachoScroll.css';
 
 export const DespachoTripList = ({
   searchTerm,
@@ -12,7 +13,7 @@ export const DespachoTripList = ({
   onSelectTrip,
 }) => {
   return (
-    <aside className="w-80 md:w-96 shrink-0 bg-slate-50/50 border-r border-slate-200 flex flex-col h-full overflow-hidden">
+    <aside className="w-80 md:w-96 shrink-0 bg-slate-50/50 border-r border-slate-200 flex flex-col h-full min-h-0 overflow-hidden">
       {/* Barra de búsqueda rápida */}
       <div className="p-3 bg-white border-b border-slate-200 shrink-0">
         <div className="relative">
@@ -44,7 +45,7 @@ export const DespachoTripList = ({
       </div>
 
       {/* Listado de viajes con scroll */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3.5">
+      <div className="flex-1 min-h-[240px] max-h-[calc(100vh-260px)] overflow-y-auto p-3 space-y-3.5 despacho-scroll">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
             <i className="fas fa-circle-notch fa-spin text-2xl text-blue-500" />

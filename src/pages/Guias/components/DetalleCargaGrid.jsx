@@ -6,7 +6,7 @@ import { getIvaRate, desgloseItem } from '../../../utils/ivaUtils';
  * Columnas: CANT | TIPO ENVÍO | CONTENIDO | PESO | Precio Unit | Subtotal | Descuento | Tarifa | IVA | Total
  */
 
-export const DetalleCargaGrid = ({ detalles, onChange, convenio, costoEnvioPorDefecto, tiposEnvio = [], tipoEnvioId, isEditing = false, error, cobrarIvaGuia = true }) => {
+export const DetalleCargaGrid = ({ detalles, onChange, convenio, costoEnvioPorDefecto, tiposEnvio = [], tipoEnvioId, isEditing = false, error, cobrarIvaGuia = true, resetSignal = 0 }) => {
   const [nuevo, setNuevo] = useState({
     cantidad: 1,
     tipoEnvioId: tipoEnvioId || '',
@@ -15,6 +15,16 @@ export const DetalleCargaGrid = ({ detalles, onChange, convenio, costoEnvioPorDe
     peso: '',
     precioUnitario: costoEnvioPorDefecto || ''
   });
+
+  // ── Reset externo (nueva guía tras guardar): limpiar fila de ingreso ──
+  const resetRef = useRef(resetSignal);
+  useEffect(() => {
+    if (resetSignal !== resetRef.current) {
+      resetRef.current = resetSignal;
+      setNuevo({ cantidad: 1, tipoEnvioId: tipoEnvioId || '', tipoEnvioNombre: '', contenido: '', peso: '', precioUnitario: costoEnvioPorDefecto || '' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetSignal]);
 
   // Sincronizar tipoEnvioId cuando cambia el combo principal
   useEffect(() => {

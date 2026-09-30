@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GuiaService } from '../../../services/guia.service';
 import { clienteApi } from '../../../config/axios';
 import Modal from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
 
-export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioFound, onDestinatarioAutoFill, error }) => {
+export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioFound, onDestinatarioAutoFill, error, resetSignal = 0 }) => {
   const [busqueda, setBusqueda] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -16,6 +16,25 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     correo_cliente: '',
     telefono_cliente: ''
   });
+
+  // ── Reset externo (nueva guía tras guardar): limpiar búsqueda y modales ──
+  const resetRef = useRef(resetSignal);
+  useEffect(() => {
+    if (resetSignal !== resetRef.current) {
+      resetRef.current = resetSignal;
+      setBusqueda('');
+      setShowCreateForm(false);
+      setShowEditModal(false);
+      setNewCliente({
+        identificacion_cliente: '',
+        tipo_identificacion_cliente: '05',
+        nombre_cliente: '',
+        direccion_cliente: '',
+        correo_cliente: '',
+        telefono_cliente: ''
+      });
+    }
+  }, [resetSignal]);
 
   // ── Estado para el Modal de Edición ─────────────────
   const [showEditModal, setShowEditModal] = useState(false);

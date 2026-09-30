@@ -17,11 +17,27 @@ import { GuiaService } from '../../../services/guia.service';
  *   un pago en la grilla con la forma de pago por defecto y el total
  * - El monto del pago automático se actualiza al cambiar el total
  */
-export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPorChange, defaultFormaPagoId, initialPagos = null, isEditing = false, readOnly = false }) => {
+export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPorChange, defaultFormaPagoId, initialPagos = null, isEditing = false, readOnly = false, resetSignal = 0 }) => {
   const [formasPago, setFormasPago] = useState([]);
   const [pagos, setPagos] = useState([]);
   const autoDeletedRef = useRef(false);
   const seededRef = useRef(false);
+
+  // ── Reset externo (nueva guía tras guardar): limpiar estado interno ──
+  const resetRef = useRef(resetSignal);
+  useEffect(() => {
+    if (resetSignal !== resetRef.current) {
+      resetRef.current = resetSignal;
+      seededRef.current = false;
+      autoDeletedRef.current = false;
+      setPagos([]);
+      setMonto('');
+      setDetalle('');
+      setFormaPagoId(defaultFormaPagoId || '');
+      onPagosChange?.([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetSignal]);
   
   // Form
   const [formaPagoId, setFormaPagoId] = useState('');

@@ -331,9 +331,11 @@ try {
         $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
     }
 
-    if (!empty($direccion_empresa)) {
-        $pdf->SetFont('helvetica', '', 7);
-        $pdf->MultiCell($anchoUtil, 3.2, $direccion_empresa, 0, 'C', false, 1);
+    // Oficina que despacha (en lugar de la dirección de la empresa)
+    $nombreOficinaDespacho = trim($despacho['nombre_sucursal'] ?? '');
+    if (!empty($nombreOficinaDespacho)) {
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->Cell($anchoUtil, 4, strtoupper($nombreOficinaDespacho), 0, 1, 'C');
     }
 
     $pdf->SetFont('helvetica', 'B', 9.5);

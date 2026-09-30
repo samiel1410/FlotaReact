@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GuiaService } from '../../../services/guia.service';
 import Modal from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
@@ -7,12 +7,23 @@ import toast from 'react-hot-toast';
  * CompaniaPanel - Muestra la Compañía Asociada con sus botones de acción (Destinos, Buscar, Limpiar)
  * y el Nombre de la Compañía destacado en grande.
  */
-export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCompania, error, destinos = [], onSeleccionarDestino, readOnly = false }) => {
+export const CompaniaPanel = ({ cliente, compania: companiaProp, onSeleccionarCompania, error, destinos = [], onSeleccionarDestino, readOnly = false, resetSignal = 0 }) => {
   const [rucBusqueda, setRucBusqueda] = useState('');
   const [buscando, setBuscando] = useState(false);
   const [showModalCompanias, setShowModalCompanias] = useState(false);
   const [filtroModal, setFiltroModal] = useState('');
   const compania = companiaProp || null;
+
+  // ── Reset externo (nueva guía tras guardar): limpiar búsqueda ──
+  const resetRef = useRef(resetSignal);
+  useEffect(() => {
+    if (resetSignal !== resetRef.current) {
+      resetRef.current = resetSignal;
+      setRucBusqueda('');
+      setFiltroModal('');
+      setShowModalCompanias(false);
+    }
+  }, [resetSignal]);
 
   const nombreCompania = compania?.nombre || compania?.nombre_compania_asociada || cliente?.nombre || '';
 

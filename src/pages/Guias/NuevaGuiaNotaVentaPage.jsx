@@ -127,6 +127,8 @@ export const NuevaGuiaNotaVentaPage = () => {
   const [pagadoPor, setPagadoPor] = useState('1'); // 1=Remitente, 2=Destinatario → canceladopor
   // Cobros existentes precargados en modo edición (solo lectura)
   const [comprobantesIni, setComprobantesIni] = useState(null);
+  // Señal para limpiar el estado interno de los paneles al resetear
+  const [formResetKey, setFormResetKey] = useState(0);
 
   // ── Modal PDF ────────────────────────────────────────
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
@@ -1066,6 +1068,7 @@ export const NuevaGuiaNotaVentaPage = () => {
     setOtrosCorreo('');
     setOtrosDireccion('');
     setSelectedTipoEnvioObj(null);
+    setFormResetKey(k => k + 1);
     toast.success('Formulario listo para nueva guía');
   };
 
@@ -1282,6 +1285,7 @@ export const NuevaGuiaNotaVentaPage = () => {
             destinos={destinos}
             onSeleccionarDestino={(id, txt) => handleSetDestino(id, txt)}
             readOnly={isEditing}
+            resetSignal={formResetKey}
           />
         </div>
 
@@ -1297,6 +1301,7 @@ export const NuevaGuiaNotaVentaPage = () => {
             onConvenioFound={handleConvenioFound}
             onDestinatarioAutoFill={handleDestinatarioAutoFill}
             error={fieldErrors.remitente}
+            resetSignal={formResetKey}
           />
           <RemitenteDestinatarioForm
             tipo="Destinatario"
@@ -1304,6 +1309,7 @@ export const NuevaGuiaNotaVentaPage = () => {
             onChange={handleSetDestinatario}
             remitenteId={remitente?.id_cliente}
             error={fieldErrors.destinatario}
+            resetSignal={formResetKey}
           />
 
           {/* ── OTROS (tercera persona) — bloqueado en edición ── */}
@@ -1473,6 +1479,7 @@ export const NuevaGuiaNotaVentaPage = () => {
               error={fieldErrors.detalles}
               cobrarIvaGuia={cobrarIvaGuia}
               isEditing={isEditing}
+              resetSignal={formResetKey}
             />
 
             {/* ── Número Manual (bloqueado en edición) ── */}
@@ -1572,6 +1579,7 @@ export const NuevaGuiaNotaVentaPage = () => {
                 onPagadoPorChange={setPagadoPor}
                 defaultFormaPagoId={defaultFormaPagoId}
                 configTipoTarifa={configTipoTarifa}
+                resetSignal={formResetKey}
               />
             ) : (
               <FormaPagoPanel
@@ -1585,6 +1593,7 @@ export const NuevaGuiaNotaVentaPage = () => {
                 initialPagos={comprobantesIni}
                 isEditing={true}
                 readOnly={true}
+                resetSignal={formResetKey}
               />
             )}
           </div>

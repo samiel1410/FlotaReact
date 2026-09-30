@@ -219,11 +219,26 @@ try {
     $pdf->AddPage();
 
     // ─── 1. CABECERA ─────────────────────────────────────────────────────────
+    // Oficina que emite la lista: filtro id_sucursal o primera oficina del listado
+    $oficinaEmite = $nombre_sucursal_filtro;
+    if (empty($oficinaEmite) && !empty($pasajeros[0]['nombre_sucursal'])) {
+        $oficinaEmite = $pasajeros[0]['nombre_sucursal'];
+    }
+
     if ($rutaLogo && file_exists($rutaLogo)) {
-        $logoW = 30;
+        $logoW = 22;
+        // Altura real según proporción para no tapar el texto
+        $logoH = 12;
+        $sizeLogo = @getimagesize($rutaLogo);
+        if ($sizeLogo && $sizeLogo[0] > 0) {
+            $logoH = round($logoW * $sizeLogo[1] / $sizeLogo[0], 1);
+            if ($logoH > 26) {
+                $logoH = 26;
+            }
+        }
         $xLogo = $margen + ($anchoUtil - $logoW) / 2;
-        $pdf->Image($rutaLogo, $xLogo, $pdf->GetY(), $logoW, 0, '', '', '', true, 150);
-        $pdf->Ln(13);
+        $pdf->Image($rutaLogo, $xLogo, $pdf->GetY(), $logoW, $logoH, '', '', '', true, 150);
+        $pdf->Ln($logoH + 2);
     }
 
     $pdf->SetFont('helvetica', 'B', 10.5);
@@ -233,9 +248,10 @@ try {
         $pdf->SetFont('helvetica', '', 7.5);
         $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
     }
-    if (!empty($direccion_empresa)) {
-        $pdf->SetFont('helvetica', '', 7);
-        $pdf->MultiCell($anchoUtil, 3.2, $direccion_empresa, 0, 'C', false, 1);
+    // Oficina que emite la lista (en lugar de la dirección de la empresa)
+    if (!empty($oficinaEmite)) {
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->Cell($anchoUtil, 4, strtoupper($oficinaEmite), 0, 1, 'C');
     }
     if (!empty($telefono_empresa)) {
         $pdf->SetFont('helvetica', '', 7);
@@ -341,11 +357,16 @@ try {
         $origen_subtotal_pasajeros++;
         $origen_subtotal_valor += $precio;
 
+        // Textos recortados al ancho de columna para que no se encimen
+        $txtAsi = (string)($row['asiento_boleto_detalle'] ?? '');
+        $txtCed = substr((string)($row['identificacion_boleto_detalle'] ?? ''), 0, 13);
+        $txtNom = substr(trim((string)($row['nombre_cliente_boleto_detalle'] ?? '')), 0, 15);
+        $txtDes = substr(trim((string)($row['lugar_destino'] ?? '')), 0, 13);
         $pdf->SetFont('helvetica', '', 6.8);
-        $pdf->Cell($wAsi, 3.6, $row['asiento_boleto_detalle'], 0, 0, 'C');
-        $pdf->Cell($wCed, 3.6, $row['identificacion_boleto_detalle'], 0, 0, 'L');
-        $pdf->Cell($wNom, 3.6, substr($row['nombre_cliente_boleto_detalle'], 0, 18), 0, 0, 'L');
-        $pdf->Cell($wDest, 3.6, substr($row['lugar_destino'], 0, 16), 0, 0, 'L');
+        $pdf->Cell($wAsi, 3.6, $txtAsi, 0, 0, 'C');
+        $pdf->Cell($wCed, 3.6, $txtCed, 0, 0, 'L');
+        $pdf->Cell($wNom, 3.6, $txtNom, 0, 0, 'L');
+        $pdf->Cell($wDest, 3.6, $txtDes, 0, 0, 'L');
         $pdf->Cell($wVal, 3.6, '$' . number_format($precio, 2), 0, 1, 'R');
     }
 

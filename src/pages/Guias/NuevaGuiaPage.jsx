@@ -128,6 +128,8 @@ export const NuevaGuiaPage = () => {
   const [pagadoPor, setPagadoPor] = useState('1'); // 1=Remitente, 2=Destinatario → canceladopor
   // Cobros existentes precargados en modo edición (para el panel de pagos)
   const [comprobantesIni, setComprobantesIni] = useState(null);
+  // Señal para limpiar el estado interno de los paneles al resetear
+  const [formResetKey, setFormResetKey] = useState(0);
 
   // ── Modal PDF ────────────────────────────────────────
   const [pdfModalOpen, setPdfModalOpen] = useState(false);
@@ -1069,6 +1071,7 @@ export const NuevaGuiaPage = () => {
     setOtrosCorreo('');
     setOtrosDireccion('');
     setSelectedTipoEnvioObj(null);
+    setFormResetKey(k => k + 1);
     toast.success('Formulario listo para nueva guía');
   };
 
@@ -1285,6 +1288,7 @@ export const NuevaGuiaPage = () => {
             destinos={destinos}
             onSeleccionarDestino={(id, txt) => handleSetDestino(id, txt)}
             readOnly={isEditing}
+            resetSignal={formResetKey}
           />
         </div>
 
@@ -1300,6 +1304,7 @@ export const NuevaGuiaPage = () => {
             onConvenioFound={handleConvenioFound}
             onDestinatarioAutoFill={handleDestinatarioAutoFill}
             error={fieldErrors.remitente}
+            resetSignal={formResetKey}
           />
           <RemitenteDestinatarioForm
             tipo="Destinatario"
@@ -1307,6 +1312,7 @@ export const NuevaGuiaPage = () => {
             onChange={handleSetDestinatario}
             remitenteId={remitente?.id_cliente}
             error={fieldErrors.destinatario}
+            resetSignal={formResetKey}
           />
 
           {/* ── OTROS (tercera persona) — bloqueado en edición ── */}
@@ -1476,6 +1482,7 @@ export const NuevaGuiaPage = () => {
               error={fieldErrors.detalles}
               cobrarIvaGuia={cobrarIvaGuia}
               isEditing={isEditing}
+              resetSignal={formResetKey}
             />
 
             {/* ── Número Manual (bloqueado en edición) ── */}
@@ -1575,6 +1582,7 @@ export const NuevaGuiaPage = () => {
                 onPagadoPorChange={setPagadoPor}
                 defaultFormaPagoId={defaultFormaPagoId}
                 configTipoTarifa={configTipoTarifa}
+                resetSignal={formResetKey}
               />
             ) : (
               <FormaPagoPanel
@@ -1588,6 +1596,7 @@ export const NuevaGuiaPage = () => {
                 initialPagos={comprobantesIni}
                 isEditing={true}
                 readOnly={true}
+                resetSignal={formResetKey}
               />
             )}
           </div>

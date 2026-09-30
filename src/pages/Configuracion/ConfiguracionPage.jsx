@@ -122,6 +122,7 @@ export const ConfiguracionPage = () => {
             formato_impresion: conf.formato_impresion || '80mm',
             descuento_global_boleto: conf.descuento_global_boleto === 1 || conf.descuento_global_boleto === true,
             omitir_confirmacion_boleto: conf.omitir_confirmacion_boleto === 1 || conf.omitir_confirmacion_boleto === true,
+            permitir_consumidor_final: conf.permitir_consumidor_final === undefined || conf.permitir_consumidor_final === 1 || conf.permitir_consumidor_final === true,
           };
           setConfigData(newConf);
           reset(newConf);
@@ -288,7 +289,7 @@ export const ConfiguracionPage = () => {
         if (CAMPOS_ESPECIALES.includes(key)) return acc; // se agregan abajo si aplican
         if (value === undefined || value === null) return acc;
 
-        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto') {
+        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto' || key === 'permitir_consumidor_final') {
           acc[key] = +!!value;
         } else if (key === 'cobrar_iva_guia' || key === 'imprimir_boucher_guia') {
           acc[key] = value ? 1 : 0;
@@ -661,6 +662,23 @@ export const ConfiguracionPage = () => {
                           </label>
                           <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
                             Al activar esta opción, al presionar 'Guardar Boleto', la venta se registrará directamente sin mostrar la ventana emergente de confirmación previa (modo rápido).
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 bg-blue-50/60 border border-blue-200 rounded-xl">
+                        <input
+                          type="checkbox"
+                          {...register('permitir_consumidor_final')}
+                          id="permitir_consumidor_final"
+                          className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 mt-0.5 cursor-pointer"
+                        />
+                        <div>
+                          <label htmlFor="permitir_consumidor_final" className="text-sm font-bold text-slate-800 cursor-pointer">
+                            Mostrar Botón Consumidor Final en Boletos
+                          </label>
+                          <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+                            Al activar esta opción se muestra el botón 'CF' en Nuevo Boleto para vender rápidamente a consumidor final. Al desactivarla, el botón se oculta.
                           </p>
                         </div>
                       </div>

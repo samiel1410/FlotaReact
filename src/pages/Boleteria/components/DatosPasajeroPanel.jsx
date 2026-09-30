@@ -6,6 +6,7 @@ export const DatosPasajeroPanel = ({
   onBuscarCI,
   onLimpiarPasajero,
   onConsumidorFinal,
+  mostrarConsumidorFinal = true,
   onOpenCrearCliente,
   onOpenEditarCliente,
   onFechaNacimientoChange
@@ -75,6 +76,7 @@ export const DatosPasajeroPanel = ({
             >
               <i className="fas fa-search" style={{ fontSize: 11 }}></i>
             </button>
+            {mostrarConsumidorFinal && (
             <button
               type="button"
               title="Consumidor Final"
@@ -88,6 +90,7 @@ export const DatosPasajeroPanel = ({
             >
               <i className="fas fa-user-tag" style={{ fontSize: 10 }}></i> CF
             </button>
+            )}
             <button
               type="button"
               title="Limpiar datos"

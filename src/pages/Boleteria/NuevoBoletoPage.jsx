@@ -89,6 +89,7 @@ export const NuevoBoletoPage = () => {
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [descuentoGlobalBoleto, setDescuentoGlobalBoleto] = useState(false);
   const [omitirConfirmacionBoleto, setOmitirConfirmacionBoleto] = useState(false);
+  const [permitirConsumidorFinal, setPermitirConsumidorFinal] = useState(true);
   const [refreshAsientosKey, setRefreshAsientosKey] = useState(0);
   const [asientosPendientes, setAsientosPendientes] = useState({});
 
@@ -247,6 +248,9 @@ export const NuevoBoletoPage = () => {
           }
           if (cfg.omitir_confirmacion_boleto === 1 || cfg.omitir_confirmacion_boleto === true) {
             setOmitirConfirmacionBoleto(true);
+          }
+          if (cfg.permitir_consumidor_final === 0 || cfg.permitir_consumidor_final === false) {
+            setPermitirConsumidorFinal(false);
           }
         }
 
@@ -1276,6 +1280,7 @@ export const NuevoBoletoPage = () => {
                 setFormData(prev => ({ ...prev, idCliente: '', identificacion: '', nombres: '', celular: '', direccion: '', correo: '', fechaNacimiento: '', tarifa: 1 }));
               }}
               onConsumidorFinal={handleConsumidorFinal}
+              mostrarConsumidorFinal={permitirConsumidorFinal}
               onOpenCrearCliente={() => {
                 marcarActividadReal();
                 setClienteAEditar(null);
