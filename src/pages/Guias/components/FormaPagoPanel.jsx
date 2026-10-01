@@ -51,7 +51,8 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
   const loadFormasPago = async () => {
     try {
       const res = await GuiaService.getFormasPagoCombo();
-      const raw = res?.data || [];
+      // El endpoint devuelve { data: [...], success } (o el array directo)
+      const raw = Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
       setFormasPago(raw.map(fp => ({ ...fp, id: fp.id_forma_pago, nombre: fp.nombre_forma_pago })));
     } catch (e) {
       console.error('Error cargando formas de pago:', e);
