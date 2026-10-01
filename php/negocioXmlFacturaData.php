@@ -26,13 +26,8 @@ try {
         exit;
     }
 
-    // Guardar el XML en un archivo físico
-    $xmlFolder = __DIR__ . '/xml_facturas/';
-    if (!is_dir($xmlFolder)) {
-        mkdir($xmlFolder, 0777, true);
-    }
-    $xmlFile = $xmlFolder . 'factura_' . $id_factura . '.xml';
-    file_put_contents($xmlFile, $var['comprobante']);
+    // NOTA: ya NO se guarda copia física en xml_facturas/ (solo se devuelve
+    // el XML en el JSON para firmar/enviar al SRI en memoria).
 
     // Devolver el XML en formato JSON (igual que Boletos)
     echo json_encode([
