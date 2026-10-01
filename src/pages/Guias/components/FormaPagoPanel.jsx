@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import toast from 'react-hot-toast';
 import { GuiaService } from '../../../services/guia.service';
 
 /**
@@ -34,6 +35,7 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
       setMonto('');
       setDetalle('');
       setFormaPagoId(defaultFormaPagoId || '');
+      setErrorAdd({ forma: false, monto: false });
       onPagosChange?.([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -43,6 +45,8 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
   const [formaPagoId, setFormaPagoId] = useState('');
   const [monto, setMonto] = useState('');
   const [detalle, setDetalle] = useState('');
+  // Campos marcados en rojo al intentar agregar incompleto
+  const [errorAdd, setErrorAdd] = useState({ forma: false, monto: false });
 
   useEffect(() => {
     loadFormasPago();
@@ -50,12 +54,17 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
 
   const loadFormasPago = async () => {
     try {
+      console.log('[FormaPagoPanel] cargando formas de pago...');
       const res = await GuiaService.getFormasPagoCombo();
+      console.log('[FormaPagoPanel] respuesta cruda:', res);
       // El endpoint devuelve { data: [...], success } (o el array directo)
       const raw = Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
-      setFormasPago(raw.map(fp => ({ ...fp, id: fp.id_forma_pago, nombre: fp.nombre_forma_pago })));
+      console.log('[FormaPagoPanel] filas normalizadas:', raw.length, raw);
+      const mapped = raw.map(fp => ({ ...fp, id: fp.id_forma_pago, nombre: fp.nombre_forma_pago }));
+      console.log('[FormaPagoPanel] seteando formasPago:', mapped.length);
+      setFormasPago(mapped);
     } catch (e) {
-      console.error('Error cargando formas de pago:', e);
+      console.error('[FormaPagoPanel] Error cargando formas de pago:', e);
     }
   };
 
@@ -130,7 +139,23 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
   const sanitizeNum = (val) => typeof val === 'string' ? val.replace(/,/g, '.') : String(val || '');
 
   const handleAddPago = () => {
-    if (!formaPagoId || !monto || parseFloat(sanitizeNum(monto)) <= 0) return;
+    console.log('[FormaPagoPanel] Agregar click:', { formaPagoId, monto, detalle, formasCargadas: formasPago.length, formasPago });
+    const faltaForma = !formaPagoId;
+    const montoNum = parseFloat(sanitizeNum(monto));
+    const montoMal = !monto || isNaN(montoNum) || montoNum <= 0;
+    if (faltaForma || montoMal) {
+      console.warn('[FormaPagoPanel] Agregar bloqueado: falta forma de pago o monto inválido');
+      setErrorAdd({ forma: faltaForma, monto: montoMal });
+      if (faltaForma && montoMal) {
+        toast.error('Seleccione la forma de pago e ingrese un monto mayor a 0');
+      } else if (faltaForma) {
+        toast.error('Seleccione la forma de pago');
+      } else {
+        toast.error('Ingrese un monto mayor a 0');
+      }
+      return;
+    }
+    setErrorAdd({ forma: false, monto: false });
 
     // Si hay un pago automático, eliminarlo al agregar uno manual
     let newPagos = [...pagos];
@@ -212,7 +237,7 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1.5fr auto', gap: '6px', alignItems: 'end', marginBottom: '10px' }}>
         <div>
           <label className={labelClass}>Forma de Pago</label>
-          <select className={inputClass} value={formaPagoId} onChange={(e) => setFormaPagoId(e.target.value)}>
+          <select className={errorAdd.forma ? `${inputClass} border-2 border-red-400 ring-1 ring-red-200` : inputClass} value={formaPagoId} onChange={(e) => { setFormaPagoId(e.target.value); setErrorAdd(prev => ({ ...prev, forma: false })); }}>
             <option value="">Seleccionar...</option>
             {formasPago.map(fp => (
               <option key={fp.id || fp.value || fp.id_forma_pago} value={fp.id || fp.value || fp.id_forma_pago}>
@@ -223,7 +248,7 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
         </div>
         <div>
           <label className={labelClass}>Monto $</label>
-          <input type="text" inputMode="decimal" className={inputClass} value={monto} onChange={(e) => setMonto(e.target.value)}
+          <input type="text" inputMode="decimal" className={errorAdd.monto ? `${inputClass} border-2 border-red-400 ring-1 ring-red-200` : inputClass} value={monto} onChange={(e) => { setMonto(e.target.value); setErrorAdd(prev => ({ ...prev, monto: false })); }}
             placeholder="0.00" />
         </div>
         <div>
