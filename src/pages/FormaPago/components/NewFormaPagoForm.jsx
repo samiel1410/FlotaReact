@@ -34,6 +34,21 @@ const NewFormaPagoForm = ({ initialData, onSubmit, onCancel }) => {
     }
   }, [initialData, reset]);
 
+  // Aviso explícito cuando falta algún campo obligatorio
+  const onFormInvalid = (formErrors) => {
+    if (formErrors.tipo_forma_pago) {
+      toast.error('Seleccione el Tipo de forma de pago', { id: 'fp-tipo' });
+    } else if (formErrors.id_fkcodigo_pago_sri) {
+      toast.error('Seleccione el Código SRI de la forma de pago', { id: 'fp-sri' });
+    } else if (formErrors.codigo_forma_pago) {
+      toast.error('Ingrese el código de la forma de pago', { id: 'fp-cod' });
+    } else if (formErrors.nombre_forma_pago) {
+      toast.error('Ingrese el nombre de la forma de pago', { id: 'fp-nom' });
+    } else {
+      toast.error('Complete los campos marcados en rojo');
+    }
+  };
+
   const onFormSubmit = async (data) => {
     setLoading(true);
     try {
@@ -72,7 +87,7 @@ const NewFormaPagoForm = ({ initialData, onSubmit, onCancel }) => {
   }, [register]);
 
   return (
-    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onFormSubmit, onFormInvalid)} className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
         {/* Código */}
@@ -110,9 +125,9 @@ const NewFormaPagoForm = ({ initialData, onSubmit, onCancel }) => {
           <div className="w-full">
             <TipoFormaPagoSelect
               value={tipoFormaPagoValue}
-              onChange={(e) => setValue('tipo_forma_pago', e.target.value)}
+              onChange={(e) => setValue('tipo_forma_pago', e.target.value, { shouldValidate: true })}
               name="tipo_forma_pago"
-              className={inputClass}
+              className={errors.tipo_forma_pago ? `${inputClass} border-2 border-red-400` : inputClass}
             />
           </div>
           {errors.tipo_forma_pago && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.tipo_forma_pago.message}</p>}
@@ -124,9 +139,9 @@ const NewFormaPagoForm = ({ initialData, onSubmit, onCancel }) => {
           <div className="w-full">
             <SRICodeSelect
               value={sriCodeValue}
-              onChange={(e) => setValue('id_fkcodigo_pago_sri', e.target.value)}
+              onChange={(e) => setValue('id_fkcodigo_pago_sri', e.target.value, { shouldValidate: true })}
               name="id_fkcodigo_pago_sri"
-              className={inputClass}
+              className={errors.id_fkcodigo_pago_sri ? `${inputClass} border-2 border-red-400` : inputClass}
             />
           </div>
           {errors.id_fkcodigo_pago_sri && <p className={errorClass}><i className="fas fa-exclamation-circle" />{errors.id_fkcodigo_pago_sri.message}</p>}
