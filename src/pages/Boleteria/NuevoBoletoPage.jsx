@@ -447,16 +447,25 @@ export const NuevoBoletoPage = () => {
         // Tramo de venta: origen actual + destino seleccionado (para ocupación exacta)
         const origenTramo = formData.origen || undefined;
         const destinoTramo = subrutaSeleccionada || undefined;
-        const [asientosRes, destinosViajeRes] = await Promise.all([
+        const esNuevoViaje = viajeCargadoRef.current !== formData.idViaje;
+
+        const promises = [
           BoleteriaService.getAsientosBusViaje(formData.idViaje, origenTramo, destinoTramo).catch(e => {
             console.error('[cargarAsientos] Error en getAsientosBusViaje:', e);
             return { success: false };
-          }),
-          BoleteriaService.getDestinosViaje(formData.idViaje, sucursalId).catch(e => {
-            console.error('[cargarAsientos] Error en getDestinosViaje:', e);
-            return { success: false };
           })
-        ]);
+        ];
+
+        if (esNuevoViaje || destinosViaje.length === 0) {
+          promises.push(
+            BoleteriaService.getDestinosViaje(formData.idViaje, sucursalId).catch(e => {
+              console.error('[cargarAsientos] Error en getDestinosViaje:', e);
+              return { success: false };
+            })
+          );
+        }
+
+        const [asientosRes, destinosViajeRes] = await Promise.all(promises);
 
         if (asientosRes.success && asientosRes.data && asientosRes.data.length > 0) {
           const busData = asientosRes.data[0];
@@ -485,22 +494,24 @@ export const NuevoBoletoPage = () => {
           setTotalRecaudado(asientosRes.total_boletos || 0);
         }
 
-        if (destinosViajeRes.success && destinosViajeRes.data) {
+        if (destinosViajeRes && destinosViajeRes.success && destinosViajeRes.data) {
           setDestinosViaje(destinosViajeRes.data);
           if (destinosViajeRes.data.length > 0) {
-            const first = destinosViajeRes.data[0];
-            setSubrutaSeleccionada(String(first.id_sub_rutas));
-            setPrecioUnitario(parseFloat(first.valor_sub_rutas || 0));
-            if (first.id_lugar_origen) {
-              setFormData(prev => ({ ...prev, origen: first.id_lugar_origen }));
+            const currentMatch = destinosViajeRes.data.find(d => String(d.id_sub_rutas) === String(subrutaSeleccionada));
+            if (currentMatch) {
+              setPrecioUnitario(parseFloat(currentMatch.valor_sub_rutas || 0));
+            } else {
+              const first = destinosViajeRes.data[0];
+              setSubrutaSeleccionada(String(first.id_sub_rutas));
+              setPrecioUnitario(parseFloat(first.valor_sub_rutas || 0));
+              if (first.id_lugar_origen) {
+                setFormData(prev => ({ ...prev, origen: first.id_lugar_origen, destino: String(first.id_sub_rutas) }));
+              }
             }
           } else {
             setSubrutaSeleccionada('');
             setPrecioUnitario(0);
           }
-        } else {
-          setSubrutaSeleccionada('');
-          setPrecioUnitario(0);
         }
       } catch (e) {
         console.error('Error cargando asientos:', e);
@@ -986,8 +997,12 @@ export const NuevoBoletoPage = () => {
         ? totalVenta / formData.asientosSeleccionados.length
         : 0;
 
+      const subrutaGeneralObj = destinosViaje.find(d => String(d.id_sub_rutas) === String(subrutaSeleccionada));
+
       const detalles = formData.pasajeros.map(p => {
         const valorFinal = p.valor !== undefined && p.valor !== null && p.valor !== '' ? parseFloat(p.valor) : precioPorAsiento;
+        const pasajeroDestino = p.id_destino || subrutaSeleccionada;
+        const subrutaPasajero = destinosViaje.find(d => String(d.id_sub_rutas) === String(pasajeroDestino));
         return {
           total_boleto_detalle: valorFinal,
           asiento_boleto_detalle: String(p.asiento),
@@ -997,7 +1012,8 @@ export const NuevoBoletoPage = () => {
           nombre_cliente_boleto_detalle: p.nombres || formData.nombres,
           identificacion_boleto_detalle: p.cedula || formData.identificacion,
           tarifa_boleto_detalle: p.tarifa || 'Normal',
-          id_destino: parseInt(p.id_destino || subrutaSeleccionada) || null,
+          id_destino: parseInt(pasajeroDestino) || null,
+          nombre_destino: subrutaPasajero?.nombre_sub_rutas || '',
           incluye_alimento_boleto_detalle: alimentoInfo?.incluye_alimentos ? 1 : 0,
           precio_alimento_boleto_detalle: alimentoInfo?.incluye_alimentos ? parseFloat(alimentoInfo.precio_alimentos || 0) : 0,
         };
@@ -1009,6 +1025,7 @@ export const NuevoBoletoPage = () => {
         id_chofer: idChofer,
         cedula_chofer: cedulaChofer,
         destino: subrutaSeleccionada,
+        nombre_destino: subrutaGeneralObj?.nombre_sub_rutas || '',
         id_origen: formData.origen,
         identificacion: formData.pasajeros[0]?.cedula || formData.identificacion,
         nombres: formData.pasajeros[0]?.nombres || formData.nombres,
@@ -1242,9 +1259,31 @@ export const NuevoBoletoPage = () => {
               onDestinoChange={(id) => {
                 marcarActividadReal();
                 setSubrutaSeleccionada(id);
-                const subruta = destinosViaje.find(d => String(d.id_sub_rutas) === id);
+                const subruta = destinosViaje.find(d => String(d.id_sub_rutas) === String(id));
                 const precio = subruta ? parseFloat(subruta.valor_sub_rutas || 0) : 0;
                 setPrecioUnitario(precio);
+
+                setFormData(prev => {
+                  const nuevosPasajeros = prev.pasajeros.map(p => {
+                    const tarifaTexto = p.tarifa || 'Normal';
+                    const valor = calcularValorConTarifa(precio, tarifaTexto);
+                    const descuento = calcularDescuento(precio, tarifaTexto);
+                    return {
+                      ...p,
+                      id_destino: id,
+                      valor,
+                      descuento
+                    };
+                  });
+                  const nuevoTotal = nuevosPasajeros.reduce((sum, p) => sum + parseFloat(p.valor || 0), 0);
+                  setTotalVenta(nuevoTotal);
+                  return {
+                    ...prev,
+                    destino: id,
+                    pasajeros: nuevosPasajeros,
+                    totales: { subtotal: nuevoTotal, total: nuevoTotal }
+                  };
+                });
               }}
               onRefrescarDestinos={() => {
                 if (formData.idViaje) {

@@ -29,7 +29,8 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, onTotalesCha
 
         // Si cambia tarifa, recalcular valor con el precio base actual
         if (campo === 'tarifa') {
-          const precioBase = parseFloat(p.valor || 0) + parseFloat(p.descuento || 0);
+          const destino = destinosViaje?.find(d => String(d.id_sub_rutas) === String(p.id_destino));
+          const precioBase = destino ? parseFloat(destino.valor_sub_rutas || 0) : (parseFloat(p.valor || 0) + parseFloat(p.descuento || 0));
           const pActualizado = recalcularValor(updated, precioBase);
           // Propagar cambio de total
           recalcularTotal([...pasajeros.map(pp => pp.asiento === asiento ? pActualizado : pp)]);

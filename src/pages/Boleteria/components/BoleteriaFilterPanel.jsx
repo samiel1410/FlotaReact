@@ -1,16 +1,23 @@
 import { useState, useEffect } from 'react';
 import { BoleteriaService } from '../../../services/boleteria.service';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../context/AuthContext';
+import { DateRangePicker } from '../../../components/common/DateRangePicker';
 import '../../Guias/components/GuiasFilterPanel.css'; // Reutilizamos estilos base
 
 export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const rolNum = parseInt(user?.rol_usuario || user?.rol || 0, 10);
+  const isRolAdmin = rolNum === 5 || rolNum === 1;
+  const currentUserId = user?.id_usuario || user?.id || '';
+
   const [usuarios, setUsuarios] = useState([]);
   const [buses, setBuses] = useState([]);
   const [rutas, setRutas] = useState([]);
   
   const [formData, setFormData] = useState({
-    id_usuario: '',
+    id_usuario: !isRolAdmin ? currentUserId : '',
     id_bus: '',
     id_ruta: '',
     estado: '4',
@@ -25,7 +32,7 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
     const loadCombos = async () => {
       try {
         const [u, b, r] = await Promise.all([
-          BoleteriaService.getUsuariosParaFiltro().catch(() => ({ data: [] })),
+          isRolAdmin ? BoleteriaService.getUsuariosParaFiltro().catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
           BoleteriaService.getBusesParaFiltro().catch(() => ({ data: [] })),
           BoleteriaService.getRutasParaFiltro().catch(() => ({ data: [] }))
         ]);
@@ -37,11 +44,11 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
       }
     };
     loadCombos();
-  }, []);
+  }, [isRolAdmin]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   // Máscara automática: 001-001-000000000
@@ -52,7 +59,7 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
       if (i === 3 || i === 6) formatted += '-';
       formatted += digits[i];
     }
-    setFormData({ ...formData, numero_boleto: formatted });
+    setFormData(prev => ({ ...prev, numero_boleto: formatted }));
   };
 
   const handleSubmit = (e) => {
@@ -62,7 +69,7 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
 
   const handleClear = () => {
     const resetData = {
-      id_usuario: '',
+      id_usuario: !isRolAdmin ? currentUserId : '',
       id_bus: '',
       id_ruta: '',
       estado: '4',
@@ -114,13 +121,25 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
             />
           </div>
 
-          <div className="form-group">
-            <label><i className="fas fa-user" style={{ color: '#e67e22', marginRight: 4 }}></i> Usuario</label>
-            <select name="id_usuario" value={formData.id_usuario} onChange={handleChange}>
-              <option value="">Todos</option>
-              {usuarios.map(u => <option key={u.id_usuario} value={u.id_usuario}>{u.nombre_usuario}</option>)}
-            </select>
-          </div>
+          {isRolAdmin ? (
+            <div className="form-group">
+              <label><i className="fas fa-user" style={{ color: '#e67e22', marginRight: 4 }}></i> Usuario</label>
+              <select name="id_usuario" value={formData.id_usuario} onChange={handleChange}>
+                <option value="">Todos</option>
+                {usuarios.map(u => <option key={u.id_usuario} value={u.id_usuario}>{u.nombre_usuario}</option>)}
+              </select>
+            </div>
+          ) : (
+            <div className="form-group">
+              <label><i className="fas fa-user" style={{ color: '#e67e22', marginRight: 4 }}></i> Mi Usuario</label>
+              <input
+                type="text"
+                value={user?.nombre_usuario || user?.username || 'Usuario actual'}
+                disabled
+                style={{ backgroundColor: '#f1f5f9', cursor: 'not-allowed', color: '#64748b' }}
+              />
+            </div>
+          )}
 
           <div className="form-group">
             <label><i className="fas fa-bus" style={{ color: '#e67e22', marginRight: 4 }}></i> Bus</label>
@@ -161,14 +180,20 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
             </select>
           </div>
 
-          <div className="form-group">
-            <label><i className="fas fa-calendar-alt" style={{ color: '#e67e22', marginRight: 4 }}></i> Desde</label>
-            <input type="date" name="fecha_desde" value={formData.fecha_desde} onChange={handleChange} />
-          </div>
-
-          <div className="form-group">
-            <label><i className="fas fa-calendar-check" style={{ color: '#e67e22', marginRight: 4 }}></i> Hasta</label>
-            <input type="date" name="fecha_hasta" value={formData.fecha_hasta} onChange={handleChange} />
+          <div className="form-group" style={{ gridColumn: 'span 2', minWidth: '240px' }}>
+            <label><i className="fas fa-calendar-alt" style={{ color: '#e67e22', marginRight: 4 }}></i> Rango de Fechas</label>
+            <DateRangePicker
+              startDate={formData.fecha_desde}
+              endDate={formData.fecha_hasta}
+              onChange={({ startDate, endDate }) => {
+                setFormData(prev => ({
+                  ...prev,
+                  fecha_desde: startDate || '',
+                  fecha_hasta: endDate || ''
+                }));
+              }}
+              placeholder="Filtrar por rango de fechas..."
+            />
           </div>
 
         </div>
