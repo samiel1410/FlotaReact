@@ -98,14 +98,20 @@ try {
         SELECT cc.id_comprobante_cobro, cc.numero_comprobante_cobro,
                cc.fecha_emision_comprobante_cobro, cc.monto_comprobante_cobro,
                cc.observacion_comprobante_cobro, cc.estado_comprobante_cobro,
+               cc.concepto_detalle_comprobante_cobro,
                f.id_factura, f.numero_factura, f.punto_emision_factura,
                f.ruc_cliente_factura, f.nombre_cliente_factura,
+               cl.identificacion_cliente, cl.nombre_cliente,
                s.punto_emision_sucursal,
                fp.nombre_forma_pago, fp.tipo_forma_pago
         FROM comprobante_cobro cc
         LEFT JOIN factura f ON cc.id_fkfactura_comprobante_cobro = f.id_factura
+        LEFT JOIN cliente cl ON cc.id_fkcliente_comprobante_cobro = cl.id_cliente
         LEFT JOIN sucursal2 s ON f.id_fksucursal_factura = s.suc_codigo_sucursal
-        LEFT JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
+        LEFT JOIN forma_pago fp ON (
+            (cc.id_fkforma_pago IS NOT NULL AND cc.id_fkforma_pago > 0 AND cc.id_fkforma_pago = fp.id_forma_pago)
+            OR ((cc.id_fkforma_pago IS NULL OR cc.id_fkforma_pago = 0) AND LOWER(TRIM(cc.concepto_detalle_comprobante_cobro)) = LOWER(TRIM(fp.nombre_forma_pago)))
+        )
         WHERE cc.id_fkcaja_comprobante_cobro = $idcaja
         ORDER BY cc.id_comprobante_cobro DESC
     ") or die(mysqli_error($conn));
@@ -117,15 +123,42 @@ try {
     $total_credito = 0;
     $total_debito = 0;
     while ($row = mysqli_fetch_array($rsComprobantes)) {
+        $nomFp = trim($row['nombre_forma_pago'] ?? '');
+        if ($nomFp === '') {
+            $nomFp = trim($row['concepto_detalle_comprobante_cobro'] ?? '');
+        }
+        if ($nomFp === '') {
+            $nomFp = 'EFECTIVO';
+        }
+        $row['nombre_forma_pago_final'] = $nomFp;
+
+        $tipoFp = intval($row['tipo_forma_pago'] ?? 0);
+        if ($tipoFp <= 0) {
+            $nomUpper = mb_strtoupper($nomFp, 'UTF-8');
+            if (strpos($nomUpper, 'EFECTIVO') !== false) {
+                $tipoFp = 2;
+            } elseif (strpos($nomUpper, 'CHEQUE') !== false) {
+                $tipoFp = 3;
+            } elseif (strpos($nomUpper, 'CREDIT') !== false || strpos($nomUpper, 'CRÉDIT') !== false) {
+                $tipoFp = 4;
+            } elseif (strpos($nomUpper, 'DEBIT') !== false || strpos($nomUpper, 'DÉBIT') !== false) {
+                $tipoFp = 5;
+            } else {
+                $tipoFp = 2;
+            }
+        }
+        $row['tipo_forma_pago_final'] = $tipoFp;
+
         $comprobantes[] = $row;
         $monto = floatval($row['monto_comprobante_cobro']);
         $total_comprobantes += $monto;
-        switch ($row['tipo_forma_pago']) {
+        switch ($tipoFp) {
             case 1: $total_otro += $monto; break;
             case 2: $total_efectivo += $monto; break;
             case 3: $total_cheque += $monto; break;
             case 4: $total_credito += $monto; break;
             case 5: $total_debito += $monto; break;
+            default: $total_efectivo += $monto; break;
         }
     }
 
@@ -303,14 +336,18 @@ try {
         $fec = date('Y-m-d', strtotime($c['fecha_emision_comprobante_cobro']));
         $nroFact = !empty($c['id_factura']) ? fmtFactura($c['numero_factura'], $c['punto_emision_sucursal'], $c['punto_emision_factura']) : '-';
         $cli = trim(($c['ruc_cliente_factura'] ?? '').' '.($c['nombre_cliente_factura'] ?? ''));
+        if (empty($cli)) {
+            $cli = trim(($c['identificacion_cliente'] ?? '').' '.($c['nombre_cliente'] ?? ''));
+        }
+        $obs = ($c['observacion_comprobante_cobro'] === 'null' || empty($c['observacion_comprobante_cobro'])) ? '' : $c['observacion_comprobante_cobro'];
         $html .= '<tr>
             <td>'.$nro.'</td>
             <td>'.$fec.'</td>
             <td>'.$nroFact.'</td>
-            <td>'.$c['nombre_forma_pago'].'</td>
+            <td>'.$c['nombre_forma_pago_final'].'</td>
             <td class="right">$'.fmtNum($c['monto_comprobante_cobro']).'</td>
             <td>'.$cli.'</td>
-            <td>'.($c['observacion_comprobante_cobro'] ?? '').'</td>
+            <td>'.$obs.'</td>
         </tr>';
     }
     $html .= '</table><br>';

@@ -86,9 +86,9 @@ const MENU = [
       { to: '/despacho', icon: 'fas fa-truck-loading', label: 'Despacho', permission: 'guias.despacho_guia' },
       { to: '/entregas', icon: 'fas fa-hand-holding-usd', label: 'Entrega de Guías', permission: 'guias.entrega_guia' },
       { to: '/seguimiento', icon: 'fas fa-box-open', label: 'Seguimientos', permission: 'guias.seguimiento_guia' },
-      { to: '/caja', icon: 'fas fa-cash-register', label: 'Listado Cajas', permission: 'cajas.listado_cajas' },
-      { to: '/cajas-comprobantes', icon: 'fas fa-cash-register', label: 'Cajas Comprobantes', permission: 'cajas.cajas_comprobantes' },
-      { to: '/comprobantes', icon: 'fas fa-receipt', label: 'Comprobantes', permission: 'cajas.comprobantes' },
+      { to: '/caja', icon: 'fas fa-cash-register', label: 'Listado Cajas', permission: 'guias.listado_cajas' },
+      { to: '/cajas-comprobantes', icon: 'fas fa-cash-register', label: 'Cajas Comprobantes', permission: 'guias.cajas_comprobantes' },
+      { to: '/comprobantes', icon: 'fas fa-receipt', label: 'Comprobantes', permission: 'guias.comprobantes' },
     ]
   },
   {
@@ -101,7 +101,7 @@ const MENU = [
       { to: '/despachos-notas-venta', icon: 'fas fa-truck-moving', label: 'Despachos Notas Venta', permission: 'notas_venta.despacho_notas_venta' },
       { to: '/seguimiento-notas-venta', icon: 'fas fa-box-open', label: 'Seguimiento Notas Venta', permission: 'notas_venta.seguimiento_notas_venta' },
       { to: '/entregas-notas-venta', icon: 'fas fa-hand-holding-usd', label: 'Entrega Notas Venta', permission: 'notas_venta.entrega_notas_venta' },
-      { to: '/cajas-notas-venta', icon: 'fas fa-cash-register', label: 'Cajas Notas Venta', permission: 'cajas.caja_notas_venta' },
+      { to: '/cajas-notas-venta', icon: 'fas fa-cash-register', label: 'Cajas Notas Venta', permission: 'notas_venta.caja_notas_venta' },
     ]
   },
   {

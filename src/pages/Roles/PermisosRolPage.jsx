@@ -95,6 +95,9 @@ const ALL_PERMISSIONS = {
       entrega_guia: 'Entrega de Guías',
       seguimiento_guia: 'Seguimientos',
       reimpresion: 'Reimpresión de Guías',
+      listado_cajas: 'Listado Cajas',
+      cajas_comprobantes: 'Cajas Comprobantes',
+      comprobantes: 'Comprobantes',
     }
   },
   notas_venta: {
@@ -106,15 +109,6 @@ const ALL_PERMISSIONS = {
       despacho_notas_venta: 'Despachos Notas Venta',
       seguimiento_notas_venta: 'Seguimiento Notas Venta',
       entrega_notas_venta: 'Entrega Notas Venta',
-    }
-  },
-  cajas: {
-    label: 'Cajas & Comprobantes',
-    icon: 'fas fa-cash-register',
-    permisos: {
-      listado_cajas: 'Listado Cajas',
-      cajas_comprobantes: 'Cajas Comprobantes',
-      comprobantes: 'Comprobantes',
       caja_notas_venta: 'Cajas Notas Venta',
     }
   },
