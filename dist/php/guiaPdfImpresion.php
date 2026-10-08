@@ -28,6 +28,7 @@ try {
 
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
+    $tConn = microtime(true);
 
     // ─── EMPRESA + CONFIG: Caché JSON Nivel 1 (TTL: 5 min) ─────────────────────
     // Aislamiento multi-tenant: db_name + tenantId (igual que boletoFactura.php)
@@ -114,6 +115,11 @@ try {
         $toCache = array_merge($vals_empresa, $vals_configuracion, ['logo_path' => $rutaLogo]);
         @file_put_contents($cacheCfgFile, json_encode($toCache));
     }
+    $tCfg = microtime(true);
+
+    // Logo gigante (ej. 5909px/3MB) ralentiza TCPDF->Image() varios segundos por página.
+    // Reducir una vez a max 500px y reutilizar el *_small.png
+    $rutaLogo = reducirLogoGigante($rutaLogo ?? null, 500);
 
     $id_empresa           = $vals_empresa["id_empresa"] ?? 0;
     $telefono_empresa     = $vals_empresa["telefono_empresa"] ?? '';
@@ -346,6 +352,7 @@ try {
         }
     }
     $conn->close();
+    $tData = microtime(true);
 
     // ─── CACHÉ NIVEL 2: PDF por hash de datos (rápido si nada cambió) ───────────
     $datosHash = md5(json_encode([
@@ -365,9 +372,14 @@ try {
         header('Cache-Control: public, max-age=60');
         header('X-PDF-Cache: HIT');
         header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+        header('X-PDF-T-conn: ' . round(($tConn - $t0) * 1000) . 'ms');
+        header('X-PDF-T-cfg: ' . round(($tCfg - $tConn) * 1000) . 'ms');
+        header('X-PDF-T-data: ' . round(($tData - $tCfg) * 1000) . 'ms');
+        header('X-PDF-T-tcpdf: 0ms');
         readfile($cachePdfFile);
         exit;
     }
+    $tTcpdfStart = microtime(true);
 
     // ─── INICIALIZACIÓN TCPDF NATIVO ──────────────────────────────────────────
     $lw = $metricas['ancho_util_mm'];
@@ -651,6 +663,11 @@ try {
     header('Cache-Control: public, max-age=60');
     header('X-PDF-Cache: MISS');
     header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+    header('X-PDF-T-conn: ' . round(($tConn - $t0) * 1000) . 'ms');
+    header('X-PDF-T-cfg: ' . round(($tCfg - $tConn) * 1000) . 'ms');
+    header('X-PDF-T-data: ' . round(($tData - $tCfg) * 1000) . 'ms');
+    header('X-PDF-T-tcpdf: ' . round((microtime(true) - $tTcpdfStart) * 1000) . 'ms');
+    header('X-PDF-Logo: ' . basename($rutaLogo ?? 'none'));
     header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
     echo $pdfContent;
     exit;

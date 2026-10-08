@@ -282,6 +282,69 @@ function limpiarLogosTemporales()
 }
 
 /**
+ * Reduce un logo gigante a un ancho máximo (px) para que TCPDF->Image() no
+ * tenga que decodificar megapíxeles en cada página (causa demoras de segundos).
+ * Genera un archivo `*_small.png` junto al original y lo reutiliza.
+ * Si el logo ya es pequeño o GD no está disponible, devuelve la ruta original.
+ *
+ * @param string|null $rutaLogo Ruta absoluta al logo en disco
+ * @param int $maxPx Ancho máximo en píxeles (default 500, suficiente para ticket 30mm a 300dpi)
+ * @return string|null Ruta al logo reducido u original
+ */
+function reducirLogoGigante($rutaLogo, $maxPx = 500)
+{
+    if (empty($rutaLogo) || !@file_exists($rutaLogo)) {
+        return $rutaLogo;
+    }
+    $info = @getimagesize($rutaLogo);
+    $w = $info ? (int)($info[0] ?? 0) : 0;
+    $h = $info ? (int)($info[1] ?? 0) : 0;
+    if ($w <= 0 || $w <= $maxPx) {
+        return $rutaLogo;
+    }
+    $smallPath = preg_replace('/\.(png|jpg|jpeg)$/i', '_small.png', $rutaLogo);
+    if ($smallPath === $rutaLogo) {
+        $smallPath = $rutaLogo . '_small.png';
+    }
+    if (esImagenValidaParaTcpdf($smallPath)) {
+        $si = @getimagesize($smallPath);
+        if ($si && (int)($si[0] ?? 0) <= $maxPx) {
+            return $smallPath;
+        }
+    }
+    try {
+        $bin = @file_get_contents($rutaLogo);
+        if (empty($bin)) {
+            return $rutaLogo;
+        }
+        $im = @imagecreatefromstring($bin);
+        unset($bin);
+        if ($im === false) {
+            return $rutaLogo;
+        }
+        $newW = $maxPx;
+        $newH = max(1, (int)round($h * ($maxPx / $w)));
+        $dst = @imagescale($im, $newW, $newH, IMG_BILINEAR_FIXED);
+        if ($dst === false) {
+            $dst = $im;
+        }
+        imagealphablending($dst, false);
+        imagesavealpha($dst, true);
+        @imagepng($dst, $smallPath, 6);
+        if ($dst !== $im) {
+            imagedestroy($dst);
+        }
+        imagedestroy($im);
+        if (esImagenValidaParaTcpdf($smallPath)) {
+            return $smallPath;
+        }
+    } catch (Throwable $t) {
+        // fallback a original
+    }
+    return $rutaLogo;
+}
+
+/**
  * Obtiene el ancho de papel en milímetros configurado en la base de datos (ej. 80mm, 72mm, 58mm).
  * 
  * @param mysqli $conn Conexión a la base de datos
