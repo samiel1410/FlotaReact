@@ -20,6 +20,7 @@ try {
     $fecha_actual = date('Y-m-d H:i:s');
     $id_guia = isset($_GET['id_guia']) ? (int)$_GET['id_guia'] : 0;
     $reimpreso_por = isset($_GET['reimpreso_por']) ? trim($_GET['reimpreso_por']) : null;
+    $tenantId = isset($_GET['tenantId']) ? (int)$_GET['tenantId'] : 1;
 
     if ($id_guia <= 0) {
         throw new Exception("ID de guía inválido");
@@ -28,32 +29,107 @@ try {
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    // Consulta directa de Empresa y Configuración (sin caché)
-    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
-    $rec_emp = mysqli_query($conn, $query_empresa);
-    $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
+    // ─── EMPRESA + CONFIG: Caché JSON Nivel 1 (TTL: 5 min) ─────────────────────
+    // Aislamiento multi-tenant: db_name + tenantId (igual que boletoFactura.php)
+    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? $tenantId ?? '1';
+    $dbNameStr = $_GET['db_name'] ?? ($_SESSION['db_name'] ?? $tenantIdStr);
+    $dbKey = md5($dbNameStr . '_t' . $tenantIdStr);
+    $cacheCfgDir = __DIR__ . '/tmp/cache/';
+    if (!is_dir($cacheCfgDir)) @mkdir($cacheCfgDir, 0777, true);
+    $cacheCfgFile = $cacheCfgDir . 'empresa_cfg_' . $dbKey . '.json';
+    $logosDir = __DIR__ . '/tmp/logos/';
+    if (!is_dir($logosDir)) @mkdir($logosDir, 0777, true);
 
-    $sql_configuracion = "SELECT leyendamensaje_configuracion, mensajeleyenda_configuracion, imprimir_boucher_guia, formato_impresion FROM configuracion LIMIT 1";
-    $rec_cfg = mysqli_query($conn, $sql_configuracion);
-    $vals_configuracion = $rec_cfg ? mysqli_fetch_assoc($rec_cfg) : [];
+    $vals_empresa = [];
+    $vals_configuracion = [];
+    $empresaCfgCached = null;
 
-    $id_empresa = $vals_empresa["id_empresa"] ?? 0;
-    $imagen_empresa = $vals_empresa["imagen_empresa"] ?? null;
-    $telefono_empresa = $vals_empresa["telefono_empresa"] ?? '';
-    $correo_empresa = $vals_empresa["correo_empresa"] ?? '';
-    $ruc_empresa = $vals_empresa["ruc_empresa"] ?? '';
-    $direccion_empresa = $vals_empresa["direccion_empresa"] ?? '';
+    if (file_exists($cacheCfgFile) && (time() - filemtime($cacheCfgFile)) < 300) {
+        $empresaCfgCached = json_decode(@file_get_contents($cacheCfgFile), true);
+    }
+
+    if ($empresaCfgCached) {
+        $vals_empresa       = $empresaCfgCached;
+        $vals_configuracion = $empresaCfgCached;
+        $rutaLogo = $empresaCfgCached['logo_path'] ?? null;
+        // Si el archivo físico del logo fue eliminado o es inválido, regenerar solo el logo
+        // (si logo_path es null, se respeta el caché hasta TTL: evita query BLOB en cada hit)
+        if (!empty($rutaLogo) && !esImagenValidaParaTcpdf($rutaLogo)) {
+            $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
+            $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
+            if (esImagenValidaParaTcpdf($cachedLogoPng)) {
+                $rutaLogo = $cachedLogoPng;
+            } elseif (esImagenValidaParaTcpdf($cachedLogoJpg)) {
+                $rutaLogo = $cachedLogoJpg;
+            } else {
+                $rec_img = mysqli_query($conn, "SELECT imagen_empresa FROM empresa LIMIT 1");
+                $row_img = $rec_img ? mysqli_fetch_assoc($rec_img) : [];
+                if (!empty($row_img['imagen_empresa'])) {
+                    $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
+                    if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
+                        $ext = strtolower(pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png');
+                        $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
+                        if ($rawLogo !== $targetLogo) @copy($rawLogo, $targetLogo);
+                        $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
+                    } else {
+                        $rutaLogo = null;
+                    }
+                } else {
+                    $rutaLogo = null;
+                }
+            }
+            $empresaCfgCached['logo_path'] = $rutaLogo;
+            @file_put_contents($cacheCfgFile, json_encode($empresaCfgCached));
+        }
+    } else {
+        // Sin imagen_empresa en la query principal para evitar traer el BLOB
+        $rec_emp = mysqli_query($conn, "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1");
+        $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
+        $rec_cfg = mysqli_query($conn, "SELECT leyendamensaje_configuracion, mensajeleyenda_configuracion, imprimir_boucher_guia, formato_impresion FROM configuracion LIMIT 1");
+        $vals_configuracion = $rec_cfg ? mysqli_fetch_assoc($rec_cfg) : [];
+        // Logo: archivo por tenant; query separada del BLOB solo al expirar el caché
+        $rutaLogo = null;
+        $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
+        $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
+        if (esImagenValidaParaTcpdf($cachedLogoPng)) {
+            $rutaLogo = $cachedLogoPng;
+        } elseif (esImagenValidaParaTcpdf($cachedLogoJpg)) {
+            $rutaLogo = $cachedLogoJpg;
+        } else {
+            $rec_img = mysqli_query($conn, "SELECT imagen_empresa FROM empresa LIMIT 1");
+            $row_img = $rec_img ? mysqli_fetch_assoc($rec_img) : [];
+            if (!empty($row_img['imagen_empresa'])) {
+                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
+                if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
+                    $ext = strtolower(pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png');
+                    $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
+                    if ($rawLogo !== $targetLogo) @copy($rawLogo, $targetLogo);
+                    $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
+                }
+            }
+            if (empty($rutaLogo)) {
+                $rutaLogo = obtenerRutaLogoEmpresa($conn, null);
+            }
+        }
+        $toCache = array_merge($vals_empresa, $vals_configuracion, ['logo_path' => $rutaLogo]);
+        @file_put_contents($cacheCfgFile, json_encode($toCache));
+    }
+
+    $id_empresa           = $vals_empresa["id_empresa"] ?? 0;
+    $telefono_empresa     = $vals_empresa["telefono_empresa"] ?? '';
+    $correo_empresa       = $vals_empresa["correo_empresa"] ?? '';
+    $ruc_empresa          = $vals_empresa["ruc_empresa"] ?? '';
+    $direccion_empresa    = $vals_empresa["direccion_empresa"] ?? '';
     $razon_social_empresa = $vals_empresa["razon_social_empresa"] ?? '';
 
     $leyendamensaje_configuracion = $vals_configuracion["leyendamensaje_configuracion"] ?? '';
     $mensajeleyenda_configuracion = $vals_configuracion["mensajeleyenda_configuracion"] ?? '';
-    $imprimir_boucher_guia = isset($vals_configuracion["imprimir_boucher_guia"]) ? (int)$vals_configuracion["imprimir_boucher_guia"] : 1;
-    $formato_impresion_db = $vals_configuracion["formato_impresion"] ?? null;
+    $imprimir_boucher_guia        = isset($vals_configuracion["imprimir_boucher_guia"]) ? (int)$vals_configuracion["imprimir_boucher_guia"] : 1;
+    $formato_impresion_db         = $vals_configuracion["formato_impresion"] ?? null;
 
     $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 110, $formato_impresion_db);
-    $metricas = obtenerMetricasImpresion($ancho_impresion, 110);
-    $leyenda = $leyendamensaje_configuracion;
-    $rutaLogo = obtenerRutaLogoEmpresa($conn, $imagen_empresa);
+    $metricas        = obtenerMetricasImpresion($ancho_impresion, 110);
+    $leyenda         = $leyendamensaje_configuracion;
 
     // ─── CONSULTA PRINCIPAL DE GUIA ──────────────────────────────────────────
     $query_guia = "SELECT 
@@ -270,6 +346,28 @@ try {
         }
     }
     $conn->close();
+
+    // ─── CACHÉ NIVEL 2: PDF por hash de datos (rápido si nada cambió) ───────────
+    $datosHash = md5(json_encode([
+        $id_guia, $numero_guia, $total_guia, $estado_factura,
+        $numero_factura, $detalles_forma_pago, $total_cobrado,
+        count($items_detalle), (string)$reimpreso_por, $imprimir_boucher_guia
+    ]));
+    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDir)) @mkdir($pdfCacheDir, 0777, true);
+    $cachePdfFile = $pdfCacheDir . 'guia_imp_' . $id_guia . '_' . $datosHash . '.pdf';
+
+    if (file_exists($cachePdfFile) && filesize($cachePdfFile) > 1000) {
+        $tTotalMs = round((microtime(true) - $t0) * 1000);
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="guiaImpresion_' . $id_guia . '.pdf"');
+        header('Cache-Control: public, max-age=60');
+        header('X-PDF-Cache: HIT');
+        header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+        readfile($cachePdfFile);
+        exit;
+    }
 
     // ─── INICIALIZACIÓN TCPDF NATIVO ──────────────────────────────────────────
     $lw = $metricas['ancho_util_mm'];
@@ -538,16 +636,24 @@ try {
         }
     }
 
-    // ─── SALIDA DIRECTA DEL PDF (SIN CACHÉ) ───────────────────────────────────
-    $fileName = 'guiaImpresion_' . $id_guia . '.pdf';
-    if (ob_get_length()) {
-        ob_clean();
+    // ─── SALIDA CON CACHÉ NIVEL 2 ─────────────────────────────────────────────
+    $fileName  = 'guiaImpresion_' . $id_guia . '.pdf';
+    $pdfContent = $pdf->Output('', 'S');
+    // Eliminar PDFs anteriores de esta guía (los datos cambiaron)
+    foreach (glob($pdfCacheDir . 'guia_imp_' . $id_guia . '_*.pdf') as $oldPdf) {
+        @unlink($oldPdf);
     }
-    header('Cache-Control: no-cache, no-store, must-revalidate');
-    header('Pragma: no-cache');
-    header('Expires: 0');
-    $pdf->Output($fileName, 'I');
-    exit();
+    @file_put_contents($cachePdfFile, $pdfContent);
+    $tTotalMs = round((microtime(true) - $t0) * 1000);
+    if (ob_get_length()) ob_clean();
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $fileName . '"');
+    header('Cache-Control: public, max-age=60');
+    header('X-PDF-Cache: MISS');
+    header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+    echo $pdfContent;
+    exit;
 
 } catch (Throwable $e) {
     if (ob_get_length()) {

@@ -902,18 +902,36 @@ export const NuevaGuiaPage = () => {
         }
         const idGuia = result.message || result.id_guia;
         toast.success(`Guía guardada exitosamente. N° ${idGuia || ''}`);
-        // Auto-imprimir / descargar PDF (como ExtJS: abrir PDF automáticamente)
-        if (idGuia) {
-          // Mostrar PDF usando el script PHP y enviar WhatsApp
-          try {
-            const idUsuario = user?.id_usuario || 0;
-            const tenantId = user?.tenant_id || user?.id_tenant || 1;
-            const generatorUrl = `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}&tenantId=${tenantId}`;
-            const fullPdfUrl = `${window.location.origin}${generatorUrl}`;
 
-            if (metodoImpresion === 'directa') {
-              try {
-                if (!printerGuias) {
+        // Capturar datos necesarios antes del reset del formulario
+        const idUsuario = user?.id_usuario || 0;
+        const tenantId = user?.tenant_id || user?.id_tenant || 1;
+        const generatorUrl = `/php/guiaPdfImpresion.php?id_guia=${idGuia}&id_usuario_global=${idUsuario}&tenantId=${tenantId}`;
+        const fullPdfUrl = `${window.location.origin}${generatorUrl}`;
+        const currentMetodo = metodoImpresion;
+        const currentPrinter = printerGuias;
+        const celDest = (destinatario?.telefono || destinatario?.telefono2 || '').replace(/\D/g, '');
+        const nomDest = destinatario?.nombres || 'cliente';
+        const celRem = (remitente?.telefono || '').replace(/\D/g, '');
+        const nomRem = remitente?.nombres || 'cliente';
+
+        // Reset rápido del formulario (300ms) para que el operador continúe de inmediato
+        setTimeout(() => handleResetForm(), 300);
+
+        // Auto-imprimir / abrir PDF y enviar WhatsApp en segundo plano
+        if (idGuia) {
+          if (currentMetodo !== 'directa') {
+            // Abrir visor de inmediato mostrando el nuevo spinner de carga
+            setPdfTitle(`Guía N° ${idGuia}`);
+            setPdfUrl(generatorUrl);
+            setPdfModalOpen(true);
+          }
+
+          // Proceso en background (QZ Tray y WhatsApp) sin bloquear la UI
+          (async () => {
+            try {
+              if (currentMetodo === 'directa') {
+                if (!currentPrinter) {
                   toast.error('No hay impresora de guías configurada');
                   setPdfTitle(`Guía N° ${idGuia}`);
                   setPdfUrl(generatorUrl);
@@ -964,7 +982,7 @@ export const NuevaGuiaPage = () => {
                   await conectarQZ();
 
                   const copiasGuias = parseInt(localStorage.getItem('copias_guias')) || 1;
-                  const config = window.qz.configs.create(printerGuias, {
+                  const config = window.qz.configs.create(currentPrinter, {
                     copies: copiasGuias,
                     scaleContent: true,
                     units: 'mm',
@@ -977,61 +995,49 @@ export const NuevaGuiaPage = () => {
                     data: fullPdfUrl
                   }];
                   await window.qz.print(config, data);
-                  toast.success('Guía impresa en ' + printerGuias);
+                  toast.success('Guía impresa en ' + currentPrinter);
                 }
-              } catch (e) {
-                console.error('[QZ] Error al imprimir:', e);
+              }
+
+              // Enviar WhatsApp en background
+              const telefonosAEnviar = [];
+              if (celDest.length >= 9) {
+                telefonosAEnviar.push({ numero: celDest, nombre: nomDest });
+              }
+              if (celRem.length >= 9 && celRem !== celDest) {
+                telefonosAEnviar.push({ numero: celRem, nombre: nomRem });
+              }
+
+              const empDataStr = sessionStorage.getItem('empresa_data');
+              const empData = empDataStr ? JSON.parse(empDataStr) : null;
+              const enviarWhatsapp = empData ? empData.enviar_whatsapp === 1 : false;
+
+              if (enviarWhatsapp && telefonosAEnviar.length > 0) {
+                for (const t of telefonosAEnviar) {
+                  try {
+                    const mensajeGuia = `Estimado(a) ${t.nombre},\n\nAdjuntamos la guía N° ${idGuia} de su encomienda. ¡Gracias por preferirnos!`;
+                    await api.post('/whatsapp/enviar', {
+                      number: t.numero,
+                      message: mensajeGuia,
+                      fileUrl: fullPdfUrl
+                    });
+                  } catch (e) {
+                    console.error('Error enviando WhatsApp guia a ' + t.numero, e);
+                  }
+                }
+                toast.success('Guía enviada por WhatsApp');
+              }
+            } catch (err) {
+              console.error('Error en proceso de impresión/notificación de guía:', err);
+              if (currentMetodo === 'directa') {
                 toast.error('Error al imprimir vía QZ Tray. Abriendo PDF manual...');
                 setPdfTitle(`Guía N° ${idGuia}`);
                 setPdfUrl(generatorUrl);
                 setPdfModalOpen(true);
               }
-            } else {
-              setPdfTitle(`Guía N° ${idGuia}`);
-              setPdfUrl(generatorUrl);
-              setPdfModalOpen(true);
             }
-
-            // Enviar WhatsApp al destinatario y remitente
-            const telefonosAEnviar = [];
-
-            const celDest = (destinatario?.telefono || destinatario?.telefono2 || '').replace(/\D/g, '');
-            if (celDest.length >= 9) {
-              telefonosAEnviar.push({ numero: celDest, nombre: destinatario?.nombres || 'cliente' });
-            }
-
-            const celRem = (remitente?.telefono || '').replace(/\D/g, '');
-            if (celRem.length >= 9 && celRem !== celDest) {
-              telefonosAEnviar.push({ numero: celRem, nombre: remitente?.nombres || 'cliente' });
-            }
-
-            const empDataStr = sessionStorage.getItem('empresa_data');
-            const empData = empDataStr ? JSON.parse(empDataStr) : null;
-            const enviarWhatsapp = empData ? empData.enviar_whatsapp === 1 : false;
-
-            if (enviarWhatsapp) {
-              for (const t of telefonosAEnviar) {
-                try {
-                  const mensajeGuia = `Estimado(a) ${t.nombre},\n\nAdjuntamos la guía N° ${idGuia} de su encomienda. ¡Gracias por preferirnos!`;
-                  await api.post('/whatsapp/enviar', {
-                    number: t.numero,
-                    message: mensajeGuia,
-                    fileUrl: fullPdfUrl
-                  });
-                } catch (e) {
-                  console.error('Error enviando WhatsApp guia a ' + t.numero, e);
-                }
-              }
-              if (telefonosAEnviar.length > 0) {
-                toast.success('Guía enviada por WhatsApp');
-              }
-            }
-          } catch (err) {
-            console.error('Error abriendo PDF de guía:', err);
-            toast.error('No se pudo abrir el PDF');
-          }
+          })();
         }
-        setTimeout(() => handleResetForm(), 500);
       } else {
         toast.error(result?.data || 'Error al guardar la guía');
       }

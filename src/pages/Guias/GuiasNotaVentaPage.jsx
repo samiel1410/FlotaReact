@@ -124,35 +124,14 @@ export const GuiasNotaVentaPage = () => {
     setPrintSelectorOpen(true);
   };
 
-  // Los PHP de impresión devuelven el PDF binario directo (no JSON con ruta).
-  // Si el PHP falla, responde JSON {success:false}; lo detectamos y mostramos el error.
-  const openPhpPdf = async (phpUrl, titulo) => {
-    try {
-      const finalUrl = buildPdfUrl(phpUrl);
-      const res = await fetch(finalUrl);
-      if (!res.ok) throw new Error(`PHP respondió ${res.status}`);
-      const blob = await res.blob();
-      const headerText = await blob.slice(0, 1024).text();
-      if (!headerText.startsWith('%PDF')) {
-        let mensaje = 'El servidor no devolvió un PDF válido';
-        try {
-          const fullText = await blob.text();
-          const data = JSON.parse(fullText);
-          mensaje = data.error || data.mensaje || mensaje;
-        } catch (e) { /* no es JSON */ }
-        toast.error(mensaje);
-        return;
-      }
-      const pdfBlob = blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
-      const url = URL.createObjectURL(pdfBlob);
-      setPdfTitle(titulo);
-      setPdfUrl(url);
-      setPdfShouldShowPrint(true);
-      setPdfModalOpen(true);
-    } catch (err) {
-      console.error('Error generando PDF:', err);
-      toast.error('No se pudo generar el PDF');
-    }
+  // Abre el PDF directamente en el modal (no bloqueante: el iframe carga en background).
+  // El PdfViewerModal ya muestra spinner hasta el onLoad del iframe.
+  const openPhpPdf = (phpUrl, titulo) => {
+    const finalUrl = buildPdfUrl(phpUrl);
+    setPdfTitle(titulo);
+    setPdfUrl(finalUrl);
+    setPdfShouldShowPrint(true);
+    setPdfModalOpen(true);
   };
 
   const handlePrintGuia = () => {

@@ -276,14 +276,23 @@ export const AuthProvider = ({ children }) => {
         
         return { success: true };
       } else {
-        return { success: false, message: loginData.mensaje || 'Credenciales inválidas' };
+        return { success: false, message: loginData.mensaje || loginData.message || 'Credenciales inválidas' };
       }
     } catch (error) {
       console.error('Login error', error);
       let message = 'Hubo un error en el servidor. Por favor, contacte con soporte.';
-      if (error.code === 'ECONNABORTED' || error.message === 'Network Error') {
+
+      const serverMsg = error.response?.data?.mensaje || error.response?.data?.message || error.response?.data?.error;
+      if (serverMsg) {
+        message = serverMsg;
+      } else if (error.response?.status === 401) {
+        message = 'Usuario o contraseña incorrectos.';
+      } else if (error.response?.status === 403) {
+        message = 'Acceso denegado. Verifique el estado de su cuenta o empresa.';
+      } else if (error.code === 'ECONNABORTED' || error.message === 'Network Error' || !error.response) {
         message = 'No se pudo conectar con el servidor. Verifique su conexión a internet.';
       }
+
       return { success: false, message };
     }
   };

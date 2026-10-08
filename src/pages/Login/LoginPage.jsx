@@ -37,7 +37,8 @@ export const LoginPage = () => {
 
     } catch (error) {
       console.error(error);
-      toast.error('Ocurrió un error inesperado.', { id: 'login-toast' });
+      const errorMsg = error?.response?.data?.mensaje || error?.response?.data?.message || 'Ocurrió un error inesperado.';
+      toast.error(errorMsg, { id: 'login-toast' });
       triggerShake();
     } finally {
       setIsProcessing(false);
