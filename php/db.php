@@ -120,8 +120,8 @@ function obtenerCredencialesDb($isLocal)
         $tenantIntentado = true;
         $cacheFile = $cacheDir . 'tenant_' . md5($tId) . '.json';
 
-        // 1. Revisar caché en disco (válido por 1 hora)
-        if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 3600)) {
+        // 1. Revisar caché en disco (válido por 24 horas: evita HTTPS a AuthService en cada PDF)
+        if (file_exists($cacheFile) && (time() - filemtime($cacheFile) < 86400)) {
             $cached = @json_decode(file_get_contents($cacheFile), true);
             if ($cached && !empty($cached['db_name'])) {
                 $dbHost = $cached['db_host'];
@@ -332,7 +332,7 @@ function obtenerCredencialesDb($isLocal)
     // Si en producción no hay usuario/db definidos en variables de entorno, obtener por defecto las del Tenant #1 desde AuthService
     if (!$isLocal && (empty($db_user) || empty($db_name))) {
         $defaultCacheFile = $cacheDir . 'tenant_default.json';
-        if (file_exists($defaultCacheFile) && (time() - filemtime($defaultCacheFile) < 3600)) {
+        if (file_exists($defaultCacheFile) && (time() - filemtime($defaultCacheFile) < 86400)) {
             $cachedDefault = @json_decode(file_get_contents($defaultCacheFile), true);
             if ($cachedDefault && !empty($cachedDefault['db_name'])) {
                 $db_host = $cachedDefault['db_host'] ?: ($db_host ?: 'localhost');

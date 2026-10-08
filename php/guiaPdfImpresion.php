@@ -9,11 +9,14 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
 }
 
 ob_start();
-require_once('library/tcpdf.php');
 require_once("db.php");
 require_once("pdf_utils.php");
 
 date_default_timezone_set('America/Guayaquil');
+
+//(<20ms): sirve el PDF recién generado sin tocar DB ni cargar TCPDF.
+// TTL corto (60s): ventana pequeña de posible stale si la guía se cobra justo después de imprimir.
+define('GUIAIMP_FAST_TTL', 60);
 
 try {
     $t0 = microtime(true);
@@ -26,8 +29,28 @@ try {
         throw new Exception("ID de guía inválido");
     }
 
+    $tenantIdStrFast = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? $tenantId ?? '1';
+    $dbNameStrFast = $_GET['db_name'] ?? ($_SESSION['db_name'] ?? $tenantIdStrFast);
+    $dbKeyFast = md5($dbNameStrFast . '_t' . $tenantIdStrFast);
+    $pdfCacheDirFast = __DIR__ . '/tmp/pdfs/';
+    $fastPdfFile = $pdfCacheDirFast . 'guia_imp_' . $id_guia . '_' . $dbKeyFast . '_latest.pdf';
+    if (file_exists($fastPdfFile) && filesize($fastPdfFile) > 1000 && (time() - filemtime($fastPdfFile)) < GUIAIMP_FAST_TTL) {
+        $tTotalMs = round((microtime(true) - $t0) * 1000);
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="guiaImpresion_' . $id_guia . '.pdf"');
+        header('Cache-Control: public, max-age=60');
+        header('X-PDF-Cache: HIT-FAST');
+        header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+        readfile($fastPdfFile);
+        exit;
+    }
+
+    require_once('library/tcpdf.php');
+
     $conn = conexion();
-    mysqli_query($conn, "SET SESSION sql_mode = ''");
+    // Sin SET SESSION sql_mode: este script es solo-lectura (SELECTs) y sus
+    // GROUP BY ya listan todas las columnas no agregadas. Ahorra 1 roundtrip (~100ms).
     $tConn = microtime(true);
 
     // ─── EMPRESA + CONFIG: Caché JSON Nivel 1 (TTL: 5 min) ─────────────────────
@@ -83,11 +106,12 @@ try {
             @file_put_contents($cacheCfgFile, json_encode($empresaCfgCached));
         }
     } else {
-        // Sin imagen_empresa en la query principal para evitar traer el BLOB
-        $rec_emp = mysqli_query($conn, "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1");
-        $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
-        $rec_cfg = mysqli_query($conn, "SELECT leyendamensaje_configuracion, mensajeleyenda_configuracion, imprimir_boucher_guia, formato_impresion FROM configuracion LIMIT 1");
-        $vals_configuracion = $rec_cfg ? mysqli_fetch_assoc($rec_cfg) : [];
+        // 1 solo roundtrip: empresa + configuracion (sin BLOB) vía LEFT JOIN ON 1=1
+        // (CROSS JOIN devolvería 0 filas si configuracion está vacía)
+        $rec_emp = mysqli_query($conn, "SELECT e.id_empresa, e.telefono_empresa, e.correo_empresa, e.ruc_empresa, e.direccion_empresa, e.razon_social_empresa, c.leyendamensaje_configuracion, c.mensajeleyenda_configuracion, c.imprimir_boucher_guia, c.formato_impresion FROM empresa e LEFT JOIN configuracion c ON 1=1 LIMIT 1");
+        $row_emp = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
+        $vals_empresa = $row_emp ?: [];
+        $vals_configuracion = $row_emp ?: [];
         // Logo: archivo por tenant; query separada del BLOB solo al expirar el caché
         $rutaLogo = null;
         $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
@@ -367,6 +391,8 @@ try {
     if (file_exists($cachePdfFile) && filesize($cachePdfFile) > 1000) {
         $tTotalMs = round((microtime(true) - $t0) * 1000);
         if (ob_get_length()) ob_clean();
+        // Refrescar copia rápida para que reimpresiones seguidas no toquen la DB
+        @copy($cachePdfFile, $pdfCacheDir . 'guia_imp_' . $id_guia . '_' . $dbKey . '_latest.pdf');
         header('Content-Type: application/pdf');
         header('Content-Disposition: inline; filename="guiaImpresion_' . $id_guia . '.pdf"');
         header('Cache-Control: public, max-age=60');
@@ -656,6 +682,8 @@ try {
         @unlink($oldPdf);
     }
     @file_put_contents($cachePdfFile, $pdfContent);
+    // Copia rápida TTL 60s: la reimpresión inmediata no toca DB ni TCPDF
+    @copy($cachePdfFile, $pdfCacheDir . 'guia_imp_' . $id_guia . '_' . $dbKey . '_latest.pdf');
     $tTotalMs = round((microtime(true) - $t0) * 1000);
     if (ob_get_length()) ob_clean();
     header('Content-Type: application/pdf');
