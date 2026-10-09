@@ -2441,7 +2441,7 @@ export const PAGES_CONFIG = {
           </div>
         )
       },
-      { key: 'nombre_sucursal', label: 'Destino' },
+      { key: 'nombre_sucursal', label: 'Sucursal' },
       {
         key: 'nombre_cliente', label: 'Remitente', render: (v, r) => (
           <div className="text-xs">

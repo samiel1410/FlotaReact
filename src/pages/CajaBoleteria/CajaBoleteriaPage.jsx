@@ -124,6 +124,9 @@ export const CajaBoleteriaPage = () => {
           if (r.success) { toast.success('Aprobada'); loadData(); } else toast.error(r.message || 'Error');
         } else toast('Ya aprobada');
         break;
+      case 'cierre-a4':
+        window.open(buildPdfUrl(`/php/pdfCierreCajaBoleteriaA4.php?id_caja=${row.id_caja}`), '_blank');
+        break;
       case 'impresion-rapida':
         window.open(buildPdfUrl(`/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja}`), '_blank');
         break;
@@ -188,6 +191,7 @@ export const CajaBoleteriaPage = () => {
             { a: 'editar', i: 'fa-edit', c: 'text-amber-500 hover:bg-amber-50', t: 'Detalle' },
             { a: 'cerrar', i: 'fa-sign-out-alt', c: 'text-blue-500 hover:bg-blue-50', t: 'Cerrar' },
             { a: 'solicitud', i: 'fa-share-square', c: 'text-purple-500 hover:bg-purple-50', t: 'Solicitud' },
+            { a: 'cierre-a4', i: 'fa-file-alt', c: 'text-teal-600 hover:bg-teal-50', t: 'Cierre A4' },
             { a: 'impresion-rapida', i: 'fa-print', c: 'text-slate-500 hover:bg-slate-50', t: 'Imprimir' },
           ].map(b => (
             <button key={b.a} onClick={() => handleAction(b.a, row)} title={b.t}

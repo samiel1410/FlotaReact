@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, memo } from 'react';
 import { api } from '../../../config/axios';
 import { useAuth } from '../../../context/AuthContext';
 import { despachoConvenioService } from '../../../services/despachoConvenio.service';
+import { SearchableSelect } from '../../../components/common/SearchableSelect';
 import toast from 'react-hot-toast';
 
 export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSuccess }) => {
@@ -14,7 +15,7 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
   const [combos, setCombos] = useState({
     oficinistas: [],
     buses: [],
-    destinos: [],
+    sucursales: [],
     personal: []
   });
 
@@ -44,10 +45,11 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
 
   const cargarCombos = async () => {
     try {
-      const [resOficinistas, resBuses, resDestinos, resPersonal] = await Promise.allSettled([
+      const [resOficinistas, resBuses, resSucursales, resPersonal] = await Promise.allSettled([
         api.get('/usuario/usuarioSeleccionarOficinista'),
         api.get('/buses/seleccionarBuses', { params: { page: 1, limit: 50 } }),
-        api.get('/destino/destinoSeleccionCombo', { params: { numero_bloque: 1, tamanio_bloque: 50 } }),
+        // En guías de compañía se elige la SUCURSAL de destino (no un "destino")
+        api.get('/sucursal/comboSucursal'),
         api.get('/personal/personalSelectCombo')
       ]);
 
@@ -61,9 +63,10 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
         buses = resBuses.value.data.data;
       }
 
-      let destinos = [];
-      if (resDestinos.status === 'fulfilled' && resDestinos.value.data?.data) {
-        destinos = resDestinos.value.data.data;
+      let sucursales = [];
+      if (resSucursales.status === 'fulfilled' && resSucursales.value.data?.data) {
+        // Se excluye la opción "TODOS" (id_sucursal 0) que agrega el endpoint
+        sucursales = resSucursales.value.data.data.filter(s => Number(s.id_sucursal) !== 0);
       }
 
       let personal = [];
@@ -71,7 +74,7 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
         personal = resPersonal.value.data.data;
       }
 
-      setCombos({ oficinistas, buses, destinos, personal });
+      setCombos({ oficinistas, buses, sucursales, personal });
     } catch (error) {
       console.error('Error cargando combos:', error);
       toast.error('Error al cargar datos del formulario');
@@ -149,7 +152,7 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
       return;
     }
     if (!formData.oficina_usuario) {
-      toast.error('Debe seleccionar un destino/oficina');
+      toast.error('Debe seleccionar una sucursal de destino');
       return;
     }
 
@@ -162,8 +165,8 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
       const busSel = combos.buses.find(
         b => String(b.bus_disco || b.disco_buses || b.id_buses) === String(formData.id_fkbus_despacho_maestro)
       );
-      const destinoSel = combos.destinos.find(
-        d => String(d.id_destino) === String(formData.oficina_usuario)
+      const destinoSel = combos.sucursales.find(
+        s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(formData.oficina_usuario)
       );
 
       // Extraer raw values (display text) como lo hace ExtJS con getRawValue()
@@ -172,11 +175,11 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
       const nombreBus = busSel?.codigo_buses || busSel?.placa_buses || busSel?.bus_placa || '';
       // Busero se obtiene del combo personal seleccionado
       const personalSel = combos.personal.find(
-        p => String(p.per_codigo_personal || p.id_personal) === String(formData.id_personal)
+        p => String(p.id_personal ?? p.per_codigo_personal) === String(formData.id_personal)
       );
       const nombreBusero = personalSel?.per_nombres_persona || 
         `${personalSel?.per_nombre || ''} ${personalSel?.per_apellido || ''}`.trim() || '';
-      const nombreDestino = destinoSel?.lugar_destino || '';
+      const nombreDestino = destinoSel?.nombre_sucursal || '';
 
       const payload = {
         id_despacho_maestro: '', // Empty = create new
@@ -206,6 +209,22 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
       setLoading(false);
     }
   };
+
+  // Oficinista en sesión: se auto-asigna y se muestra (campo no editable)
+  const idOficinistaActual = String(user?.id_usuario || user?.id || formData.id_fkoficinista_despacho_maestro || '');
+  const nombreOficinistaActual = [user?.nombre_usuario, user?.apellido_usuario].filter(Boolean).join(' ').trim()
+    || user?.username
+    || 'Usuario en sesión';
+  const oficinistaOptions = (() => {
+    const base = combos.oficinistas.map(o => ({
+      id: String(o.id_usuario),
+      nombre: `${o.nombre_usuario || ''} ${o.apellido_usuario || ''}`.trim() || o.username_usuario || ''
+    }));
+    if (idOficinistaActual && !base.some(o => o.id === idOficinistaActual)) {
+      base.unshift({ id: idOficinistaActual, nombre: nombreOficinistaActual });
+    }
+    return base;
+  })();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -237,10 +256,8 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
                 disabled
               >
                 <option value="">Seleccionar...</option>
-                {combos.oficinistas.map(o => (
-                  <option key={o.id_usuario} value={o.id_usuario}>
-                    {o.nombre_usuario || `${o.nombre_usuario || ''} ${o.apellido_usuario || ''}`}
-                  </option>
+                {oficinistaOptions.map(o => (
+                  <option key={o.id} value={o.id}>{o.nombre}</option>
                 ))}
               </select>
             </div>
@@ -286,18 +303,17 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
             {/* Personal (busero) */}
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Personal (Busero)</label>
-              <select
-                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+              <SearchableSelect
+                options={combos.personal
+                  .map(p => ({
+                    value: String(p.id_personal ?? p.per_codigo_personal ?? ''),
+                    label: (p.per_nombres_persona || `${p.per_nombre || ''} ${p.per_apellido || ''}`).trim()
+                  }))
+                  .filter(o => o.value !== '')}
                 value={formData.id_personal}
-                onChange={e => setFormData(prev => ({ ...prev, id_personal: e.target.value }))}
-              >
-                <option value="">Seleccionar personal...</option>
-                {combos.personal.map(p => (
-                  <option key={p.per_codigo_personal || p.id_personal} value={p.per_codigo_personal || p.id_personal}>
-                    {p.per_nombres_persona || `${p.per_nombre || ''} ${p.per_apellido || ''}`}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFormData(prev => ({ ...prev, id_personal: val }))}
+                placeholder="Buscar personal..."
+              />
             </div>
 
             {/* Fecha */}
@@ -311,41 +327,27 @@ export const NuevoDespachoGuiaCompaniaModal = /*#__PURE__*/memo(({ onClose, onSu
               />
             </div>
 
-            {/* Oficina / Destino */}
+            {/* Sucursal de destino */}
             <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Destino *</label>
-              <select
-                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400"
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Sucursal de destino *</label>
+              <SearchableSelect
+                options={combos.sucursales.map(s => ({
+                  value: String(s.suc_codigo_sucursal || s.id_sucursal),
+                  label: s.nombre_sucursal
+                }))}
                 value={formData.oficina_usuario}
-                onChange={e => {
-                  const val = e.target.value;
-                  const destinoSel = combos.destinos.find(d => String(d.id_destino) === String(val));
+                onChange={(val) => {
+                  const sucSel = combos.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(val));
                   setFormData(prev => ({
                     ...prev,
                     oficina_usuario: val,
-                    destino: destinoSel?.lugar_destino || ''
+                    destino: sucSel?.nombre_sucursal || ''
                   }));
                 }}
-              >
-                <option value="">Seleccionar destino...</option>
-                {combos.destinos.map(d => (
-                  <option key={d.id_destino} value={d.id_destino}>{d.lugar_destino}</option>
-                ))}
-              </select>
+                placeholder="Buscar sucursal de destino..."
+              />
             </div>
 
-            {/* Estado */}
-            <div>
-              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Estado</label>
-              <select
-                className="w-full h-9 px-3 text-sm border border-slate-200 rounded-lg bg-slate-50 text-slate-500 cursor-not-allowed"
-                value={formData.estado_despacho_maestro}
-                disabled
-              >
-                <option value="1">Activo</option>
-                <option value="2">Terminado</option>
-              </select>
-            </div>
           </div>
         </div>
 

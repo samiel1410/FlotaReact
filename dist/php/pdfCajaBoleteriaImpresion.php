@@ -107,6 +107,9 @@ try {
         $rutaLogo = obtenerRutaLogoEmpresa($conn);
     }
 
+    // Logo gigante (varios MB) infla el PDF térmico: reducir a máx 500px (skill tcpdf-optimize)
+    $rutaLogo = reducirLogoGigante($rutaLogo ?? null, 500);
+
     $razon_social_empresa = $vals_empresa["razon_social_empresa"] ?? 'SISTEMA FLOTA';
     $ruc_empresa          = $vals_empresa["ruc_empresa"] ?? '';
 
@@ -190,6 +193,53 @@ try {
         $extra = mysqli_store_result($conn);
         if ($extra) mysqli_free_result($extra);
     }
+
+    // ─── DESPACHOS DEL OFICINISTA EN EL PERÍODO DE LA CAJA ───────────────────
+    // El cierre es POR OFICINISTA: despachos aprobados por el dueño de la caja.
+    $id_usuario_caja = (int)($vals_caja['id_fkusuario_caja'] ?? 0);
+    $fecha_caja_txt = $vals_caja['fecha_caja'] ? date('Y-m-d', strtotime($vals_caja['fecha_caja'])) : date('Y-m-d');
+
+    $despachos = [];
+    $total_vendido_desp = 0.0;
+    $total_retenido_desp = 0.0;
+
+    if ($id_usuario_caja > 0) {
+        $sqlDespachos = "SELECT
+            dv.id_despacho_viaje,
+            dv.id_fkviaje_despacho_viaje AS id_viaje,
+            dv.motivo_despacho_viaje,
+            dv.tarifa_despacho_viaje AS retenido,
+            b.disco_buses,
+            v.fecha_cierre,
+            (SELECT COALESCE(SUM(bd.total_boleto_detalle), 0)
+               FROM boleto_detalle bd
+               JOIN boletos bo ON bd.id_fkboleto_boleto_detalle = bo.id_boleto
+              WHERE bo.id_fkviaje_boleto = dv.id_fkviaje_despacho_viaje AND bo.estado_boleto != 3) AS facturado,
+            (SELECT COUNT(bd.total_boleto_detalle)
+               FROM boleto_detalle bd
+               JOIN boletos bo ON bd.id_fkboleto_boleto_detalle = bo.id_boleto
+              WHERE bo.id_fkviaje_boleto = dv.id_fkviaje_despacho_viaje AND bo.estado_boleto != 3) AS asientos
+        FROM despacho_viaje dv
+        LEFT JOIN buses b ON b.id_buses = dv.id_fkbus_despacho_viaje
+        LEFT JOIN viajes v ON v.id_viajes = dv.id_fkviaje_despacho_viaje
+        WHERE dv.id_fkusuario_aprueba = $id_usuario_caja
+          AND DATE(dv.fecha_creacion_despacho_viaje) = '$fecha_caja_txt'
+        ORDER BY dv.id_despacho_viaje DESC";
+
+        $recDesp = mysqli_query($conn, $sqlDespachos);
+        if ($recDesp) {
+            while ($rowDesp = mysqli_fetch_assoc($recDesp)) {
+                $rowDesp['retenido']  = (float)$rowDesp['retenido'];
+                $rowDesp['facturado'] = (float)$rowDesp['facturado'];
+                $rowDesp['asientos']  = (int)$rowDesp['asientos'];
+                $total_vendido_desp   += $rowDesp['facturado'];
+                $total_retenido_desp  += $rowDesp['retenido'];
+                $despachos[] = $rowDesp;
+            }
+            mysqli_free_result($recDesp);
+        }
+    }
+
     $conn->close();
 
     // ─── CONFIGURACIÓN DE PÁGINA TCPDF NATIVA ────────────────────────────────
@@ -197,7 +247,7 @@ try {
     $margen = ($anchoPapel <= 60) ? 2.5 : 4.0;
     $anchoUtil = $anchoPapel - ($margen * 2);
 
-    $totalItems = count($boletos) + count($egresos_ingresos);
+    $totalItems = count($boletos) + count($egresos_ingresos) + count($despachos);
     $altoEstimado = max(240, 180 + ($totalItems * 4.5));
 
     $pdf = new TCPDF('P', 'mm', array($anchoPapel, $altoEstimado), true, 'UTF-8', false);
@@ -294,6 +344,31 @@ try {
         $pdf->Ln(1.5);
     }
 
+    // ─── 4.b DESPACHOS Y RETENCIONES ─────────────────────────────────────────
+    if (count($despachos) > 0) {
+        $pdf->SetFont('helvetica', 'B', 8.5);
+        $pdf->Cell($anchoUtil, 4.2, 'DESPACHOS', 0, 1, 'C');
+
+        $wDesp = round($anchoUtil * 0.62, 1);
+        $wRet  = $anchoUtil - $wDesp;
+
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell($wDesp, 4, 'DESP. / VIAJE / UNID.', 'B', 0, 'L');
+        $pdf->Cell($wRet, 4, 'RETENIDO', 'B', 1, 'R');
+
+        $pdf->SetFont('helvetica', '', 7);
+        foreach ($despachos as $d) {
+            $lbl = 'D#' . $d['id_despacho_viaje'] . ' V#' . $d['id_viaje'] . ' U' . ($d['disco_buses'] ?? '-');
+            $pdf->Cell($wDesp, 3.6, $lbl, 0, 0, 'L');
+            $pdf->Cell($wRet, 3.6, '$' . number_format($d['retenido'], 2), 0, 1, 'R');
+        }
+
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell($wDesp, 4, 'TOTAL RETENIDO:', 'T', 0, 'L');
+        $pdf->Cell($wRet, 4, '$' . number_format($total_retenido_desp, 2), 'T', 1, 'R');
+        $pdf->Ln(1.5);
+    }
+
     // ─── 5. RESUMEN FINAL ────────────────────────────────────────────────────
     $pdf->SetLineWidth(0.3);
     $pdf->Line($margen, $pdf->GetY(), $margen + $anchoUtil, $pdf->GetY());
@@ -304,14 +379,16 @@ try {
     $hTot = 3.6;
 
     $totalesSummary = [
-        ['TOTAL COBRADO:', '$' . number_format($total_cobrado, 2)],
+        ['TOTAL VENDIDO:', '$' . number_format($total_cobrado, 2)],
+        ['TOTAL RETENIDO:', '$' . number_format($total_retenido_desp, 2)],
         ['TOTAL EGRESOS:', '$' . number_format($total_egresos, 2)],
         ['TOTAL CANTIDAD:', (string)$total_cantidad],
         ['TOTAL CAJA:', '$' . number_format($total_final_final, 2)],
     ];
 
     foreach ($totalesSummary as $idx => $ts) {
-        $pdf->SetFont('helvetica', ($idx === 3) ? 'B' : '', 7.5);
+        $esTotal = ($idx === count($totalesSummary) - 1);
+        $pdf->SetFont('helvetica', $esTotal ? 'B' : '', 7.5);
         $pdf->Cell($wK, $hTot, $ts[0], 0, 0, 'L');
         $pdf->Cell($wV, $hTot, $ts[1], 0, 1, 'R');
     }

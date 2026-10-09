@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { api } from '../../config/axios';
 import Swal from 'sweetalert2';
 import Modal from '../../components/common/Modal';
+import MotivoModal from '../../components/common/MotivoModal';
+import AccionesFila from '../../components/common/AccionesFila';
 import SocioBusSelector from '../../components/common/SocioBusSelector';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { cobrosService } from '../../services/cobros.service';
 
 const formatCurrency = (v) => `$${parseFloat(v || 0).toFixed(2)}`;
@@ -71,6 +75,10 @@ export const CreditosAdminPage = () => {
   const [loading, setLoading] = useState(false);
   const [filtros, setFiltros] = useState({ id_socio: '', id_bus: '', estado: '', fecha_desde: '', fecha_hasta: '' });
   const [showModal, setShowModal] = useState(false);
+  const [anularCredito, setAnularCredito] = useState(null);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfModalUrl, setPdfModalUrl] = useState('');
+  const [pdfModalTitle, setPdfModalTitle] = useState('');
 
   const hoyStr = new Date().toISOString().split('T')[0];
 
@@ -85,9 +93,44 @@ export const CreditosAdminPage = () => {
 
   useEffect(() => { loadData(); }, [page, filtros]);
 
+  // ─── Imprimir ticket POS (PDF generado por PHP) ────────────────
+  const imprimirPos = (row) => {
+    setPdfModalUrl(buildPdfUrl(`/php/pdfCreditoImpresion.php?id_deuda=${row.id_deuda}`));
+    setPdfModalTitle(`Crédito N° ${String(row.id_deuda).padStart(6, '0')}`);
+    setShowPdfModal(true);
+  };
+
+  // ─── Anular crédito ────────────────────────────────────────────
+  const handleAnularConfirm = async (motivo) => {
+    if (!anularCredito) return;
+    const res = await cobrosService.anularDeuda({ id_deuda: anularCredito.id_deuda, fuente: 'deuda', motivo });
+    if (res.success) { Swal.fire('Éxito', 'Crédito anulado', 'success'); loadData(); }
+    else Swal.fire('Error', res.message || 'No se pudo anular', 'error');
+    setAnularCredito(null);
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {showModal && <NuevoCreditoModal onClose={() => setShowModal(false)} onSuccess={() => { setShowModal(false); loadData(); }} />}
+
+      <PdfViewerModal
+        open={showPdfModal}
+        onClose={() => setShowPdfModal(false)}
+        url={pdfModalUrl}
+        title={pdfModalTitle}
+        showPrintButton
+      />
+
+      {anularCredito && (
+        <MotivoModal
+          isOpen={true}
+          onClose={() => setAnularCredito(null)}
+          onConfirm={handleAnularConfirm}
+          title="Anular Crédito Administrativo"
+          subtitle={`Crédito N° ${String(anularCredito.id_deuda).padStart(6, '0')} — ${anularCredito.concepto || ''}`}
+          confirmText="Anular"
+        />
+      )}
 
       <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
         <i className="fas fa-hand-holding-usd text-purple-600"></i> Créditos Administrativos
@@ -146,13 +189,14 @@ export const CreditosAdminPage = () => {
                 <th className="px-3 py-2.5 text-right font-bold text-slate-600">Saldo</th>
                 <th className="px-3 py-2.5 text-center font-bold text-slate-600">Estado</th>
                 <th className="px-3 py-2.5 text-left font-bold text-slate-600">Fecha</th>
+                <th className="px-3 py-2.5 text-center font-bold text-slate-600">Acción</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="text-center py-8 text-slate-400"><i className="fas fa-spinner fa-spin"></i> Cargando...</td></tr>
+                <tr><td colSpan={10} className="text-center py-8 text-slate-400"><i className="fas fa-spinner fa-spin"></i> Cargando...</td></tr>
               ) : data.length === 0 ? (
-                <tr><td colSpan={9} className="text-center py-8 text-slate-400"><i className="fas fa-inbox text-2xl mb-2 block"></i> No hay créditos registrados</td></tr>
+                <tr><td colSpan={10} className="text-center py-8 text-slate-400"><i className="fas fa-inbox text-2xl mb-2 block"></i> No hay créditos registrados</td></tr>
               ) : data.map(d => (
                 <tr key={d.id_deuda} className="border-b border-slate-100 hover:bg-slate-50">
                   <td className="px-3 py-2 font-medium">{d.id_deuda}</td>
@@ -176,6 +220,14 @@ export const CreditosAdminPage = () => {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-slate-500">{formatFecha(d.fecha_creacion)}</td>
+                  <td className="px-3 py-2">
+                    <AccionesFila
+                      onImprimir={() => imprimirPos(d)}
+                      onAnular={() => setAnularCredito(d)}
+                      anulado={d.estado === 'anulado'}
+                      tituloImprimir="Imprimir POS"
+                    />
+                  </td>
                 </tr>
               ))}
             </tbody>

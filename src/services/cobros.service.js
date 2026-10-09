@@ -110,7 +110,7 @@ class CobrosService {
       return { success: res.data?.success, data: res.data?.data, ticket: res.data?.data?.ticket, message: res.data?.message || res.data?.error, notificacion: res.data?.notificacion };
     } catch (error) {
       const msg = error.response?.data?.error || error.response?.data?.message || 'Error al crear bono';
-      return { success: false, message: msg };
+      return { success: false, message: msg, requiere_caja: error.response?.data?.requiere_caja === true };
     }
   }
 

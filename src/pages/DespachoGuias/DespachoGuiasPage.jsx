@@ -56,7 +56,7 @@ const DetalleRow = memo(({ detalle, onQuitarGuia }) => (
       {detalle.numero_guia_formateado || detalle.numero_guia || '-'}
     </td>
     <td className="px-4 py-2 text-sm text-slate-600">
-      {detalle.destino_guia || '-'}
+      {detalle.sucursal_guia || detalle.destino_guia || '-'}
     </td>
     <td className="px-4 py-2 text-sm">
       {String(detalle.estado_despacho_detalle_convenios) === '1'
@@ -430,7 +430,7 @@ export const DespachoGuiasPage = () => {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Fecha</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Bus</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Busero</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Destino</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Sucursal</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider"># Guías</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-16">Estado</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Acciones</th>
@@ -544,7 +544,7 @@ export const DespachoGuiasPage = () => {
                         <thead className="bg-slate-50">
                           <tr>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">N° Guía</th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Destino Guía</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Sucursal</th>
                             <th className="px-4 py-2 text-left text-xs font-semibold text-slate-600">Estado</th>
                             <th className="px-4 py-2 text-center text-xs font-semibold text-slate-600 w-20">Acción</th>
                           </tr>

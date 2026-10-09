@@ -134,7 +134,7 @@ export const BusquedaGuiaDespachoModal = memo(({ bus, onClose, onSelect }) => {
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">N° Guía</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Destino</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Sucursal</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Compañía</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Total</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-20">Acción</th>
@@ -147,7 +147,7 @@ export const BusquedaGuiaDespachoModal = memo(({ bus, onClose, onSelect }) => {
                         {guia.numero_guia || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">
-                        {guia.nombre_destino || '-'}
+                        {guia.nombre_sucursal || guia.nombre_destino || '-'}
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">
                         {guia.nombre_compania_asociada || '-'}

@@ -5,9 +5,11 @@ import Modal from '../../components/common/Modal';
 import MotivoModal from '../../components/common/MotivoModal';
 import SocioBusSelector from '../../components/common/SocioBusSelector';
 import AperturaCajaCobrosModal from '../../components/common/AperturaCajaCobrosModal';
+import AccionesFila from '../../components/common/AccionesFila';
 import { cobrosService } from '../../services/cobros.service';
 import { cajaCobrosService } from '../../services/cajaCobros.service';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import toast from 'react-hot-toast';
 
 const formatCurrency = (v) => `$${parseFloat(v || 0).toFixed(2)}`;
@@ -52,50 +54,12 @@ const conectarQZ = () => {
   ]).finally(() => clearTimeout(timeoutId));
 };
 
-// ─── Generar HTML del ticket ───────────────────────────────────────
-const generarHtmlTicket = (ticket) => {
-  const coop = ticket.cooperativa || 'COOPERATIVA DE TRANSPORTES';
-  return `<!DOCTYPE html>
-<html>
-<head><meta charset="UTF-8"><title>Bono N° ${ticket.numero}</title>
-<style>
-  @page { margin: 10mm; }
-  body { font-family: Arial, sans-serif; font-size: 14px; color: #1e293b; margin: 0; padding: 20px; }
-  .ticket { max-width: 360px; margin: 0 auto; text-align: center; }
-  h2 { font-size: 18px; margin: 0 0 12px; padding-bottom: 10px; border-bottom: 2px solid #1e293b; }
-  .info { padding: 16px 0; }
-  .row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
-  .label { font-weight: bold; color: #475569; }
-  .value { font-weight: 600; }
-  .valor { font-size: 20px; font-weight: bold; color: #059669; }
-  .firma { border-top: 1px solid #cbd5e1; margin-top: 16px; padding-top: 16px; font-size: 12px; color: #94a3b8; }
-</style>
-</head>
-<body>
-<div class="ticket">
-  <h2>${coop}</h2>
-  <div class="info">
-    <div class="row"><span class="label">Bono N°:</span><span class="value">${ticket.numero}</span></div>
-    <div class="row"><span class="label">Bus:</span><span class="value">${ticket.bus || ''}</span></div>
-    <div class="row"><span class="label">Socio:</span><span class="value">${ticket.socio || ''}</span></div>
-    <div class="row"><span class="label">Valor:</span><span class="valor">${formatCurrency(ticket.valor)}</span></div>
-    <div class="row"><span class="label">Motivo:</span><span class="value">${ticket.motivo || ''}</span></div>
-    ${ticket.observacion ? `<div class="row"><span class="label">Observación:</span><span class="value">${ticket.observacion}</span></div>` : ''}
-    <div class="row"><span class="label">Fecha:</span><span class="value">${formatFecha(ticket.fecha)}</span></div>
-  </div>
-  <div class="firma">
-    <p>_________________________</p>
-    <p style="font-weight:bold;color:#475569;">Firma Responsable</p>
-  </div>
-</div>
-</body>
-</html>`;
-};
-
-const crearBlobUrlTicket = (ticket) => {
-  const html = generarHtmlTicket(ticket);
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-  return URL.createObjectURL(blob);
+// ─── URL del PDF del bono (generado por PHP) ───────────────────────
+const urlPdfBono = (ticket) => {
+  const param = ticket?.id_bono
+    ? `id_bono=${encodeURIComponent(ticket.id_bono)}`
+    : `numero_ticket=${encodeURIComponent(ticket?.numero || '')}`;
+  return buildPdfUrl(`/php/pdfBonoImpresion.php?${param}`);
 };
 
 // ─── Nuevo Bono Modal ──────────────────────────────────────────────
@@ -115,15 +79,14 @@ const NuevoBonoModal = ({ onClose, onSuccess, onNoCaja }) => {
         if (res.notificacion) {
           api.post('/whatsapp/enviar', { number: res.notificacion.telefono, message: res.notificacion.mensaje }).catch(() => {});
         }
-        onSuccess(res.data?.ticket || res.ticket);
+        onSuccess({ ...(res.data?.ticket || res.ticket || {}), id_bono: res.data?.id_bono });
       } else {
-        // Si el error es por caja no aperturada, abrir modal de apertura
-        const msg = res.message || '';
-        if (msg.toLowerCase().includes('caja')) {
+        // Solo se abre el modal de apertura si el backend lo indica explícitamente
+        if (res.requiere_caja) {
           onClose();
           onNoCaja();
         } else {
-          Swal.fire({ icon: 'error', title: 'No se pudo registrar el bono', text: msg || 'Error desconocido', confirmButtonColor: '#dc2626' });
+          Swal.fire({ icon: 'error', title: 'No se pudo registrar el bono', text: res.message || 'Error desconocido', confirmButtonColor: '#dc2626' });
         }
       }
     } catch (err) { Swal.fire('Error', err.message, 'error'); }
@@ -217,10 +180,10 @@ export const BonosPage = () => {
 
   // ─── Manejar impresión del ticket ──────────────────────────────
   const imprimirTicket = async (ticket) => {
-    // Generar blob URL con el HTML del ticket
-    const url = crearBlobUrlTicket(ticket);
+    // El PDF lo genera PHP (misma fuente para la vista previa y la impresión directa)
+    const url = urlPdfBono(ticket);
     setPdfModalUrl(url);
-    setPdfModalTitle(`Bono N° ${ticket.numero}`);
+    setPdfModalTitle(`Bono N° ${ticket.numero || ''}`);
 
     if (metodoImpresion === 'directa') {
       try {
@@ -230,24 +193,29 @@ export const BonosPage = () => {
           return;
         }
 
+        // Descargar el PDF generado por PHP para enviarlo crudo a la impresora
+        const pdfRes = await fetch(url);
+        if (!pdfRes.ok) throw new Error('No se pudo generar el PDF del bono');
+        const pdfBlob = await pdfRes.blob();
+        const pdfBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+          reader.onerror = () => reject(new Error('No se pudo leer el PDF'));
+          reader.readAsDataURL(pdfBlob);
+        });
+
         await loadQZ();
         configurarQZ();
         await conectarQZ();
 
-        // Imprimir vía QZ Tray usando el blob URL del HTML
+        // Imprimir vía QZ Tray el PDF crudo (mismo documento que la vista previa)
         const config = window.qz.configs.create(printerBono, {
           scaleContent: true,
           units: 'mm',
-          margins: { top: 0, bottom: 0, left: 8, right: 2 }
+          margins: { top: 0, bottom: 0, left: 0, right: 0 }
         });
 
-        const data = [{
-          type: 'html',
-          format: 'plain',
-          data: generarHtmlTicket(ticket)
-        }];
-
-        await window.qz.print(config, data);
+        await window.qz.print(config, [{ type: 'pdf', format: 'base64', data: pdfBase64 }]);
         toast.success('Bono impreso en ' + printerBono);
         return; // No mostrar modal si QZ funcionó
       } catch (e) {
@@ -265,6 +233,7 @@ export const BonosPage = () => {
   // ─── Ver ticket desde la tabla ─────────────────────────────────
   const handleVerTicket = async (row) => {
     const ticket = {
+      id_bono: row.id_bono,
       cooperativa: row.nombre_empresa || 'COOPERATIVA DE TRANSPORTES',
       bus: row.disco_buses,
       socio: row.socio_nombre,
@@ -314,7 +283,7 @@ export const BonosPage = () => {
         open={showPdfModal}
         onClose={() => {
           setShowPdfModal(false);
-          if (pdfModalUrl) URL.revokeObjectURL(pdfModalUrl);
+          if (pdfModalUrl && pdfModalUrl.startsWith('blob:')) URL.revokeObjectURL(pdfModalUrl);
         }}
         url={pdfModalUrl}
         title={pdfModalTitle}
@@ -459,16 +428,12 @@ export const BonosPage = () => {
                     </span>
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <div className="flex gap-1 justify-center">
-                      <button onClick={() => handleVerTicket(d)} className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100" title="Ver Ticket">
-                        <i className="fas fa-ticket-alt text-sm"></i>
-                      </button>
-                      {d.estado === 'activo' && (
-                        <button onClick={() => setAnularBono(d)} className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100" title="Anular">
-                          <i className="fas fa-ban text-sm"></i>
-                        </button>
-                      )}
-                    </div>
+                    <AccionesFila
+                      onImprimir={() => handleVerTicket(d)}
+                      onAnular={() => setAnularBono(d)}
+                      anulado={d.estado === 'anulado'}
+                      tituloImprimir="Imprimir Ticket"
+                    />
                   </td>
                 </tr>
               ))}

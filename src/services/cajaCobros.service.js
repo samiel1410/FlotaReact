@@ -36,7 +36,10 @@ class CajaCobrosService {
   async validarCaja() {
     try {
       const response = await api.post('/cajaretenciones/validarcaja');
-      return { success: true, data: response.data?.data || null };
+      const d = response.data || {};
+      // El backend devuelve { success, id_caja } en la raíz (no en data)
+      const caja = d.id_caja ? { id_caja: d.id_caja } : (d.data || null);
+      return { success: d.success !== false, data: caja };
     } catch (error) {
       return { success: false, data: null };
     }
