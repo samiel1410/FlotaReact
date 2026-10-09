@@ -303,6 +303,38 @@ export const DespachoViajesPage = () => {
         setDetailData(null);
         setDespachando(false);
         fetchTrips();
+      } else if (res.requiere_confirmacion) {
+        setDespachando(false);
+        const lista = (res.cajas_abiertas || []).map((c) => `• ${c.oficinista}`).join('<br>');
+        const confirmarCajas = await Swal.fire({
+          title: 'Cajas abiertas',
+          html: `<p style="font-size:13px;text-align:left">Estos oficinistas vendieron en este viaje y aún tienen su <b>caja abierta</b>:</p>
+                 <p style="font-size:12px;text-align:left;margin-top:6px">${lista}</p>
+                 <p style="font-size:12px;text-align:left;margin-top:8px">Se recomienda que cierren su caja antes de despachar. ¿Desea despachar de todos modos?</p>`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: 'Despachar de todos modos',
+          cancelButtonText: 'Cancelar',
+          confirmButtonColor: '#d97706',
+        });
+        if (confirmarCajas.isConfirmed) {
+          setDespachando(true);
+          try {
+            const res2 = await ViajesService.dispatchTrip({ ...payload, forzar_despacho: true });
+            if (res2.success) {
+              toast.success('Viaje despachado correctamente');
+              setSelectedTrip(null);
+              setDetailData(null);
+              fetchTrips();
+            } else {
+              toast.error(res2.message || 'Error al despachar viaje');
+            }
+          } catch {
+            toast.error('Error al despachar el viaje');
+          } finally {
+            setDespachando(false);
+          }
+        }
       } else {
         toast.error(res.message || 'Error al despachar viaje');
         setDespachando(false);

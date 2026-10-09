@@ -212,10 +212,10 @@ authApi.interceptors.request.use(config => {
   return config;
 });
 
-// Instancia separada para búsqueda de clientes (clientesfp.easysplus.com)
+// Instancia para búsqueda de clientes. Ya NO llama directo a clientesfp: pasa por el
+// intermediario interno del backend (/clientes-externos) para no salir a la red externa.
 export const clienteApi = axios.create({
-  baseURL: CONFIG.CLIENTE_URL, // Se establece aquí para que axios lo tome correctamente
-  timeout: 5000, // Reducido para que el fallback al backend local entre más rápido
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -223,7 +223,11 @@ export const clienteApi = axios.create({
 
 clienteApi.interceptors.request.use(config => {
   if (!config.url.startsWith('http')) {
-    config.baseURL = CONFIG.CLIENTE_URL;
+    config.baseURL = `${CONFIG.API_URL || ''}/clientes-externos`;
+  }
+  const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });

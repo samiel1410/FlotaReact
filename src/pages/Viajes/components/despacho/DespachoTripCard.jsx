@@ -28,7 +28,7 @@ export const DespachoTripCard = ({ trip, isSelected, onSelect }) => {
             <span className="bg-slate-100 text-slate-700 font-bold text-[10px] px-2 py-0.5 rounded-md border border-slate-200">
               N° VIAJE #{tripId}
             </span>
-            {Number(trip.estado || trip.estado_viajes) === 2 ? (
+            {Number(trip.despachos_count || 0) > 0 || Number(trip.estado || trip.estado_viajes) === 2 ? (
               <span className="bg-blue-50 text-blue-700 font-bold text-[9px] px-2 py-0.5 rounded-md border border-blue-200">
                 DESPACHADO
               </span>

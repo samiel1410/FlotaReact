@@ -8,7 +8,7 @@ const TIPOS_IDENTIFICACION = [
   { value: 'Pasaporte', label: 'Pasaporte' },
 ];
 
-export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteInicial, isForcedEdit = false }) => {
+export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteInicial, identificacionInicial = '', isForcedEdit = false }) => {
   const [tipoIdentificacion, setTipoIdentificacion] = useState('Cedula');
   const [identificacion, setIdentificacion] = useState('');
   const [nombres, setNombres] = useState('');
@@ -40,8 +40,14 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteIni
       setValidacionId(null);
     } else {
       resetForm();
+      // Precarga solo la identificación (sin modo edición) al crear desde la búsqueda fallida
+      const ci = String(identificacionInicial || '').replace(/\D/g, '');
+      if (ci) {
+        setTipoIdentificacion(ci.length === 13 ? 'RUC' : 'Cedula');
+        setIdentificacion(ci);
+      }
     }
-  }, [isOpen, clienteInicial]);
+  }, [isOpen, clienteInicial, identificacionInicial]);
 
   const resetForm = () => {
     setTipoIdentificacion('Cedula');

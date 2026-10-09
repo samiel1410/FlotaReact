@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { api, clienteApi } from '../../../config/axios';
+import { clienteApi } from '../../../config/axios';
 import toast from 'react-hot-toast';
 
 const TARIFAS = [
@@ -114,37 +114,10 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, onTotalesCha
         toast.success(`Cliente encontrado: ${c.nombre_cliente}`, { id: toastId });
         return;
       }
-      // Fallback: intentar con backend local
-      try {
-        const res2 = await api.get('/cliente/clientebusquedaIdentificacion', {
-          params: { identificacion_busqueda: cedula }
-        });
-        if (res2.data?.success && res2.data?.total > 0) {
-          const c = res2.data.data[0];
-          aplicarClienteEncontrado(c);
-          toast.success(`Cliente encontrado: ${c.nombre_cliente} (local)`, { id: toastId });
-          return;
-        }
-        toast.error('Cliente no encontrado con esa identificación', { id: toastId });
-      } catch {
-        toast.error('Error al buscar cliente - servidor no disponible', { id: toastId });
-      }
-    } catch {
-      // Fallback: intentar con backend local
-      try {
-        const res2 = await api.get('/cliente/clientebusquedaIdentificacion', {
-          params: { identificacion_busqueda: cedula }
-        });
-        if (res2.data?.success && res2.data?.total > 0) {
-          const c = res2.data.data[0];
-          aplicarClienteEncontrado(c);
-          toast.success(`Cliente encontrado: ${c.nombre_cliente} (local)`, { id: toastId });
-          return;
-        }
-        toast.error('Cliente no encontrado', { id: toastId });
-      } catch {
-        toast.error('Error al buscar cliente - servidor no disponible', { id: toastId });
-      }
+      toast.error('Cliente no encontrado con esa identificación', { id: toastId });
+    } catch (err) {
+      console.error('[buscarClientePorCI] Error:', err);
+      toast.error('Error al buscar cliente - servidor no disponible', { id: toastId });
     }
   };
 

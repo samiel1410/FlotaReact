@@ -1,10 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import ViajesService from '../../services/viajes.service';
 
 const ModalReversarDespacho = ({ trip, onClose, onReversado }) => {
   const [motivo, setMotivo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [despachos, setDespachos] = useState([]);
+  const [cargandoDespachos, setCargandoDespachos] = useState(true);
+  const [idDespacho, setIdDespacho] = useState('');
+
+  // Cargar los despachos registrados del viaje para elegir cuál se reversa
+  useEffect(() => {
+    let activo = true;
+    (async () => {
+      try {
+        const res = await ViajesService.getTripDetail(trip?.id_viajes);
+        const lista = res?.data?.despachos_viaje || [];
+        if (activo) {
+          setDespachos(lista);
+          if (lista.length === 1) setIdDespacho(String(lista[0].id_despacho_viaje));
+        }
+      } catch {
+        /* ignorar */
+      } finally {
+        if (activo) setCargandoDespachos(false);
+      }
+    })();
+    return () => { activo = false; };
+  }, [trip?.id_viajes]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -12,11 +35,16 @@ const ModalReversarDespacho = ({ trip, onClose, onReversado }) => {
       toast.error('Debe ingresar el motivo de la reversión');
       return;
     }
+    if (!idDespacho) {
+      toast.error('Debe seleccionar el despacho a reversar');
+      return;
+    }
 
     setLoading(true);
     try {
       const response = await ViajesService.reversarDespacho({
         id_viaje: trip.id_viajes,
+        id_despacho_viaje: idDespacho,
         motivo: motivo.trim()
       });
 
@@ -111,6 +139,50 @@ const ModalReversarDespacho = ({ trip, onClose, onReversado }) => {
             </div>
           </div>
 
+          {/* Selección del despacho a reversar (por oficinista) */}
+          <div>
+            <label className="block text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1.5">
+              Despacho a reversar <span className="text-rose-500">*</span>
+            </label>
+            {cargandoDespachos ? (
+              <div className="text-xs text-slate-400 font-semibold py-2">
+                <i className="fas fa-spinner fa-spin mr-2"></i>Cargando despachos...
+              </div>
+            ) : despachos.length === 0 ? (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 font-semibold">
+                Este viaje no tiene despachos de oficina registrados.
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
+                {despachos.map((d) => {
+                  const activo = String(d.id_despacho_viaje) === String(idDespacho);
+                  const hora = d.hora_salida_despacho_viaje ? String(d.hora_salida_despacho_viaje).substring(0, 5) : '';
+                  return (
+                    <button
+                      type="button"
+                      key={d.id_despacho_viaje}
+                      onClick={() => setIdDespacho(String(d.id_despacho_viaje))}
+                      className={`w-full text-left px-3 py-2 rounded-xl border transition-all ${
+                        activo ? 'border-rose-500 bg-rose-50 ring-2 ring-rose-500/20' : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-black text-slate-800 truncate">
+                          <i className={`fas ${activo ? 'fa-dot-circle' : 'fa-circle'} mr-2 ${activo ? 'text-rose-500' : 'text-slate-300'}`}></i>
+                          {d.nombre_usuario || 'Oficinista'} — {d.nombre_sucursal || 'Oficina'}
+                        </span>
+                        <span className="text-[10px] font-bold text-slate-400 shrink-0">{hora}</span>
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-semibold ml-5 truncate">
+                        Despacho #{d.id_despacho_viaje}{d.motivo_despacho_viaje ? ` • ${d.motivo_despacho_viaje}` : ''}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           {/* Motivo Input */}
           <div>
             <label className="block text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1.5">
@@ -138,7 +210,7 @@ const ModalReversarDespacho = ({ trip, onClose, onReversado }) => {
             </button>
             <button
               type="submit"
-              disabled={loading || !motivo.trim()}
+              disabled={loading || !motivo.trim() || !idDespacho}
               className="h-9 px-5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl transition-all disabled:opacity-50 flex items-center gap-2 uppercase tracking-wider shadow-sm"
             >
               {loading ? (

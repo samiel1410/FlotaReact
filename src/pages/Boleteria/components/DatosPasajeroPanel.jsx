@@ -159,20 +159,6 @@ export const DatosPasajeroPanel = ({
           />
         </div>
 
-        {/* FILA 2 - DERECHA: Dirección */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <label style={labelStyle}>
-            Dir:
-          </label>
-          <input
-            type="text"
-            value={formData.direccion}
-            onChange={e => onFieldChange('direccion', e.target.value)}
-            placeholder="Dirección del pasajero"
-            style={inputStyle}
-          />
-        </div>
-
         {/* FILA 3 - IZQUIERDA: Celular */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <label style={labelStyle}>
@@ -181,7 +167,8 @@ export const DatosPasajeroPanel = ({
           <input
             type="text"
             value={formData.celular}
-            onChange={e => onFieldChange('celular', e.target.value.replace(/\D/g, ''))}
+            onChange={e => onFieldChange('celular', e.target.value.replace(/\D/g, '').slice(0, 10))}
+            maxLength={10}
             placeholder="099..."
             style={inputStyle}
           />

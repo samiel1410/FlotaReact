@@ -69,7 +69,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
         const u = userRes.data.data;
         idUsuario = u.id_usuario;
         nombreUsuario = `${u.nombre_usuario || ''} ${u.apellido_usuario || ''}`.trim() || u.username_usuario || 'Usuario en sesión';
-        idOficinaUsuario = String(u.id_fksucursal_usuario || u.sucursal_usuario || u.id_fkdestino_usuario || '');
+        idOficinaUsuario = String(u.id_fksucursal_usuario || u.sucursal_usuario || u.id_sucursal || u.id_fkdestino_usuario || '');
         nombreOficinaUsuario = u.nombre_sucursal || u.suc_nombre || '';
       }
 

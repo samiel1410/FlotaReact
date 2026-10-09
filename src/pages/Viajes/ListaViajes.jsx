@@ -143,8 +143,8 @@ export const ListaViajes = () => {
 
   const handlePdfDespacho = async (trip) => {
     setMenuAbierto(null);
-    if (trip.estado_viajes != 2) {
-      toast.error('El viaje debe estar despachado para generar PDF');
+    if (!(Number(trip.estado_viajes) === 2 || (Array.isArray(trip.despachos) && trip.despachos.length > 0))) {
+      toast.error('El viaje debe tener un despacho para generar PDF');
       return;
     }
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
@@ -260,6 +260,10 @@ export const ListaViajes = () => {
     const e = map[value] || { label: value || '?', bg: 'bg-slate-100', text: 'text-slate-600' };
     return <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black ${e.bg} ${e.text}`}>{e.label}</span>;
   };
+
+  // El despacho representa la ENTREGA DE DINERO AL BUSERO (no la salida del bus),
+  // por eso se detecta por la EXISTENCIA del despacho y no por estado_viajes.
+  const tieneDespacho = (t) => Number(t.estado_viajes) === 2 || (Array.isArray(t.despachos) && t.despachos.length > 0);
 
   return (
     <div className="absolute inset-0 overflow-y-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
@@ -428,7 +432,7 @@ export const ListaViajes = () => {
                         {t.cantidad_boletos || 0}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-center">{renderEstado(t.estado_viajes)}</td>
+                    <td className="px-3 py-2.5 text-center">{renderEstado(tieneDespacho(t) && Number(t.estado_viajes) === 1 ? 2 : t.estado_viajes)}</td>
                     <td className="px-3 py-2.5">
                       {t.estado_viajes == 2 || t.hora_despacho || (t.despachos && t.despachos.length > 0) ? (
                         <div className="text-[10px] leading-tight">
@@ -479,9 +483,9 @@ export const ListaViajes = () => {
                           <div className={`absolute right-10 ${idx >= trips.length - 2 && trips.length > 3 ? 'bottom-0 mb-1' : 'top-0 mt-1'} z-[9999] w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden`}>
                             {[
                               { icon: 'fa-eye', label: 'Despachar Viaje', action: () => handleDespachar(t), color: 'text-emerald-600', show: t.estado_viajes == 1 },
-                              { icon: 'fa-undo', label: 'Reversar Despacho', action: () => handleReversarDespacho(t), color: 'text-rose-600', show: t.estado_viajes == 2 && isAdmin },
-                              { icon: 'fa-clock', label: 'Habilitar Tiempo Extra', action: () => handleTiempoExtra(t), color: 'text-blue-600', show: t.estado_viajes == 2 },
-                              { icon: 'fa-file-pdf', label: 'PDF Despacho', action: () => handlePdfDespacho(t), color: 'text-rose-600', show: t.estado_viajes == 2 },
+                              { icon: 'fa-undo', label: 'Reversar Despacho', action: () => handleReversarDespacho(t), color: 'text-rose-600', show: tieneDespacho(t) && isAdmin },
+                              { icon: 'fa-clock', label: 'Habilitar Tiempo Extra', action: () => handleTiempoExtra(t), color: 'text-blue-600', show: t.estado_viajes != 0 },
+                              { icon: 'fa-file-pdf', label: 'PDF Despacho', action: () => handlePdfDespacho(t), color: 'text-rose-600', show: tieneDespacho(t) },
                               { icon: 'fa-print', label: 'Imprimir Pasajeros', action: () => handleImprimirPasajeros(t), color: 'text-blue-600', show: true },
                               { icon: 'fa-utensils', label: 'Configurar Alimentos', action: () => handleAlimentos(t), color: 'text-orange-600', show: true },
                             ].filter(item => item.show !== false).map((item, i) => (

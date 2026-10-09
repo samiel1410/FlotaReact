@@ -3,12 +3,23 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-require_once('library/tcpdf.php');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With');
+
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
+    http_response_code(200);
+    exit();
+}
+
+// Reimpresión inmediata del mismo boleto: se sirve desde disco (<20ms) sin abrir
+// conexión a la base de datos ni cargar TCPDF. TTL corto (60s) igual que guiaPdfImpresion.php.
+define('BOLETOFACT_FAST_TTL', 60);
+
+ob_start();
 require_once("db.php");
 require_once("pdf_utils.php");
 date_default_timezone_set('America/Guayaquil');
-
-$conn = conexion();
 
 function formatearFechaEspanol($fecha)
 {
@@ -192,17 +203,34 @@ WHERE bd.id_fkboleto_boleto_detalle = $id_boleto_esc";
 }
 
 try {
+    $t0 = microtime(true);
     $id_boleto = isset($_GET['id_boleto']) ? (int)$_GET['id_boleto'] : 0;
     if ($id_boleto <= 0) {
         throw new Exception("Parámetro id_boleto inválido o faltante");
     }
 
-    // ── CACHÉ DE PDF POR BOLETO ──────────────────────────────────────────────
-    // Un boleto es inmutable: una vez emitido, su PDF no cambia.
-    // Si ya existe en disco lo servimos directamente (evita los 7s de TCPDF).
+    // ── CAPA RÁPIDA: reimpresión inmediata sin tocar DB ni TCPDF ─────────────
     $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
-    
-    // ────────────────────────────────────────────────────────────────────────
+    $dbNameStrFast = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
+    $dbKeyFast = md5($dbNameStrFast . '_t' . $tenantIdStr);
+    $pdfCacheDirFast = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDirFast)) @mkdir($pdfCacheDirFast, 0777, true);
+    $fastPdfFile = $pdfCacheDirFast . 'boleto_fact_' . $id_boleto . '_' . $dbKeyFast . '_latest.pdf';
+    if (file_exists($fastPdfFile) && filesize($fastPdfFile) > 1000 && (time() - filemtime($fastPdfFile)) < BOLETOFACT_FAST_TTL) {
+        $tTotalMs = round((microtime(true) - $t0) * 1000);
+        if (ob_get_length()) ob_clean();
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="boleto_' . $id_boleto . '.pdf"');
+        header('Cache-Control: public, max-age=60');
+        header('X-PDF-Cache: HIT-FAST');
+        header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+        readfile($fastPdfFile);
+        exit;
+    }
+
+    require_once('library/tcpdf.php');
+
+    $conn = conexion();
 
     $datos_factura = obtener_datos_factura($id_boleto, $conn);
     $boleto = $datos_factura['boleto'];
@@ -213,13 +241,12 @@ try {
     $num_bol = !empty($boleto['numero_boleto']) ? sprintf("%09s", $boleto['numero_boleto']) : '000000001';
     $numero_boleto = "{$sucursal_emi}-{$punto_emi}-{$num_bol}";
 
-    // Optimización: Cache de datos estáticos de la empresa y configuración (5 min)
-    // Incluir tenantId en el dbKey para aislar correctamente la caché por tenant
-    $dbNameStr   = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
-    $dbKey = md5($dbNameStr . '_t' . $tenantIdStr);
-
-    // Timing para diagnosticar lentitud en producción (visible en headers de respuesta)
-    $t0 = microtime(true);
+    // ─── EMPRESA + CONFIG: Caché JSON Nivel 1 (TTL: 5 min) ────────────────────
+    // Aislamiento multi-tenant: db_name + tenantId (misma convención que guiaPdfImpresion.php)
+    $dbKey = $dbKeyFast;
+    $cacheCfgDir = __DIR__ . '/tmp/cache/';
+    if (!is_dir($cacheCfgDir)) @mkdir($cacheCfgDir, 0777, true);
+    $cacheCfgFile = $cacheCfgDir . 'empresa_cfg_' . $dbKey . '.json';
     $logosDir = __DIR__ . '/tmp/logos/';
     if (!is_dir($logosDir)) {
         @mkdir($logosDir, 0777, true);
@@ -227,6 +254,44 @@ try {
     $vals_empresa = null;
     $vals_config = null;
     $rutaLogo = null;
+    $empresaCfgCached = null;
+    if (file_exists($cacheCfgFile) && (time() - filemtime($cacheCfgFile)) < 300) {
+        $empresaCfgCached = json_decode(@file_get_contents($cacheCfgFile), true);
+    }
+
+    if ($empresaCfgCached) {
+        $vals_empresa = $empresaCfgCached;
+        $vals_config  = $empresaCfgCached;
+        $rutaLogo     = $empresaCfgCached['logo_path'] ?? null;
+        // Solo si el archivo físico del logo desapareció se re-resuelve (evita el BLOB en cada hit)
+        if (!empty($rutaLogo) && !esImagenValidaParaTcpdf($rutaLogo)) {
+            $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
+            $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
+            if (esImagenValidaParaTcpdf($cachedLogoPng)) {
+                $rutaLogo = $cachedLogoPng;
+            } elseif (esImagenValidaParaTcpdf($cachedLogoJpg)) {
+                $rutaLogo = $cachedLogoJpg;
+            } else {
+                $res_img = mysqli_query($conn, "SELECT imagen_empresa FROM empresa LIMIT 1");
+                $row_img = $res_img ? mysqli_fetch_assoc($res_img) : [];
+                if (!empty($row_img['imagen_empresa'])) {
+                    $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
+                    if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
+                        $ext = strtolower(pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png');
+                        $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
+                        if ($rawLogo !== $targetLogo) @copy($rawLogo, $targetLogo);
+                        $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
+                    } else {
+                        $rutaLogo = null;
+                    }
+                } else {
+                    $rutaLogo = null;
+                }
+            }
+            $empresaCfgCached['logo_path'] = $rutaLogo;
+            @file_put_contents($cacheCfgFile, json_encode($empresaCfgCached));
+        }
+    } else {
 
     
         // Query liviana sin transferir el BLOB pesado de imagen_empresa
@@ -268,16 +333,23 @@ try {
                     $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
                 }
             }
+            if (empty($rutaLogo)) {
+                $rutaLogo = obtenerRutaLogoEmpresa($conn, null);
+            }
         }
 
         
 
-    $t1 = microtime(true);
-    header('X-PDF-Time-EmpresaCache: ' . round(($t1 - $t0) * 1000) . 'ms');
-
-    if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
-        $rutaLogo = obtenerRutaLogoEmpresa($conn);
+        // Persistir config de empresa+configuración (evita 2 queries por request)
+        $toCache = array_merge($vals_empresa ?: [], $vals_config ?: [], ['logo_path' => $rutaLogo]);
+        @file_put_contents($cacheCfgFile, json_encode($toCache));
     }
+
+    $t1 = microtime(true);
+    header('X-PDF-Time-CfgCache: ' . round(($t1 - $t0) * 1000) . 'ms');
+
+    // Logo gigante (ej. 3MB) ralentiza TCPDF->Image() varios segundos: reducir a 500px
+    $rutaLogo = reducirLogoGigante($rutaLogo ?? null, 500);
 
     $leyenda_viaje = ($vals_config && ($vals_config['mostrar_leyenda_boleteria'] ?? 0) == 1) ? ($vals_config['leyenda_boleteria'] ?? '') :
         'GRACIAS POR SU PREFERENCIA';
@@ -285,6 +357,35 @@ try {
     $formato_impresion_db = $vals_config['formato_impresion'] ?? null;
     $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 80, $formato_impresion_db);
     $metricas = obtenerMetricasImpresion($ancho_impresion, 80);
+
+    // ── CACHÉ NIVEL 2: hit por hash de datos (evita TCPDF si nada cambió) ──────
+    // El boleto es inmutable, pero estado/total pueden cambiar (anulación, reserva);
+    // el hash los incluye para regenerar cuando cambien.
+    $datosHash = md5(json_encode([
+        $id_boleto,
+        $numero_boleto,
+        (float)($boleto['total_boleto'] ?? 0),
+        (string)($boleto['estado_boleto'] ?? ''),
+        (string)($boleto['clave_acceso_boletos'] ?? ''),
+        count($detalles),
+        $leyenda_viaje
+    ]));
+    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDir)) @mkdir($pdfCacheDir, 0777, true);
+    $cachePdfFile = $pdfCacheDir . 'boleto_fact_' . $id_boleto . '_' . $datosHash . '.pdf';
+    if (file_exists($cachePdfFile) && filesize($cachePdfFile) > 1000) {
+        $tTotalMs = round((microtime(true) - $t0) * 1000);
+        if (ob_get_length()) ob_clean();
+        // Refrescar copia rápida: reimpresiones seguidas no tocan DB ni TCPDF
+        @copy($cachePdfFile, $fastPdfFile);
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="boleto_' . $id_boleto . '.pdf"');
+        header('Cache-Control: public, max-age=60');
+        header('X-PDF-Cache: HIT');
+        header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+        readfile($cachePdfFile);
+        exit;
+    }
 
     $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array($ancho_impresion, 220), true, 'UTF-8', false);
     $pdf->setFontSubsetting(false);
@@ -500,17 +601,32 @@ try {
     $pdf->MultiCell($w, $lh * 1.1, $leyenda_viaje, 0, 'C', false, 1);
     // ── FIN RENDERIZADO NATIVO ────────────────────────────────────────────────
 
+    // ── CACHÉ NIVEL 2: PDF por hash de datos (ver bloque antes de TCPDF) ──────
     $filename = 'boleto_' . $id_boleto . '.pdf';
-    if (ob_get_length()) {
-        ob_end_clean();
+    $pdfContent = $pdf->Output('', 'S');
+    // Eliminar PDFs previos de este boleto (los datos cambiaron)
+    foreach (glob($pdfCacheDir . 'boleto_fact_' . $id_boleto . '_*.pdf') as $oldPdf) {
+        @unlink($oldPdf);
     }
-    header('Cache-Control: no-cache, no-store, must-revalidate');
-    header('Pragma: no-cache');
-    header('Expires: 0');
-    $pdf->Output($filename, 'I');
+    @file_put_contents($cachePdfFile, $pdfContent);
+    // Copia rápida TTL 60s: la reimpresión inmediata no toca DB ni TCPDF
+    @copy($cachePdfFile, $fastPdfFile);
+
+    $tTotalMs = round((microtime(true) - $t0) * 1000);
+    if (ob_get_length()) ob_clean();
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $filename . '"');
+    header('Cache-Control: public, max-age=60');
+    header('X-PDF-Cache: MISS');
+    header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+    echo $pdfContent;
     exit();
 
 } catch (Throwable $e) {
+    if (ob_get_length()) {
+        ob_clean();
+    }
     http_response_code(500);
     header('Content-Type: text/html; charset=utf-8');
     echo "<!DOCTYPE html><html><head><title>Error al generar boleto</title></head><body style='font-family:sans-serif;padding:30px;background:#f8f9fa;'>";

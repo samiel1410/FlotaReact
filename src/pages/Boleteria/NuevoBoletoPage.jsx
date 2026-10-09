@@ -80,6 +80,7 @@ export const NuevoBoletoPage = () => {
   const [pdfModalUrl, setPdfModalUrl] = useState('');
   const [showNuevoClienteModal, setShowNuevoClienteModal] = useState(false);
   const [clienteAEditar, setClienteAEditar] = useState(null);
+  const [identificacionNuevaCliente, setIdentificacionNuevaCliente] = useState('');
   const [isForcedEditCliente, setIsForcedEditCliente] = useState(false);
   const [showCambiarBusModal, setShowCambiarBusModal] = useState(false);
   const [showReagendarModal, setShowReagendarModal] = useState(false);
@@ -293,7 +294,16 @@ export const NuevoBoletoPage = () => {
     }
   }, [cajaResolved]);
 
-  // Buscar cliente por CI/RUC
+  // Abre el modal de creación de cliente (opcionalmente precargando la identificación)
+  const abrirCrearCliente = (identificacion = '') => {
+    marcarActividadReal();
+    setClienteAEditar(null);
+    setIsForcedEditCliente(false);
+    setIdentificacionNuevaCliente(identificacion);
+    setShowNuevoClienteModal(true);
+  };
+
+  // Buscar cliente por CI/RUC (vía intermediario interno del backend → clientesfp)
   const buscarPasajeroPorCI = async (identificacion) => {
     if (!identificacion || identificacion.length < 10) {
       toast.error('Ingrese al menos 10 dígitos para buscar');
@@ -323,39 +333,35 @@ export const NuevoBoletoPage = () => {
         }));
         toast.success(`Cliente encontrado: ${c.nombre_cliente}`, { id: toastId });
       } else {
-        toast.error('Cliente no encontrado con esa identificación', { id: toastId });
         setFormData(prev => ({ ...prev, idCliente: '', nombres: '', celular: '', direccion: '', correo: '', fechaNacimiento: '', tarifa: 1 }));
+        // Toast con acción: permite crear el cliente precargando la identificación buscada
+        toast.custom(
+          (t) => (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 10,
+              background: '#fff', color: '#1e293b', padding: '10px 14px',
+              borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0'
+            }}>
+              <span style={{ fontSize: 13 }}>Cliente no encontrado</span>
+              <button
+                type="button"
+                onClick={() => { toast.dismiss(t.id); abrirCrearCliente(identificacion); }}
+                style={{
+                  background: '#0a365d', color: '#fff', border: 'none', borderRadius: 4,
+                  padding: '5px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', gap: 5
+                }}
+              >
+                <i className="fas fa-user-plus" style={{ fontSize: 11 }}></i> Crear cliente
+              </button>
+            </div>
+          ),
+          { id: toastId, duration: 8000 }
+        );
       }
     } catch (err) {
       console.error('[buscarPasajeroPorCI] Error:', err);
-      try {
-        const res = await api.get('/cliente/clientebusquedaIdentificacion', {
-          params: { identificacion_busqueda: identificacion }
-        });
-        if (res.data?.success && res.data?.total > 0) {
-          const c = res.data.data[0];
-          const fechaNac = c.fecha_nacimiento ? new Date(c.fecha_nacimiento).toISOString().split('T')[0] : '';
-          const edad = calcularEdad(fechaNac);
-          const tarifaVal = tarifaDesdeEdad(edad);
-
-          setFormData(prev => ({
-            ...prev,
-            idCliente: c.id_cliente,
-            identificacion: c.identificacion_cliente,
-            nombres: c.nombre_cliente,
-            celular: c.telefono_cliente || '',
-            direccion: c.direccion_cliente || '',
-            correo: c.email_cliente || '',
-            fechaNacimiento: fechaNac,
-            tarifa: tarifaVal,
-          }));
-          toast.success(`Cliente encontrado: ${c.nombre_cliente} (local)`, { id: toastId });
-          return;
-        }
-        toast.error('Cliente no encontrado', { id: toastId });
-      } catch {
-        toast.error('Error al buscar cliente - servidor no disponible', { id: toastId });
-      }
+      toast.error('Error al buscar cliente - servidor no disponible', { id: toastId });
     }
   };
 
@@ -441,13 +447,16 @@ export const NuevoBoletoPage = () => {
       return;
     }
 
+    // Debe calcularse ANTES de actualizar viajeCargadoRef; si no, esNuevoViaje
+    // siempre sería false y los destinos no se refrescarían al cambiar de viaje.
+    const esNuevoViaje = viajeCargadoRef.current !== formData.idViaje;
+
     const cargarAsientos = async () => {
       try {
         const sucursalId = activeSucursalId || getSessionUser().id_sucursal || usuario?.id_sucursal;
         // Tramo de venta: origen actual + destino seleccionado (para ocupación exacta)
         const origenTramo = formData.origen || undefined;
         const destinoTramo = subrutaSeleccionada || undefined;
-        const esNuevoViaje = viajeCargadoRef.current !== formData.idViaje;
 
         const promises = [
           BoleteriaService.getAsientosBusViaje(formData.idViaje, origenTramo, destinoTramo).catch(e => {
@@ -519,7 +528,7 @@ export const NuevoBoletoPage = () => {
     };
 
     // Solo resetear el tramo al cambiar de viaje (no al recargar ocupación)
-    if (viajeCargadoRef.current !== formData.idViaje) {
+    if (esNuevoViaje) {
       viajeCargadoRef.current = formData.idViaje;
       setSubrutaSeleccionada('');
       setPrecioUnitario(0);
@@ -935,8 +944,8 @@ export const NuevoBoletoPage = () => {
     if (!subrutaSeleccionada) errores.push('• Seleccionar un destino/tarifa');
     if (!formData.identificacion) errores.push('• Ingresar identificación del pasajero');
     if (!formData.nombres) errores.push('• Ingresar nombre del pasajero');
-    if (formData.celular && !/^[0-9]{9,15}$/.test(formData.celular)) {
-      errores.push('• El celular debe contener entre 9 y 15 dígitos numéricos');
+    if (formData.celular && !/^[0-9]{10}$/.test(formData.celular)) {
+      errores.push('• El celular debe contener exactamente 10 dígitos numéricos');
     }
     if (formData.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.correo)) {
       errores.push('• Ingresar un correo electrónico válido (ej: usuario@correo.com)');
@@ -1320,11 +1329,7 @@ export const NuevoBoletoPage = () => {
               }}
               onConsumidorFinal={handleConsumidorFinal}
               mostrarConsumidorFinal={permitirConsumidorFinal}
-              onOpenCrearCliente={() => {
-                marcarActividadReal();
-                setClienteAEditar(null);
-                setShowNuevoClienteModal(true);
-              }}
+              onOpenCrearCliente={() => abrirCrearCliente('')}
               onOpenEditarCliente={() => {
                 marcarActividadReal();
                 setClienteAEditar({
@@ -1497,9 +1502,10 @@ export const NuevoBoletoPage = () => {
       {/* 5. MODALES */}
       <NuevoClienteModal
         isOpen={showNuevoClienteModal}
-        onClose={() => { setShowNuevoClienteModal(false); setClienteAEditar(null); setIsForcedEditCliente(false); }}
+        onClose={() => { setShowNuevoClienteModal(false); setClienteAEditar(null); setIsForcedEditCliente(false); setIdentificacionNuevaCliente(''); }}
         onClienteCreado={handleClienteCreado}
         clienteInicial={clienteAEditar}
+        identificacionInicial={identificacionNuevaCliente}
         isForcedEdit={isForcedEditCliente}
       />
       <CambiarBusModal
