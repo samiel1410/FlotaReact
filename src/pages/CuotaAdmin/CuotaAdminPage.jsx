@@ -177,10 +177,13 @@ export const CuotaAdminPage = () => {
         concepto: `Cuota administrativa ${mesObj?.label} ${anioGen}`,
       });
       if (res.success) {
+        const d = res.data || {};
         Swal.fire({
-          title: 'Cuotas Generadas con Éxito',
-          html: `Se registraron <b>${res.data?.insertados || 0}</b> cuotas administrativas de un total de <b>${res.data?.total_socios || 0}</b> socios activos.`,
-          icon: 'success',
+          title: d.fallidos ? 'Cuotas Generadas con Observaciones' : 'Cuotas Generadas con Éxito',
+          html: `Se registraron <b>${d.insertados || 0}</b> cuotas administrativas de un total de <b>${d.total_socios || 0}</b> socios activos.`
+            + (d.omitidos ? `<br><span style="color:#64748b;">Omitidas (ya existían): <b>${d.omitidos}</b></span>` : '')
+            + (d.fallidos ? `<br><span style="color:#dc2626;">Con error: <b>${d.fallidos}</b></span>` : ''),
+          icon: d.fallidos ? 'warning' : 'success',
           confirmButtonColor: '#2563eb',
         });
         setShowGenerarModal(false);
