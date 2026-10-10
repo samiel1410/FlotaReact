@@ -171,7 +171,7 @@ try {
 
     // ─── CONSULTA DE PASAJEROS ───────────────────────────────────────────────
     $query_pasajeros = "SELECT 
-        COALESCE(d.lugar_destino, sr.nombre_sub_rutas, 'N/A') AS lugar_destino,
+        COALESCE(NULLIF(TRIM(sr.nombre_sub_rutas), ''), NULLIF(TRIM(d.lugar_destino), ''), 'N/A') AS lugar_destino,
         r.nombre_rutas, bd.estado_boleto_detalle, bd.identificacion_boleto_detalle,
         bd.asiento_boleto_detalle, bd.total_boleto_detalle,
         bd.nombre_cliente_boleto_detalle, b.nombre_origen,

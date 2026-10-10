@@ -43,7 +43,7 @@ try {
         bd.asiento_boleto_detalle AS asiento,
         bd.identificacion_boleto_detalle AS cedula,
         bd.nombre_cliente_boleto_detalle AS pasajero,
-        COALESCE(d.lugar_destino, sr.nombre_sub_rutas, 'N/A') AS destino,
+        COALESCE(NULLIF(TRIM(sr.nombre_sub_rutas), ''), NULLIF(TRIM(d.lugar_destino), ''), 'N/A') AS destino,
         bd.total_boleto_detalle AS valor,
         b.nombre_origen AS embarque,
         COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal, 'OFICINA PRINCIPAL') AS oficina_venta

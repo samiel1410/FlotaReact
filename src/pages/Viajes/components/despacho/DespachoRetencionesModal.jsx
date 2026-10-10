@@ -29,8 +29,19 @@ export const DespachoRetencionesModal = ({
 
   const nombreSucursalActiva = valoresVista?.sucursalNombre || sucursalActual?.nombre_sucursal || valores?.sucursal_usuario?.nombre_sucursal || 'Mi Sucursal';
 
-  // Por defecto mostrar 'SUCURSAL' si hay datos de sucursal
-  const [modoVista, setModoVista] = React.useState(valoresSucursal ? 'SUCURSAL' : 'GENERAL');
+  // Boletos de la sucursal activa: si esa sucursal no vendió boletos en este viaje
+  // el modal arranca en "Consolidado General" para no mostrar todo en $0.00.
+  const boletosSucursalActiva = parseFloat(
+    (valoresVista?.esPorSucursal ? valoresVista?.boletos : valores?.sucursal_usuario?.boletos) ?? 0
+  ) || 0;
+
+  const [modoVista, setModoVista] = React.useState(
+    valoresSucursal && boletosSucursalActiva > 0 ? 'SUCURSAL' : 'GENERAL'
+  );
+
+  const avisosRetencion = React.useMemo(() => valores?.avisos_retencion || [], [valores?.avisos_retencion]);
+  const conceptosRetencion = React.useMemo(() => valores?.conceptos_retencion || [], [valores?.conceptos_retencion]);
+  const conceptosPendientes = React.useMemo(() => valores?.conceptos_pendientes || [], [valores?.conceptos_pendientes]);
 
   const isSucursal = modoVista === 'SUCURSAL' && valoresSucursal;
 
@@ -39,8 +50,13 @@ export const DespachoRetencionesModal = ({
     : parseFloat(valores?.boletos ?? 0);
 
   const totalRetenciones = isSucursal
-    ? parseFloat(valoresSucursal?.retencion ?? valoresSucursal?.retencion_monto ?? valoresSucursal?.retencion_calculada ?? valores?.retencion ?? 0)
+    ? parseFloat(valoresSucursal?.retencion_aplicada ?? valoresSucursal?.retencion ?? valoresSucursal?.retencion_monto ?? valores?.retencion ?? 0)
     : parseFloat(valores?.retencion ?? 0);
+
+  // Techo del % de retención (lo máximo que se podría retener con el porcentaje configurado)
+  const techoRetencion = parseFloat(
+    (isSucursal ? (valoresSucursal?.retencion ?? valoresSucursal?.retencion_monto) : valores?.retencion_porcentual) ?? 0
+  ) || 0;
 
   const totalEntrega = isSucursal
     ? parseFloat(valoresSucursal?.entrega ?? (totalBoletos - totalRetenciones))
@@ -80,16 +96,20 @@ export const DespachoRetencionesModal = ({
   }, [valores?.sucursales_desglose, isSucursal, sucursalActual, valoresSucursal, nombreSucursalActiva, totalBoletos, totalRetenciones]);
 
   const retencionesRaw = valores?.retenciones_detalle || [];
+  // Se ordena por el ORDEN REAL de aplicación que calculó el backend (así el
+  // listado coincide con la secuencia en que se fue consumiendo el dinero).
   const retenciones = [...retencionesRaw].sort((a, b) => {
+    const seqA = Number(a.orden_secuencia || 0);
+    const seqB = Number(b.orden_secuencia || 0);
+    if (seqA !== seqB) return seqA - seqB;
+
     const grpA = Number(a.grupo ?? (a.cobro_total_despacho == 1 ? 0 : (a.tipo === 'DEUDA_SOCIO' ? 1 : 2)));
     const grpB = Number(b.grupo ?? (b.cobro_total_despacho == 1 ? 0 : (b.tipo === 'DEUDA_SOCIO' ? 1 : 2)));
     if (grpA !== grpB) return grpA - grpB;
 
     const prioA = Number(a.prioridad ?? 3);
     const prioB = Number(b.prioridad ?? 3);
-    if (prioA !== prioB) return prioA - prioB;
-
-    return Number(a.orden_secuencia || 0) - Number(b.orden_secuencia || 0);
+    return prioA - prioB;
   });
 
   const deudasItems = deudas?.items || [];
@@ -103,10 +123,22 @@ export const DespachoRetencionesModal = ({
   const deudasNoIncluidas = deudasItems.filter(d => !idsDeudaEnRetenciones.has(d.id_deuda));
 
   const getPrioridadBadge = (item) => {
-    if (item.grupo === 0 || (item.tipo === 'DEUDA_SOCIO' && (item.prioridad || 1) <= 1) || item.cobro_total_despacho == 1) {
+    const esCobro = item.tipo !== 'DEUDA_SOCIO';
+    const esCobroTotal = Number(item.cobro_total_despacho) === 1;
+
+    // Sólo es "multa" cuando el concepto es realmente una multa (deuda con tope
+    // del 100%); un cobro con tope del 100% es un cobro, no una multa.
+    if (item.es_multa) {
       return (
         <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-800 text-[10px] font-extrabold px-2 py-0.5 rounded-md border border-rose-200">
-          <i className="fas fa-bolt text-[9px]" /> 1° Multa (100% Boletos)
+          <i className="fas fa-bolt text-[9px]" /> Multa (100% Boletos)
+        </span>
+      );
+    }
+    if (esCobro && esCobroTotal) {
+      return (
+        <span className="inline-flex items-center gap-1 bg-indigo-100 text-indigo-800 text-[10px] font-bold px-2 py-0.5 rounded-md border border-indigo-200">
+          <i className="fas fa-file-invoice-dollar text-[9px]" /> Cobro 100% Boletos
         </span>
       );
     }
@@ -161,6 +193,11 @@ export const DespachoRetencionesModal = ({
         Automático
       </span>
     );
+    if (item.tipo === 'SISTEMA') return (
+      <span className="bg-slate-100 text-slate-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-slate-200">
+        Concepto del sistema
+      </span>
+    );
     if (item.tipo === 'DEUDA_SOCIO') return (
       <span className="bg-purple-50 text-purple-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-purple-200">
         Deuda Socio
@@ -172,6 +209,7 @@ export const DespachoRetencionesModal = ({
   const dotColor = (item) => {
     if (item.tipo === 'COBRO_AUTOMATICO') return 'bg-blue-500';
     if (item.tipo === 'DEUDA_SOCIO') return 'bg-purple-500';
+    if (item.tipo === 'SISTEMA') return 'bg-slate-400';
     if (item.cobro_total_despacho == 1) return 'bg-rose-600';
     return 'bg-indigo-500';
   };
@@ -252,6 +290,11 @@ export const DespachoRetencionesModal = ({
               Total Retenido {isSucursal ? `(${nombreSucursalActiva})` : ''}
             </span>
             <span className="text-base font-black font-mono text-rose-600 mt-0.5 block">-{fmt(totalRetenciones)}</span>
+            {techoRetencion > totalRetenciones + 0.009 && (
+              <span className="text-[9px] font-bold text-slate-400 block mt-0.5">
+                Techo del %: {fmt(techoRetencion)}
+              </span>
+            )}
           </div>
           <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-sm text-center">
             <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
@@ -331,6 +374,140 @@ export const DespachoRetencionesModal = ({
             </div>
           </div>
 
+          {/* Avisos de retenciones: deudas/cuotas del bus o socio que quedaron pendientes */}
+          {avisosRetencion.length > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3.5 shadow-sm">
+              <div className="flex items-center gap-2 mb-1.5">
+                <i className="fas fa-exclamation-triangle text-amber-600 text-xs" />
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-amber-800">
+                  Cobros pendientes del bus / socio ({avisosRetencion.length})
+                </h4>
+              </div>
+              <ul className="space-y-1.5">
+                {avisosRetencion.map((a, i) => (
+                  <li key={i} className="flex items-start gap-2 text-[11px] text-amber-900 leading-snug">
+                    <i className="fas fa-circle text-[5px] mt-1.5 text-amber-500 shrink-0" />
+                    <span>{a.mensaje}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Orden de aplicación por concepto (motor único de retenciones) */}
+          {conceptosRetencion.length > 0 && (
+            <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+              <div className="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <i className="fas fa-sitemap text-slate-500 text-xs" />
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">
+                    Orden de aplicación de conceptos
+                  </h4>
+                </div>
+                <span className="text-[10px] font-bold text-slate-600 bg-white px-2 py-0.5 rounded-full border border-slate-200">
+                  {conceptosRetencion.length} concepto{conceptosRetencion.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-slate-50/60 border-b border-slate-100 text-slate-500 text-[10px] font-black uppercase tracking-wider">
+                    <th className="px-3 py-2 text-center w-14">Orden</th>
+                    <th className="px-3 py-2 text-left">Concepto</th>
+                    <th className="px-3 py-2 text-center w-36">Tope aplicado</th>
+                    <th className="px-3 py-2 text-right w-24">Saldo</th>
+                    <th className="px-3 py-2 text-right w-24 text-rose-600">Retenido</th>
+                    <th className="px-3 py-2 text-right w-28 text-amber-700">Queda pendiente</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {conceptosRetencion.map((c, i) => {
+                    const aplicado = parseFloat(c.aplicado || 0);
+                    const saldo = parseFloat(c.saldo || 0);
+                    const pendiente = Math.max(0, saldo - aplicado);
+                    const omitido = Boolean(c.omitido_por_falta_porcentaje);
+                    const aplica = c.aplica !== false;
+                    const motivoNoAplica = c.motivo_no_aplica || null;
+                    return (
+                      <tr key={i} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="px-3 py-2.5 text-center">
+                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 border border-slate-300 font-mono font-bold text-slate-700 text-[11px]">
+                            {i + 1}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="font-bold text-slate-800">{c.concepto}</span>
+                              <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${
+                                c.origen === 'COBRO'
+                                  ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                  : 'bg-purple-50 text-purple-700 border-purple-200'
+                              }`}>
+                                {c.origen === 'COBRO' ? 'COBRO' : c.origen === 'SISTEMA' ? 'SISTEMA' : 'DEUDA'}
+                              </span>
+                              {c.cobrar_siempre ? (
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded border bg-rose-50 text-rose-700 border-rose-200">
+                                  SIEMPRE
+                                </span>
+                              ) : null}
+                            </div>
+                            {omitido && (
+                              <span className="text-[10px] text-amber-600 font-bold">
+                                Pendiente: la sucursal no retiene % de la venta, no hay dinero para descontar
+                              </span>
+                            )}
+                            {!aplica && (
+                              <span className="text-[10px] text-slate-500 font-bold">
+                                No se cobra: {motivoNoAplica === 'NO_APLICA_SUCURSAL'
+                                  ? 'este cobro no aplica a la sucursal de este despacho'
+                                  : motivoNoAplica === 'YA_COBRADO_HOY'
+                                    ? 'ya se cobró hoy en otro despacho del bus'
+                                    : 'no aplica en este despacho'}
+                              </span>
+                            )}
+                            {aplica && !omitido && pendiente > 0 && aplicado > 0 && (
+                              <span className="text-[10px] text-slate-500 font-bold">
+                                Descontado parcialmente, queda saldo para el próximo despacho
+                              </span>
+                            )}
+                            {aplica && !omitido && pendiente > 0 && aplicado === 0 && (
+                              <span className="text-[10px] text-slate-500 font-bold">
+                                Pendiente: no alcanzó el dinero de este despacho
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded border ${
+                            c.tope === 'TOTAL'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : 'bg-slate-50 text-slate-600 border-slate-200'
+                          }`}>
+                            {c.tope === 'TOTAL' ? '100% boletos' : '% sucursal'}
+                          </span>
+                          {c.porcentaje_usado !== null && c.porcentaje_usado !== undefined && (
+                            <span className="block text-[9px] text-slate-400 font-mono mt-0.5">
+                              {parseFloat(c.porcentaje_usado || 0).toFixed(2)}%
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-700">{fmt(saldo)}</td>
+                        <td className="px-3 py-2.5 text-right font-mono font-black text-rose-600">
+                          {aplicado > 0 ? `-${fmt(aplicado)}` : <span className="text-slate-300">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 text-right font-mono font-bold text-amber-700">
+                          {!aplica
+                            ? <span className="text-[10px] font-black text-slate-500">NO SE COBRA</span>
+                            : (omitido || pendiente > 0 ? fmt(pendiente) : <span className="text-slate-300">—</span>)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           {/* Tabla de retenciones */}
           <div>
             <div className="flex items-center justify-between mb-2.5">
@@ -347,7 +524,11 @@ export const DespachoRetencionesModal = ({
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-8 text-center text-slate-400">
                 <i className="fas fa-hand-holding-usd text-3xl text-slate-300 mb-2" />
                 <p className="text-xs font-bold text-slate-600">No hay retenciones aplicadas</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Este viaje no tiene comisiones ni cobros pendientes a descontar.</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  {conceptosPendientes.length > 0
+                    ? `${conceptosPendientes.length} concepto(s) con saldo pendiente (revisa los avisos).`
+                    : 'Este viaje no tiene comisiones ni cobros pendientes por descontar.'}
+                </p>
               </div>
             ) : (
               <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">

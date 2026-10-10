@@ -1,0 +1,12 @@
+{
+  "_instrucciones": "FUENTE ÚNICA DEL NOMBRE/MARCA. Cambie aquí 'name' y se aplica automáticamente en: título de la pestaña, sidebar, login, panel de inicio y todos los PDFs (facturas y reportes). Reinicie/recargue el frontend después de cambiarlo.",
+  "name": "Nexusplus",
+  "legalName": "Nexusplus Solutions",
+  "productTitle": "Sistema de Gestión",
+  "tagline": "Sistema de facturación electrónica",
+  "logo": "/images/transpaeasy.png",
+  "logoIcon": "/images/transpaeasy_icon.png",
+  "logoFile": "transpaeasy.png",
+  "logoIconFile": "transpaeasy_icon.png",
+  "mobileAppLabel": "Nexusplus"
+}

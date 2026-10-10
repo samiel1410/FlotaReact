@@ -367,14 +367,9 @@ try {
             </div>';
         }
 
-        // Icono Easysplus
-        $pathsIcono = [
-          __DIR__ . '/../public/images/transpaeasy_icon.png',
-          dirname(__DIR__) . '/images/transpaeasy_icon.png',
-          __DIR__ . '/images/transpaeasy_icon.png',
-          $_SERVER['DOCUMENT_ROOT'] . '/images/transpaeasy_icon.png',
-          $_SERVER['DOCUMENT_ROOT'] . '/public/images/transpaeasy_icon.png'
-        ];
+        // Icono y nombre de marca (branding.php)
+        require_once __DIR__ . '/branding.php';
+        $pathsIcono = brand_logo_icon_paths();
         $rutaIcono = '';
         foreach ($pathsIcono as $pathCandidate) {
           if (file_exists($pathCandidate)) {
@@ -386,7 +381,7 @@ try {
         // Pie de ticket
         $html80 .= '<div style="font-size:7pt; line-height:1.3; border-top:1px dashed #000; padding-top:4px; text-align:center;">
             Impreso por ' . htmlspecialchars($usuario_impresion) . ' | ' . date('j/n/Y H:i:s') . '<br/>
-            ' . (!empty($rutaIcono) ? '<img src="' . $rutaIcono . '" width="10" height="10"> ' : '') . '<b>Easysplus</b> - Sistema de facturación electrónica
+            ' . (!empty($rutaIcono) ? '<img src="' . $rutaIcono . '" width="10" height="10"> ' : '') . '<b>' . htmlspecialchars(brand_name()) . '</b> - ' . htmlspecialchars(brand_tagline()) . '
         </div></body></html>';
 
         // ─── PDF TCPDF 80MM (CÁLCULO DINÁMICO DE ALTURA) ─────────────────────
@@ -525,14 +520,9 @@ try {
 
     $html .= '</tbody></table></body></html>';
 
-    // Rutas del Icono Easysplus
-    $pathsIcono = [
-      __DIR__ . '/../public/images/transpaeasy_icon.png',
-      dirname(__DIR__) . '/images/transpaeasy_icon.png',
-      __DIR__ . '/images/transpaeasy_icon.png',
-      $_SERVER['DOCUMENT_ROOT'] . '/images/transpaeasy_icon.png',
-      $_SERVER['DOCUMENT_ROOT'] . '/public/images/transpaeasy_icon.png'
-    ];
+    // Rutas del Icono y nombre de marca (branding.php)
+    require_once __DIR__ . '/branding.php';
+    $pathsIcono = brand_logo_icon_paths();
     $rutaIcono = '';
     foreach ($pathsIcono as $pathCandidate) {
       if (file_exists($pathCandidate)) {
@@ -557,7 +547,7 @@ try {
                     </td>
                     <td width="35%" style="text-align:center;">
                       ' . (!empty($this->rutaIcono) ? '<img src="' . $this->rutaIcono . '" width="10" height="10"> ' : '') . '
-                      <b>Easysplus</b> - Sistema de facturación electrónica
+                      <b>' . htmlspecialchars(brand_name()) . '</b> - ' . htmlspecialchars(brand_tagline()) . '
                     </td>
                     <td width="30%" style="text-align:right;">
                       F. Impresión: <b>' . $fechaImpresionStr . '</b> &nbsp;|&nbsp; Pág. ' . $this->getAliasNumPage() . '/' . $this->getAliasNbPages() . '

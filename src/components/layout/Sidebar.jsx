@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { BRAND } from '../../config/branding';
 
 // =============================================
 // ESTRUCTURA DE MENÚ — fiel al TreeList de ExtJS (Main.js)
@@ -242,10 +243,10 @@ export const Sidebar = () => {
 
   return (
     <aside className="w-64 bg-slate-900 text-white flex flex-col h-screen shadow-2xl z-20 shrink-0">
-      {/* Brand - EasyPlus */}
+      {/* Brand - nombre configurable en branding.json */}
       <div className="flex items-center justify-center gap-3 h-16 border-b border-slate-800 bg-slate-950/50 shrink-0">
-        <img src="/images/transpaeasy.png" alt="EasyPlus" className="w-10 h-10 object-contain" />
-        <span className="font-bold text-lg tracking-wider text-slate-100 uppercase">EasyPlus</span>
+        <img src={BRAND.logo} alt={BRAND.name} className="w-10 h-10 object-contain" />
+        <span className="font-bold text-lg tracking-wider text-slate-100 uppercase">{BRAND.name}</span>
       </div>
 
       {/* Inicio rápido */}

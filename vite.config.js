@@ -2,9 +2,38 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { readFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+/**
+ * Branding: lee `branding.json` (fuente única del nombre/marca) e inyecta los
+ * valores en index.html, de modo que el título de la pestaña y los íconos se
+ * actualizan cambiando únicamente ese archivo.
+ */
+function brandingHtmlPlugin() {
+  const branding = JSON.parse(readFileSync(resolve(__dirname, 'branding.json'), 'utf8'));
+  const name = String(branding.name || 'Nexusplus');
+  const vars = {
+    BRAND_NAME: name,
+    BRAND_NAME_UPPER: name.toUpperCase(),
+    BRAND_LEGAL_NAME: String(branding.legalName || `${name} Solutions`),
+    BRAND_TAGLINE: String(branding.tagline || ''),
+    BRAND_LOGO: String(branding.logo || '/images/transpaeasy.png'),
+    BRAND_LOGO_ICON: String(branding.logoIcon || '/images/transpaeasy_icon.png'),
+  };
+  return {
+    name: 'branding-html',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        // Solo reemplaza claves conocidas para no alterar otro contenido con %...%
+        return html.replace(/%([A-Z_]+)%/g, (match, key) => (key in vars ? vars[key] : match));
+      },
+    },
+  };
+}
 
 /**
  * Genera la configuración de proxy para todas las rutas del backend.
@@ -47,7 +76,7 @@ function buildProxyConfig() {
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), brandingHtmlPlugin()],
   resolve: {
     alias: {
       'react': resolve(__dirname, 'node_modules/react'),

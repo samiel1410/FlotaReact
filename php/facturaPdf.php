@@ -422,11 +422,8 @@ try {
     $rowTot('VALOR TOTAL', $total_guia, true);
 
     // ─── FOOTER FIJO SISTEMA ──────────────────────────────────────────────────
-    $pathsIcono = [
-        __DIR__ . '/public/images/transpaeasy_icon.png',
-        dirname(__DIR__) . '/public/images/transpaeasy_icon.png',
-        __DIR__ . '/images/transpaeasy_icon.png',
-    ];
+    require_once __DIR__ . '/branding.php';
+    $pathsIcono = brand_logo_icon_paths();
     $rutaIcono = '';
     foreach ($pathsIcono as $pathCandidate) {
         if (file_exists($pathCandidate)) {
@@ -447,7 +444,7 @@ try {
     }
     $pdf->SetFont('helvetica', 'B', 8);
     $pdf->SetTextColor(71, 85, 105);
-    $pdf->Cell(110, 4, 'Easysplus - Sistema de facturación electrónica', 0, 1, $rutaIcono ? 'L' : 'C');
+    $pdf->Cell(110, 4, brand_name() . ' - ' . brand_tagline(), 0, 1, $rutaIcono ? 'L' : 'C');
     $pdf->SetTextColor(0, 0, 0);
 
     // ─── SALIDA DIRECTA DEL PDF (SIN CACHÉ) ───────────────────────────────────

@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../hooks/useAuth';
+import { BRAND } from '../../config/branding';
 // No longer using LoginPage.css, fully relying on Tailwind CSS
 
 export const LoginPage = () => {
@@ -108,7 +109,7 @@ export const LoginPage = () => {
 
           <div className="text-center sm:text-left mb-10">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-50 rounded-2xl shadow-sm border border-slate-100 mb-6">
-              <img src="/images/transpaeasy.png" alt="Logo" className="w-14 h-auto object-contain" />
+              <img src={BRAND.logo} alt={BRAND.name} className="w-14 h-auto object-contain" />
             </div>
             <h2 className="text-3xl font-bold text-slate-900 mb-2">Bienvenido</h2>
             <p className="text-slate-500">Por favor, ingresa tus credenciales</p>
@@ -203,9 +204,9 @@ export const LoginPage = () => {
           {/* Footer */}
           <div className="mt-10 pt-6 border-t border-slate-100 text-center">
             <p className="text-xs text-slate-400 font-medium">
-              &copy; {new Date().getFullYear()} Sistema de Gestión Integral
+              &copy; {new Date().getFullYear()} {BRAND.name} — {BRAND.productTitle} Integral
               <br />
-              Desarrollado por <span className="text-slate-600 font-bold">EasyPlus</span>
+              Desarrollado por <span className="text-slate-600 font-bold">{BRAND.legalName}</span>
             </p>
           </div>
 

@@ -169,10 +169,16 @@ export const DespachoTripDetail = ({
 
     if (selectedSucursalKey === 'SUCURSAL' && detailData?.valores?.sucursal_usuario) {
       const sucVal = detailData.valores.sucursal_usuario;
+      // `retencion_aplicada` es la parte proporcional de lo realmente retenido;
+      // `retencion` sigue siendo el techo (%) de la sucursal.
+      const retencionAplicada = sucVal.retencion_aplicada !== undefined
+        ? parseFloat(sucVal.retencion_aplicada || 0)
+        : parseFloat(sucVal.retencion || 0);
       return {
         boletos: parseFloat(sucVal.boletos || 0),
-        retencion: parseFloat(sucVal.retencion || 0),
-        entrega: parseFloat(sucVal.entrega || 0),
+        retencion: retencionAplicada,
+        retencion_techo: parseFloat(sucVal.retencion || 0),
+        entrega: Math.max(0, parseFloat(sucVal.boletos || 0) - retencionAplicada),
         porcentaje_retencion: parseFloat(sucVal.porcentaje_retencion || 0),
         esPorSucursal: true,
         sucursalNombre: sucVal.nombre_sucursal || targetSucursalActiva?.nombre || 'Mi Sucursal'
@@ -505,6 +511,11 @@ export const DespachoTripDetail = ({
               <p className="text-2xl font-black font-mono text-rose-600 mt-1">
                 -${valoresVista.retencion.toFixed(2)}
               </p>
+              {(valoresVista.retencion_techo ?? 0) > valoresVista.retencion + 0.009 && (
+                <span className="text-[9px] font-bold text-slate-400 block mt-0.5">
+                  Techo del %: ${(valoresVista.retencion_techo || 0).toFixed(2)}
+                </span>
+              )}
               <div className="mt-1 flex items-center justify-center">
                 <span className="inline-flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-white/90 group-hover:bg-rose-200/90 px-2 py-0.5 rounded-full border border-rose-200 transition-colors shadow-xs">
                   <i className="fas fa-list text-[8px]" /> Ver detalle
@@ -519,6 +530,21 @@ export const DespachoTripDetail = ({
               </p>
             </div>
           </div>
+
+          {/* Avisos de retenciones: deudas/cuotas pendientes del bus o socio */}
+          {(detailData?.valores?.avisos_retencion || []).length > 0 && (
+            <div className="mt-3.5 bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <i className="fas fa-exclamation-triangle text-amber-600 text-xs" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">
+                  Cobros pendientes del bus / socio
+                </span>
+              </div>
+              {detailData.valores.avisos_retencion.map((a, i) => (
+                <p key={i} className="text-[11px] text-amber-900 leading-snug">{a.mensaje}</p>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* ═══ BOTÓN DE ACCIÓN PRINCIPAL (DESPACHO / REIMPRESIÓN) ═══ */}

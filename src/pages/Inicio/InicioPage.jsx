@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { BRAND } from '../../config/branding';
 import './InicioPage.css';
 
 const ACCIONES = [
@@ -37,7 +38,7 @@ export const InicioPage = () => {
     <div className="inicio-container">
       <div className="dashboard-hero">
         <div className="hero-content">
-          <h1 className="hero-title">Sistema de Gestión EasysPlus</h1>
+          <h1 className="hero-title">{BRAND.productTitle} {BRAND.name}</h1>
           <p className="hero-subtitle">Bienvenido a su panel de control. Todo lo que necesita en un solo lugar.</p>
           <div className="hero-date">{date}</div>
         </div>
@@ -58,7 +59,7 @@ export const InicioPage = () => {
       </div>
 
       <div className="dashboard-footer">
-        &copy; {new Date().getFullYear()} EasysPlus Solutions. Todos los derechos reservados.
+        &copy; {new Date().getFullYear()} {BRAND.legalName}. Todos los derechos reservados.
       </div>
     </div>
   );

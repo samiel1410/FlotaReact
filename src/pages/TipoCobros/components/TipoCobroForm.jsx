@@ -184,12 +184,21 @@ export const TipoCobroForm = ({
           </label>
           <select
             value={automatico}
-            onChange={(e) => setAutomatico(e.target.value)}
+            onChange={(e) => {
+              setAutomatico(e.target.value);
+              // Un cobro "1 vez al día" solo tiene sentido si el sistema lo genera
+              if (e.target.value === '0') setCobrarUnaVez('0');
+            }}
             className="w-full h-9 px-3 text-[11px] border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white font-bold text-slate-700 transition-all"
           >
             <option value="1">Sí — Se genera automáticamente en cada despacho</option>
             <option value="0">No — Solo se cobra si fue asignado manualmente</option>
           </select>
+          {automatico === '0' && (
+            <p className="mt-1 text-[10px] font-bold text-amber-600 leading-snug">
+              Con «No», este cobro <b>no aparecerá</b> en el despacho: habrá que asignarlo manualmente al bus.
+            </p>
+          )}
         </div>
 
         <div>
@@ -198,12 +207,19 @@ export const TipoCobroForm = ({
           </label>
           <select
             value={cobrarUnaVez}
-            onChange={(e) => setCobrarUnaVez(e.target.value)}
+            onChange={(e) => {
+              setCobrarUnaVez(e.target.value);
+              // La frecuencia "1 vez al día" implica que el sistema lo genera solo
+              if (e.target.value === '1') setAutomatico('1');
+            }}
             className="w-full h-9 px-3 text-[11px] border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white font-bold text-slate-700 transition-all"
           >
             <option value="0">Cobrar en cada viaje / despacho</option>
             <option value="1">Solo 1 vez al día por bus (aunque haga varios viajes)</option>
           </select>
+          <p className="mt-1 text-[10px] font-medium text-slate-500 leading-snug">
+            Un cobro del día se genera automáticamente en el primer despacho del bus y no se repite el mismo día.
+          </p>
         </div>
 
         <div>

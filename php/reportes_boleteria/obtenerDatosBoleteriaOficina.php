@@ -27,7 +27,7 @@ try {
                 bd.identificacion_boleto_detalle,
                 bd.nombre_cliente_boleto_detalle,
                 bd.asiento_boleto_detalle,
-                COALESCE(d.lugar_destino, (SELECT nombre_sub_rutas FROM sub_rutas sr WHERE sr.id_sub_rutas = bd.id_destino_boleto LIMIT 1)) as lugar_destino,
+                COALESCE(NULLIF(TRIM(sr.nombre_sub_rutas), ''), NULLIF(TRIM(d.lugar_destino), '')) as lugar_destino,
                 bd.total_boleto_detalle,
                 CASE 
                     WHEN bd.estado_boleto_detalle = 0 THEN 'Activo'
@@ -39,6 +39,7 @@ try {
             INNER JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
             INNER JOIN sucursal2 s ON u.id_fksucursal_usuario = s.suc_codigo_sucursal
             LEFT JOIN destino d ON bd.id_destino_boleto = d.id_destino
+            LEFT JOIN sub_rutas sr ON bd.id_destino_boleto = sr.id_sub_rutas
             INNER JOIN viajes v ON b.id_fkviaje_boleto = v.id_viajes
             INNER JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
             WHERE s.suc_codigo_sucursal = '$sucursal' 
