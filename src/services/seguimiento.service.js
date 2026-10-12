@@ -43,10 +43,10 @@ export const SeguimientoService = {
 
   /**
    * Registra CHECKING (estado 1) o FINALIZAR (estado 2) sobre una guía.
-   * Reutiliza el mismo endpoint que la app móvil.
+   * Reutiliza el mismo endpoint que la app móvil; idBus y destino solo se envían en CHECKING.
    * POST /guia/insertarSeguimientoGuia
    */
-  async insertarSeguimientoGuia({ idGuia, observacion = '', estado, idUsuario, ubicacion = '', idOficina = '' }) {
+  async insertarSeguimientoGuia({ idGuia, observacion = '', estado, idUsuario, ubicacion = '', idOficina = '', idBus = null, destino = null }) {
     const response = await api.post('/guia/insertarSeguimientoGuia', {
       id_guia: idGuia,
       observacion,
@@ -54,6 +54,7 @@ export const SeguimientoService = {
       id_usuario: idUsuario,
       ubicacion,
       id_oficina: idOficina,
+      ...(estado === 1 ? { id_bus: idBus, destino } : {}),
     });
     return response.data;
   },

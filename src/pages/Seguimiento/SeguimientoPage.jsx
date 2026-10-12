@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { api } from '../../config/axios';
@@ -59,6 +59,37 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
   const [guiaInfo, setGuiaInfo] = useState(null);
   const [observacion, setObservacion] = useState('');
   const [procesando, setProcesando] = useState(false);
+  // Datos del viaje (solo CHEKING)
+  const [buses, setBuses] = useState([]);
+  const [destinos, setDestinos] = useState([]);
+  const [idBus, setIdBus] = useState('');
+  const [destino, setDestino] = useState('');
+
+  useEffect(() => {
+    // Combos necesarios para el CHEKING (bus y destino del viaje)
+    if (isNotaVenta) return;
+
+    const cargarCombos = async () => {
+      try {
+        const [resBuses, resDestinos] = await Promise.all([
+          api.get('/buses/seleccionarBusesCombo'),
+          api.get('/destino/destinoSeleccionCombo'),
+        ]);
+
+        setBuses(resBuses.data?.data || []);
+
+        const lugares = (resDestinos.data?.data || [])
+          .map((d) => d.lugar_destino || d.nombre_destino || '')
+          .filter(Boolean);
+
+        setDestinos([...new Set(lugares)].sort((a, b) => a.localeCompare(b)));
+      } catch (err) {
+        console.error('[Seguimiento] Error al cargar combos:', err);
+      }
+    };
+
+    cargarCombos();
+  }, [isNotaVenta]);
 
   /** Resultados paginados localmente */
   const resultadosPaginados = useMemo(() => {
@@ -95,6 +126,8 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
           return;
         }
         setGuiaInfo(busqueda.data);
+        setDestino(busqueda.data.destino_guia || '');
+        setIdBus('');
       }
 
       // 2. Historial de seguimientos
@@ -135,6 +168,8 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
     setNumeroGuia('');
     setGuiaInfo(null);
     setObservacion('');
+    setIdBus('');
+    setDestino('');
     setResultados([]);
     setBuscado(false);
     setPagina(1);
@@ -146,29 +181,34 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
    */
   const resolverUbicacion = async () => {
     let ubicacion = user?.nombre_canton || user?.canton || user?.ciudad || '';
-    let idOficina = user?.id_sucursal || user?.id_fksucursal_usuario || user?.sucursal_usuario || '';
+    // id_oficina debe ser el id real de la sucursal, no su código
+    let idOficina = user?.id_sucursal || '';
+    const codigoSucursal = user?.id_fksucursal_usuario || user?.sucursal_usuario || '';
 
-    if (!ubicacion) {
+    if (!ubicacion || !idOficina) {
       try {
         const res = await api.get('/buscarUsuario');
         const u = res.data?.data;
         if (u) {
-          ubicacion = u.nombre_canton || u.canton || u.ciudad || u.ciudad_sucursal || u.nombre_sucursal || '';
-          idOficina = u.id_sucursal || u.id_fksucursal_usuario || idOficina;
+          ubicacion = ubicacion || u.nombre_canton || u.canton || u.ciudad || u.ciudad_sucursal || '';
+          idOficina = idOficina || u.id_sucursal || '';
         }
       } catch (e) {
         // Sin datos del usuario se intenta con la sucursal
       }
     }
 
-    if (!ubicacion && idOficina) {
+    if ((!ubicacion || !idOficina) && codigoSucursal) {
       try {
         const res = await api.get('/sucursal/comboSucursal');
         const lista = res.data?.data || [];
-        const miSucursal = lista.find((s) => String(s.suc_codigo_sucursal) === String(idOficina));
-        if (miSucursal) ubicacion = miSucursal.nombre_sucursal || '';
+        const miSucursal = lista.find((s) => String(s.suc_codigo_sucursal) === String(codigoSucursal));
+        if (miSucursal) {
+          ubicacion = ubicacion || miSucursal.nombre_sucursal || '';
+          idOficina = idOficina || miSucursal.id_sucursal || '';
+        }
       } catch (e) {
-        // Si falla, se envía la ubicación vacía (el backend la acepta)
+        // Si falla, se envía lo disponible (el backend lo acepta)
       }
     }
 
@@ -198,9 +238,24 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
       return;
     }
 
+    // El CHEKING viaja en un bus hacia un destino
+    if (estado === 1) {
+      if (!idBus) {
+        toast.error('Seleccione el bus para el CHEKING');
+        return;
+      }
+      if (!destino.trim()) {
+        toast.error('Ingrese el destino para el CHEKING');
+        return;
+      }
+    }
+
     const confirm = await Swal.fire({
       title: `¿Registrar ${accionNombre}?`,
-      text: `Guía ${guiaInfo.numero_guia} · ${guiaInfo.origen_guia || '-'} → ${guiaInfo.destino_guia || '-'}`,
+      text:
+        estado === 1
+          ? `Guía ${guiaInfo.numero_guia} · Bus ${idBus} → ${destino}`
+          : `Guía ${guiaInfo.numero_guia} · ${guiaInfo.origen_guia || '-'} → ${guiaInfo.destino_guia || '-'}`,
       icon: 'question',
       showCancelButton: true,
       confirmButtonText: `Sí, ${accionNombre}`,
@@ -221,6 +276,8 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
         idUsuario,
         ubicacion,
         idOficina,
+        idBus,
+        destino: destino.trim(),
       });
 
       if (res?.success === false) {
@@ -384,28 +441,71 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
               Esta guía ya fue finalizada, no admite nuevos seguimientos.
             </p>
           ) : (
-            <div className="flex flex-wrap items-center gap-3 mt-4">
-              <button
-                onClick={() => handleAccion(1)}
-                disabled={procesando}
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-semibold transition-colors text-sm whitespace-nowrap flex items-center gap-2"
-              >
-                <i className={procesando ? 'fas fa-spinner fa-spin' : 'fas fa-check'}></i>
-                CHECKING
-              </button>
-              <button
-                onClick={() => handleAccion(2)}
-                disabled={procesando}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-lg font-semibold transition-colors text-sm whitespace-nowrap flex items-center gap-2"
-              >
-                <i className={procesando ? 'fas fa-spinner fa-spin' : 'fas fa-flag-checkered'}></i>
-                FINALIZAR
-              </button>
-              <span className="text-xs text-slate-400 flex items-center gap-2">
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
+                    Bus <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    value={idBus}
+                    onChange={(e) => setIdBus(e.target.value)}
+                    disabled={procesando}
+                  >
+                    <option value="">Seleccione un bus</option>
+                    {buses.map((b) => (
+                      <option key={b.id_buses} value={b.id_buses}>
+                        Bus {b.disco_buses} ({b.placa_buses})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
+                    Destino <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    list="destinos-seguimiento"
+                    className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                    placeholder="Ciudad o lugar de destino"
+                    value={destino}
+                    onChange={(e) => setDestino(e.target.value)}
+                    disabled={procesando}
+                  />
+                  <datalist id="destinos-seguimiento">
+                    {destinos.map((d) => (
+                      <option key={d} value={d} />
+                    ))}
+                  </datalist>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 mt-4">
+                <button
+                  onClick={() => handleAccion(1)}
+                  disabled={procesando}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-semibold transition-colors text-sm whitespace-nowrap flex items-center gap-2"
+                >
+                  <i className={procesando ? 'fas fa-spinner fa-spin' : 'fas fa-check'}></i>
+                  CHECKING
+                </button>
+                <button
+                  onClick={() => handleAccion(2)}
+                  disabled={procesando}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-lg font-semibold transition-colors text-sm whitespace-nowrap flex items-center gap-2"
+                >
+                  <i className={procesando ? 'fas fa-spinner fa-spin' : 'fas fa-flag-checkered'}></i>
+                  FINALIZAR
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-400 mt-3 flex items-center gap-2">
                 <i className="fas fa-circle-info"></i>
-                CHECKING marca la guía en camino y FINALIZAR como entregada en su destino.
-              </span>
-            </div>
+                Bus y destino son obligatorios para el CHEKING; FINALIZAR no requiere datos extra.
+              </p>
+            </>
           )}
         </div>
       )}
