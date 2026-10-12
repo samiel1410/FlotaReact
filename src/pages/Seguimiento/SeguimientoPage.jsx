@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
+import { api } from '../../config/axios';
+import { useAuth } from '../../context/AuthContext';
+import { SeguimientoService } from '../../services/seguimiento.service';
 
 const PAGE_SIZE = 15;
 
@@ -45,11 +48,17 @@ const formatFecha = (fecha) => {
 };
 
 export const SeguimientoPage = ({ isNotaVenta = false }) => {
+  const { user } = useAuth();
   const [numeroGuia, setNumeroGuia] = useState('');
   const [resultados, setResultados] = useState([]);
   const [loading, setLoading] = useState(false);
   const [buscado, setBuscado] = useState(false);
   const [pagina, setPagina] = useState(1);
+
+  // Guía ubicada (paso 2) y registro de CHECKING / FINALIZAR
+  const [guiaInfo, setGuiaInfo] = useState(null);
+  const [observacion, setObservacion] = useState('');
+  const [procesando, setProcesando] = useState(false);
 
   /** Resultados paginados localmente */
   const resultadosPaginados = useMemo(() => {
@@ -61,21 +70,36 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
 
   const apiEndpoint = isNotaVenta ? '/seguimiento_nota_venta' : '/seguimiento';
 
-  const handleBuscar = async () => {
-    const guia = numeroGuia.trim();
+  /**
+   * Paso 1: ubica la guía por su número y carga su historial de seguimientos.
+   * Si la guía no existe, no se habilita el registro (paso 2).
+   */
+  const handleBuscar = async (guiaParam) => {
+    const guia = String(guiaParam ?? numeroGuia).trim();
     if (!guia) {
       toast.error('Ingrese un número de guía para buscar');
       return;
     }
 
     setLoading(true);
-    setBuscado(true);
     setPagina(1);
     try {
-      // Uso dinamico de API basado en isNotaVenta
-      const { api } = await import('../../config/axios');
+      // 1. Ubicar la guía (las notas de venta solo consultan historial)
+      if (!isNotaVenta) {
+        const busqueda = await SeguimientoService.buscarGuiaParaSeguimiento(guia);
+        if (!busqueda?.success || !busqueda?.data?.id_guia) {
+          setGuiaInfo(null);
+          setResultados([]);
+          setBuscado(false);
+          toast.error(busqueda?.message || 'No se encontró la guía');
+          return;
+        }
+        setGuiaInfo(busqueda.data);
+      }
+
+      // 2. Historial de seguimientos
       const res = await api.get(`${apiEndpoint}/buscarGuiaSeguimineto?guia=${encodeURIComponent(guia)}`);
-      
+
       const datos = Array.isArray(res.data)
         ? res.data
         : Array.isArray(res.data?.data)
@@ -84,15 +108,18 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
             ? res.data.resultados
             : [];
 
+      setBuscado(true);
       setResultados(datos);
 
       if (datos.length === 0) {
-        toast('No se encontraron resultados para esta guía', { icon: 'ℹ️' });
+        toast('La guía no tiene movimientos registrados', { icon: 'ℹ️' });
       }
     } catch (err) {
       console.error('[Seguimiento] Error al buscar:', err);
       toast.error('Error al buscar seguimientos');
       setResultados([]);
+      setGuiaInfo(null);
+      setBuscado(false);
     } finally {
       setLoading(false);
     }
@@ -106,9 +133,117 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
 
   const handleLimpiar = () => {
     setNumeroGuia('');
+    setGuiaInfo(null);
+    setObservacion('');
     setResultados([]);
     setBuscado(false);
     setPagina(1);
+  };
+
+  /**
+   * Resuelve la ubicación y la oficina del usuario (los mismos datos que envía la app móvil).
+   * Se intenta con la sesión, luego con el usuario del backend y, por último, con su sucursal.
+   */
+  const resolverUbicacion = async () => {
+    let ubicacion = user?.nombre_canton || user?.canton || user?.ciudad || '';
+    let idOficina = user?.id_sucursal || user?.id_fksucursal_usuario || user?.sucursal_usuario || '';
+
+    if (!ubicacion) {
+      try {
+        const res = await api.get('/buscarUsuario');
+        const u = res.data?.data;
+        if (u) {
+          ubicacion = u.nombre_canton || u.canton || u.ciudad || u.ciudad_sucursal || u.nombre_sucursal || '';
+          idOficina = u.id_sucursal || u.id_fksucursal_usuario || idOficina;
+        }
+      } catch (e) {
+        // Sin datos del usuario se intenta con la sucursal
+      }
+    }
+
+    if (!ubicacion && idOficina) {
+      try {
+        const res = await api.get('/sucursal/comboSucursal');
+        const lista = res.data?.data || [];
+        const miSucursal = lista.find((s) => String(s.suc_codigo_sucursal) === String(idOficina));
+        if (miSucursal) ubicacion = miSucursal.nombre_sucursal || '';
+      } catch (e) {
+        // Si falla, se envía la ubicación vacía (el backend la acepta)
+      }
+    }
+
+    return { ubicacion, idOficina };
+  };
+
+  /**
+   * Paso 2: registra el seguimiento de la guía ubicada.
+   * estado 1 = CHECKING (en camino) · estado 2 = FINALIZAR (entregada a destino)
+   */
+  const handleAccion = async (estado) => {
+    const accionNombre = estado === 1 ? 'CHECKING' : 'FINALIZAR';
+
+    if (!guiaInfo?.id_guia) {
+      toast.error('Primero busque una guía');
+      return;
+    }
+
+    if (Number(guiaInfo.estado_guia_seguimiento) === 1) {
+      toast.error(`La guía ${guiaInfo.numero_guia} ya está finalizada`);
+      return;
+    }
+
+    const idUsuario = user?.id_usuario || user?.id || 0;
+    if (!idUsuario) {
+      toast.error('No se pudo identificar al usuario de la sesión');
+      return;
+    }
+
+    const confirm = await Swal.fire({
+      title: `¿Registrar ${accionNombre}?`,
+      text: `Guía ${guiaInfo.numero_guia} · ${guiaInfo.origen_guia || '-'} → ${guiaInfo.destino_guia || '-'}`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: `Sí, ${accionNombre}`,
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: estado === 1 ? '#2563eb' : '#059669',
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    setProcesando(true);
+    try {
+      const { ubicacion, idOficina } = await resolverUbicacion();
+
+      const res = await SeguimientoService.insertarSeguimientoGuia({
+        idGuia: guiaInfo.id_guia,
+        observacion: observacion.trim(),
+        estado,
+        idUsuario,
+        ubicacion,
+        idOficina,
+      });
+
+      if (res?.success === false) {
+        toast.error(res?.message || res?.data || 'No se pudo registrar el seguimiento');
+        return;
+      }
+
+      // El backend responde data: 1 cuando la guía ya tenía ese seguimiento
+      if (Number(res?.data) === 1) {
+        toast(`${accionNombre} ya estaba registrado para esta guía`, { icon: 'ℹ️' });
+      } else {
+        toast.success(`${accionNombre} registrado correctamente`);
+      }
+
+      // Refrescar el estado y el historial de la guía
+      setObservacion('');
+      handleBuscar(guiaInfo.numero_guia || numeroGuia);
+    } catch (err) {
+      console.error('[Seguimiento] Error al registrar seguimiento:', err);
+      toast.error('Error al registrar el seguimiento');
+    } finally {
+      setProcesando(false);
+    }
   };
 
   const handleEliminar = async (record) => {
@@ -132,7 +267,6 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
     if (!result.isConfirmed) return;
 
     try {
-      const { api } = await import('../../config/axios');
       const res = await api.get(`${apiEndpoint}/eliminarSeguimientoEntregado?id_seguimiento=${record.id_seguimiento}`);
       
       if (res.data?.success !== false) {
@@ -161,34 +295,39 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
         </div>
       </div>
 
-      {/* Filtro de búsqueda */}
+      {/* Paso 1: ubicar la guía */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex-1 min-w-[250px]">
-            <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
-              Número de Guía
-            </label>
-            <input
-              type="text"
-              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-mono"
-              placeholder="001-0001-0000001"
-              value={numeroGuia}
-              onChange={(e) => setNumeroGuia(formatNumeroGuia(e.target.value))}
-              onKeyDown={handleKeyDown}
-              maxLength={17}
-            />
-          </div>
+        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
+          Número de Guía
+        </label>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            className="flex-1 min-w-0 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all font-mono"
+            placeholder="001-0001-0000001"
+            value={numeroGuia}
+            onChange={(e) => {
+              setNumeroGuia(formatNumeroGuia(e.target.value));
+              setGuiaInfo(null);
+              setResultados([]);
+              setBuscado(false);
+            }}
+            onKeyDown={handleKeyDown}
+            maxLength={17}
+            disabled={procesando}
+          />
           <button
-            onClick={handleBuscar}
-            disabled={loading}
-            className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
+            onClick={() => handleBuscar()}
+            disabled={loading || procesando}
+            className="shrink-0 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-medium transition-colors text-sm whitespace-nowrap flex items-center gap-2"
           >
-            <i className="fas fa-search"></i>
+            <i className={loading ? 'fas fa-spinner fa-spin' : 'fas fa-search'}></i>
             {loading ? 'Buscando...' : 'Buscar'}
           </button>
           <button
             onClick={handleLimpiar}
-            className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-medium transition-colors text-sm flex items-center gap-2"
+            disabled={procesando}
+            className="shrink-0 px-3 py-2.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-50 rounded-lg font-medium transition-colors text-sm whitespace-nowrap flex items-center gap-2"
           >
             <i className="fas fa-eraser"></i>
             Limpiar
@@ -196,9 +335,96 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
         </div>
       </div>
 
+      {/* Paso 2: aparece solo cuando la guía fue encontrada */}
+      {guiaInfo && !isNotaVenta && (
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-slate-100">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                <i className="fas fa-box text-blue-600 text-lg"></i>
+              </div>
+              <div>
+                <p className="font-mono font-bold text-slate-800">{guiaInfo.numero_guia}</p>
+                <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                  {guiaInfo.origen_guia || '-'}
+                  <i className="fas fa-arrow-right text-[10px] text-slate-400"></i>
+                  {guiaInfo.destino_guia || '-'}
+                </p>
+              </div>
+            </div>
+            <span
+              className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide ${
+                Number(guiaInfo.estado_guia_seguimiento) === 1
+                  ? 'bg-emerald-100 text-emerald-700'
+                  : 'bg-blue-100 text-blue-700'
+              }`}
+            >
+              {Number(guiaInfo.estado_guia_seguimiento) === 1 ? 'FINALIZADA' : 'EN SEGUIMIENTO'}
+            </span>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
+              Observación
+            </label>
+            <input
+              type="text"
+              className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+              placeholder="Detalle para CHECKING o FINALIZAR"
+              value={observacion}
+              onChange={(e) => setObservacion(e.target.value)}
+              maxLength={200}
+              disabled={procesando}
+            />
+          </div>
+
+          {Number(guiaInfo.estado_guia_seguimiento) === 1 ? (
+            <p className="text-xs text-emerald-600 mt-4 flex items-center gap-2">
+              <i className="fas fa-circle-check"></i>
+              Esta guía ya fue finalizada, no admite nuevos seguimientos.
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3 mt-4">
+              <button
+                onClick={() => handleAccion(1)}
+                disabled={procesando}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg font-semibold transition-colors text-sm whitespace-nowrap flex items-center gap-2"
+              >
+                <i className={procesando ? 'fas fa-spinner fa-spin' : 'fas fa-check'}></i>
+                CHECKING
+              </button>
+              <button
+                onClick={() => handleAccion(2)}
+                disabled={procesando}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white rounded-lg font-semibold transition-colors text-sm whitespace-nowrap flex items-center gap-2"
+              >
+                <i className={procesando ? 'fas fa-spinner fa-spin' : 'fas fa-flag-checkered'}></i>
+                FINALIZAR
+              </button>
+              <span className="text-xs text-slate-400 flex items-center gap-2">
+                <i className="fas fa-circle-info"></i>
+                CHECKING marca la guía en camino y FINALIZAR como entregada en su destino.
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Grid de resultados */}
       {buscado && (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+            <h2 className="text-sm font-bold text-slate-700 uppercase flex items-center gap-2">
+              <i className="fas fa-clock-rotate-left text-slate-400"></i>
+              Historial de la guía
+              <span className="font-mono text-slate-500 normal-case">{numeroGuia}</span>
+            </h2>
+            {!loading && resultados.length > 0 && (
+              <span className="text-xs font-semibold text-slate-500">
+                {resultados.length} movimiento{resultados.length === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
           {loading ? (
             <div className="flex items-center justify-center py-16 text-slate-500">
               <i className="fas fa-spinner fa-spin text-2xl mr-3 text-blue-500"></i>

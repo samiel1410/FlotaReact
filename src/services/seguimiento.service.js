@@ -31,4 +31,30 @@ export const SeguimientoService = {
     const response = await api.get(`/seguimiento/seguimientosxguiaselect?id=${id}&limit=${limit}&page=${page}`);
     return response.data;
   },
+
+  /**
+   * Ubica una guía activa por su número (XXX-XXX-XXXXXXXXX) para registrar seguimiento.
+   * GET /seguimiento/buscarGuiaParaSeguimiento?guia=...
+   */
+  async buscarGuiaParaSeguimiento(guia) {
+    const response = await api.get(`/seguimiento/buscarGuiaParaSeguimiento?guia=${encodeURIComponent(guia)}`);
+    return response.data;
+  },
+
+  /**
+   * Registra CHECKING (estado 1) o FINALIZAR (estado 2) sobre una guía.
+   * Reutiliza el mismo endpoint que la app móvil.
+   * POST /guia/insertarSeguimientoGuia
+   */
+  async insertarSeguimientoGuia({ idGuia, observacion = '', estado, idUsuario, ubicacion = '', idOficina = '' }) {
+    const response = await api.post('/guia/insertarSeguimientoGuia', {
+      id_guia: idGuia,
+      observacion,
+      estado,
+      id_usuario: idUsuario,
+      ubicacion,
+      id_oficina: idOficina,
+    });
+    return response.data;
+  },
 };

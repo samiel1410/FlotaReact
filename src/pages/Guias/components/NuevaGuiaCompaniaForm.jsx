@@ -50,22 +50,16 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
   const [clienteBuscando, setClienteBuscando] = useState(false);
   const effectRan = useRef(false);
 
-  useEffect(() => {
-    if (!effectRan.current) {
-      cargarCombos();
-      effectRan.current = true;
-    }
-  }, []);
-
-  const cargarDestinosCompania = async (companiaId) => {
+  const cargarDestinosPropios = async (companiaId) => {
     const resDestinos = await api.get('/destino/destinoSeleccionCombo', {
       params: { id_compania: companiaId }
     });
     if (!resDestinos.data?.success) {
-      throw new Error(resDestinos.data?.error || resDestinos.data?.data || 'No se pudieron cargar los destinos de la compañía');
+      throw new Error(resDestinos.data?.error || resDestinos.data?.data || 'No se pudieron cargar los destinos propios');
     }
 
-    const destinosCompania = Array.isArray(resDestinos.data.data) ? resDestinos.data.data : [];
+    const destinosCompania = (Array.isArray(resDestinos.data.data) ? resDestinos.data.data : [])
+      .filter(destino => String(destino.idfk_compania_asociada_destino) === String(companiaId));
     setDestinos(destinosCompania);
     if (destinosCompania.length === 0) {
       toast('La compañía propia no tiene destinos registrados', { icon: '⚠️' });
@@ -80,31 +74,29 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
         throw new Error(resCompanias.data?.error || resCompanias.data?.data || 'No se pudieron cargar las compañías');
       }
 
-      const companiasPropias = (Array.isArray(resCompanias.data.data) ? resCompanias.data.data : [])
-        .filter(compania => Number(compania.es_propia) === 1);
-      setCompanias(companiasPropias);
+      const companiasDisponibles = Array.isArray(resCompanias.data.data) ? resCompanias.data.data : [];
+      setCompanias(companiasDisponibles);
 
-      if (companiasPropias.length === 0) {
+      const companiaPropia = companiasDisponibles.find(compania => Number(compania.es_propia) === 1);
+      if (!companiaPropia) {
         setDestinos([]);
-        toast.error('No hay una compañía activa marcada como propia en Convenios');
+        toast.error('No hay una compañía marcada como propia en Convenios');
         return;
       }
 
-      const companiaPropia = companiasPropias[0];
-      const porcentaje = companiaPropia.porcentaje_comision === null || companiaPropia.porcentaje_comision === undefined
-        ? '0'
-        : String(parseFloat(companiaPropia.porcentaje_comision) || 0);
-      setFormData(prev => ({
-        ...prev,
-        compania_id: String(companiaPropia.id_compania_asociada),
-        porcentaje_comision: porcentaje
-      }));
-      await cargarDestinosCompania(companiaPropia.id_compania_asociada);
+      await cargarDestinosPropios(companiaPropia.id_compania_asociada);
     } catch (error) {
       console.error("Error al cargar combos:", error);
       toast.error(error.message || "Error al cargar datos iniciales");
     }
   };
+
+  useEffect(() => {
+    if (!effectRan.current) {
+      cargarCombos();
+      effectRan.current = true;
+    }
+  }, []);
 
   const handleCompaniaChange = async (e) => {
     const companiaId = e.target.value;
@@ -118,20 +110,8 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
       toast('Esta compañía tiene 0% de comisión asignado', { icon: '⚠️' });
     }
 
-    // La lista de compañías está limitada a la compañía marcada como propia.
-    try {
-      if (companiaId) {
-        await cargarDestinosCompania(companiaId);
-      } else {
-        setDestinos([]);
-      }
-    } catch (err) {
-      console.error('Error cargando destinos de la compañía propia:', err);
-      toast.error(err.message || 'Error cargando destinos de la compañía propia');
-    }
-
     setFormData(prev => {
-      const newForm = { ...prev, compania_id: companiaId, id_destino: '', porcentaje_comision: porcentaje };
+      const newForm = { ...prev, compania_id: companiaId, porcentaje_comision: porcentaje };
       // Recalcular comisión si hay valor neto
       if (newForm.valor_neto && porcentaje) {
         newForm.valor_comision = ((parseFloat(newForm.valor_neto) * parseFloat(porcentaje)) / 100).toFixed(2);
