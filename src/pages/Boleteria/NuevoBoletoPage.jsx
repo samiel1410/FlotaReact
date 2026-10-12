@@ -41,7 +41,7 @@ import {
   hoyLocal,
   getSessionUser
 } from './utils/boletoUtils';
-import { imprimirBoletoDirectoQZ } from './utils/boletoImpresion';
+import { imprimirBoletoDirectoQZ, imprimirPdfDirecto } from './utils/boletoImpresion';
 import './NuevoBoletoPage.css';
 
 export const NuevoBoletoPage = () => {
@@ -137,6 +137,19 @@ export const NuevoBoletoPage = () => {
     const u = getSessionUser();
     return extractSucursalId(u.id_sucursal || u.id_fksucursal || u.sucursal);
   });
+
+  // Sucursal con la que el operador entró a la pantalla: permite restaurarla
+  // desde el botón "Reiniciar" (cambiar de agencia sobrescribe la sesión).
+  // useState con inicializador perezoso: se fija una sola vez al montar.
+  const [sucursalOriginal] = useState(() => {
+    const u = getSessionUser();
+    return {
+      id_sucursal: extractSucursalId(u.id_sucursal || u.id_fksucursal || u.sucursal),
+      nombre_sucursal: u.nombre_sucursal || 'Desconocida',
+      punto_emision_sucursal: u.punto_emision_sucursal || null,
+    };
+  });
+  const sucursalCambiada = activeSucursalId !== sucursalOriginal.id_sucursal;
 
   const [formData, setFormData] = useState({
     idCliente: '',
@@ -404,8 +417,9 @@ export const NuevoBoletoPage = () => {
   };
 
   // Buscar viajes disponibles
-  const buscarViajes = useCallback(async (customSucursalId) => {
-    if (!formData.fechaViaje) return;
+  const buscarViajes = useCallback(async (customSucursalId, customFecha) => {
+    const fechaBusqueda = customFecha || formData.fechaViaje;
+    if (!fechaBusqueda) return;
     setLoadingViajes(true);
     try {
       const parsedCustom = extractSucursalId(customSucursalId);
@@ -415,7 +429,7 @@ export const NuevoBoletoPage = () => {
       const parsedUsuario = extractSucursalId(usuario?.id_sucursal || usuario?.id_fksucursal || usuario?.sucursal);
 
       const sucursalId = parsedCustom || parsedActive || parsedSession || parsedUsuario || null;
-      const params = { fecha: formData.fechaViaje };
+      const params = { fecha: fechaBusqueda };
       if (sucursalId && typeof sucursalId === 'number') {
         params.id_sucursal = sucursalId;
       }
@@ -885,19 +899,30 @@ export const NuevoBoletoPage = () => {
   };
 
   // Impresión y Autorización SRI
+  //
+  // Flujo pedido: al confirmar el guardado se va DIRECTO al diálogo de
+  // impresión (sin vista previa intermedia). Si QZ Tray no está activo,
+  // se abre el diálogo del navegador.
   const imprimirBoleto = async (id_boleto) => {
     const printUrl = buildPdfUrl(`/php/boletoFactura.php?id_boleto=${id_boleto}`);
+
+    // 1) QZ Tray configurado y activo → impresión directa en la impresora.
     if (metodoImpresion === 'directa') {
       try {
         await imprimirBoletoDirectoQZ(id_boleto, printerBoletos, copiasBoletos);
         toast.success('Boleto impreso en ' + printerBoletos);
+        return;
       } catch (e) {
         console.error('[QZ] Error al imprimir:', e);
-        toast.error('Error al imprimir vía QZ Tray. Abriendo PDF manual...');
-        setPdfModalUrl(printUrl);
-        setShowPdfModal(true);
+        toast.error('QZ Tray no está activo. Abriendo el diálogo de impresión...');
       }
-    } else {
+    }
+
+    // 2) Sin QZ Tray → diálogo de impresión del navegador, sin vista previa.
+    const abierto = await imprimirPdfDirecto(printUrl);
+    if (!abierto) {
+      // Último recurso: vista previa (con botón Imprimir).
+      toast('Abriendo vista previa del boleto...', { icon: 'ℹ️' });
       setPdfModalUrl(printUrl);
       setShowPdfModal(true);
     }
@@ -913,9 +938,11 @@ export const NuevoBoletoPage = () => {
 
   const limpiarFormulario = () => {
     deseleccionarAsientosActuales();
-    setFormData({
+    setFormData(prev => ({
       idCliente: '',
-      fechaViaje: hoyLocal(),
+      // La fecha de viaje es un filtro del operador: se conserva al vender un boleto
+      // (se restablece con el botón "Reiniciar" o al cambiar de agencia).
+      fechaViaje: prev.fechaViaje || hoyLocal(),
       origen: '',
       destino: '',
       idViaje: '',
@@ -931,7 +958,7 @@ export const NuevoBoletoPage = () => {
       correo: '',
       tarifa: 1,
       observacion: ''
-    });
+    }));
     setDestinosViaje([]);
     setAsientosOcupados([]);
     setSubrutaSeleccionada('');
@@ -946,6 +973,56 @@ export const NuevoBoletoPage = () => {
     setNombreChofer('');
     setHoraViaje('');
     setMapaAsientos(null);
+  };
+
+  // Restablece los filtros de la pantalla (fecha → hoy y sucursal → la original)
+  // y limpia la venta en curso. El botón "Reiniciar" solo aparece si algo cambió.
+  const reiniciarFiltros = () => {
+    const hoy = hoyLocal();
+    const original = sucursalOriginal;
+
+    // Volver a la sucursal con la que entró el usuario
+    if (original?.id_sucursal && activeSucursalId !== original.id_sucursal) {
+      const usuario = getSessionUser();
+      usuario.id_sucursal = original.id_sucursal;
+      usuario.nombre_sucursal = original.nombre_sucursal;
+      if (original.punto_emision_sucursal) {
+        usuario.punto_emision_sucursal = original.punto_emision_sucursal;
+      }
+      sessionStorage.setItem('usuario', JSON.stringify(usuario));
+      sessionStorage.setItem('user_data', JSON.stringify(usuario));
+      setActiveSucursalId(original.id_sucursal);
+      setCurrentAgencia(original.nombre_sucursal);
+    }
+
+    deseleccionarAsientosActuales();
+    setFormData(prev => ({
+      ...prev,
+      fechaViaje: hoy,
+      idViaje: '',
+      viajeTexto: '',
+      origen: '',
+      destino: '',
+      asientosSeleccionados: [],
+      pasajeros: [],
+      totales: { subtotal: 0, total: 0 },
+    }));
+    setDestinosViaje([]);
+    setAsientosOcupados([]);
+    setSubrutaSeleccionada('');
+    setPrecioUnitario(0);
+    setEsReserva(false);
+    setTotalVenta(0);
+    setAlimentoInfo(null);
+    setDiscoBus('');
+    setIdBus('');
+    setIdChofer('');
+    setCedulaChofer('');
+    setNombreChofer('');
+    setHoraViaje('');
+    setMapaAsientos(null);
+    buscarViajes(original?.id_sucursal, hoy);
+    toast.success('Filtros reiniciados');
   };
 
   const refrescarViajes = useCallback(async () => {
@@ -1237,6 +1314,8 @@ export const NuevoBoletoPage = () => {
         {/* 2. SELECTOR DE FECHA Y VIAJES DISPONIBLES */}
         <ViajesSelector
           fechaViaje={formData.fechaViaje}
+          puedeReiniciar={formData.fechaViaje !== hoyLocal() || sucursalCambiada}
+          onReiniciar={reiniciarFiltros}
           onFechaChange={(fecha) => {
             marcarActividadReal();
             setFormData(prev => ({ ...prev, fechaViaje: fecha }));

@@ -73,3 +73,99 @@ export const imprimirBoletoDirectoQZ = async (idBoleto, printerBoletos, copias =
 
   await window.qz.print(config, data);
 };
+
+/**
+ * ¿QZ Tray está activo (librería cargada y websocket conectado)?
+ * Se usa para decidir si imprimir por QZ o abrir el diálogo del navegador.
+ */
+export const qzTrayActivo = () => {
+  try {
+    return !!(window.qz && window.qz.websocket && window.qz.websocket.isActive());
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Abre DIRECTAMENTE el diálogo de impresión del navegador para un PDF,
+ * sin mostrar la vista previa.
+ *
+ * Carga el PDF en un iframe fuera de pantalla (Chrome no imprime PDFs en
+ * `display:none`) y llama a `print()` cuando termina de cargar.
+ *
+ * @returns {Promise<boolean>} `true` si se pudo lanzar el diálogo.
+ */
+export const imprimirPdfDirecto = (url, { esperaVisor = 800, limpiezaMs = 90000 } = {}) =>
+  new Promise((resolve) => {
+    let iframe;
+    let resuelto = false;
+    const terminar = (valor) => {
+      if (resuelto) return;
+      resuelto = true;
+      resolve(valor);
+    };
+
+    try {
+      iframe = document.createElement('iframe');
+      // Fuera de pantalla pero renderizado (1px, transparente).
+      iframe.setAttribute('aria-hidden', 'true');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '1px';
+      iframe.style.height = '1px';
+      iframe.style.opacity = '0';
+      iframe.style.border = '0';
+      iframe.style.pointerEvents = 'none';
+      iframe.src = url;
+
+      const limpiar = () => {
+        try {
+          iframe?.remove();
+        } catch {
+          /* noop */
+        }
+      };
+
+      iframe.onload = () => {
+        // El visor de PDF necesita un instante para inicializarse.
+        setTimeout(() => {
+          try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            terminar(true);
+            // Se conserva el iframe un rato para no cortar el diálogo.
+            setTimeout(limpiar, limpiezaMs);
+          } catch (e) {
+            console.error('[impresion] No se pudo abrir el diálogo de impresión:', e);
+            limpiar();
+            terminar(false);
+          }
+        }, esperaVisor);
+      };
+
+      iframe.onerror = () => {
+        limpiar();
+        terminar(false);
+      };
+
+      document.body.appendChild(iframe);
+
+      // Si el PDF nunca carga (404/red), se libera al cabo de un tiempo.
+      setTimeout(() => {
+        if (!resuelto) {
+          limpiar();
+          terminar(false);
+        }
+      }, limpiezaMs);
+    } catch (e) {
+      console.error('[impresion] Error preparando la impresión directa:', e);
+      try {
+        iframe?.remove();
+      } catch {
+        /* noop */
+      }
+      terminar(false);
+    }
+  });
+

@@ -25,13 +25,33 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
   };
 
   const formatEstado = (estado) => {
-    switch (Number(estado)) {
-      case 0: return { label: 'EN PROCESO', color: '#7f8c8d' };
-      case 1: return { label: 'AUTORIZADA', color: 'green' };
-      case 2: return { label: 'RESERVADO', color: '#f39c12' };
-      case 3: return { label: 'ANULADO', color: '#c0392b' };
-      default: return { label: 'DESCONOCIDO', color: '#95a5a6' };
+    // Solo dos estados visibles: EMITIDO (no anulado) y ANULADO.
+    return Number(estado) === 3
+      ? { label: 'ANULADO', color: '#c0392b' }
+      : { label: 'EMITIDO', color: 'green' };
+  };
+
+  // Estado de cobro del boleto (estado_cobro_boleto): 1 = cobrado.
+  const formatCobro = (item) => {
+    const cobrado = Number(item.estado_cobro_boleto) === 1;
+    return {
+      label: cobrado ? 'COBRADO' : 'NO COBRADO',
+      color: cobrado ? '#16a085' : '#e67e22',
+      icon: cobrado ? 'fa-hand-holding-usd' : 'fa-hourglass-half',
+    };
+  };
+
+  // Estado SRI (solo tres): AUTORIZADO, EN PROCESO y ANULADO.
+  const formatSri = (estado) => {
+    const e = String(estado || '').toUpperCase();
+    if (e === 'AUTORIZADO' || e === 'AUTORIZADA') {
+      return { label: 'AUTORIZADO', color: 'green', icon: 'fa-check-circle' };
     }
+    if (e === 'PENDIENTE' || e === 'RECIBIDA' || e === '') {
+      return { label: 'EN PROCESO', color: '#f39c12', icon: 'fa-clock' };
+    }
+    // RECHAZADO / DEVUELTA / nota de crédito => documento no válido.
+    return { label: 'ANULADO', color: '#c0392b', icon: 'fa-exclamation-circle' };
   };
 
   if (loading) {
@@ -55,6 +75,7 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
               <th>FECHA / HORA</th>
               <th className="text-right">TOTAL</th>
               <th className="text-center">ESTADO</th>
+              <th className="text-center">COBRADO</th>
               <th className="text-center">SRI</th>
               <th style={{width: '40px'}}></th>
             </tr>
@@ -62,6 +83,8 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
           <tbody>
             {data.map(item => {
               const est = formatEstado(item.estado_boleto);
+              const cobro = formatCobro(item);
+              const sri = formatSri(item.estado_autorizacion);
               const asientosStr = item.detalles && item.detalles.length > 0
                 ? item.detalles.map(d => d.asiento_boleto_detalle).join(', ')
                 : item.total_asiento > 0 ? `${item.total_asiento} asns` : '-';
@@ -116,7 +139,7 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                   )}
                 </td>
 
-                <td className="font-mono text-right font-bold" style={{color: '#27ae60', fontSize: '12px'}}>
+                <td className="font-mono text-right font-bold" style={{color: '#27ae60', fontSize: '16px'}}>
                   ${parseFloat(item.total_boleto || 0).toFixed(2)}
                 </td>
 
@@ -124,28 +147,28 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                   <span style={{color: est.color, fontWeight: 'bold', fontSize: '11px'}}>{est.label}</span>
                 </td>
 
+                <td className="text-center" style={{fontSize: '11px'}}>
+                  <span style={{color: cobro.color, fontWeight: 'bold'}}>
+                    <i className={`fas ${cobro.icon}`} style={{marginRight: '4px'}}></i>
+                    {cobro.label}
+                  </span>
+                </td>
+
                 <td className="text-center" style={{fontSize: '11px'}} title={item.mensaje_sri || ''}>
                   {reenviandoId === item.id_boleto ? (
                     <div style={{color: '#3498db', fontWeight: 'bold'}} className="flex items-center justify-center gap-1">
                       <i className="fas fa-spinner fa-spin text-blue-500"></i> PROCESANDO...
                     </div>
-                  ) : item.estado_autorizacion === 'AUTORIZADO' ? (
-                    <div style={{color: 'green', fontWeight: 'bold'}}><i className="fas fa-check-circle"></i> AUTORIZADO</div>
-                  ) : item.estado_autorizacion === 'RECIBIDA' ? (
-                    <div style={{color: '#f39c12', fontWeight: 'bold'}}><i className="fas fa-clock"></i> RECIBIDA</div>
-                  ) : item.estado_autorizacion === 'RECHAZADO' || item.estado_autorizacion === 'DEVUELTA' ? (
-                    <div>
-                      <div style={{color: '#c0392b', fontWeight: 'bold'}}><i className="fas fa-exclamation-circle"></i> {item.estado_autorizacion}</div>
-                      {item.mensaje_sri && (
+                  ) : (
+                    <div style={{color: sri.color, fontWeight: 'bold'}}>
+                      <i className={`fas ${sri.icon}`} style={{marginRight: '4px'}}></i>
+                      {sri.label}
+                      {item.mensaje_sri && sri.label === 'ANULADO' && (
                         <div style={{fontSize: '9px', color: '#e74c3c', marginTop: '2px', maxWidth: '140px', margin: '2px auto 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}} title={item.mensaje_sri}>
                           {item.mensaje_sri}
                         </div>
                       )}
                     </div>
-                  ) : item.clave_acceso_boletos && item.clave_acceso_boletos !== '0' ? (
-                    <div style={{color: '#3498db', fontWeight: 'bold'}}><i className="fas fa-cloud-upload-alt"></i> ENVIADO</div>
-                  ) : (
-                    <div style={{color: '#95a5a6', fontStyle: 'italic'}}><i className="fas fa-clock"></i> PENDIENTE</div>
                   )}
                   {item.estado_sri_nota_credito && (
                     <div style={{marginTop: '4px', borderTop: '1px solid #eee', paddingTop: '2px', color: item.estado_sri_nota_credito === 'AUTORIZADO' ? '#e74c3c' : '#f39c12'}}>

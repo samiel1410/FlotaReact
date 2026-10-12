@@ -57,28 +57,52 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
     }
   }, []);
 
+  const cargarDestinosCompania = async (companiaId) => {
+    const resDestinos = await api.get('/destino/destinoSeleccionCombo', {
+      params: { id_compania: companiaId }
+    });
+    if (!resDestinos.data?.success) {
+      throw new Error(resDestinos.data?.error || resDestinos.data?.data || 'No se pudieron cargar los destinos de la compañía');
+    }
+
+    const destinosCompania = Array.isArray(resDestinos.data.data) ? resDestinos.data.data : [];
+    setDestinos(destinosCompania);
+    if (destinosCompania.length === 0) {
+      toast('La compañía propia no tiene destinos registrados', { icon: '⚠️' });
+    }
+    return destinosCompania;
+  };
+
   const cargarCombos = async () => {
     try {
-      // Cargar Compañías (Convenios)
       const resCompanias = await api.get('/companiaasociada/companiaasociadaSeleccionPaginadoCombo');
-      if (resCompanias.data?.data) {
-        setCompanias(resCompanias.data.data);
+      if (!resCompanias.data?.success) {
+        throw new Error(resCompanias.data?.error || resCompanias.data?.data || 'No se pudieron cargar las compañías');
       }
 
-      // Cargar Destinos (solo los de MI cooperativa; fallback a todos si
-      // aún no hay ninguna compañía marcada como propia)
-      const resDestinos = await api.get('/destino/destinoSeleccionCombo', { params: { propia: 1 } });
-      const destPropios = resDestinos.data?.data || [];
-      if (destPropios.length > 0) {
-        setDestinos(destPropios);
-      } else {
-        const resTodos = await api.get('/destino/destinoSeleccionCombo');
-        setDestinos(resTodos.data?.data || []);
-        toast('No hay compañía marcada como propia: se muestran todos los destinos', { icon: '⚠️' });
+      const companiasPropias = (Array.isArray(resCompanias.data.data) ? resCompanias.data.data : [])
+        .filter(compania => Number(compania.es_propia) === 1);
+      setCompanias(companiasPropias);
+
+      if (companiasPropias.length === 0) {
+        setDestinos([]);
+        toast.error('No hay una compañía activa marcada como propia en Convenios');
+        return;
       }
+
+      const companiaPropia = companiasPropias[0];
+      const porcentaje = companiaPropia.porcentaje_comision === null || companiaPropia.porcentaje_comision === undefined
+        ? '0'
+        : String(parseFloat(companiaPropia.porcentaje_comision) || 0);
+      setFormData(prev => ({
+        ...prev,
+        compania_id: String(companiaPropia.id_compania_asociada),
+        porcentaje_comision: porcentaje
+      }));
+      await cargarDestinosCompania(companiaPropia.id_compania_asociada);
     } catch (error) {
       console.error("Error al cargar combos:", error);
-      toast.error("Error al cargar datos iniciales");
+      toast.error(error.message || "Error al cargar datos iniciales");
     }
   };
 
@@ -94,17 +118,16 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
       toast('Esta compañía tiene 0% de comisión asignado', { icon: '⚠️' });
     }
 
-    // Recargar destinos de la compañía elegida (o los propios si se limpia)
+    // La lista de compañías está limitada a la compañía marcada como propia.
     try {
-      const params = companiaId ? { id_compania: companiaId } : { propia: 1 };
-      const resDest = await api.get('/destino/destinoSeleccionCombo', { params });
-      const destFiltrados = resDest.data?.data || [];
-      setDestinos(destFiltrados);
-      if (companiaId && destFiltrados.length === 0) {
-        toast('Esta compañía no tiene destinos registrados', { icon: '⚠️' });
+      if (companiaId) {
+        await cargarDestinosCompania(companiaId);
+      } else {
+        setDestinos([]);
       }
     } catch (err) {
-      console.error('Error cargando destinos de la compañía:', err);
+      console.error('Error cargando destinos de la compañía propia:', err);
+      toast.error(err.message || 'Error cargando destinos de la compañía propia');
     }
 
     setFormData(prev => {

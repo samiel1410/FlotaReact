@@ -190,8 +190,8 @@ try {
 
     // ─── EGRESOS / INGRESOS ──────────────────────────────────────────────────
     $query_egresos_ingresos = "SELECT tipo_caja_detalle, SUM(monto_caja_detalle) as total 
-    FROM caja_detalle 
-    WHERE id_fkcaja = $id_caja 
+    FROM caja_detalle_nota_venta 
+    WHERE id_fkcaja_nota_venta = $id_caja 
     GROUP BY tipo_caja_detalle";
 
     $recuperar_egresos = mysqli_query($conn, $query_egresos_ingresos) or die(mysqli_error($conn));
@@ -201,9 +201,12 @@ try {
 
     while ($vals_egresos = mysqli_fetch_assoc($recuperar_egresos)) {
         $monto_ei = (float)$vals_egresos['total'];
-        if ($vals_egresos['tipo_caja_detalle'] === "Egreso") {
+        // En BD el tipo se guarda en mayúsculas ('INGRESO'/'EGRESO'); comparar sin
+        // distinguir mayúsculas para no perder los totales.
+        $tipo_ei = strtoupper(trim((string)$vals_egresos['tipo_caja_detalle']));
+        if ($tipo_ei === 'EGRESO') {
             $total_egresos += $monto_ei;
-        } else if ($vals_egresos['tipo_caja_detalle'] === "Ingreso") {
+        } else if ($tipo_ei === 'INGRESO') {
             $total_ingresos += $monto_ei;
         }
         $egresos_ingresos[] = [
@@ -368,13 +371,14 @@ try {
         ['TOTAL COBRADO:', '$' . number_format($total_cobrado, 2)],
         ['TOTAL POR COBRAR:', '$' . number_format($total_por_cobrar, 2)],
         ['TOTAL EGRESOS:', '$' . number_format($total_egresos, 2)],
+        ['TOTAL INGRESOS:', '$' . number_format($total_ingresos, 2)],
         ['TOTAL CANTIDAD:', (string)$total_cantidad],
         ['TOTAL CAJA:', '$' . number_format($total_final_final, 2)],
         ['TOTAL GENERAL:', '$' . number_format($total_final_final + $total_por_cobrar, 2)],
     ];
 
     foreach ($totalesSummary as $idx => $ts) {
-        $pdf->SetFont('helvetica', ($idx >= 4) ? 'B' : '', 7.5);
+        $pdf->SetFont('helvetica', ($idx >= 5) ? 'B' : '', 7.5);
         $pdf->Cell($wK, $hTot, $ts[0], 0, 0, 'L');
         $pdf->Cell($wV, $hTot, $ts[1], 0, 1, 'R');
     }

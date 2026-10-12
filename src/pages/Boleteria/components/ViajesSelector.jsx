@@ -8,7 +8,9 @@ export const ViajesSelector = ({
   loadingViajes,
   viajesDisponibles = [],
   idViajeSeleccionado,
-  onSelectViaje
+  onSelectViaje,
+  puedeReiniciar = false,
+  onReiniciar
 }) => {
   const [hoveredViaje, setHoveredViaje] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -63,6 +65,21 @@ export const ViajesSelector = ({
               <><i className="fas fa-search"></i> Buscar Viajes</>
             )}
           </button>
+          {puedeReiniciar && (
+            <button
+              onClick={() => onReiniciar && onReiniciar()}
+              disabled={loadingViajes}
+              title="Volver la fecha a hoy, regresar a tu sucursal original y limpiar la venta en curso"
+              style={{
+                background: '#e2e8f0', color: '#334155', fontWeight: 'bold',
+                border: '1px solid #cbd5e1', borderRadius: 4, padding: '5px 12px',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
+                fontSize: 13, whiteSpace: 'nowrap'
+              }}
+            >
+              <i className="fas fa-undo"></i> Reiniciar
+            </button>
+          )}
         </div>
       </div>
 

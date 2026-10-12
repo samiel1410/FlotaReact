@@ -174,8 +174,10 @@ try {
     $total_ingresos = 0;
     while ($row = mysqli_fetch_array($rsDetalle)) {
         $detalle_rows[] = $row;
-        if ($row['tipo_caja_detalle'] == 'Egreso') $total_egresos += floatval($row['total']);
-        else if ($row['tipo_caja_detalle'] == 'Ingreso') $total_ingresos += floatval($row['total']);
+        // En BD el tipo se guarda en mayúsculas ('INGRESO'/'EGRESO')
+        $tipoDet = strtoupper(trim((string)$row['tipo_caja_detalle']));
+        if ($tipoDet === 'EGRESO') $total_egresos += floatval($row['total']);
+        else if ($tipoDet === 'INGRESO') $total_ingresos += floatval($row['total']);
     }
 
     // ─── GENERAR HTML ───────────────────────────────────────────────────────

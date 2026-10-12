@@ -118,6 +118,11 @@ export const BoleteriaService = {
     return response.data;
   },
 
+  getDetallesBoleto: async (idBoleto) => {
+    const response = await api.get('/boleto/obtenerDetallesBoleto', { params: { id_boleto: idBoleto } });
+    return response.data;
+  },
+
   // ============ ANULACIONES ============
 
   anularBoleto: async (idBoleto) => {

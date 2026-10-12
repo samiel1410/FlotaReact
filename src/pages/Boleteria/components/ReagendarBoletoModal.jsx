@@ -24,10 +24,12 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
   const [selectedDestino, setSelectedDestino] = useState('');
 
   const [asientosDisponibles, setAsientosDisponibles] = useState([]);
-  const [selectedAsiento, setSelectedAsiento] = useState('');
-  
+  const [detallesBoleto, setDetallesBoleto] = useState([]);
+  const [asientosSeleccionados, setAsientosSeleccionados] = useState({});
+
   const [motivo, setMotivo] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingDetalles, setLoadingDetalles] = useState(false);
   const [loadingViajes, setLoadingViajes] = useState(false);
   const [loadingAsientos, setLoadingAsientos] = useState(false);
   const [loadingDestinos, setLoadingDestinos] = useState(false);
@@ -40,12 +42,41 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
       const localString = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
       setFechaUso(localString);
       setMotivo('Reubicación solicitada por el usuario');
+      setSelectedViaje('');
+      setSelectedDestino('');
+      setAsientosSeleccionados({});
+      setDetallesBoleto([]);
       // Set the default destination from the original ticket
       if (boletoOriginal && boletoOriginal.id_destino_boleto) {
          setSelectedDestino(String(boletoOriginal.id_destino_boleto));
       }
     }
   }, [isOpen, boletoOriginal]);
+
+  useEffect(() => {
+    if (!isOpen || !boletoOriginal?.id_boleto) return;
+
+    let activo = true;
+    const fetchDetallesBoleto = async () => {
+      setLoadingDetalles(true);
+      try {
+        const response = await BoleteriaService.getDetallesBoleto(boletoOriginal.id_boleto);
+        const detalles = response?.data?.detalles;
+        if (!response?.success || !Array.isArray(detalles) || detalles.length === 0) {
+          throw new Error(response?.message || 'El boleto no tiene pasajeros para reubicar');
+        }
+        if (activo) setDetallesBoleto(detalles);
+      } catch (error) {
+        console.error('[ReagendarBoletoModal] Error cargando pasajeros:', error);
+        if (activo) toast.error(error?.response?.data?.message || error.message || 'Error cargando pasajeros del boleto');
+      } finally {
+        if (activo) setLoadingDetalles(false);
+      }
+    };
+
+    fetchDetallesBoleto();
+    return () => { activo = false; };
+  }, [isOpen, boletoOriginal?.id_boleto]);
 
   useEffect(() => {
     if (!isOpen || !fechaUso) return;
@@ -151,7 +182,12 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
   const handleGuardar = async () => {
     if (!selectedViaje) { toast.error('Seleccione un viaje nuevo'); return; }
     if (!selectedDestino) { toast.error('Seleccione un destino nuevo'); return; }
-    if (!selectedAsiento) { toast.error('Seleccione un asiento nuevo'); return; }
+    if (loadingDetalles || detallesBoleto.length === 0) { toast.error('No se pudieron cargar los pasajeros del boleto'); return; }
+    if (loadingAsientos || loadingDestinos) { toast.error('Espere a que se carguen los datos del viaje'); return; }
+    if (detallesBoleto.some(detalle => !asientosSeleccionados[detalle.id_boleto_detalle])) {
+      toast.error('Seleccione un asiento para cada pasajero');
+      return;
+    }
     if (!motivo.trim()) { toast.error('Ingrese un motivo'); return; }
 
     setLoading(true);
@@ -161,7 +197,10 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
         id_viaje_nuevo: selectedViaje,
         id_bus_nuevo: viajeObject?.id_fkbus_viajes || viajeObject?.id_buses || viajeObject?.bus_id || '',
         id_subruta_nueva: selectedDestino,
-        asiento_nuevo: selectedAsiento,
+        asientos_nuevos: detallesBoleto.map(detalle => ({
+          id_boleto_detalle: detalle.id_boleto_detalle,
+          asiento_nuevo: asientosSeleccionados[detalle.id_boleto_detalle]
+        })),
         id_origen_nuevo: boletoOriginal.origen_boleto || boletoOriginal.id_origen_boleto || '', // Fix property name
         motivo: motivo,
         fecha_uso: fechaUso
@@ -196,7 +235,7 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
       <div style={{
         background: 'white', borderRadius: 12, width: 650, maxWidth: '95%',
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)', 
-        overflow: 'hidden', display: 'flex', flexDirection: 'column'
+        overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh'
       }}>
         {/* Header */}
         <div style={{
@@ -234,7 +273,7 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
         </div>
 
         {/* Content Body */}
-        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 20, overflowY: 'auto' }}>
           
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
              {/* Left Column */}
@@ -251,7 +290,15 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                    <i className="fas fa-bus text-blue-500"></i> Viaje Nuevo *
                  </label>
-                 <select value={selectedViaje} onChange={e => setSelectedViaje(e.target.value)} style={inputStyle} disabled={loadingViajes}>
+                 <select
+                   value={selectedViaje}
+                   onChange={e => {
+                     setSelectedViaje(e.target.value);
+                     setAsientosSeleccionados({});
+                   }}
+                   style={inputStyle}
+                   disabled={loadingViajes}
+                 >
                    <option value="">{loadingViajes ? 'Cargando viajes...' : 'Seleccione viaje...'}</option>
                    {viajesDisponibles.map((v, idx) => {
                      const descHora = v.hora_origen_salida ? v.hora_origen_salida.substring(0,5) : (v.hora || v.hora_salida);
@@ -285,16 +332,44 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
 
                <div>
                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                   <i className="fas fa-chair text-blue-500"></i> Asiento Nuevo *
+                   <i className="fas fa-chair text-blue-500"></i> Asientos Nuevos *
                  </label>
-                 <select value={selectedAsiento} onChange={e => setSelectedAsiento(e.target.value)} style={inputStyle} disabled={loadingAsientos || !selectedViaje}>
-                   <option value="">{loadingAsientos ? 'Cargando asientos...' : 'Seleccione asiento...'}</option>
-                   {asientosDisponibles.map(a => (
-                     <option key={a} value={a}>
-                       Asiento {a}
-                     </option>
-                   ))}
-                 </select>
+                 {loadingDetalles ? (
+                   <p style={{ margin: 0, fontSize: 12, color: '#64748b' }}>Cargando pasajeros...</p>
+                 ) : detallesBoleto.map(detalle => {
+                   const asientoSeleccionado = asientosSeleccionados[detalle.id_boleto_detalle] || '';
+                   const asientosEnUso = new Set(Object.entries(asientosSeleccionados)
+                     .filter(([id, asiento]) => id !== String(detalle.id_boleto_detalle) && asiento)
+                     .map(([, asiento]) => String(asiento)));
+
+                   return (
+                     <div key={detalle.id_boleto_detalle} style={{ marginBottom: 8 }}>
+                       <span style={{ display: 'block', marginBottom: 4, fontSize: 11, color: '#64748b' }}>
+                         {detalle.nombre_cliente_boleto_detalle || 'Pasajero'} — asiento actual {detalle.asiento_boleto_detalle}
+                       </span>
+                       <select
+                         value={asientoSeleccionado}
+                         onChange={e => setAsientosSeleccionados(prev => ({
+                           ...prev,
+                           [detalle.id_boleto_detalle]: e.target.value
+                         }))}
+                         style={inputStyle}
+                         disabled={loadingAsientos || !selectedViaje}
+                       >
+                         <option value="">{loadingAsientos ? 'Cargando asientos...' : 'Seleccione asiento...'}</option>
+                         {asientosDisponibles.map(asiento => (
+                           <option
+                             key={asiento}
+                             value={asiento}
+                             disabled={asientosEnUso.has(String(asiento))}
+                           >
+                             Asiento {asiento}
+                           </option>
+                         ))}
+                       </select>
+                     </div>
+                   );
+                 })}
                </div>
              </div>
           </div>

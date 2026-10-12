@@ -164,9 +164,12 @@ try {
 
     while ($vals_egresos = mysqli_fetch_assoc($recuperar_egresos)) {
         $monto_ei = (float)$vals_egresos['total'];
-        if ($vals_egresos['tipo_caja_detalle'] === "Egreso") {
+        // En BD el tipo se guarda en mayúsculas ('INGRESO'/'EGRESO'); comparar sin
+        // distinguir mayúsculas para no perder los totales.
+        $tipo_ei = strtoupper(trim((string)$vals_egresos['tipo_caja_detalle']));
+        if ($tipo_ei === 'EGRESO') {
             $total_egresos += $monto_ei;
-        } else if ($vals_egresos['tipo_caja_detalle'] === "Ingreso") {
+        } else if ($tipo_ei === 'INGRESO') {
             $total_ingresos += $monto_ei;
         }
         $egresos_ingresos[] = [
@@ -382,6 +385,7 @@ try {
         ['TOTAL VENDIDO:', '$' . number_format($total_cobrado, 2)],
         ['TOTAL RETENIDO:', '$' . number_format($total_retenido_desp, 2)],
         ['TOTAL EGRESOS:', '$' . number_format($total_egresos, 2)],
+        ['TOTAL INGRESOS:', '$' . number_format($total_ingresos, 2)],
         ['TOTAL CANTIDAD:', (string)$total_cantidad],
         ['TOTAL CAJA:', '$' . number_format($total_final_final, 2)],
     ];

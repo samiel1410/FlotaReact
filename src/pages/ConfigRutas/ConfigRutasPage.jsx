@@ -326,9 +326,11 @@ export const ConfigRutasPage = () => {
     if (!selectedRoute) return;
     setSaving(p => ({ ...p, tiempos: true }));
     try {
-      const res = await api.post('/rutas/actualizarTiemposRuta', {
-        id_rutas: selectedRoute.id_rutas,
+      const res = await api.post('/rutas/actualizarTiemposRuta', JSON.stringify({
+        id_ruta: selectedRoute.id_rutas,
         tiempos_paradas: tiemposMapped
+      }), {
+        headers: { 'Content-Type': 'application/json' }
       });
       if (res.data?.success) {
         toast.success('Tiempos de paradas actualizados');
@@ -337,10 +339,10 @@ export const ConfigRutasPage = () => {
         setRoutes(prev => prev.map(r => r.id_rutas === selectedRoute.id_rutas ? { ...r, tiempos_paradas_rutas: jsonTiempos } : r));
         setShowTiemposModal(false);
       } else {
-        toast.error('Error: ' + res.data?.error);
+        toast.error(res.data?.error || 'No se guardaron los tiempos de paradas');
       }
-    } catch {
-      toast.error('Error al guardar tiempos de paradas');
+    } catch (error) {
+      toast.error(error?.response?.data?.error || 'Error al guardar tiempos de paradas');
     } finally {
       setSaving(p => ({ ...p, tiempos: false }));
     }
@@ -951,4 +953,3 @@ export const ConfigRutasPage = () => {
     </div>
   );
 };
-

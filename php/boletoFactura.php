@@ -12,9 +12,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
     exit();
 }
 
-// Reimpresión inmediata del mismo boleto: se sirve desde disco (<20ms) sin abrir
-// conexión a la base de datos ni cargar TCPDF. TTL corto (60s) igual que guiaPdfImpresion.php.
-define('BOLETOFACT_FAST_TTL', 60);
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
 
 ob_start();
 require_once("db.php");
@@ -164,7 +163,8 @@ FROM boleto_detalle bd
 LEFT JOIN sub_rutas sr_det ON bd.id_destino_boleto = sr_det.id_sub_rutas
 LEFT JOIN destino d_det_sr ON sr_det.id_fkdestino_sub_rutas = d_det_sr.id_destino
 LEFT JOIN destino d_det ON bd.id_destino_boleto = d_det.id_destino
-WHERE bd.id_fkboleto_boleto_detalle = $id_boleto_esc";
+WHERE bd.id_fkboleto_boleto_detalle = $id_boleto_esc
+ORDER BY bd.id_boleto_detalle ASC";
 
     $recuperar_detalles = mysqli_query($conn, $query_detalles);
     $detalles = [];
@@ -209,24 +209,10 @@ try {
         throw new Exception("Parámetro id_boleto inválido o faltante");
     }
 
-    // ── CAPA RÁPIDA: reimpresión inmediata sin tocar DB ni TCPDF ─────────────
+    // ── Caché rápida de configuración, aislada por empresa ───────────────────
     $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? 'default';
     $dbNameStrFast = $_GET['db_name'] ?? (isset($_SESSION['db_name']) ? $_SESSION['db_name'] : $tenantIdStr);
     $dbKeyFast = md5($dbNameStrFast . '_t' . $tenantIdStr);
-    $pdfCacheDirFast = __DIR__ . '/tmp/pdfs/';
-    if (!is_dir($pdfCacheDirFast)) @mkdir($pdfCacheDirFast, 0777, true);
-    $fastPdfFile = $pdfCacheDirFast . 'boleto_fact_' . $id_boleto . '_' . $dbKeyFast . '_latest.pdf';
-    if (file_exists($fastPdfFile) && filesize($fastPdfFile) > 1000 && (time() - filemtime($fastPdfFile)) < BOLETOFACT_FAST_TTL) {
-        $tTotalMs = round((microtime(true) - $t0) * 1000);
-        if (ob_get_length()) ob_clean();
-        header('Content-Type: application/pdf');
-        header('Content-Disposition: inline; filename="boleto_' . $id_boleto . '.pdf"');
-        header('Cache-Control: public, max-age=60');
-        header('X-PDF-Cache: HIT-FAST');
-        header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
-        readfile($fastPdfFile);
-        exit;
-    }
 
     require_once('library/tcpdf.php');
 
@@ -358,29 +344,24 @@ try {
     $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 80, $formato_impresion_db);
     $metricas = obtenerMetricasImpresion($ancho_impresion, 80);
 
-    // ── CACHÉ NIVEL 2: hit por hash de datos (evita TCPDF si nada cambió) ──────
-    // El boleto es inmutable, pero estado/total pueden cambiar (anulación, reserva);
-    // el hash los incluye para regenerar cuando cambien.
+    // El contenido se incluye para regenerar la impresión tras cambios de viaje o asiento.
     $datosHash = md5(json_encode([
         $id_boleto,
         $numero_boleto,
-        (float)($boleto['total_boleto'] ?? 0),
-        (string)($boleto['estado_boleto'] ?? ''),
-        (string)($boleto['clave_acceso_boletos'] ?? ''),
-        count($detalles),
+        $boleto,
+        $detalles,
+        $vals_empresa,
+        $vals_config,
         $leyenda_viaje
-    ]));
+    ], JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR));
     $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
     if (!is_dir($pdfCacheDir)) @mkdir($pdfCacheDir, 0777, true);
     $cachePdfFile = $pdfCacheDir . 'boleto_fact_' . $id_boleto . '_' . $datosHash . '.pdf';
     if (file_exists($cachePdfFile) && filesize($cachePdfFile) > 1000) {
         $tTotalMs = round((microtime(true) - $t0) * 1000);
         if (ob_get_length()) ob_clean();
-        // Refrescar copia rápida: reimpresiones seguidas no tocan DB ni TCPDF
-        @copy($cachePdfFile, $fastPdfFile);
         header('Content-Type: application/pdf');
         header('Content-Disposition: inline; filename="boleto_' . $id_boleto . '.pdf"');
-        header('Cache-Control: public, max-age=60');
         header('X-PDF-Cache: HIT');
         header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
         readfile($cachePdfFile);
@@ -609,14 +590,10 @@ try {
         @unlink($oldPdf);
     }
     @file_put_contents($cachePdfFile, $pdfContent);
-    // Copia rápida TTL 60s: la reimpresión inmediata no toca DB ni TCPDF
-    @copy($cachePdfFile, $fastPdfFile);
-
     $tTotalMs = round((microtime(true) - $t0) * 1000);
     if (ob_get_length()) ob_clean();
     header('Content-Type: application/pdf');
     header('Content-Disposition: inline; filename="' . $filename . '"');
-    header('Cache-Control: public, max-age=60');
     header('X-PDF-Cache: MISS');
     header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
     header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
