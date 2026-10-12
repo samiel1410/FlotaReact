@@ -971,6 +971,7 @@ export const PAGES_CONFIG = {
       },
     ],
     filters: [
+      { key: 'buscar', label: 'Buscar (N° caja, usuario, sucursal)', type: 'text' },
       { key: 'desde', label: 'Desde', type: 'date' },
       { key: 'hasta', label: 'Hasta', type: 'date' },
       {
@@ -982,6 +983,7 @@ export const PAGES_CONFIG = {
       },
     ],
     customParams: (page, pageSize, filters) => ({
+      buscar: filters.buscar || '',
       desde: filters.desde || '',
       hasta: filters.hasta || '',
       estado: filters.estado || '',
@@ -998,9 +1000,8 @@ export const PAGES_CONFIG = {
         {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`),
+          modalTitle: 'Impresión Rápida'
         },
         {
           id: 'info-comprobante', icon: 'fas fa-vote-yea', tooltip: 'Información Comprobante',
@@ -1083,15 +1084,13 @@ export const PAGES_CONFIG = {
         {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfArqueoCaja.php?id_caja=${row.id_caja}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfArqueoCaja.php?id_caja=${row.id_caja}`),
+          modalTitle: 'Arqueo de Caja'
         }, {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja}`),
+          modalTitle: 'Reporte de Comprobantes'
         },
         createCerrarAction('id_caja', '/caja/cerrarCaja'),
         {
@@ -1202,9 +1201,8 @@ export const PAGES_CONFIG = {
         {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja_boleteria}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfCajaBoleteriaImpresion.php?id_caja=${row.id_caja_boleteria}`),
+          modalTitle: 'Impresión Rápida'
         },
         {
           id: 'info-comprobante', icon: 'fas fa-vote-yea', tooltip: 'Información Comprobante',
@@ -1267,15 +1265,13 @@ export const PAGES_CONFIG = {
         {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfArqueoCajaBoleteria.php?id_caja=${row.id_caja_boleteria}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfArqueoCajaBoleteria.php?id_caja=${row.id_caja_boleteria}`),
+          modalTitle: 'Arqueo de Caja'
         }, {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja_boleteria}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja_boleteria}`),
+          modalTitle: 'Reporte de Comprobantes'
         },
         createCerrarAction('id_caja_boleteria', '/caja_boleteria/cerrarCaja'),
         {
@@ -1368,9 +1364,8 @@ export const PAGES_CONFIG = {
         {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`),
+          modalTitle: 'Impresión Rápida'
         },
         {
           id: 'info-comprobante', icon: 'fas fa-vote-yea', tooltip: 'Información Comprobante',
@@ -1433,15 +1428,13 @@ export const PAGES_CONFIG = {
         {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfArqueoCajaRetenciones.php?id_caja=${row.id_caja_retenciones}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfArqueoCajaRetenciones.php?id_caja=${row.id_caja_retenciones}`),
+          modalTitle: 'Arqueo de Caja'
         }, {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja_retenciones}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfComprobantesxCaja.php?idcaja=${row.id_caja_retenciones}`),
+          modalTitle: 'Reporte de Comprobantes'
         },
         createCerrarAction('id_caja_retenciones', '/cajaretenciones/cerrarCaja'),
         {
@@ -1534,9 +1527,8 @@ export const PAGES_CONFIG = {
         {
           id: 'impresion', icon: 'fas fa-print', tooltip: 'Impresión Rápida',
           color: 'text-slate-600 hover:bg-slate-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfCajaNotaVentaImpresion.php?id_caja=${row.id_caja}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfCajaNotaVentaImpresion.php?id_caja=${row.id_caja}`),
+          modalTitle: 'Impresión Rápida'
         },
         {
           id: 'info-comprobante', icon: 'fas fa-vote-yea', tooltip: 'Información Comprobante',
@@ -1619,16 +1611,14 @@ export const PAGES_CONFIG = {
         {
           id: 'arqueo', icon: 'fas fa-file-pdf', tooltip: 'Arqueo PDF',
           color: 'text-red-600 hover:bg-red-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfArqueoCajaNotaVenta.php?id_caja=${row.id_caja}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfArqueoCajaNotaVenta.php?id_caja=${row.id_caja}`),
+          modalTitle: 'Arqueo de Caja'
         },
         {
           id: 'comprobantes', icon: 'fas fa-receipt', tooltip: 'Reporte Comprobantes2',
           color: 'text-indigo-600 hover:bg-indigo-50',
-          handler: async (row) => {
-            window.open(buildPdfUrl(`/php/pdfComprobantesxCajaNotaVenta.php?idcaja=${row.id_caja}`), '_blank');
-          }
+          modal: (row) => buildPdfUrl(`/php/pdfComprobantesxCajaNotaVenta.php?idcaja=${row.id_caja}`),
+          modalTitle: 'Reporte de Comprobantes'
         },
         createCerrarAction('id_caja', '/caja_nota_venta/cerrarCaja'),
         {

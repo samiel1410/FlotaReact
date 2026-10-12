@@ -8,6 +8,7 @@ export const MonitoreoPage = () => {
   const [activeUsers, setActiveUsers] = useState([]);
   const [loginHistory, setLoginHistory] = useState([]);
   const [lockedSeats, setLockedSeats] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
 
   useEffect(() => {
     if (!socket) return;
@@ -31,7 +32,8 @@ export const MonitoreoPage = () => {
       setLockedSeats(locks || []);
     });
 
-    // Carga inicial
+    // Carga inicial (la suscripción devuelve la lista completa de usuarios)
+    socket.emit('monitoreo_subscribe');
     socket.emit('get_active_users');
     socket.emit('get_login_history');
     socket.emit('get_locked_asientos');
@@ -154,6 +156,24 @@ export const MonitoreoPage = () => {
       }
     });
   };
+
+  // ─── DERIVADOS PARA LA LISTA DE USUARIOS ─────────────────────────────
+  const formatFecha = (value) => {
+    if (!value) return 'Nunca';
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? 'Nunca' : d.toLocaleString();
+  };
+
+  const conectadosCount = activeUsers.filter(u => Number(u.socketCount) > 0).length;
+  const q = busqueda.trim().toLowerCase();
+  const usuariosFiltrados = q
+    ? activeUsers.filter(u =>
+        String(u.id).toLowerCase().includes(q) ||
+        (u.nombre || '').toLowerCase().includes(q) ||
+        (u.username || '').toLowerCase().includes(q) ||
+        (u.sucursal || '').toLowerCase().includes(q)
+      )
+    : activeUsers;
 
   return (
     <div className="p-4 flex flex-col h-full">
@@ -299,9 +319,24 @@ export const MonitoreoPage = () => {
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 overflow-hidden">
         {/* Usuarios Activos */}
         <div className="bg-white p-4 rounded-lg shadow-md flex flex-col overflow-hidden">
-          <h2 className="text-xl font-semibold mb-3">Usuarios Activos</h2>
+          <div className="flex items-center flex-wrap gap-2 mb-3">
+            <h2 className="text-xl font-semibold">Usuarios Activos</h2>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-green-100 text-green-700">
+              {conectadosCount} conectado(s)
+            </span>
+            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+              {activeUsers.length} en total
+            </span>
+          </div>
+          <input
+            type="text"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar por ID, usuario, nombre o sucursal..."
+            className="mb-3 w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+          />
           <div className="overflow-auto flex-1">
-            {activeUsers.length > 0 ? (
+            {usuariosFiltrados.length > 0 ? (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
@@ -313,13 +348,18 @@ export const MonitoreoPage = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {activeUsers.map(user => (
-                    <tr key={user.id}>
+                  {usuariosFiltrados.map(user => (
+                    <tr key={user.id} className={Number(user.socketCount) > 0 ? 'bg-green-50/40' : ''}>
                       <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{user.id}</td>
                       <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
                         <div className="flex items-center">
-                          <i className="fas fa-user-circle mr-2 text-blue-500"></i>
-                          {user.nombre}
+                          <i className={`fas fa-user-circle mr-2 ${Number(user.socketCount) > 0 ? 'text-green-500' : 'text-gray-400'}`}></i>
+                          <div className="flex flex-col leading-tight">
+                            <span>{user.nombre}</span>
+                            <span className="text-xs text-gray-400">
+                              {[user.username, user.sucursal].filter(Boolean).join(' · ')}
+                            </span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-3 py-2 whitespace-nowrap text-sm">
@@ -327,21 +367,39 @@ export const MonitoreoPage = () => {
                           <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
                             <i className="fas fa-hourglass-half mr-1"></i> Bloqueado
                           </span>
+                        ) : Number(user.socketCount) > 0 ? (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            Conectado ({user.socketCount})
+                          </span>
+                        ) : Number(user.estado_usuario) === 0 ? (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-200 text-gray-600">
+                            <i className="fas fa-ban mr-1"></i> Inactivo
+                          </span>
                         ) : (
-                          <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.socketCount > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                            {user.socketCount > 0 ? 'Conectado' : 'Desconectado'} ({user.socketCount})
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-700">
+                            Desconectado
                           </span>
                         )}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{user.lastSeen ? new Date(user.lastSeen).toLocaleTimeString() : 'N/A'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{formatFecha(user.lastSeen)}</td>
                       <td className="px-3 py-2 whitespace-nowrap text-sm font-medium">
                         <button onClick={() => handleSetUserLock(user.id, user.nombre)} className="text-orange-600 hover:text-orange-900 mr-3" title="Bloqueo Temporal">
                           <i className="fas fa-clock"></i>
                         </button>
-                        <button onClick={() => handleSendIndividualNotification(user.id, user.nombre)} className="text-blue-600 hover:text-blue-900 mr-3" title="Enviar Mensaje">
+                        <button
+                          onClick={() => handleSendIndividualNotification(user.id, user.nombre)}
+                          disabled={Number(user.socketCount) === 0}
+                          className="text-blue-600 hover:text-blue-900 mr-3 disabled:text-gray-300 disabled:cursor-not-allowed"
+                          title={Number(user.socketCount) === 0 ? 'Usuario desconectado' : 'Enviar Mensaje'}
+                        >
                           <i className="fas fa-comment-dots"></i>
                         </button>
-                        <button onClick={() => handleKickUser(user.id, user.nombre)} className="text-red-600 hover:text-red-900" title="Expulsar Usuario">
+                        <button
+                          onClick={() => handleKickUser(user.id, user.nombre)}
+                          disabled={Number(user.socketCount) === 0}
+                          className="text-red-600 hover:text-red-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+                          title={Number(user.socketCount) === 0 ? 'Usuario desconectado' : 'Expulsar Usuario'}
+                        >
                           <i className="fas fa-user-slash"></i>
                         </button>
                       </td>
@@ -350,7 +408,9 @@ export const MonitoreoPage = () => {
                 </tbody>
               </table>
             ) : (
-              <p className="text-gray-500">No hay usuarios activos.</p>
+              <p className="text-gray-500">
+                {activeUsers.length === 0 ? 'Cargando usuarios...' : 'Sin resultados para la búsqueda.'}
+              </p>
             )}
           </div>
         </div>

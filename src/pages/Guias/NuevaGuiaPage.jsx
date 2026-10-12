@@ -838,7 +838,9 @@ export const NuevaGuiaPage = () => {
 
       // Detalles (array con nombres exactos que espera el backend = ExtJS)
       detalle_guia: detalles.map(d => ({
-        id_fktipo_envio_detalle_guia: parseInt(tipoEnvio) || null,
+        // Cada bulto conserva el tipo de envío elegido al agregarlo; si no lo
+        // tiene, se usa el del combo principal como respaldo.
+        id_fktipo_envio_detalle_guia: parseInt(d.tipoEnvioId || tipoEnvio) || null,
         contenido_guia: d.contenido || '',
         peso_guia: d.peso || 0,
         costo_detalle_guia: d.precioUnitario || 0,
@@ -862,7 +864,7 @@ export const NuevaGuiaPage = () => {
           concepto_detalle: p.nombre || '',
           monto_comprobante: p.monto || 0,
           id_fkcliente: idClienteFactura,
-          id_fkforma: p.id_forma_pago,
+          id_fkforma: Number(p.id_forma_pago),
           observacion_comprobante: p.detalle || ''
         })),
 

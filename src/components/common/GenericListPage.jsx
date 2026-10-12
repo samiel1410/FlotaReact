@@ -445,7 +445,7 @@ export const GenericListPage = ({ config }) => {
 
       {iframeModal.open && (
         <Modal isOpen={true} onClose={() => setIframeModal({ open: false, url: '', title: 'Documento' })} title={iframeModal.title} width="max-w-6xl">
-          <iframe src={iframeModal.url} className="w-full h-[80vh] border-0 rounded-lg" title={iframeModal.title} />
+          <iframe src={iframeModal.url} className="w-full h-[75vh] border-0 rounded-lg" title={iframeModal.title} />
         </Modal>
       )}
 

@@ -15,6 +15,11 @@ require_once "pdf_utils.php";
 
 date_default_timezone_set('America/Guayaquil');
 
+// TTL corto (10s): absorbe reimpresiones/iframe inmediatos sin regenerar el PDF.
+// La caché por hash de datos (Nivel 2) cubre el caso de datos sin cambios.
+// El navegador siempre revalida (no-cache) para que un cambio en la caja se vea al instante.
+define('CAJAIMP_FAST_TTL', 10);
+
 try {
     $t0 = microtime(true);
     $fecha_actual = date('Y-m-d H:i:s');
@@ -24,8 +29,35 @@ try {
         throw new Exception("ID de caja no proporcionado o inválido");
     }
 
+    // ─── CACHÉ RÁPIDO (TTL corto): reimpresión inmediata sin tocar la BD ─────
+    // Aislamiento multi-tenant: db_name + tenantId (igual que guiaPdfImpresion.php)
+    $tenantIdStr = $_GET['tenantId'] ?? $_GET['tenant_id'] ?? $_SESSION['tenantId'] ?? '1';
+    $dbNameStr   = $_GET['db_name'] ?? ($_SESSION['db_name'] ?? $tenantIdStr);
+    $dbKey       = md5($dbNameStr . '_t' . $tenantIdStr);
+    $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
+    if (!is_dir($pdfCacheDir)) {
+        @mkdir($pdfCacheDir, 0777, true);
+    }
+    $fastPdfFile = $pdfCacheDir . 'caja_imp_' . $id_caja . '_' . $dbKey . '_latest.pdf';
+
+    if (file_exists($fastPdfFile) && filesize($fastPdfFile) > 1000 && (time() - filemtime($fastPdfFile)) < CAJAIMP_FAST_TTL) {
+        $tTotalMs = round((microtime(true) - $t0) * 1000);
+        if (ob_get_length()) {
+            ob_clean();
+        }
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="caja_impresion_' . $id_caja . '.pdf"');
+        header('Cache-Control: no-cache, must-revalidate');
+        header('X-PDF-Cache: HIT-FAST');
+        header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+        readfile($fastPdfFile);
+        exit();
+    }
+
     $conn = conexion();
-    mysqli_query($conn, "SET SESSION sql_mode = ''");
+    // Sin `SET SESSION sql_mode = ''`: verificado que el sql_mode por defecto del
+    // servidor no incluye ONLY_FULL_GROUP_BY y todas las consultas de este script
+    // son solo-lectura con GROUP BY completo. Ahorra 1 roundtrip (~90ms).
 
     // ─── CONSULTA DATOS BÁSICOS CAJA ─────────────────────────────────────────
     $query_caja = "SELECT s.nombre_sucursal, c.estado_solicitud, c.id_caja, c.fecha_caja,
@@ -58,30 +90,67 @@ try {
         @mkdir($logosDir, 0777, true);
     }
 
-    $vals_empresa = null;
-    $vals_config = null;
+    // ─── EMPRESA + CONFIG: Caché JSON Nivel 1 (TTL: 5 min) ───────────────────
+    $cacheCfgDir = __DIR__ . '/tmp/cache/';
+    if (!is_dir($cacheCfgDir)) {
+        @mkdir($cacheCfgDir, 0777, true);
+    }
+    $cacheCfgFile = $cacheCfgDir . 'empresa_cfg_' . $dbKey . '.json';
+
+    $vals_empresa = [];
+    $vals_config = [];
     $rutaLogo = null;
+    $empresaCfgCached = null;
 
-    
-        $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
-        $rec_emp = mysqli_query($conn, $query_empresa);
-        $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
-        if (!$vals_empresa) {
-            $vals_empresa = [
-                'razon_social_empresa' => 'SISTEMA FLOTA',
-                'ruc_empresa' => ''
-            ];
+    if (file_exists($cacheCfgFile) && (time() - filemtime($cacheCfgFile)) < 300) {
+        $empresaCfgCached = json_decode(@file_get_contents($cacheCfgFile), true);
+    }
+
+    if ($empresaCfgCached) {
+        $vals_empresa = $empresaCfgCached;
+        $vals_config  = $empresaCfgCached;
+        $rutaLogo     = $empresaCfgCached['logo_path'] ?? null;
+
+        // Si el logo físico desapareció, regenerarlo sin volver a consultar empresa/config
+        if (!empty($rutaLogo) && !esImagenValidaParaTcpdf($rutaLogo)) {
+            $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
+            $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
+            if (esImagenValidaParaTcpdf($cachedLogoPng)) {
+                $rutaLogo = $cachedLogoPng;
+            } elseif (esImagenValidaParaTcpdf($cachedLogoJpg)) {
+                $rutaLogo = $cachedLogoJpg;
+            } else {
+                $res_img = mysqli_query($conn, "SELECT imagen_empresa FROM empresa LIMIT 1");
+                $row_img = $res_img ? mysqli_fetch_assoc($res_img) : [];
+                if (!empty($row_img['imagen_empresa'])) {
+                    $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
+                    if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
+                        $ext = strtolower(pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png');
+                        $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
+                        if ($rawLogo !== $targetLogo) {
+                            @copy($rawLogo, $targetLogo);
+                        }
+                        $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
+                    }
+                }
+            }
+            $empresaCfgCached['logo_path'] = $rutaLogo;
+            @file_put_contents($cacheCfgFile, json_encode($empresaCfgCached));
         }
-
-        $query_config = "SELECT formato_impresion FROM configuracion LIMIT 1";
-        $rec_cfg = mysqli_query($conn, $query_config);
-        $vals_config = $rec_cfg ? mysqli_fetch_assoc($rec_cfg) : [];
+    } else {
+        // 1 solo roundtrip: empresa + configuracion (sin BLOB) vía LEFT JOIN ON 1=1
+        $query_empresa = "SELECT e.id_empresa, e.telefono_empresa, e.correo_empresa, e.ruc_empresa, e.direccion_empresa, e.razon_social_empresa, c.formato_impresion
+            FROM empresa e LEFT JOIN configuracion c ON 1=1 LIMIT 1";
+        $rec_emp = mysqli_query($conn, $query_empresa);
+        $row_emp = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
+        $vals_empresa = $row_emp ?: ['razon_social_empresa' => 'SISTEMA FLOTA', 'ruc_empresa' => ''];
+        $vals_config = $row_emp ?: [];
 
         $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
         $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
         if (esImagenValidaParaTcpdf($cachedLogoPng)) {
             $rutaLogo = $cachedLogoPng;
-        } else if (esImagenValidaParaTcpdf($cachedLogoJpg)) {
+        } elseif (esImagenValidaParaTcpdf($cachedLogoJpg)) {
             $rutaLogo = $cachedLogoJpg;
         } else {
             $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
@@ -89,7 +158,7 @@ try {
             if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
                 $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
                 if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
-                    $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
+                    $ext = strtolower(pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png');
                     $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
                     if ($rawLogo !== $targetLogo) {
                         @copy($rawLogo, $targetLogo);
@@ -97,18 +166,24 @@ try {
                     $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
                 }
             }
+            if (empty($rutaLogo)) {
+                $rutaLogo = obtenerRutaLogoEmpresa($conn);
+            }
         }
-
-        
-
-    if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
-        $rutaLogo = obtenerRutaLogoEmpresa($conn);
+        @file_put_contents($cacheCfgFile, json_encode(array_merge($vals_empresa, ['logo_path' => $rutaLogo])));
     }
+
+    // Logo gigante (varios MB / miles de px) hace que TCPDF->Image() tarde segundos.
+    // Reducir una sola vez a máx 500px y reutilizar el *_small.png
+    $rutaLogo = reducirLogoGigante($rutaLogo ?? null, 500);
 
     $razon_social_empresa = $vals_empresa["razon_social_empresa"] ?? 'SISTEMA FLOTA';
     $ruc_empresa          = $vals_empresa["ruc_empresa"] ?? '';
 
     // ─── CONSULTA DE GUÍAS DE LA CAJA ─────────────────────────────────────────
+    // Criterio de cobro unificado (igual que guiaPdfImpresion.php): un cobro cuenta
+    // como COBRADO salvo que sea CRÉDITO (tipo_forma_pago = 4). Con LEFT JOIN, un
+    // comprobante sin forma de pago registrada (id_fkforma_pago = 0) también cuenta.
     $query2 = "SELECT
         a.id_guia,
         a.punto_emision_guia,
@@ -125,9 +200,9 @@ try {
         SELECT fa.id_fkguia_factura, SUM(cc.monto_comprobante_cobro) as monto_comprobante_cobro
         FROM comprobante_cobro cc
         JOIN factura fa ON cc.id_fkfactura_comprobante_cobro = fa.id_factura
-        JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
+        LEFT JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
         WHERE cc.estado_comprobante_cobro = 'COBRADA'
-        AND fp.tipo_forma_pago = 2
+        AND COALESCE(fp.tipo_forma_pago, 0) <> 4
         AND cc.id_fkcaja_comprobante_cobro = $id_caja
         GROUP BY fa.id_fkguia_factura
     ) as h ON h.id_fkguia_factura = a.id_guia
@@ -231,6 +306,32 @@ try {
         if ($extra) mysqli_free_result($extra);
     }
     $conn->close();
+
+    // ─── CACHÉ NIVEL 2: PDF por hash de datos (evita el render TCPDF) ────────
+    $datosHash = md5(json_encode([
+        $id_caja, $total_apertura, $cierre_total_caja, $fecha_hora_cierre, $estado_cuadre, $saldo,
+        $total_cobrado, $total_por_cobrar, $total_egresos, $total_ingresos, $total_cantidad,
+        count($guias), count($otrasGuias), count($egresos_ingresos)
+    ]));
+    $cachePdfFile = $pdfCacheDir . 'caja_imp_' . $id_caja . '_' . $datosHash . '.pdf';
+
+    if (file_exists($cachePdfFile) && filesize($cachePdfFile) > 1000) {
+        $tTotalMs = round((microtime(true) - $t0) * 1000);
+        if (ob_get_length()) {
+            ob_clean();
+        }
+        // Refrescar la copia rápida para que reimpresiones seguidas no toquen la DB
+        @copy($cachePdfFile, $fastPdfFile);
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: inline; filename="caja_impresion_' . $id_caja . '.pdf"');
+        header('Cache-Control: no-cache, must-revalidate');
+        header('X-PDF-Cache: HIT');
+        header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+        header('X-PDF-Logo: ' . basename($rutaLogo ?? 'none'));
+        header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+        readfile($cachePdfFile);
+        exit();
+    }
 
     // ─── CONFIGURACIÓN DE PÁGINA TCPDF NATIVA ────────────────────────────────
     $anchoPapel = obtenerAnchoFormatoImpresion(null, 80, $vals_config['formato_impresion'] ?? null);
@@ -383,15 +484,28 @@ try {
     $pdf->SetFont('helvetica', '', 6.5);
     $pdf->Cell($anchoUtil, 3.2, 'Impresión: ' . $fecha_actual, 0, 1, 'C');
 
-    // ─── SALIDA DIRECTA DEL PDF (SIN CACHÉ) ───────────────────────────────────
+    // ─── SALIDA CON CACHÉ NIVEL 2 (hash de datos) ─────────────────────────────
     $fileName = 'caja_impresion_' . $id_caja . '.pdf';
+    $pdfContent = $pdf->Output('', 'S');
+    // Invalidar versiones anteriores de esta caja: los datos cambiaron
+    foreach (glob($pdfCacheDir . 'caja_imp_' . $id_caja . '_*.pdf') as $oldPdf) {
+        @unlink($oldPdf);
+    }
+    @file_put_contents($cachePdfFile, $pdfContent);
+    // Copia rápida TTL corto: la reimpresión inmediata no toca DB ni TCPDF
+    @copy($cachePdfFile, $fastPdfFile);
+    $tTotalMs = round((microtime(true) - $t0) * 1000);
     if (ob_get_length()) {
         ob_clean();
     }
-    header('Cache-Control: no-cache, no-store, must-revalidate');
-    header('Pragma: no-cache');
-    header('Expires: 0');
-    $pdf->Output($fileName, 'I');
+    header('Content-Type: application/pdf');
+    header('Content-Disposition: inline; filename="' . $fileName . '"');
+    header('Cache-Control: no-cache, must-revalidate');
+    header('X-PDF-Cache: MISS');
+    header('X-PDF-Time-Total: ' . $tTotalMs . 'ms');
+    header('X-PDF-Logo: ' . basename($rutaLogo ?? 'none'));
+    header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
+    echo $pdfContent;
     exit();
 
 } catch (Throwable $e) {

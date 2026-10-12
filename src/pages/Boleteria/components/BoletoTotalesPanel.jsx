@@ -1,12 +1,28 @@
 import { useState, useEffect } from 'react';
 
+/** Convierte el texto escrito a número (acepta coma o punto como decimal). */
+const aNumero = (texto) => {
+  const n = parseFloat(String(texto ?? '').replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+};
+
+/** Convierte un valor numérico a texto editable. */
+const aTexto = (valor) =>
+  valor === '' || valor === null || valor === undefined ? '' : String(valor);
+
 export const BoletoTotalesPanel = ({ cantidadAsientos, precioUnitario, totales, onTotalesChange, onPrecioChange, compact }) => {
   const [prevPrecio, setPrevPrecio] = useState(precioUnitario);
-  const [precioLocal, setPrecioLocal] = useState(precioUnitario || 0);
+  // Se guarda como TEXTO para poder escribir decimales ("12." o "12,5")
+  // sin que se pierda el separador mientras se digita.
+  const [precioTexto, setPrecioTexto] = useState(aTexto(precioUnitario || 0));
 
   if (precioUnitario !== prevPrecio) {
     setPrevPrecio(precioUnitario);
-    setPrecioLocal(precioUnitario || 0);
+    // Solo sincronizamos si el valor externo difiere del que ya representa el
+    // texto; si no, se borraría el separador decimal recién escrito.
+    if (Math.abs(aNumero(precioTexto) - (Number(precioUnitario) || 0)) > 1e-9) {
+      setPrecioTexto(aTexto(precioUnitario || 0));
+    }
   }
 
   // El total se calcula desde el grid (suma de valores individuales con descuentos aplicados)
@@ -20,9 +36,14 @@ export const BoletoTotalesPanel = ({ cantidadAsientos, precioUnitario, totales, 
   }, [cantidadAsientos]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handlePrecioChange = (e) => {
-    const val = parseFloat(e.target.value) || 0;
-    setPrecioLocal(val);
-    if (onPrecioChange) onPrecioChange(val);
+    // Solo dígitos y un único separador decimal (coma o punto).
+    let raw = e.target.value.replace(/[^0-9.,]/g, '');
+    const sep = raw.search(/[.,]/);
+    if (sep !== -1) {
+      raw = raw.slice(0, sep + 1) + raw.slice(sep + 1).replace(/[.,]/g, '');
+    }
+    setPrecioTexto(raw);
+    if (onPrecioChange) onPrecioChange(aNumero(raw));
   };
 
   const isCompact = compact === true;
@@ -60,7 +81,8 @@ export const BoletoTotalesPanel = ({ cantidadAsientos, precioUnitario, totales, 
             <span style={{ fontSize: isCompact ? '20px' : '22px', color: '#e67e22', fontWeight: 'bold' }}>$</span>
             <input
               type="text"
-              value={precioLocal}
+              inputMode="decimal"
+              value={precioTexto}
               onChange={handlePrecioChange}
               style={{
                 fontSize: isCompact ? '28px' : '32px',

@@ -854,6 +854,29 @@ export const NuevoBoletoPage = () => {
 
   const handlePrecioChange = (val) => {
     setPrecioUnitario(val);
+    // Recalcular el valor de TODOS los asientos con el nuevo precio unitario,
+    // respetando la tarifa (%) de cada pasajero.
+    setFormData(prev => {
+      if (!prev.pasajeros || prev.pasajeros.length === 0) return prev;
+      const nuevosPasajeros = prev.pasajeros.map(p => {
+        const tarifaTexto = p.tarifa || 'Normal';
+        return {
+          ...p,
+          valor: calcularValorConTarifa(val, tarifaTexto),
+          descuento: calcularDescuento(val, tarifaTexto),
+        };
+      });
+      const nuevoTotal = nuevosPasajeros.reduce(
+        (sum, p) => sum + parseFloat(p.valor || 0),
+        0
+      );
+      setTotalVenta(nuevoTotal);
+      return {
+        ...prev,
+        pasajeros: nuevosPasajeros,
+        totales: { subtotal: nuevoTotal, total: nuevoTotal },
+      };
+    });
   };
 
   const handleGridTotalChange = (total) => {

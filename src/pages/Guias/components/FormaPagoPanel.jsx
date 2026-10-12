@@ -120,7 +120,7 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
       const newPago = {
         id: 'auto_' + Date.now(),
         _auto: true,
-        id_forma_pago: formaPagoId || defaultFormaPagoId,
+        id_forma_pago: Number(formaPagoId || defaultFormaPagoId) || '',
         nombre: fp?.nombre || fp?.label || fp?.text || 'Pago',
         monto: totalGeneral,
         pagado_por: pagadoPor,
@@ -166,7 +166,7 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
     const fp = formasPago.find(f => String(f.id || f.value || f.id_forma_pago) === String(formaPagoId));
     const newPago = {
       id: Date.now(),
-      id_forma_pago: formaPagoId,
+      id_forma_pago: Number(formaPagoId) || '',
       nombre: fp?.nombre || fp?.label || fp?.text || 'Pago',
       monto: parseFloat(sanitizeNum(monto)),
       pagado_por: pagadoPor,

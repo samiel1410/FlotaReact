@@ -208,7 +208,7 @@ try {
     $anchoUtil = $anchoPapel - ($margen * 2);
 
     // Altura estimada
-    $altoEstimado = max(240, 160 + (count($pasajeros) * 5) + 60);
+    $altoEstimado = max(240, 160 + (count($pasajeros) * 8) + 60);
 
     $pdf = new TCPDF('P', 'mm', array($anchoPapel, $altoEstimado), true, 'UTF-8', false);
     $pdf->setFontSubsetting(false);
@@ -284,20 +284,19 @@ try {
 
     $pdf->Ln(1.5);
 
-    // ─── 2. TABLA DE PASAJEROS (Agrupada) ────────────────────────────────────
-    $wAsi  = round($anchoUtil * 0.10, 1);
-    $wCed  = round($anchoUtil * 0.22, 1);
-    $wNom  = round($anchoUtil * 0.27, 1);
-    $wDest = round($anchoUtil * 0.25, 1);
-    $wVal  = $anchoUtil - ($wAsi + $wCed + $wNom + $wDest);
+    // ─── 2. TABLA DE PASAJEROS (Agrupada, dos filas por pasajero) ────────────
+    // Fila 1: Asiento | Cédula | Nombre   ·   Fila 2: Destino | Valor
+    $wAsi   = round($anchoUtil * 0.10, 1);
+    $wCed   = round($anchoUtil * 0.30, 1);
+    $wNom   = $anchoUtil - $wAsi - $wCed;
+    $wVal   = round($anchoUtil * 0.24, 1);
+    $indent = $wAsi;
 
-    // Cabecera fija de columnas
+    // Cabecera fija de columnas (aplica a la primera fila de cada pasajero)
     $pdf->SetFont('helvetica', 'B', 7.5);
     $pdf->Cell($wAsi, 4, 'Asi.', 'B', 0, 'C');
     $pdf->Cell($wCed, 4, 'Cédula', 'B', 0, 'L');
-    $pdf->Cell($wNom, 4, 'Nombre', 'B', 0, 'L');
-    $pdf->Cell($wDest, 4, 'Destino', 'B', 0, 'L');
-    $pdf->Cell($wVal, 4, 'Valor', 'B', 1, 'R');
+    $pdf->Cell($wNom, 4, 'Nombre', 'B', 1, 'L');
 
     $current_sucursal = null;
     $current_origen = null;
@@ -360,14 +359,20 @@ try {
         // Textos recortados al ancho de columna para que no se encimen
         $txtAsi = (string)($row['asiento_boleto_detalle'] ?? '');
         $txtCed = substr((string)($row['identificacion_boleto_detalle'] ?? ''), 0, 13);
-        $txtNom = substr(trim((string)($row['nombre_cliente_boleto_detalle'] ?? '')), 0, 15);
-        $txtDes = substr(trim((string)($row['lugar_destino'] ?? '')), 0, 13);
+        $txtNom = substr(trim((string)($row['nombre_cliente_boleto_detalle'] ?? '')), 0, 22);
+        $txtDes = substr(trim((string)($row['lugar_destino'] ?? '')), 0, 34);
+
+        // Fila 1: asiento, cédula y nombre
         $pdf->SetFont('helvetica', '', 6.8);
         $pdf->Cell($wAsi, 3.6, $txtAsi, 0, 0, 'C');
         $pdf->Cell($wCed, 3.6, $txtCed, 0, 0, 'L');
-        $pdf->Cell($wNom, 3.6, $txtNom, 0, 0, 'L');
-        $pdf->Cell($wDest, 3.6, $txtDes, 0, 0, 'L');
-        $pdf->Cell($wVal, 3.6, '$' . number_format($precio, 2), 0, 1, 'R');
+        $pdf->Cell($wNom, 3.6, $txtNom, 0, 1, 'L');
+
+        // Fila 2: destino y valor
+        $pdf->SetFont('helvetica', '', 6.5);
+        $pdf->Cell($indent, 3.4, '', 0, 0, 'L');
+        $pdf->Cell($anchoUtil - $wVal - $indent, 3.4, 'Dest: ' . $txtDes, 0, 0, 'L');
+        $pdf->Cell($wVal, 3.4, '$' . number_format($precio, 2), 0, 1, 'R');
     }
 
     // Cerrar último origen y oficina
