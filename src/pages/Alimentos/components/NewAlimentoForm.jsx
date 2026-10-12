@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { api } from '../../../config/axios';
+import toast from 'react-hot-toast';
 
 const NewAlimentoForm = ({ initialData, onSubmit, onCancel }) => {
   const { register, handleSubmit, formState: { errors }, reset } = useForm({
@@ -8,7 +10,7 @@ const NewAlimentoForm = ({ initialData, onSubmit, onCancel }) => {
       nombre_alimentos: '',
       descripcion_alimentos: '',
       precio_alimentos: '',
-      estado_alimentos: '1'
+      estado_alimentos: true
     }
   });
 
@@ -19,7 +21,7 @@ const NewAlimentoForm = ({ initialData, onSubmit, onCancel }) => {
         nombre_alimentos: initialData.ali_nombre || initialData.nombre_alimentos || '',
         descripcion_alimentos: initialData.ali_descripcion || initialData.descripcion_alimentos || '',
         precio_alimentos: initialData.ali_valor || initialData.precio_alimentos || '',
-        estado_alimentos: (initialData.ali_estado !== undefined ? String(initialData.ali_estado) : String(initialData.estado_alimentos || '1')),
+        estado_alimentos: (initialData.ali_estado !== undefined ? String(initialData.ali_estado) : String(initialData.estado_alimentos || '1')) === '1',
       });
     } else {
       reset({
@@ -27,13 +29,41 @@ const NewAlimentoForm = ({ initialData, onSubmit, onCancel }) => {
         nombre_alimentos: '',
         descripcion_alimentos: '',
         precio_alimentos: '',
-        estado_alimentos: '1'
+        estado_alimentos: true
       });
     }
   }, [initialData, reset]);
 
+  // El formulario guarda por sí mismo (GenericListPage solo cierra el modal).
+  const onFormSubmit = async (data) => {
+    const esEdicion = Boolean(data.id_alimentos);
+    const payload = {
+      id_alimentos: data.id_alimentos || '',
+      nombre_alimentos: (data.nombre_alimentos || '').trim(),
+      descripcion_alimentos: (data.descripcion_alimentos || '').trim(),
+      precio_alimentos: parseFloat(data.precio_alimentos) || 0,
+      // El switch entrega booleano; el backend guarda 1/0.
+      estado_alimentos: data.estado_alimentos ? 1 : 0,
+    };
+
+    try {
+      const res = await api.post(
+        esEdicion ? '/alimentos/actualizar' : '/alimentos/insertar',
+        payload
+      );
+      if (res.data?.success) {
+        toast.success(res.data.message || (esEdicion ? 'Alimento actualizado correctamente' : 'Alimento creado correctamente'));
+        onSubmit(payload);
+      } else {
+        toast.error(res.data?.data || res.data?.error || 'No se pudo guardar el alimento');
+      }
+    } catch (err) {
+      toast.error('Error al guardar. ' + (err.response?.data?.mensaje || err.message));
+    }
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+    <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-6">
       <div className="bg-white rounded-xl border border-slate-200 p-6 space-y-4">
         <input type="hidden" {...register('id_alimentos')} />
 
