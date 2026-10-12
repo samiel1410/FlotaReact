@@ -50,6 +50,11 @@ export const BusVisualizer = ({
       Number(a.asiento_boleto_detalle) === num || Number(a) === num
     );
     if (ocupado) {
+      // El backend resuelve el tipo por solape de recorrido (origen→destino).
+      if (typeof ocupado === 'object' && ocupado.estado_ocupacion) {
+        return ocupado.estado_ocupacion === 'ocupado' ? 'ocupado' : 'ocupado-parcial';
+      }
+      // Compatibilidad con el cálculo anterior por órdenes.
       if (typeof ocupado === 'object' && ocupado.orden_destino !== undefined) {
         const ordenDestino = ocupado.orden_destino || 9999;
         const ordenActual = ocupado.orden_actual || 0;
@@ -306,10 +311,6 @@ export const BusVisualizer = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
           <div style={{ width: 10, height: 10, background: '#f1c40f', borderRadius: 2 }}></div>
           <span style={{ color: '#f39c12' }}>Ocupado parcial</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <div style={{ width: 10, height: 10, background: '#27ae60', borderRadius: 2 }}></div>
-          <span style={{ color: '#27ae60' }}>Libre en parada</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
           <div style={{ width: 10, height: 10, background: '#95a5a6', borderRadius: 2 }}></div>

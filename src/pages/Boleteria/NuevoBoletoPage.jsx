@@ -100,7 +100,8 @@ export const NuevoBoletoPage = () => {
   const [tiempoRestante, setTiempoRestante] = useState(null);
   // Para no resetear el tramo al recargar ocupación por cambio de tramo
   const viajeCargadoRef = useRef(null);
-
+  // Token de la última petición de asientos (descarta respuestas obsoletas)
+  const peticionAsientosRef = useRef(0);
   // Validación de Caja
   const [localCajaId, setLocalCajaId] = useState(null);
   const [cajaResolved, setCajaResolved] = useState(false);
@@ -465,12 +466,21 @@ export const NuevoBoletoPage = () => {
     // siempre sería false y los destinos no se refrescarían al cambiar de viaje.
     const esNuevoViaje = viajeCargadoRef.current !== formData.idViaje;
 
+    // Al cambiar de viaje el destino anterior ya no aplica: si se enviara, se
+    // consultaría la ocupación con un tramo de OTRA ruta (resultado incorrecto).
+    const destinoConsulta = esNuevoViaje ? '' : subrutaSeleccionada;
+
+    // Token de petición: las respuestas que llegan fuera de orden se descartan
+    // para que una consulta anterior no sobrescriba la ocupación actual
+    // (causa de que "desaparecieran" los asientos ocupados).
+    const peticion = ++peticionAsientosRef.current;
+
     const cargarAsientos = async () => {
       try {
         const sucursalId = activeSucursalId || getSessionUser().id_sucursal || usuario?.id_sucursal;
         // Tramo de venta: origen actual + destino seleccionado (para ocupación exacta)
         const origenTramo = formData.origen || undefined;
-        const destinoTramo = subrutaSeleccionada || undefined;
+        const destinoTramo = destinoConsulta || undefined;
 
         const promises = [
           BoleteriaService.getAsientosBusViaje(formData.idViaje, origenTramo, destinoTramo).catch(e => {
@@ -489,6 +499,9 @@ export const NuevoBoletoPage = () => {
         }
 
         const [asientosRes, destinosViajeRes] = await Promise.all(promises);
+
+        // Respuesta obsoleta: ya se disparó otra consulta más reciente.
+        if (peticion !== peticionAsientosRef.current) return;
 
         if (asientosRes.success && asientosRes.data && asientosRes.data.length > 0) {
           const busData = asientosRes.data[0];
