@@ -520,16 +520,26 @@ export const NuevoBoletoPage = () => {
         if (destinosViajeRes && destinosViajeRes.success && destinosViajeRes.data) {
           setDestinosViaje(destinosViajeRes.data);
           if (destinosViajeRes.data.length > 0) {
-            const currentMatch = destinosViajeRes.data.find(d => String(d.id_sub_rutas) === String(subrutaSeleccionada));
+            // Al cambiar de viaje la selección anterior ya no aplica: se elige
+            // el primer destino. Si no, el `subrutaSeleccionada` capturado en el
+            // closure (valor viejo) puede hacer "match" con las sub-rutas del
+            // nuevo viaje y dejar el select vacío hasta refrescar.
+            const currentMatch = esNuevoViaje
+              ? null
+              : destinosViajeRes.data.find(
+                  d => String(d.id_sub_rutas) === String(subrutaSeleccionada)
+                );
             if (currentMatch) {
               setPrecioUnitario(parseFloat(currentMatch.valor_sub_rutas || 0));
             } else {
               const first = destinosViajeRes.data[0];
               setSubrutaSeleccionada(String(first.id_sub_rutas));
               setPrecioUnitario(parseFloat(first.valor_sub_rutas || 0));
-              if (first.id_lugar_origen) {
-                setFormData(prev => ({ ...prev, origen: first.id_lugar_origen, destino: String(first.id_sub_rutas) }));
-              }
+              setFormData(prev => ({
+                ...prev,
+                destino: String(first.id_sub_rutas),
+                ...(first.id_lugar_origen ? { origen: first.id_lugar_origen } : {})
+              }));
             }
           } else {
             setSubrutaSeleccionada('');
