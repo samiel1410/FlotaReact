@@ -37,12 +37,38 @@ import {
   calcularDescuento,
   calcularEdad,
   tarifaDesdeEdad,
-  horaAMinutos,
   hoyLocal,
   getSessionUser
 } from './utils/boletoUtils';
 import { imprimirBoletoDirectoQZ, imprimirPdfDirecto } from './utils/boletoImpresion';
 import './NuevoBoletoPage.css';
+
+const obtenerSalidaEfectiva = (viaje, fechaFallback) => {
+  if (!viaje) return null;
+
+  const fecha = String(viaje.fecha_viaje || fechaFallback || '').slice(0, 10);
+  const hora = String(
+    viaje.hora_origen_salida ||
+    viaje.hora_salida_rutas ||
+    viaje.hora ||
+    viaje.hora_salida ||
+    ''
+  ).slice(0, 8);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha) || !/^\d{2}:\d{2}(:\d{2})?$/.test(hora)) {
+    return null;
+  }
+
+  const salida = new Date(`${fecha}T${hora.length === 5 ? `${hora}:00` : hora}`);
+  if (Number.isNaN(salida.getTime())) return null;
+
+  const minutosOffset = Number(viaje.minutos_offset_parada ?? viaje.minutos_aplicados ?? 0);
+  if (Number.isFinite(minutosOffset) && minutosOffset > 0) {
+    salida.setMinutes(salida.getMinutes() + minutosOffset);
+  }
+
+  return salida;
+};
 
 export const NuevoBoletoPage = () => {
   const navigate = useNavigate();
@@ -146,6 +172,7 @@ export const NuevoBoletoPage = () => {
     const u = getSessionUser();
     return {
       id_sucursal: extractSucursalId(u.id_sucursal || u.id_fksucursal || u.sucursal),
+      suc_codigo_sucursal: extractSucursalId(u.suc_codigo_sucursal || u.id_fksucursal || u.id_sucursal),
       nombre_sucursal: u.nombre_sucursal || 'Desconocida',
       punto_emision_sucursal: u.punto_emision_sucursal || null,
     };
@@ -181,15 +208,18 @@ export const NuevoBoletoPage = () => {
     lastRealActionRef.current = Date.now();
   }, []);
 
-  // Timer countdown basado en horaViaje
+  // El conteo usa la salida efectiva desde la agencia actual.
   useEffect(() => {
     if (!horaViaje) { setTiempoRestante(null); return; }
     const calcular = () => {
-      const ahora = new Date();
-      const [h, m, s] = horaViaje.split(':').map(Number);
-      const salida = new Date();
-      salida.setHours(h || 0, m || 0, s || 0, 0);
+      const viajeSeleccionado = viajesDisponibles.find(v => String(v.id_viajes) === String(formData.idViaje));
+      const salida = obtenerSalidaEfectiva(viajeSeleccionado, formData.fechaViaje);
+      if (!salida) {
+        setTiempoRestante(null);
+        return;
+      }
 
+      const ahora = new Date();
       const diff = Math.floor((salida - ahora) / 1000);
       const pasado = diff < 0;
       const absDiff = Math.abs(diff);
@@ -209,7 +239,7 @@ export const NuevoBoletoPage = () => {
     calcular();
     const interval = setInterval(calcular, 1000);
     return () => clearInterval(interval);
-  }, [horaViaje]);
+  }, [horaViaje, formData.idViaje, formData.fechaViaje, viajesDisponibles]);
 
   // Validar caja activa al iniciar
   useEffect(() => {
@@ -514,7 +544,7 @@ export const NuevoBoletoPage = () => {
           setPisosBus(busData.pisos_buses || 1);
           setMapaAsientos(busData.mapa_asientos || null);
           const selectedViaje = viajesDisponibles.find(v => String(v.id_viajes) === String(formData.idViaje));
-          const horaDelViaje = selectedViaje?.hora_origen_salida || selectedViaje?.hora_salida_rutas || selectedViaje?.hora || selectedViaje?.hora_salida || busData.hora_viaje || formData.viajeTexto?.split(' - ')[0] || '';
+          const horaDelViaje = selectedViaje?.hora_salida_parada || selectedViaje?.hora_origen_salida || selectedViaje?.hora_salida_rutas || selectedViaje?.hora || selectedViaje?.hora_salida || busData.hora_viaje || formData.viajeTexto?.split(' - ')[0] || '';
           setHoraViaje(horaDelViaje);
           if (busData.incluye_alimentos) setAlimentoInfo(busData);
 
@@ -1008,6 +1038,8 @@ export const NuevoBoletoPage = () => {
     if (original?.id_sucursal && activeSucursalId !== original.id_sucursal) {
       const usuario = getSessionUser();
       usuario.id_sucursal = original.id_sucursal;
+      usuario.suc_codigo_sucursal = original.suc_codigo_sucursal;
+      usuario.id_fksucursal = original.suc_codigo_sucursal;
       usuario.nombre_sucursal = original.nombre_sucursal;
       if (original.punto_emision_sucursal) {
         usuario.punto_emision_sucursal = original.punto_emision_sucursal;
@@ -1088,12 +1120,11 @@ export const NuevoBoletoPage = () => {
       return;
     }
 
-    const minutosBoleto = horaAMinutos(new Date().toTimeString().split(' ')[0]);
-    const minutosViaje = horaAMinutos(horaViaje);
-    const esHoy = !formData.fechaViaje || formData.fechaViaje === hoyLocal();
+    const viajeSeleccionado = viajesDisponibles.find(v => String(v.id_viajes) === String(formData.idViaje));
+    const salidaEfectiva = obtenerSalidaEfectiva(viajeSeleccionado, formData.fechaViaje);
 
-    if (esHoy && minutosViaje > 0 && minutosBoleto > minutosViaje) {
-      toast.error('Este viaje ya está en despacho, no se pueden vender boletos', { duration: 5000 });
+    if (salidaEfectiva && new Date() >= salidaEfectiva) {
+      toast.error('El viaje ya salió de esta agencia; no se pueden vender boletos', { duration: 5000 });
       return;
     }
 
@@ -1125,6 +1156,7 @@ export const NuevoBoletoPage = () => {
   const ejecutarGuardar = async () => {
     setIsSubmitting(true);
     try {
+      const usuarioVenta = getSessionUser();
       const precioPorAsiento = formData.asientosSeleccionados.length > 0
         ? totalVenta / formData.asientosSeleccionados.length
         : 0;
@@ -1166,8 +1198,9 @@ export const NuevoBoletoPage = () => {
         observacion: formData.observacion,
         hora_boleto: new Date().toTimeString().split(' ')[0],
         detalles_boletos: JSON.stringify(detalles),
-        id_caja_global: localCajaId || getSessionUser().id_caja_global ||
-          getSessionUser().id_caja_boleteria_global || 0
+        id_fksucursal: usuarioVenta.suc_codigo_sucursal || usuarioVenta.id_fksucursal || activeSucursalId,
+        id_caja_global: localCajaId || usuarioVenta.id_caja_global ||
+          usuarioVenta.id_caja_boleteria_global || 0
       };
 
       const response = await BoleteriaService.venderBoleto(body);
@@ -1261,8 +1294,11 @@ export const NuevoBoletoPage = () => {
   const handleAgenciaCambiada = (record) => {
     if (!record) return;
     const sucursalId = record.id_sucursal || record.suc_codigo_sucursal;
+    const codigoSucursal = record.suc_codigo_sucursal || sucursalId;
     const usuario = getSessionUser();
     usuario.id_sucursal = sucursalId;
+    usuario.suc_codigo_sucursal = codigoSucursal;
+    usuario.id_fksucursal = codigoSucursal;
     usuario.nombre_sucursal = record.nombre_sucursal || usuario.nombre_sucursal;
     usuario.punto_emision_sucursal = record.punto_emision_sucursal || usuario.punto_emision_sucursal;
     sessionStorage.setItem('usuario', JSON.stringify(usuario));
@@ -1354,14 +1390,14 @@ export const NuevoBoletoPage = () => {
             setFormData(prev => ({
               ...prev,
               idViaje: String(v.id_viajes),
-              viajeTexto: `${v.hora || v.hora_salida} - Bus ${v.bus_disco || v.bus_codigo}`,
+              viajeTexto: `${v.hora_salida_parada || v.hora || v.hora_salida} - Bus ${v.bus_disco || v.bus_codigo}`,
               origen: v.id_origen || prev.origen,
               asientosSeleccionados: [],
               pasajeros: []
             }));
             setDiscoBus(v.bus_disco || v.bus_codigo || '');
             setCapacidadBus(v.capacidad_buses || 40);
-            setHoraViaje(v.hora || v.hora_salida || '');
+            setHoraViaje(v.hora_salida_parada || v.hora || v.hora_salida || '');
             setIdBus(v.id_fkbus_viajes || v.id_buses || v.bus_id || '');
           }}
         />
@@ -1383,7 +1419,7 @@ export const NuevoBoletoPage = () => {
                 setFormData(prev => ({ ...prev, idViaje: viajeId, origen: v?.id_origen || prev.origen, asientosSeleccionados: [], pasajeros: [] }));
                 if (v) {
                   setDiscoBus(v.bus_disco || v.bus_codigo || '');
-                  setHoraViaje(v.hora_origen_salida || v.hora_salida_rutas || v.hora || v.hora_salida || '');
+                  setHoraViaje(v.hora_salida_parada || v.hora_origen_salida || v.hora_salida_rutas || v.hora || v.hora_salida || '');
                   setIdBus(v.id_fkbus_viajes || v.id_buses || v.bus_id || '');
                 }
               }}
