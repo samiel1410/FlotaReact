@@ -1225,6 +1225,9 @@ export const NuevoBoletoPage = () => {
         hora_boleto: new Date().toTimeString().split(' ')[0],
         detalles_boletos: JSON.stringify(detalles),
         id_fksucursal: usuarioVenta.suc_codigo_sucursal || usuarioVenta.id_fksucursal || activeSucursalId,
+        // P.E. Boletería del usuario logueado: sirve de respaldo cuando su
+        // sucursal no tiene configurado el punto de emisión de boletería.
+        punto_emision_boleteria: usuarioVenta.punto_emision_boleteria || '',
         id_caja_global: localCajaId || usuarioVenta.id_caja_global ||
           usuarioVenta.id_caja_boleteria_global || 0
       };
