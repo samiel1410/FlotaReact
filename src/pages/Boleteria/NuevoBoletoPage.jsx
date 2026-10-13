@@ -43,6 +43,10 @@ import {
 import { imprimirBoletoDirectoQZ, imprimirPdfDirecto } from './utils/boletoImpresion';
 import './NuevoBoletoPage.css';
 
+/// Tolerancia por defecto para vender boletos después de la hora de salida.
+/// El backend envía `minutos_gracia_venta` en cada viaje; este es el respaldo.
+const MINUTOS_GRACIA_VENTA = 10;
+
 const obtenerSalidaEfectiva = (viaje, fechaFallback) => {
   if (!viaje) return null;
 
@@ -228,12 +232,20 @@ export const NuevoBoletoPage = () => {
       const minutos = Math.floor((absDiff % 3600) / 60);
       const segundos = absDiff % 60;
 
+      // Ventana de tolerancia para seguir vendiendo tras la salida.
+      const minutosGracia = Number(
+        viajeSeleccionado?.minutos_gracia_venta ?? MINUTOS_GRACIA_VENTA
+      );
+      const graciaRestante = Math.max(0, minutosGracia * 60 - absDiff);
+
       setTiempoRestante({
         horas,
         minutos,
         segundos,
         totalSeg: absDiff,
-        pasado
+        pasado,
+        enGracia: pasado && graciaRestante > 0,
+        graciaRestante
       });
     };
     calcular();
@@ -1123,9 +1135,23 @@ export const NuevoBoletoPage = () => {
     const viajeSeleccionado = viajesDisponibles.find(v => String(v.id_viajes) === String(formData.idViaje));
     const salidaEfectiva = obtenerSalidaEfectiva(viajeSeleccionado, formData.fechaViaje);
 
-    if (salidaEfectiva && new Date() >= salidaEfectiva) {
-      toast.error('El viaje ya salió de esta agencia; no se pueden vender boletos', { duration: 5000 });
-      return;
+    // Tolerancia de venta: se puede vender hasta N minutos después de la salida
+    // del viaje en esta agencia (el backend envía `minutos_gracia_venta`).
+    if (salidaEfectiva) {
+      const minutosGracia = Number(
+        viajeSeleccionado?.minutos_gracia_venta ?? MINUTOS_GRACIA_VENTA
+      );
+      const limiteVenta = new Date(salidaEfectiva.getTime() + minutosGracia * 60000);
+      const ahora = new Date();
+
+      if (ahora >= limiteVenta) {
+        const minutosPasados = Math.floor((ahora.getTime() - salidaEfectiva.getTime()) / 60000);
+        toast.error(
+          `El viaje salió hace ${minutosPasados} minuto(s). Solo se puede vender hasta ${minutosGracia} minutos después de la salida.`,
+          { duration: 6000 }
+        );
+        return;
+      }
     }
 
     // Si la configuración tiene activa la opción de omitir confirmación, guardar directamente
