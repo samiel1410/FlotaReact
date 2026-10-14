@@ -280,13 +280,13 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
   };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="w-full max-w-[1920px] mx-auto px-3 py-4 sm:px-4 lg:px-6 space-y-4 sm:space-y-6">
       {/* ─── TITLE ─── */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h1 className="text-lg sm:text-xl font-black text-slate-800 tracking-tight flex flex-wrap items-center gap-2 sm:gap-3 min-w-0">
           <i className="fas fa-hand-holding-usd text-green-500"></i>
           {isNotaVenta ? 'ENTREGAS DE NOTAS DE VENTA' : 'GUIAS ENTREGADAS'}
-          <span className="text-sm font-normal text-slate-400 bg-slate-100 px-3 py-1 rounded-full">
+          <span className="text-xs sm:text-sm font-normal text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full whitespace-nowrap">
             {total} registro{total !== 1 ? 's' : ''}
           </span>
         </h1>
@@ -294,11 +294,11 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
 
       {/* ─── TARJETAS RESUMEN POR OFICINA (clic = filtrar) ─── */}
       {!isNotaVenta && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
           <button
             onClick={() => handleCardFilter('0')}
             title="Ver todas"
-            className={`bg-white border-2 rounded-xl shadow-sm px-5 py-4 flex items-center gap-4 text-left transition-all hover:shadow-md active:scale-[0.99] ${filtros.estado === '0' ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-200'}`}
+            className={`bg-white border-2 rounded-xl shadow-sm px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 text-left transition-all hover:shadow-md active:scale-[0.99] ${filtros.estado === '0' ? 'border-blue-500 ring-2 ring-blue-100' : 'border-slate-200'}`}
           >
             <div className="w-11 h-11 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
               <i className="fas fa-clipboard-list text-lg"></i>
@@ -311,7 +311,7 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
           <button
             onClick={() => handleCardFilter('2')}
             title="Ver entregadas"
-            className={`bg-white border-2 rounded-xl shadow-sm px-5 py-4 flex items-center gap-4 text-left transition-all hover:shadow-md active:scale-[0.99] ${filtros.estado === '2' ? 'border-green-500 ring-2 ring-green-100' : 'border-slate-200'}`}
+            className={`bg-white border-2 rounded-xl shadow-sm px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 text-left transition-all hover:shadow-md active:scale-[0.99] ${filtros.estado === '2' ? 'border-green-500 ring-2 ring-green-100' : 'border-slate-200'}`}
           >
             <div className="w-11 h-11 rounded-xl bg-green-100 text-green-600 flex items-center justify-center shrink-0">
               <i className="fas fa-check-double text-lg"></i>
@@ -324,7 +324,7 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
           <button
             onClick={() => handleCardFilter('1')}
             title="Ver por entregar"
-            className={`bg-white border-2 rounded-xl shadow-sm px-5 py-4 flex items-center gap-4 text-left transition-all hover:shadow-md active:scale-[0.99] ${filtros.estado === '1' ? 'border-amber-500 ring-2 ring-amber-100' : 'border-slate-200'}`}
+            className={`bg-white border-2 rounded-xl shadow-sm px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 text-left transition-all hover:shadow-md active:scale-[0.99] ${filtros.estado === '1' ? 'border-amber-500 ring-2 ring-amber-100' : 'border-slate-200'}`}
           >
             <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
               <i className="fas fa-truck-loading text-lg"></i>
@@ -339,14 +339,14 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
 
       {/* ─── FILTROS ─── */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm">
-        <div className="px-5 py-3 border-b border-slate-100">
+        <div className="px-4 sm:px-5 py-3 border-b border-slate-100">
           <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2">
             <i className="fas fa-search text-blue-500 text-xs"></i>
             Búsqueda de Entregados
           </h3>
         </div>
-        <div className="p-5">
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="p-4 sm:p-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
             <div>
               <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Ced. Remitente</label>
               <input
@@ -486,18 +486,18 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[1050px] text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase text-slate-500 tracking-wider">GUÍA</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase text-slate-500 tracking-wider">CLIENTE REMITENTE</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase text-slate-500 tracking-wider">CLIENTE DESTINATARIO</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase text-slate-500 tracking-wider">SALIDA</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase text-slate-500 tracking-wider">LLEGADA</th>
-                  <th className="text-right px-4 py-3 text-[11px] font-bold uppercase text-slate-500 tracking-wider">TOTAL</th>
-                  <th className="text-left px-4 py-3 text-[11px] font-bold uppercase text-slate-500 tracking-wider">F.CREACIÓN</th>
-                  <th className="text-center px-2 py-3 text-[11px] font-bold uppercase text-slate-500 tracking-wider">OFICINA</th>
-                  <th className="text-center px-2 py-3 text-[11px] font-bold uppercase text-slate-500 tracking-wider">ESTADO</th>
+                  <th className="text-left px-3 sm:px-4 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider">GUÍA</th>
+                  <th className="text-left px-3 sm:px-4 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider">CLIENTE REMITENTE</th>
+                  <th className="text-left px-3 sm:px-4 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider">CLIENTE DESTINATARIO</th>
+                  <th className="text-left px-3 sm:px-4 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider">SALIDA</th>
+                  <th className="text-left px-3 sm:px-4 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider">LLEGADA</th>
+                  <th className="text-right px-3 sm:px-4 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider">TOTAL</th>
+                  <th className="text-left px-3 sm:px-4 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider">F.CREACIÓN</th>
+                  <th className="text-center px-2 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider">OFICINA</th>
+                  <th className="text-center px-2 py-3 text-xs font-bold uppercase text-slate-500 tracking-wider">ESTADO</th>
                   <th className="text-center px-1 py-3 w-[35px]"></th>
                   <th className="text-center px-1 py-3 w-[35px]"></th>
                 </tr>

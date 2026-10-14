@@ -197,8 +197,8 @@ export const GenericListPage = ({ config }) => {
       <div className="bg-white border-b border-slate-200 shadow-sm shrink-0">
         
         {/* Fila Superior: Título + Botones Principales */}
-        <div className="flex items-center justify-between px-4 py-2 bg-slate-50/50">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-3 sm:px-4 py-2 bg-slate-50/50">
+          <div className="flex items-center gap-3 min-w-0">
             <div className={`w-8 h-8 rounded-lg ${iconBg} ${iconColor} flex items-center justify-center shrink-0 shadow-sm border border-white`}>
               <i className={`${icon} text-sm`}></i>
             </div>
@@ -208,7 +208,7 @@ export const GenericListPage = ({ config }) => {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             {actions.bulkActions && actions.bulkActions.map(action => (
               <button
                 key={action.id}
@@ -252,7 +252,7 @@ export const GenericListPage = ({ config }) => {
 
             <div className="flex flex-1 flex-wrap items-center gap-3">
               {filterDefs.map(f => (
-                <div key={f.key} className="flex items-center gap-2 min-w-[140px]">
+                <div key={f.key} className="flex items-center gap-2 w-full min-w-0 sm:w-auto sm:min-w-[140px] sm:flex-1">
                   {f.type === 'select' ? (
                     <select
                       value={localFilters[f.key]}

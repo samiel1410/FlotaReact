@@ -7,7 +7,7 @@ import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 import { getSistemaModo } from '../../services/sistema.service';
 
-export const GlobalHeader = () => {
+export const GlobalHeader = ({ onMenuToggle }) => {
   const { user, hasPermission, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -214,13 +214,22 @@ export const GlobalHeader = () => {
   const puntoBoleteria = userDetails?.punto_emision_boleteria || '1';
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shadow-sm z-10 shrink-0">
+    <header className="h-14 sm:h-16 bg-white border-b border-slate-200 px-2 sm:px-4 lg:px-6 flex items-center justify-between gap-2 shadow-sm z-10 shrink-0 min-w-0">
       
       {/* Izquierda */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={onMenuToggle}
+          className="lg:hidden h-9 w-9 shrink-0 rounded-lg text-slate-600 hover:bg-slate-100"
+          aria-label="Abrir menú"
+          title="Abrir menú"
+        >
+          <i className="fas fa-bars"></i>
+        </button>
         {/* Logo + Nombre empresa */}
         <div
-          className="flex items-center gap-3 cursor-pointer"
+          className="flex items-center gap-2 sm:gap-3 cursor-pointer min-w-0"
           onClick={() => navigate('/inicio')}
         >
           {empresa.imagen ? (
@@ -253,7 +262,7 @@ export const GlobalHeader = () => {
         <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
 
         {/* Reloj */}
-        <div className="flex flex-col">
+        <div className="hidden sm:flex flex-col shrink-0">
           <span className="text-lg font-bold text-slate-800 leading-none">{formattedTime}</span>
           <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{formattedDate}</span>
         </div>
@@ -296,7 +305,7 @@ export const GlobalHeader = () => {
       </div>
 
       {/* Derecha: User Info & Actions */}
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 shrink-0">
         
         {/* User Info Block - Click para ir a Mi Perfil */}
         <button
@@ -346,7 +355,7 @@ export const GlobalHeader = () => {
 
           {/* Dropdown de Notificaciones */}
           {showNotifDropdown && (
-            <div className="absolute right-0 top-full mt-2 w-[380px] max-h-[420px] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50">
+            <div className="absolute right-0 top-full mt-2 w-[380px] max-w-[calc(100vw-1rem)] max-h-[420px] bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden z-50">
               <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
                 <h3 className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
                   <i className="fas fa-bell text-amber-500"></i>
@@ -415,7 +424,7 @@ export const GlobalHeader = () => {
           )}
         </div>
 
-        <div className="h-8 w-px bg-slate-200"></div>
+        <div className="hidden sm:block h-8 w-px bg-slate-200"></div>
 
         {/* Actions */}
         <div className="flex items-center gap-2">

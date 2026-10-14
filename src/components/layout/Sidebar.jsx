@@ -183,7 +183,7 @@ const MENU = [
   },
 ];
 
-export const Sidebar = () => {
+export const Sidebar = ({ isOpen = false, onNavigate }) => {
   const location = useLocation();
   const { user, hasPermission } = useAuth();
   const [openCategories, setOpenCategories] = useState({});
@@ -242,7 +242,7 @@ export const Sidebar = () => {
     });
 
   return (
-    <aside className="w-64 bg-slate-900 text-white flex flex-col h-screen shadow-2xl z-20 shrink-0">
+    <aside className={`fixed inset-y-0 left-0 z-40 flex h-screen h-dvh w-64 shrink-0 flex-col bg-slate-900 text-white shadow-2xl transition-transform duration-200 lg:static lg:z-20 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       {/* Brand - nombre configurable en branding.json */}
       <div className="flex items-center justify-center gap-3 h-16 border-b border-slate-800 bg-slate-950/50 shrink-0">
         <img src={BRAND.logo} alt={BRAND.name} className="w-10 h-10 object-contain" />
@@ -253,6 +253,7 @@ export const Sidebar = () => {
       <div className="px-3 pt-3 shrink-0">
         <NavLink
           to="/inicio"
+          onClick={onNavigate}
           className={({ isActive }) =>
             `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 mb-1 ${isActive
               ? 'bg-blue-600 text-white shadow-md'
@@ -298,6 +299,7 @@ export const Sidebar = () => {
                     <NavLink
                       key={item.to}
                       to={item.to}
+                      onClick={onNavigate}
                       end={item.to === '/guias'}
                       className={({ isActive }) =>
                         `flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[12px] font-medium transition-all duration-150 ${isActive
