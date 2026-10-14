@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, memo } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { despachoConvenioService } from '../../services/despachoConvenio.service';
 import { NuevoDespachoGuiaCompaniaModal } from './components/NuevoDespachoGuiaCompaniaModal';
 import { BusquedaGuiaDespachoModal } from './components/BusquedaGuiaDespachoModal';
@@ -72,6 +73,9 @@ const DetalleRow = memo(({ detalle, onQuitarGuia }) => (
 ));
 
 export const DespachoGuiasPage = () => {
+  const { user } = useAuth();
+  const usuarioSucursalId = user?.id_oficina || user?.id_fkdestino_usuario || user?.id_fksucursal_usuario || user?.sucursal_usuario || user?.id_sucursal || user?.id_fksucursal;
+
   // ─── Estado Principal ───
   const [despachos, setDespachos] = useState([]);
   const [detalles, setDetalles] = useState([]);
@@ -106,7 +110,8 @@ export const DespachoGuiasPage = () => {
         page: pageNum,
         desde: f.fecha_desde || '',
         hasta: f.fecha_hasta || '',
-        numero: f.numero || ''
+        numero: f.numero || '',
+        id_sucursal: usuarioSucursalId || ''
       };
       const res = await despachoConvenioService.listar(params);
       if (res.success) {
@@ -122,11 +127,11 @@ export const DespachoGuiasPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [filtros]);
+  }, [filtros, usuarioSucursalId]);
 
   useEffect(() => {
     cargarDespachos(1);
-  }, []);
+  }, [cargarDespachos]);
 
   // ─── Formatear fecha ───
   const formatDate = (dateStr) => {
