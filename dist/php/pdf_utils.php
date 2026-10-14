@@ -45,28 +45,8 @@ function esImagenValidaParaTcpdf($ruta)
  */
 function obtenerRutaLogoEmpresa($conn, $imageData = null)
 {
-    if (empty($imageData)) {
-        if (!empty($_COOKIE['empresa_logo'])) {
-            $imageData = $_COOKIE['empresa_logo'];
-        } else if (!empty($_COOKIE['logo_empresa'])) {
-            $imageData = $_COOKIE['logo_empresa'];
-        }
-    }
-
-    if (empty($imageData) && $conn) {
-        $query = "SELECT imagen_empresa FROM empresa LIMIT 1";
-        $result = @mysqli_query($conn, $query);
-        if ($result && $row = mysqli_fetch_assoc($result)) {
-            $imageData = $row['imagen_empresa'];
-        }
-    }
-
-    if (empty($imageData)) {
-        return null;
-    }
-
-    $ruta = procesarLogoParaTcpdf($imageData);
-    return esImagenValidaParaTcpdf($ruta) ? $ruta : null;
+    // Se deshabilita el uso del logo de la empresa en todos los PDFs.
+    return null;
 }
 
 /**
@@ -78,6 +58,9 @@ function obtenerRutaLogoEmpresa($conn, $imageData = null)
  */
 function procesarLogoParaTcpdf($imageData, $cacheHint = '')
 {
+    // Se deshabilita la renderización del logo empresarial en los documentos PDF.
+    return null;
+
     if (empty($imageData)) {
         return null;
     }
@@ -486,6 +469,9 @@ function limpiarTextoPdf($val, $default = '')
  */
 function imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoPapel, $margenMm, $maxW = 28.0, $maxH = 22.0, $espacioAbajo = 2.0)
 {
+    // Se deshabilita el logo empresarial en los PDFs.
+    return 0;
+
     if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
         return 0;
     }
@@ -526,6 +512,9 @@ function imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoPapel, $margenMm, $max
  */
 function imprimirLogoTcpdfA4($pdf, $rutaLogo, $x = 15.0, $y = 12.0, $maxW = 35.0, $maxH = 22.0)
 {
+    // Se deshabilita el logo empresarial en los PDFs.
+    return ['w' => 0, 'h' => 0];
+
     if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
         return ['w' => 0, 'h' => 0];
     }
