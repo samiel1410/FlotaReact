@@ -871,6 +871,7 @@ export const NuevoBoletoPage = () => {
       }
 
       setFormData(prev => {
+        if (prev.asientosSeleccionados.includes(asientoId)) return prev;
         const tarifaTexto = getTarifaLabel(prev.tarifa);
         const valor = calcularValorConTarifa(precioUnitario, tarifaTexto);
         const descuento = calcularDescuento(precioUnitario, tarifaTexto);

@@ -531,13 +531,18 @@ export const DespachoTripDetail = ({
             </div>
           </div>
 
-          {/* Avisos de retenciones: deudas/cuotas pendientes del bus o socio */}
+          {/* Avisos de retenciones: deudas/cuotas pendientes del bus o socio.
+              Son informativos y NO se imprimen en la hoja de despacho. */}
           {(detailData?.valores?.avisos_retencion || []).length > 0 && (
             <div className="mt-3.5 bg-amber-50 border border-amber-200 rounded-xl p-3 space-y-1.5">
               <div className="flex items-center gap-2">
                 <i className="fas fa-exclamation-triangle text-amber-600 text-xs" />
                 <span className="text-[10px] font-black uppercase tracking-wider text-amber-800">
                   Cobros pendientes del bus / socio
+                </span>
+                <span className="ml-auto text-[9px] font-bold text-amber-700 bg-white/80 border border-amber-200 rounded-full px-2 py-0.5 whitespace-nowrap">
+                  <i className="fas fa-eye-slash mr-1" />
+                  Solo pantalla · no se imprime
                 </span>
               </div>
               {detailData.valores.avisos_retencion.map((a, i) => (
