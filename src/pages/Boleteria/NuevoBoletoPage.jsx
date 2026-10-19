@@ -74,6 +74,35 @@ const obtenerSalidaEfectiva = (viaje, fechaFallback) => {
   return salida;
 };
 
+const extractSucursalId = (val) => {
+  if (!val) return null;
+  if (typeof val === 'number') return isNaN(val) ? null : val;
+  if (typeof val === 'string') {
+    if (val === '[object Object]' || val.trim() === '' || val === 'undefined' || val === 'null') return null;
+    const n = parseInt(val, 10);
+    return isNaN(n) ? null : n;
+  }
+  if (typeof val === 'object') {
+    // Ignore SyntheticEvent and DOM events
+    if (val.nativeEvent || val.target || val.preventDefault || val._reactName) return null;
+    const raw = val.id_sucursal ?? val.id_fksucursal ?? val.suc_codigo_sucursal ?? val.id ?? val.value;
+    if (raw !== undefined && raw !== null && typeof raw !== 'object') {
+      const n = parseInt(raw, 10);
+      return isNaN(n) ? null : n;
+    }
+  }
+  return null;
+};
+
+// El usuario de sesión puede traer la sucursal como id interno, código,
+// id_fksucursal_usuario o sucursal_usuario según el origen del login.
+const idSucursalSesion = (u) => extractSucursalId(
+  u?.id_sucursal ?? u?.id_fksucursal ?? u?.sucursal ?? u?.id_fksucursal_usuario ?? u?.sucursal_usuario
+);
+const codigoSucursalSesion = (u) => extractSucursalId(
+  u?.suc_codigo_sucursal ?? u?.id_fksucursal ?? u?.id_fksucursal_usuario ?? u?.sucursal_usuario ?? u?.sucursal ?? u?.id_sucursal
+);
+
 export const NuevoBoletoPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -144,30 +173,8 @@ export const NuevoBoletoPage = () => {
     return u.nombre_sucursal || 'Desconocida';
   });
 
-  const extractSucursalId = (val) => {
-    if (!val) return null;
-    if (typeof val === 'number') return isNaN(val) ? null : val;
-    if (typeof val === 'string') {
-      if (val === '[object Object]' || val.trim() === '' || val === 'undefined' || val === 'null') return null;
-      const n = parseInt(val, 10);
-      return isNaN(n) ? null : n;
-    }
-    if (typeof val === 'object') {
-      // Ignore SyntheticEvent and DOM events
-      if (val.nativeEvent || val.target || val.preventDefault || val._reactName) return null;
-      const raw = val.id_sucursal ?? val.id_fksucursal ?? val.suc_codigo_sucursal ?? val.id ?? val.value;
-      if (raw !== undefined && raw !== null && typeof raw !== 'object') {
-        const n = parseInt(raw, 10);
-        return isNaN(n) ? null : n;
-      }
-    }
-    return null;
-  };
-
-  const [activeSucursalId, setActiveSucursalId] = useState(() => {
-    const u = getSessionUser();
-    return extractSucursalId(u.id_sucursal || u.id_fksucursal || u.sucursal);
-  });
+  const [activeSucursalId, setActiveSucursalId] = useState(() => idSucursalSesion(getSessionUser()));
+  const [activeSucursalCodigo, setActiveSucursalCodigo] = useState(() => codigoSucursalSesion(getSessionUser()));
 
   // Sucursal con la que el operador entró a la pantalla: permite restaurarla
   // desde el botón "Reiniciar" (cambiar de agencia sobrescribe la sesión).
@@ -175,13 +182,26 @@ export const NuevoBoletoPage = () => {
   const [sucursalOriginal] = useState(() => {
     const u = getSessionUser();
     return {
-      id_sucursal: extractSucursalId(u.id_sucursal || u.id_fksucursal || u.sucursal),
-      suc_codigo_sucursal: extractSucursalId(u.suc_codigo_sucursal || u.id_fksucursal || u.id_sucursal),
+      id_sucursal: idSucursalSesion(u),
+      suc_codigo_sucursal: codigoSucursalSesion(u),
       nombre_sucursal: u.nombre_sucursal || 'Desconocida',
       punto_emision_sucursal: u.punto_emision_sucursal || null,
     };
   });
-  const sucursalCambiada = activeSucursalId !== sucursalOriginal.id_sucursal;
+
+  // La agencia puede identificarse por id interno o por código sucursal,
+  // por eso se consideran ambos al decidir si se volvió a la original.
+  const esSucursalOriginal = (idSucursal, codigoSucursal) => {
+    const originales = [sucursalOriginal.id_sucursal, sucursalOriginal.suc_codigo_sucursal]
+      .filter(v => v !== null && v !== undefined)
+      .map(String);
+    if (originales.length === 0) return true;
+    return [idSucursal, codigoSucursal]
+      .filter(v => v !== null && v !== undefined)
+      .map(String)
+      .some(v => originales.includes(v));
+  };
+  const sucursalCambiada = !esSucursalOriginal(activeSucursalId, activeSucursalCodigo);
 
   const [formData, setFormData] = useState({
     idCliente: '',
@@ -468,8 +488,8 @@ export const NuevoBoletoPage = () => {
       const parsedCustom = extractSucursalId(customSucursalId);
       const parsedActive = extractSucursalId(activeSucursalId);
       const sessionUser = getSessionUser();
-      const parsedSession = extractSucursalId(sessionUser?.id_sucursal || sessionUser?.id_fksucursal || sessionUser?.sucursal);
-      const parsedUsuario = extractSucursalId(usuario?.id_sucursal || usuario?.id_fksucursal || usuario?.sucursal);
+      const parsedSession = idSucursalSesion(sessionUser);
+      const parsedUsuario = idSucursalSesion(usuario);
 
       const sucursalId = parsedCustom || parsedActive || parsedSession || parsedUsuario || null;
       const params = { fecha: fechaBusqueda };
@@ -519,7 +539,7 @@ export const NuevoBoletoPage = () => {
 
     const cargarAsientos = async () => {
       try {
-        const sucursalId = activeSucursalId || getSessionUser().id_sucursal || usuario?.id_sucursal;
+        const sucursalId = activeSucursalId || idSucursalSesion(getSessionUser()) || idSucursalSesion(usuario);
         // Tramo de venta: origen actual + destino seleccionado (para ocupación exacta)
         const origenTramo = formData.origen || undefined;
         const destinoTramo = destinoConsulta || undefined;
@@ -533,7 +553,7 @@ export const NuevoBoletoPage = () => {
 
         if (esNuevoViaje || destinosViaje.length === 0) {
           promises.push(
-            BoleteriaService.getDestinosViaje(formData.idViaje, sucursalId).catch(e => {
+            BoleteriaService.getDestinosViaje(formData.idViaje, sucursalId, undefined, sucursalCambiada).catch(e => {
               console.error('[cargarAsientos] Error en getDestinosViaje:', e);
               return { success: false };
             })
@@ -613,7 +633,7 @@ export const NuevoBoletoPage = () => {
       setPrecioUnitario(0);
     }
     cargarAsientos();
-  }, [formData.idViaje, formData.origen, subrutaSeleccionada, refreshAsientosKey, activeSucursalId]);
+  }, [formData.idViaje, formData.origen, subrutaSeleccionada, refreshAsientosKey, activeSucursalId, sucursalCambiada]);
 
   // Sockets: Bloqueo/Liberación en tiempo real
   useEffect(() => {
@@ -1041,6 +1061,34 @@ export const NuevoBoletoPage = () => {
     setMapaAsientos(null);
   };
 
+  // Al vender un boleto se conservan el viaje, el destino y el bus para que la
+  // siguiente venta sea inmediata; solo se limpian los datos del pasajero y
+  // los asientos seleccionados.
+  const limpiarParaSiguienteVenta = () => {
+    deseleccionarAsientosActuales();
+    setFormData(prev => ({
+      ...prev,
+      idCliente: '',
+      fechaViaje: prev.fechaViaje || hoyLocal(),
+      asientosSeleccionados: [],
+      pasajeros: [],
+      totales: { subtotal: 0, total: 0 },
+      identificacion: '',
+      nombres: '',
+      fechaNacimiento: '',
+      direccion: '',
+      celular: '',
+      correo: '',
+      tarifa: 1,
+      observacion: ''
+    }));
+    setEsReserva(false);
+    setTotalVenta(0);
+    marcarActividadReal();
+    // Recarga la ocupación del mismo viaje/tramo sin perder la selección.
+    setRefreshAsientosKey(k => k + 1);
+  };
+
   // Restablece los filtros de la pantalla (fecha → hoy y sucursal → la original)
   // y limpia la venta en curso. El botón "Reiniciar" solo aparece si algo cambió.
   const reiniciarFiltros = () => {
@@ -1060,6 +1108,7 @@ export const NuevoBoletoPage = () => {
       sessionStorage.setItem('usuario', JSON.stringify(usuario));
       sessionStorage.setItem('user_data', JSON.stringify(usuario));
       setActiveSucursalId(original.id_sucursal);
+      setActiveSucursalCodigo(original.suc_codigo_sucursal);
       setCurrentAgencia(original.nombre_sucursal);
     }
 
@@ -1098,12 +1147,16 @@ export const NuevoBoletoPage = () => {
       const usuario = getSessionUser();
       const viajesRes = await BoleteriaService.getViajesDisponibles({
         fecha: formData.fechaViaje || hoyLocal(),
-        id_sucursal: usuario.id_sucursal
+        id_sucursal: idSucursalSesion(usuario)
       });
-      if (viajesRes.success && viajesRes.data) setViajesDisponibles(viajesRes.data);
+      if (viajesRes.success && viajesRes.data) {
+        setViajesDisponibles(viajesRes.data);
+        return viajesRes.data;
+      }
     } catch (e) {
       console.error('Error refrescando viajes:', e);
     }
+    return null;
   }, [formData.fechaViaje]);
 
   const confirmarGuardar = async () => {
@@ -1280,8 +1333,16 @@ export const NuevoBoletoPage = () => {
             }
           }
         }
-        limpiarFormulario();
-        refrescarViajes();
+        const viajeVendido = formData.idViaje;
+        limpiarParaSiguienteVenta();
+        const vigentes = await refrescarViajes();
+        // Si el viaje ya no está disponible (salió o se cerró), se reinicia todo.
+        if (
+          Array.isArray(vigentes) && viajeVendido &&
+          !vigentes.some(v => String(v.id_viajes) === String(viajeVendido))
+        ) {
+          limpiarFormulario();
+        }
       } else {
         toast.error(response.message || 'Error al generar el boleto.');
       }
@@ -1334,6 +1395,7 @@ export const NuevoBoletoPage = () => {
     sessionStorage.setItem('usuario', JSON.stringify(usuario));
     sessionStorage.setItem('user_data', JSON.stringify(usuario));
     setActiveSucursalId(sucursalId);
+    setActiveSucursalCodigo(codigoSucursal);
     setCurrentAgencia(record.nombre_sucursal || usuario.nombre_sucursal || 'Desconocida');
     toast.success(`Agencia cambiada a: ${record.nombre_sucursal || sucursalId}`);
     limpiarFormulario();
@@ -1487,8 +1549,8 @@ export const NuevoBoletoPage = () => {
               }}
               onRefrescarDestinos={() => {
                 if (formData.idViaje) {
-                  const sucursalId = activeSucursalId || getSessionUser().id_sucursal || usuario?.id_sucursal;
-                  BoleteriaService.getDestinosViaje(formData.idViaje, sucursalId).then(r => {
+                  const sucursalId = activeSucursalId || idSucursalSesion(getSessionUser()) || idSucursalSesion(usuario);
+                  BoleteriaService.getDestinosViaje(formData.idViaje, sucursalId, undefined, sucursalCambiada).then(r => {
                     if (r.success && r.data) {
                       setDestinosViaje(r.data);
                     } else {

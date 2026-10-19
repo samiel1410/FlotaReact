@@ -334,11 +334,26 @@ export const PAGES_CONFIG = {
 
               // authApi no tiene interceptor de token, lo pasamos manualmente desde session o local storage
               const token = sessionStorage.getItem('auth_token') || localStorage.getItem('auth_token');
-              const res = await authApi.post('/auth/admin/impersonate', {
+              const impersonate = () => authApi.post('/auth/admin/impersonate', {
                 username: targetUsername
               }, {
                 headers: { Authorization: `Bearer ${token}` }
               });
+
+              let res;
+              try {
+                res = await impersonate();
+              } catch (error) {
+                if (
+                  error.response?.status !== 404 ||
+                  error.response?.data?.mensaje !== 'Usuario no encontrado o inactivo'
+                ) {
+                  throw error;
+                }
+
+                await api.post('/usuario/sincronizarAuth', { id_usuario: row.id_usuario });
+                res = await impersonate();
+              }
 
               Swal.close();
 

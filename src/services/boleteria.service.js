@@ -68,11 +68,14 @@ export const BoleteriaService = {
    * @param {number} idViaje
    * @param {number} [idSucursal]
    * @param {number} [idOrigen]
+   * @param {boolean} [todasLasParadas] - Devuelve todas las paradas del viaje
+   *        (se usa al vender desde una agencia distinta a la del operador).
    */
-  getDestinosViaje: async (idViaje, idSucursal, idOrigen) => {
+  getDestinosViaje: async (idViaje, idSucursal, idOrigen, todasLasParadas = false) => {
     const params = { id_viaje: idViaje };
     if (idSucursal) params.id_sucursal = idSucursal;
     if (idOrigen) params.id_origen = idOrigen;
+    if (todasLasParadas) params.todas_paradas = 1;
     const response = await api.get('/viajes/destinoViajeSelect', { params });
     return response.data;
   },
