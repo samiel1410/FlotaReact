@@ -113,43 +113,19 @@ try {
     $razon_social_empresa = $vals_empresa["razon_social_empresa"] ?? 'SISTEMA FLOTA';
     $ruc_empresa          = $vals_empresa["ruc_empresa"] ?? '';
 
-    // ─── CONSULTA DE BOLETOS DE LA CAJA ───────────────────────────────────────
+    // ─── CONSULTA DE BOLETOS DE LA CAJA (solo totales) ───────────────────────
+    // No se imprime el detalle boleto por boleto: es desperdicio de papel.
+    // Solo interesa cuántos boletos se vendieron y por cuánto.
     $query2 = "SELECT 
-        b.id_boleto,
-        b.punto_emision_boleto,
-        b.sucursal_emision_boleto,
-        b.numero_boleto,
-        b.total_boleto as cobrado,
-        COALESCE(COUNT(bd.id_boleto_detalle), 1) as cantidad
+        COUNT(DISTINCT b.id_boleto) AS cantidad_boletos,
+        COALESCE(SUM(b.total_boleto), 0) AS total_vendido
     FROM boletos b
-    LEFT JOIN boleto_detalle bd ON b.id_boleto = bd.id_fkboleto_boleto_detalle
-    WHERE b.id_fkcaja_boleto = $id_caja AND b.estado_boleto IN (0, 1, 2)
-    GROUP BY b.id_boleto, b.punto_emision_boleto, b.sucursal_emision_boleto, b.numero_boleto, b.total_boleto
-    ORDER BY b.id_boleto DESC";
+    WHERE b.id_fkcaja_boleto = $id_caja AND b.estado_boleto IN (0, 1, 2)";
 
     $recuperar2 = mysqli_query($conn, $query2) or die(mysqli_error($conn));
-
-    $boletos = [];
-    $total_final = 0.0;
-    $total_cantidad = 0;
-
-    while ($vals2 = mysqli_fetch_assoc($recuperar2)) {
-        $resultado = sprintf("%09s", $vals2['numero_boleto']);
-        $sucursal_str = sprintf("%03s", $vals2['sucursal_emision_boleto']);
-        $punto_str = sprintf("%03s", $vals2['punto_emision_boleto']);
-        $num_boleto = $sucursal_str . "-" . $punto_str . "-" . $resultado;
-        $cobrado = (float)$vals2['cobrado'];
-        $cant = (int)$vals2['cantidad'];
-
-        $total_final += $cobrado;
-        $total_cantidad += $cant;
-
-        $boletos[] = [
-            'boleto' => $num_boleto,
-            'cobrado' => $cobrado,
-            'cantidad' => $cant
-        ];
-    }
+    $resumen_boletos = mysqli_fetch_assoc($recuperar2) ?: [];
+    $total_final = (float)($resumen_boletos['total_vendido'] ?? 0);
+    $total_cantidad = (int)($resumen_boletos['cantidad_boletos'] ?? 0);
 
     // ─── EGRESOS / INGRESOS ──────────────────────────────────────────────────
     $query_egresos_ingresos = "SELECT tipo_caja_detalle, SUM(monto_caja_detalle) as total 
@@ -182,14 +158,24 @@ try {
     $total_final_final = $total_cobrado + $total_ingresos - $total_egresos;
 
     // ─── SALDO CAJA BOLETERIA ───────────────────────────────────────────────
+    // El SP devuelve el cuadre ya calculado:
+    //   esperado = apertura + ingresos - egresos
+    //   contado  = cierre declarado (o el arqueo si aún no hay cierre)
+    //   diferencia = contado - esperado
     $sqlSaldoCaja = "CALL saldoCajaBoleteria($id_caja)";
     $recuperar_saldo = mysqli_query($conn, $sqlSaldoCaja) or die(mysqli_error($conn));
     $estado_cuadre = 'DESCONOCIDO';
     $saldo = 0.0;
+    $esperado_sp = null;
+    $contado_sp = null;
 
     while ($vals_saldo = mysqli_fetch_assoc($recuperar_saldo)) {
         $estado_cuadre = $vals_saldo['estado_cuadre'] ?? '';
         $saldo = (float)($vals_saldo['total_diferencia'] ?? 0);
+        if (array_key_exists('total_esperado', $vals_saldo)) {
+            $esperado_sp = (float)$vals_saldo['total_esperado'];
+            $contado_sp = (float)($vals_saldo['total_contado'] ?? 0);
+        }
     }
     mysqli_free_result($recuperar_saldo);
     while (mysqli_more_results($conn) && mysqli_next_result($conn)) {
@@ -250,8 +236,8 @@ try {
     $margen = ($anchoPapel <= 60) ? 2.5 : 4.0;
     $anchoUtil = $anchoPapel - ($margen * 2);
 
-    $totalItems = count($boletos) + count($egresos_ingresos) + count($despachos);
-    $altoEstimado = max(240, 180 + ($totalItems * 4.5));
+    $totalItems = count($egresos_ingresos) + count($despachos);
+    $altoEstimado = max(200, 140 + ($totalItems * 4.5));
 
     $pdf = new TCPDF('P', 'mm', array($anchoPapel, $altoEstimado), true, 'UTF-8', false);
     $pdf->setFontSubsetting(false);
@@ -296,7 +282,25 @@ try {
     $pdf->SetX($margen + 1);
     $pdf->Cell($anchoUtil - 2, $hLine, 'CIERRE: $' . number_format($cierre_total_caja, 2), 0, 1, 'L');
     $pdf->SetX($margen + 1);
-    $pdf->Cell($anchoUtil - 2, $hLine, 'SALDO ==> $' . number_format($saldo, 2) . ' ' . $estado_cuadre, 0, 1, 'L');
+    // El cuadre se toma del SP corregido: esperado = apertura + ingresos - egresos
+    // y contado = cierre declarado (o arqueo). Antes se comparaba el arqueo
+    // contra el cierre y salía un faltante falso.
+    $esperadoCaja = $esperado_sp !== null ? $esperado_sp : ($total_apertura + $total_retenido_desp);
+    $contadoCaja = $contado_sp !== null ? $contado_sp : $cierre_total_caja;
+    $diferenciaCaja = round($contadoCaja - $esperadoCaja, 2);
+    $estadoCaja = abs($diferenciaCaja) < 0.01 ? 'CUADRADO' : ($diferenciaCaja > 0 ? 'SOBRANTE' : 'FALTANTE');
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->Cell(
+        $anchoUtil - 2,
+        $hLine,
+        'ESPERADO: $' . number_format($esperadoCaja, 2)
+            . ' | CONTADO: $' . number_format($contadoCaja, 2)
+            . ' | DIF: $' . number_format($diferenciaCaja, 2)
+            . ' ' . $estadoCaja,
+        0,
+        1,
+        'L'
+    );
 
     $altoBox = ($pdf->GetY() - $yBox) + 1;
     $pdf->SetLineStyle(['dash' => 2]);
@@ -304,30 +308,21 @@ try {
     $pdf->SetLineStyle(['dash' => 0]);
     $pdf->Ln(2);
 
-    // ─── 3. SECCIÓN BOLETOS ──────────────────────────────────────────────────
+    // ─── 3. RESUMEN DE VENTA DE BOLETOS (sin detalle) ────────────────────────
+    // Solo el total: imprimir cada boleto gastaba papel innecesariamente.
     $pdf->SetFont('helvetica', 'B', 8.5);
-    $pdf->Cell($anchoUtil, 4.2, 'BOLETOS', 0, 1, 'C');
+    $pdf->Cell($anchoUtil, 4.2, 'VENTA DE BOLETOS', 0, 1, 'C');
 
-    $wBol  = round($anchoUtil * 0.50, 1);
-    $wCob  = round($anchoUtil * 0.28, 1);
-    $wCant = $anchoUtil - ($wBol + $wCob);
+    $wKb = round($anchoUtil * 0.62, 1);
+    $wVb = $anchoUtil - $wKb;
 
-    $pdf->SetFont('helvetica', 'B', 7.5);
-    $pdf->Cell($wBol, 4, 'BOLETO', 'B', 0, 'L');
-    $pdf->Cell($wCob, 4, 'COBRADO', 'B', 0, 'R');
-    $pdf->Cell($wCant, 4, 'CANT.', 'B', 1, 'C');
-
-    $pdf->SetFont('courier', '', 7);
-    foreach ($boletos as $b) {
-        $pdf->Cell($wBol, 3.6, $b['boleto'], 0, 0, 'L');
-        $pdf->Cell($wCob, 3.6, '$' . number_format($b['cobrado'], 2), 0, 0, 'R');
-        $pdf->Cell($wCant, 3.6, (string)$b['cantidad'], 0, 1, 'C');
-    }
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->Cell($wKb, 3.8, 'Cantidad de boletos:', 0, 0, 'L');
+    $pdf->Cell($wVb, 3.8, (string)$total_cantidad, 0, 1, 'R');
 
     $pdf->SetFont('helvetica', 'B', 7.5);
-    $pdf->Cell($wBol, 4, 'TOTAL:', 'T', 0, 'L');
-    $pdf->Cell($wCob, 4, '$' . number_format($total_final, 2), 'T', 0, 'R');
-    $pdf->Cell($wCant, 4, '', 'T', 1, 'C');
+    $pdf->Cell($wKb, 4, 'TOTAL VENDIDO:', 'T', 0, 'L');
+    $pdf->Cell($wVb, 4, '$' . number_format($total_final, 2), 'T', 1, 'R');
     $pdf->Ln(1.5);
 
     // ─── 4. EGRESOS / INGRESOS ───────────────────────────────────────────────
@@ -383,19 +378,23 @@ try {
 
     $totalesSummary = [
         ['TOTAL VENDIDO:', '$' . number_format($total_cobrado, 2)],
-        ['TOTAL RETENIDO:', '$' . number_format($total_retenido_desp, 2)],
+        ['TOTAL RETENIDO (queda en oficina):', '$' . number_format($total_retenido_desp, 2)],
+        ['TOTAL ENTREGADO (al bus):', '$' . number_format(max(0, $total_cobrado - $total_retenido_desp), 2)],
         ['TOTAL EGRESOS:', '$' . number_format($total_egresos, 2)],
         ['TOTAL INGRESOS:', '$' . number_format($total_ingresos, 2)],
-        ['TOTAL CANTIDAD:', (string)$total_cantidad],
-        ['TOTAL CAJA:', '$' . number_format($total_final_final, 2)],
+        ['TOTAL CANTIDAD BOLETOS:', (string)$total_cantidad],
     ];
 
-    foreach ($totalesSummary as $idx => $ts) {
-        $esTotal = ($idx === count($totalesSummary) - 1);
-        $pdf->SetFont('helvetica', $esTotal ? 'B' : '', 7.5);
+    foreach ($totalesSummary as $ts) {
+        $pdf->SetFont('helvetica', '', 7.5);
         $pdf->Cell($wK, $hTot, $ts[0], 0, 0, 'L');
         $pdf->Cell($wV, $hTot, $ts[1], 0, 1, 'R');
     }
+
+    // El cierre es el EFECTIVO contado, no la venta total.
+    $pdf->SetFont('helvetica', 'B', 8);
+    $pdf->Cell($wK, $hTot + 0.4, 'TOTAL CAJA (cierre):', 'T', 0, 'L');
+    $pdf->Cell($wV, $hTot + 0.4, '$' . number_format($cierre_total_caja, 2), 'T', 1, 'R');
 
     $pdf->Ln(2);
     $pdf->SetFont('helvetica', '', 6.5);

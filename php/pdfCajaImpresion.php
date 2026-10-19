@@ -298,10 +298,16 @@ try {
     $recuperar_saldo = mysqli_query($conn, $sqlSaldoCaja) or die(mysqli_error($conn));
     $estado_cuadre = 'DESCONOCIDO';
     $saldo = 0.0;
+    $esperado_sp = null;
+    $contado_sp = null;
 
     while ($vals_saldo = mysqli_fetch_assoc($recuperar_saldo)) {
         $estado_cuadre = $vals_saldo['estado_cuadre'] ?? '';
         $saldo = (float)($vals_saldo['total_diferencia'] ?? 0);
+        if (array_key_exists('total_esperado', $vals_saldo)) {
+            $esperado_sp = (float)$vals_saldo['total_esperado'];
+            $contado_sp = (float)($vals_saldo['total_contado'] ?? 0);
+        }
     }
     mysqli_free_result($recuperar_saldo);
     while (mysqli_more_results($conn) && mysqli_next_result($conn)) {
@@ -387,7 +393,21 @@ try {
     $pdf->SetX($margen + 1);
     $pdf->Cell($anchoUtil - 2, $hLine, 'CIERRE: $' . number_format($cierre_total_caja, 2), 0, 1, 'L');
     $pdf->SetX($margen + 1);
-    $pdf->Cell($anchoUtil - 2, $hLine, 'SALDO ==> $' . number_format($saldo, 2) . ' ' . $estado_cuadre, 0, 1, 'L');
+    // Cuadre: se compara lo CONTADO contra lo ESPERADO (apertura + ingresos -
+    // egresos + efectivo cobrado). Antes restaba el cierre y marcaba faltante falso.
+    $esperadoCaja = $esperado_sp !== null ? $esperado_sp : 0.0;
+    $contadoCaja = $contado_sp !== null ? $contado_sp : $cierre_total_caja;
+    $pdf->SetFont('helvetica', '', 7.5);
+    $pdf->Cell(
+        $anchoUtil - 2,
+        $hLine,
+        'ESPERADO: $' . number_format($esperadoCaja, 2)
+            . ' | CONTADO: $' . number_format($contadoCaja, 2)
+            . ' | DIF: $' . number_format($saldo, 2) . ' ' . $estado_cuadre,
+        0,
+        1,
+        'L'
+    );
 
     $altoBox = ($pdf->GetY() - $yBox) + 1;
     $pdf->SetLineStyle(['dash' => 2]);

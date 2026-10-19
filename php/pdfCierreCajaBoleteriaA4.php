@@ -130,6 +130,10 @@ try {
         ? date('Y-m-d H:i', strtotime($caja['fecha_hora_cierre'])) : 'EN PROCESO';
 
     // ─── DESPACHOS DEL OFICINISTA (período de la caja) ───────────────────────
+    // El "facturado" se limita a los boletos vendidos por la SUCURSAL dueña de
+    // la caja. Antes sumaba todos los boletos del viaje (de todas las
+    // oficinas), por eso el total no cuadraba con lo retenido por la oficina.
+    $suc_caja = (int)($caja['id_fksucursal_caja'] ?? 0);
     $sqlDesp = "SELECT
             dv.id_despacho_viaje,
             dv.id_fkviaje_despacho_viaje AS id_viaje,
@@ -141,10 +145,15 @@ try {
             CONCAT(COALESCE(u2.nombre_usuario,''), ' ', COALESCE(u2.apellido_usuario,'')) AS oficinista_desp,
             (SELECT COALESCE(SUM(bd.total_boleto_detalle), 0)
                FROM boleto_detalle bd JOIN boletos bo ON bd.id_fkboleto_boleto_detalle = bo.id_boleto
-              WHERE bo.id_fkviaje_boleto = dv.id_fkviaje_despacho_viaje AND bo.estado_boleto != 3) AS facturado,
+              WHERE bo.id_fkviaje_boleto = dv.id_fkviaje_despacho_viaje AND bo.estado_boleto != 3
+                AND (bo.id_fksucursal_boleto = $suc_caja OR bo.id_sucursal_venta = $suc_caja)) AS facturado_sucursal,
+            (SELECT COALESCE(SUM(bd.total_boleto_detalle), 0)
+               FROM boleto_detalle bd JOIN boletos bo ON bd.id_fkboleto_boleto_detalle = bo.id_boleto
+              WHERE bo.id_fkviaje_boleto = dv.id_fkviaje_despacho_viaje AND bo.estado_boleto != 3) AS facturado_total,
             (SELECT COUNT(bd.total_boleto_detalle)
                FROM boleto_detalle bd JOIN boletos bo ON bd.id_fkboleto_boleto_detalle = bo.id_boleto
-              WHERE bo.id_fkviaje_boleto = dv.id_fkviaje_despacho_viaje AND bo.estado_boleto != 3) AS asientos,
+              WHERE bo.id_fkviaje_boleto = dv.id_fkviaje_despacho_viaje AND bo.estado_boleto != 3
+                AND (bo.id_fksucursal_boleto = $suc_caja OR bo.id_sucursal_venta = $suc_caja)) AS asientos,
             (SELECT COALESCE(SUM(drl.monto_aplicado), 0) FROM despacho_retencion_log drl
               WHERE drl.id_despacho_viaje = dv.id_despacho_viaje AND drl.tipo = 'retencion_porcentual') AS cuota_adm,
             (SELECT COALESCE(SUM(drl.monto_aplicado), 0) FROM despacho_retencion_log drl
@@ -164,6 +173,9 @@ try {
     $recDesp = mysqli_query($conn, $sqlDesp);
     if ($recDesp) {
         while ($d = mysqli_fetch_assoc($recDesp)) {
+            // Preferir la venta de la sucursal; si no hay, usar el total del viaje.
+            $facSuc = (float)$d['facturado_sucursal'];
+            $d['facturado'] = $facSuc > 0 ? $facSuc : (float)$d['facturado_total'];
             $despachos[] = $d;
         }
         mysqli_free_result($recDesp);
@@ -377,11 +389,12 @@ try {
 
     $wK = 120; $wV = 70;
     $resumen = [
-        ['Total facturado (asientos vendidos):', '$' . number_format($tot_facturado, 2)],
+        ['Total vendido (boletos de la oficina):', '$' . number_format($tot_facturado, 2)],
         ['Retenido por cuota administrativa:', '$' . number_format($tot_cuota, 2)],
         ['Retenido por multas / deudas:', '$' . number_format($tot_multas, 2)],
         ['Otras retenciones:', '$' . number_format($tot_otros, 2)],
-        ['TOTAL RETENIDO (despachos):', '$' . number_format($tot_retenido, 2)],
+        ['TOTAL RETENIDO (queda en la oficina):', '$' . number_format($tot_retenido, 2)],
+        ['TOTAL ENTREGADO (al bus):', '$' . number_format(max(0, $tot_facturado - $tot_retenido), 2)],
         ['Egresos por bonos:', '$' . number_format($tot_bonos, 2)],
         ['Ingresos de caja:', '$' . number_format($tot_ingresos, 2)],
         ['Egresos de caja:', '$' . number_format($tot_egresos, 2)],
@@ -392,7 +405,7 @@ try {
         $pdf->Cell($wV, 5, $r[1], 1, 1, 'R');
     }
     $pdf->SetFont('helvetica', 'B', 9);
-    $pdf->Cell($wK, 6, 'TOTAL CAJA', 1, 0, 'L', true);
+    $pdf->Cell($wK, 6, 'TOTAL CAJA (efectivo contado):', 1, 0, 'L', true);
     $pdf->Cell($wV, 6, '$' . number_format((float)$caja['cierre_total_caja'], 2), 1, 1, 'R', true);
 
     $pdf->Ln(3);

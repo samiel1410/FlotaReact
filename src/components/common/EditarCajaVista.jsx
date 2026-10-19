@@ -38,6 +38,7 @@ export default function EditarCajaVista({
   onCancel,
   endpointEditar = '/caja/editarCaja',
   endpointDetalle = '/caja/detalleCaja',
+  endpointListadoDetalle = '/caja/listadoDetalleCaja',
   onSuccess,
   readOnly = false
 }) {
@@ -109,7 +110,7 @@ export default function EditarCajaVista({
     if (!idCaja) return;
     setLoadingMovs(true);
     try {
-      const res = await api.get(`/caja/listadoDetalleCaja?id_caja=${idCaja}`);
+      const res = await api.get(`${endpointListadoDetalle}?id_caja=${idCaja}`);
       if (res.data?.success) setMovimientos(res.data.data || []);
       else setMovimientos([]);
     } catch {
@@ -455,6 +456,17 @@ export default function EditarCajaVista({
                   onChange={e => setDocMov(e.target.value)}
                   className="w-full h-9 text-xs border border-slate-300 rounded-lg px-3 bg-white focus:ring-2 focus:ring-amber-500/20"
                   placeholder="N° Comprobante"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-600 uppercase mb-1">Observación</label>
+                <textarea
+                  rows={2}
+                  value={obsMov}
+                  onChange={e => setObsMov(e.target.value)}
+                  maxLength={300}
+                  className="w-full text-xs border border-slate-300 rounded-lg px-3 py-2 bg-white focus:ring-2 focus:ring-amber-500/20 resize-y"
+                  placeholder="Detalle del ingreso o egreso"
                 />
               </div>
               <div className="flex gap-2">

@@ -1,4 +1,4 @@
-import UsuarioForm from '../pages/Usuarios/components/UsuarioForm';
+﻿import UsuarioForm from '../pages/Usuarios/components/UsuarioForm';
 import { BusForm } from '../pages/Buses/components/BusForm';
 import { VehiculoForm } from '../pages/Vehiculos/components/VehiculoForm';
 import SucursalForm from '../pages/Agencias/components/SucursalForm';
@@ -29,6 +29,27 @@ import Swal from 'sweetalert2';
 import { buildPdfUrl } from '../utils/pdfUrlUtils';
 
 // Configuración centralizada para todas las páginas genéricas de listado
+
+// MySQL devuelve '0000-00-00 00:00:00' cuando aún no hay cierre y algunas
+// columnas traen un valor por defecto (p. ej. 2022-01-01) que no es un cierre
+// real. Se descarta si es anterior o igual a la apertura de la misma caja.
+const formatFechaHora = (v, row) => {
+  if (!v) return '-';
+  const txt = String(v).trim();
+  if (!txt || txt.startsWith('0000-00-00')) return '-';
+  const [fecha, hora] = txt.replace('T', ' ').split(' ');
+  const anio = parseInt(String(fecha).slice(0, 4), 10);
+  if (!anio || anio < 2000) return '-';
+
+  if (row && row.fecha_caja) {
+    const apertura = String(row.fecha_caja).replace('T', ' ').slice(0, 10);
+    if (apertura && fecha <= apertura) return '-';
+  }
+
+  if (!hora || hora === '00:00:00') return fecha;
+  return `${fecha} ${hora.substring(0, 5)}`;
+};
+
 export const PAGES_CONFIG = {
 
   // ─── ADMINISTRACIÓN ─────────────────────────────────────────────────────────
@@ -938,7 +959,7 @@ export const PAGES_CONFIG = {
     columns: [
       { key: 'numero_caja', label: '#' },
       { key: 'fecha_caja', label: 'Fecha', render: v => v ? v.split('T')[0] || v.split(' ')[0] : '-' },
-      { key: 'fecha_hora_cierre', label: 'Fecha Cierre', render: v => v ? (v.split('T')[0] || v.split(' ')[0]) : '-' },
+      { key: 'fecha_hora_cierre', label: 'Fecha Cierre', render: formatFechaHora },
       { key: 'nombre_sucursal', label: 'Sucursal' },
       { key: 'usuario', label: 'Usuario' },
       { key: 'apertura_total_caja', label: '($)Apertura', render: v => `$${parseFloat(v || 0).toFixed(2)}` },
@@ -1051,6 +1072,7 @@ export const PAGES_CONFIG = {
                   caja: row,
                   endpointEditar: '/caja/editarCaja',
                   endpointDetalle: '/caja/detalleCaja',
+                  endpointListadoDetalle: '/caja/listadodetallecaja',
                   onSuccess: () => {
                     if (ctx.refreshList) ctx.refreshList();
                   }
@@ -1073,6 +1095,7 @@ export const PAGES_CONFIG = {
                   caja: row,
                   endpointEditar: '/caja/editarCaja',
                   endpointDetalle: '/caja/detalleCaja',
+                  endpointListadoDetalle: '/caja/listadodetallecaja',
                   readOnly: true
                 },
                 null,
@@ -1141,11 +1164,14 @@ export const PAGES_CONFIG = {
     columns: [
       { key: 'numero_caja', label: '#' },
       { key: 'fecha_caja', label: 'Fecha', render: v => v ? v.split('T')[0] || v.split(' ')[0] : '-' },
-      { key: 'fecha_hora_cierre', label: 'Fecha Cierre', render: v => v ? (v.split('T')[0] || v.split(' ')[0]) : '-' },
+      { key: 'fecha_hora_cierre', label: 'Fecha Cierre', render: formatFechaHora },
       { key: 'nombre_sucursal', label: 'Sucursal' },
       { key: 'usuario', label: 'Usuario' },
-      { key: 'apertura_total_caja', label: '($)Apertura', render: v => `$${parseFloat(v || 0).toFixed(2)}` },
-      { key: 'cierre_total_caja', label: '($)Cierre', render: v => v ? `$${parseFloat(v).toFixed(2)}` : '-' },
+      { key: 'apertura_total_caja', label: '($)Apertura', render: v => `${parseFloat(v || 0).toFixed(2)}` },
+      { key: 'total_vendido', label: '($)Vendido', render: v => <span className="font-mono text-slate-700">${parseFloat(v || 0).toFixed(2)}</span> },
+      { key: 'total_retenido', label: '($)Retenido', render: v => <span className="font-mono font-bold text-amber-600">${parseFloat(v || 0).toFixed(2)}</span> },
+      { key: 'total_entregado', label: '($)Entregado', render: v => <span className="font-mono text-indigo-600">${parseFloat(v || 0).toFixed(2)}</span> },
+      { key: 'cierre_total_caja', label: '($)Cierre', render: v => v ? `${parseFloat(v).toFixed(2)}` : '-' },
       {
         key: 'monto_a_tener', label: '($)Monto a Tener',
         render: (v, row) => {
@@ -1173,6 +1199,41 @@ export const PAGES_CONFIG = {
         }
       },
     ],
+    // Tarjetas de totales: se calculan sobre lo cargado en la pagina.
+    // Lo RETENIDO es el efectivo que queda en la oficina; el resto va al bus.
+    summaryCards: (rows) => {
+      const lista = rows || [];
+      // Prioridad: la caja APERTURADA del usuario logueado. Si no hay, se
+      // resumen las cajas que estan en el listado.
+      let usuario = {};
+      try { usuario = JSON.parse(sessionStorage.getItem('usuario') || '{}') || {}; } catch { /* sesión no disponible */ }
+      const idUsuario = Number(usuario.id_usuario || usuario.id_usuario_original || usuario.id) || 0;
+      const nombreUsuario = String(usuario.nombre_usuario || usuario.username || '').trim().toLowerCase();
+
+      const esDelUsuario = (r) => {
+        if (idUsuario && Number(r.id_fkusuario_caja) === idUsuario) return true;
+        if (nombreUsuario) {
+          const u = String(r.usuario || '').trim().toLowerCase();
+          if (u && (u === nombreUsuario || u.startsWith(nombreUsuario) || nombreUsuario.startsWith(u))) return true;
+        }
+        return false;
+      };
+
+      const aperturadas = lista.filter(r => r.estado_caja === 'APERTURADA');
+      const mias = aperturadas.filter(esDelUsuario);
+      const base = mias.length ? mias : (aperturadas.length ? aperturadas : lista);
+      const alcance = mias.length || aperturadas.length ? 'caja aperturada' : 'cajas listadas';
+
+      const vendido = base.reduce((s, r) => s + (parseFloat(r.total_vendido) || 0), 0);
+      const retenido = base.reduce((s, r) => s + (parseFloat(r.total_retenido) || 0), 0);
+      const entregado = base.reduce((s, r) => s + (parseFloat(r.total_entregado) || 0), 0);
+      const f = (n) => '$' + n.toFixed(2);
+      return [
+        { label: 'Total vendido', value: f(vendido), icon: 'fas fa-cash-register', iconBg: 'bg-slate-100', iconColor: 'text-slate-600', valueColor: 'text-slate-800', border: 'border-slate-200', hint: 'Boletos vendidos — ' + alcance },
+        { label: 'Total retenido', value: f(retenido), icon: 'fas fa-hand-holding-usd', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', valueColor: 'text-amber-700', border: 'border-amber-200', hint: 'Queda en la oficina — ' + alcance },
+        { label: 'Total entregado', value: f(entregado), icon: 'fas fa-truck', iconBg: 'bg-indigo-100', iconColor: 'text-indigo-600', valueColor: 'text-indigo-700', border: 'border-indigo-200', hint: 'Se entrega al bus — ' + alcance },
+      ];
+    },
     filters: [
       { key: 'desde', label: 'Desde', type: 'date' },
       { key: 'hasta', label: 'Hasta', type: 'date' },
@@ -1252,6 +1313,7 @@ export const PAGES_CONFIG = {
                   caja: row,
                   endpointEditar: '/caja_boleteria/editarCaja',
                   endpointDetalle: '/caja_boleteria/detalleCaja',
+                  endpointListadoDetalle: '/caja_boleteria/listadodetallecaja',
                   onSuccess: () => {
                     if (ctx.refreshList) ctx.refreshList();
                   }
@@ -1304,7 +1366,7 @@ export const PAGES_CONFIG = {
     columns: [
       { key: 'numero_caja', label: '#' },
       { key: 'fecha_caja', label: 'Fecha', render: v => v ? v.split('T')[0] || v.split(' ')[0] : '-' },
-      { key: 'fecha_hora_cierre', label: 'Fecha Cierre', render: v => v ? (v.split('T')[0] || v.split(' ')[0]) : '-' },
+      { key: 'fecha_hora_cierre', label: 'Fecha Cierre', render: formatFechaHora },
       { key: 'nombre_sucursal', label: 'Sucursal' },
       { key: 'usuario', label: 'Usuario' },
       { key: 'apertura_total_caja', label: '($)Apertura', render: v => `$${parseFloat(v || 0).toFixed(2)}` },
@@ -1415,6 +1477,7 @@ export const PAGES_CONFIG = {
                   caja: row,
                   endpointEditar: '/cajaretenciones/editarCaja',
                   endpointDetalle: '/cajaretenciones/detalleCaja',
+                  endpointListadoDetalle: '/cajaretenciones/listadodetallecaja',
                   onSuccess: () => {
                     if (ctx.refreshList) ctx.refreshList();
                   }
@@ -1467,7 +1530,7 @@ export const PAGES_CONFIG = {
     columns: [
       { key: 'numero_caja', label: '#' },
       { key: 'fecha_caja', label: 'Fecha', render: v => v ? v.split('T')[0] || v.split(' ')[0] : '-' },
-      { key: 'fecha_hora_cierre', label: 'Fecha Cierre', render: v => v ? (v.split('T')[0] || v.split(' ')[0]) : '-' },
+      { key: 'fecha_hora_cierre', label: 'Fecha Cierre', render: formatFechaHora },
       { key: 'nombre_sucursal', label: 'Sucursal' },
       { key: 'usuario', label: 'Usuario' },
       { key: 'apertura_total_caja', label: '($)Apertura', render: v => `$${parseFloat(v || 0).toFixed(2)}` },
@@ -1578,6 +1641,7 @@ export const PAGES_CONFIG = {
                   caja: row,
                   endpointEditar: '/caja_nota_venta/editarCaja',
                   endpointDetalle: '/caja_nota_venta/detalleCaja',
+                  endpointListadoDetalle: '/caja_nota_venta/listadodetallecaja',
                   onSuccess: () => {
                     if (ctx.refreshList) ctx.refreshList();
                   }
@@ -1600,6 +1664,7 @@ export const PAGES_CONFIG = {
                   caja: row,
                   endpointEditar: '/caja_nota_venta/editarCaja',
                   endpointDetalle: '/caja_nota_venta/detalleCaja',
+                  endpointListadoDetalle: '/caja_nota_venta/listadodetallecaja',
                   readOnly: true
                 },
                 null,

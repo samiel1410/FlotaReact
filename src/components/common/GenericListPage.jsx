@@ -192,6 +192,28 @@ export const GenericListPage = ({ config }) => {
 
   return (
     <div className="flex flex-col h-full gap-2 p-0 bg-slate-100/50">
+
+      {/* ── TARJETAS RESUMEN (opcional por config) ───────────────────────────── */}
+      {typeof config.summaryCards === 'function' && (() => {
+        const cards = config.summaryCards(data) || [];
+        if (!cards.length) return null;
+        return (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 shrink-0">
+            {cards.map((c, i) => (
+              <div key={i} className={`bg-white rounded-xl border ${c.border || 'border-slate-200'} shadow-sm px-3 py-2 flex items-center gap-3`}>
+                <div className={`w-9 h-9 rounded-lg ${c.iconBg || 'bg-slate-100'} ${c.iconColor || 'text-slate-600'} flex items-center justify-center shrink-0`}>
+                  <i className={`${c.icon || 'fas fa-calculator'} text-sm`}></i>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{c.label}</p>
+                  <p className={`text-lg font-black ${c.valueColor || 'text-slate-800'} font-mono leading-tight`}>{c.value}</p>
+                  {c.hint && <p className="text-[9px] text-slate-400 truncate">{c.hint}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
       
       {/* ── CABECERA INTEGRADA ────────────────────────────────────────────────── */}
       <div className="bg-white border-b border-slate-200 shadow-sm shrink-0">

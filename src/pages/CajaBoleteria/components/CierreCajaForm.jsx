@@ -85,9 +85,16 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel }) => {
     slate: 'bg-slate-50 border-slate-200 text-slate-700',
   };
 
-  const diferencia = cajaActual?.apertura_total_caja
-    ? totalGeneral - cajaActual.apertura_total_caja
-    : totalGeneral;
+  // Lo que debe quedar FÍSICAMENTE en la oficina es lo RETENIDO en los
+  // despachos: el resto de la venta se entrega al bus.
+  const tieneDesglose = cajaActual && cajaActual.total_vendido !== undefined;
+  const totalVendido = Number(cajaActual?.total_vendido) || 0;
+  const totalRetenido = Number(cajaActual?.total_retenido) || 0;
+  const totalEntregado = Number(cajaActual?.total_entregado) || 0;
+
+  // Esperado en caja = lo que había al abrir + lo retenido en el período.
+  const esperadoEnCaja = (Number(cajaActual?.apertura_total_caja) || 0) + totalRetenido;
+  const diferenciaEsperado = totalGeneral - esperadoEnCaja;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -101,6 +108,38 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel }) => {
           <div className="text-right">
             <p className="text-xs font-bold text-slate-500 uppercase">ID Caja</p>
             <p className="text-lg font-black text-slate-700">#{cajaActual.id_caja}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Desglose de la caja: vendido / retenido / entregado */}
+      {tieneDesglose && (
+        <div className="rounded-2xl border-2 border-slate-200 overflow-hidden">
+          <div className="bg-slate-100 px-4 py-2">
+            <p className="text-[11px] font-black text-slate-600 uppercase tracking-wider">Resumen de la caja</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
+            <div className="p-4 text-center">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total vendido</p>
+              <p className="text-2xl font-black text-slate-800 font-mono">{formatMonto(totalVendido)}</p>
+              <p className="text-[10px] text-slate-400">Boletos de esta caja</p>
+            </div>
+            <div className="p-4 text-center bg-amber-50">
+              <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Total retenido</p>
+              <p className="text-2xl font-black text-amber-700 font-mono">{formatMonto(totalRetenido)}</p>
+              <p className="text-[10px] text-amber-600 font-bold">Queda en la oficina</p>
+            </div>
+            <div className="p-4 text-center">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total entregado</p>
+              <p className="text-2xl font-black text-indigo-700 font-mono">{formatMonto(totalEntregado)}</p>
+              <p className="text-[10px] text-slate-400">Se entrega al bus</p>
+            </div>
+          </div>
+          <div className="bg-amber-50 border-t border-amber-200 px-4 py-2">
+            <p className="text-[11px] font-bold text-amber-800">
+              <i className="fas fa-info-circle mr-1"></i>
+              El efectivo a entregar en el cierre debe coincidir con el <b>Total retenido</b> ({formatMonto(totalRetenido)}), no con la venta total.
+            </p>
           </div>
         </div>
       )}
@@ -175,25 +214,33 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel }) => {
 
       {/* Resumen */}
       <div className={`rounded-2xl p-6 text-center border-2 ${
-        Math.abs(diferencia) < 0.01
+        Math.abs(diferenciaEsperado) < 0.01
           ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200'
           : 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
       }`}>
-        <div className="grid grid-cols-3 gap-4 mb-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
           <div>
             <p className="text-xs font-bold text-slate-500 uppercase">Apertura</p>
             <p className="text-xl font-black text-slate-700">{formatMonto(cajaActual?.apertura_total_caja || 0)}</p>
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase">Cierre</p>
-            <p className="text-xl font-black text-slate-700">{formatMonto(totalGeneral)}</p>
+            <p className="text-xs font-bold text-amber-600 uppercase">Retenido</p>
+            <p className="text-xl font-black text-amber-700">{formatMonto(totalRetenido)}</p>
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-500 uppercase">Diferencia</p>
-            <p className={`text-xl font-black ${Math.abs(diferencia) < 0.01 ? 'text-emerald-700' : 'text-red-700'}`}>
-              {diferencia >= 0 ? '+' : ''}{formatMonto(diferencia)}
-            </p>
+            <p className="text-xs font-bold text-slate-500 uppercase">Esperado en caja</p>
+            <p className="text-xl font-black text-slate-700">{formatMonto(esperadoEnCaja)}</p>
           </div>
+          <div>
+            <p className="text-xs font-bold text-slate-500 uppercase">Contado</p>
+            <p className="text-xl font-black text-slate-700">{formatMonto(totalGeneral)}</p>
+          </div>
+        </div>
+        <div className="mb-4">
+          <p className="text-xs font-bold text-slate-500 uppercase">Diferencia</p>
+          <p className={`text-xl font-black ${Math.abs(diferenciaEsperado) < 0.01 ? 'text-emerald-700' : 'text-red-700'}`}>
+            {diferenciaEsperado >= 0 ? '+' : ''}{formatMonto(diferenciaEsperado)}
+          </p>
         </div>
         <p className="text-sm font-bold text-slate-600 uppercase tracking-wider">Total Cierre</p>
         <p className="text-3xl font-black text-slate-800">{formatMonto(totalGeneral)}</p>

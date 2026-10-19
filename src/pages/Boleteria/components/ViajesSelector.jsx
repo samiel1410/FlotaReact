@@ -1,6 +1,16 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 
+// La fecha del viaje llega como 'YYYY-MM-DD HH:mm:ss' o ISO. Se muestra tal cual
+// viene del viaje (sin pasar por Date para no correr un día por la zona horaria).
+const formatearFechaViaje = (valor) => {
+  if (!valor) return '';
+  const solo = String(valor).split('T')[0].split(' ')[0];
+  const [y, m, d] = solo.split('-');
+  if (!y || !m || !d) return solo;
+  return `${d}/${m}/${y}`;
+};
+
 export const ViajesSelector = ({
   fechaViaje,
   onFechaChange,
@@ -242,6 +252,18 @@ export const ViajesSelector = ({
               <span style={{ color: '#64748b' }}>🗺️ Ruta:</span>
               <span style={{ fontWeight: 600, color: '#0f172a', textAlign: 'right' }}>
                 {hoveredViaje.nombre_rutas || hoveredViaje.nombre_aux || 'N/A'}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: '#64748b' }}>📅 Fecha del Viaje:</span>
+              <span style={{ fontWeight: 700, color: '#0f172a' }}>
+                {formatearFechaViaje(
+                  hoveredViaje.fecha_viaje ||
+                  hoveredViaje.fecha ||
+                  hoveredViaje.fecha_cierre ||
+                  fechaViaje
+                ) || 'N/A'}
               </span>
             </div>
 

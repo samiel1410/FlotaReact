@@ -164,6 +164,9 @@ export const CajaBoleteriaPage = () => {
     { header: 'F. CIERRE', accessorKey: 'fecha_hora_cierre', cell: (v) => <span className="text-slate-600 font-mono text-sm">{fmtDate(v) || '-'}</span> },
     { header: 'SUCURSAL', accessorKey: 'nombre_sucursal', cell: (v) => <span className="text-slate-700">{v || '-'}</span> },
     { header: 'APERTURA', accessorKey: 'apertura_total_caja', cell: (v) => <span className="text-emerald-600 font-bold font-mono">{fmt(v)}</span> },
+    { header: 'VENDIDO', accessorKey: 'total_vendido', cell: (v) => <span className="text-slate-700 font-mono">{fmt(v)}</span> },
+    { header: 'RETENIDO', accessorKey: 'total_retenido', cell: (v) => <span className="text-amber-600 font-bold font-mono">{fmt(v)}</span> },
+    { header: 'ENTREGADO', accessorKey: 'total_entregado', cell: (v) => <span className="text-indigo-600 font-mono">{fmt(v)}</span> },
     { header: 'CIERRE', accessorKey: 'cierre_total_caja', cell: (v) => <span className="text-blue-600 font-bold font-mono">{fmt(v)}</span> },
     { header: 'CUADRE', accessorKey: 'cuadre_caja', cell: (v) => <span className="text-slate-600 font-mono text-sm">{v || '-'}</span> },
     { header: 'USUARIO', accessorKey: 'usuario', cell: (v) => <span className="text-slate-600">{v || '-'}</span> },
@@ -248,6 +251,28 @@ export const CajaBoleteriaPage = () => {
         </div>
       </div>
 
+      {/* ─── TARJETAS DE TOTALES DE LA CAJA ABIERTA ─────────────────────── */}
+      {openCaja && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 shrink-0">
+          {[
+            { t: 'TOTAL VENDIDO', v: openCaja.total_vendido, i: 'fa-cash-register', d: 'Boletos vendidos en esta caja', box: 'border-slate-200', ico: 'bg-slate-100 text-slate-600', txt: 'text-slate-800' },
+            { t: 'TOTAL RETENIDO', v: openCaja.total_retenido, i: 'fa-hand-holding-usd', d: 'Queda en la oficina (despachos)', box: 'border-amber-200', ico: 'bg-amber-100 text-amber-600', txt: 'text-amber-700' },
+            { t: 'TOTAL ENTREGADO', v: openCaja.total_entregado, i: 'fa-truck', d: 'Se entrega al bus', box: 'border-indigo-200', ico: 'bg-indigo-100 text-indigo-600', txt: 'text-indigo-700' },
+          ].map(({ t, v, i, d, box, ico, txt }) => (
+            <div key={t} className={`bg-white rounded-xl border ${box} shadow-sm p-3 flex items-center gap-3`}>
+              <div className={`w-10 h-10 rounded-lg ${ico} flex items-center justify-center shrink-0`}>
+                <i className={`fas ${i}`}></i>
+              </div>
+              <div className="min-w-0">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none">{t}</p>
+                <p className={`text-xl font-black ${txt} font-mono leading-tight`}>{fmt(v)}</p>
+                <p className="text-[9px] text-slate-400 truncate">{d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ─── BARRA DE FILTROS ARRIBA ────────────────────────────────────── */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 px-4 py-3 shrink-0">
         <div className="flex items-center gap-3 flex-wrap">
@@ -309,7 +334,7 @@ export const CajaBoleteriaPage = () => {
               </div>
             )}
             <div className="flex-1 overflow-auto">
-              <table className="w-full text-left border-collapse min-w-[1000px]">
+              <table className="w-full text-left border-collapse min-w-[1240px]">
                 <thead className="bg-slate-50 sticky top-0 z-0 border-b border-slate-200">
                   <tr>
                     {columns.map(col => (

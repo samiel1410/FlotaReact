@@ -136,6 +136,8 @@ try {
     $total_documentos = number_format((float)($saldoCaja['total_documento'] ?? 0), 2, '.', '');
     $estado_cuadre = $saldoCaja['estado_cuadre'] ?? '';
     $saldo = number_format((float)($saldoCaja['total_diferencia'] ?? 0), 2, '.', '');
+    $esperado_caja = number_format((float)($saldoCaja['total_esperado'] ?? 0), 2, '.', '');
+    $contado_caja = number_format((float)($saldoCaja['total_contado'] ?? 0), 2, '.', '');
 
     $total_apertura = isset($saldoCaja['_tot_apertura']) ? number_format((float)$saldoCaja['_tot_apertura'], 2, '.', '') : '0.00';
     $total_cierre = isset($saldoCaja['_tot_cierre']) ? number_format((float)$saldoCaja['_tot_cierre'], 2, '.', '') : '0.00';
@@ -393,7 +395,16 @@ try {
 
     $pdf->SetX($xRight);
     $pdf->SetFont('helvetica', 'B', 8.5);
-    $pdf->Cell($wTotLabel, 4.5, 'SALDO ==>', 0, 0, 'L');
+    $pdf->SetFont('helvetica', '', 8);
+    $pdf->Cell($wTotLabel, 4.2, 'ESPERADO:', 0, 0, 'L');
+    $pdf->Cell($wTotVal, 4.2, '$ ' . $esperado_caja, 0, 1, 'R');
+    $pdf->SetX($xRight);
+    $pdf->Cell($wTotLabel, 4.2, 'CONTADO:', 0, 0, 'L');
+    $pdf->Cell($wTotVal, 4.2, '$ ' . $contado_caja, 0, 1, 'R');
+
+    $pdf->SetX($xRight);
+    $pdf->SetFont('helvetica', 'B', 8.5);
+    $pdf->Cell($wTotLabel, 4.5, 'DIFERENCIA:', 0, 0, 'L');
     $pdf->Cell($wTotVal, 4.5, '$ ' . $saldo . ' (' . $estado_cuadre . ')', 0, 1, 'R');
 
     // Columna Izquierda: Firmas

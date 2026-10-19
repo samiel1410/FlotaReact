@@ -10,27 +10,31 @@ import toast from 'react-hot-toast';
  * mediante "Ajuste de Stock". Este formulario implementa esa lógica.
  */
 const InventarioForm = ({ initialData, onSubmit, onCancel }) => {
-  const isEditing = !!initialData;
+  const isEditing = !!initialData && !!initialData.id_inventario;
   const [loading, setLoading] = useState(false);
   const [alimentos, setAlimentos] = useState([]);
   const [sucursales, setSucursales] = useState([]);
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
-    defaultValues: isEditing ? {
-      id_alimento: String(initialData.id_alimento || ''),
-      id_sucursal: String(initialData.id_sucursal || ''),
-      stock_actual: initialData.stock_actual || initialData.inv_stock || '',
-      precio_alimentos: initialData.precio_alimentos || initialData.inv_precio || '',
-      observacion: initialData.observacion || '',
-      tipo_movimiento: 'AJUSTE',
-    } : {
-      id_alimento: '',
-      id_sucursal: '',
-      stock_actual: '',
-      precio_alimentos: '',
-      observacion: '',
-      tipo_movimiento: 'ENTRADA',
-    }
+  // La fila del listado trae id_fkalimento / id_fksucursal (columnas reales),
+  // no id_alimento / id_sucursal.
+  const valoresIniciales = isEditing ? {
+    id_alimento: String(initialData.id_fkalimento ?? initialData.id_alimento ?? initialData.id_alimentos ?? ''),
+    id_sucursal: String(initialData.id_fksucursal ?? initialData.id_sucursal ?? ''),
+    stock_actual: initialData.stock_actual ?? initialData.inv_stock ?? '',
+    precio_alimentos: initialData.precio_alimentos || initialData.inv_precio || '',
+    observacion: initialData.observacion || '',
+    tipo_movimiento: 'AJUSTE',
+  } : {
+    id_alimento: '',
+    id_sucursal: '',
+    stock_actual: '',
+    precio_alimentos: '',
+    observacion: '',
+    tipo_movimiento: 'ENTRADA',
+  };
+
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+    defaultValues: valoresIniciales
   });
 
   useEffect(() => {
@@ -40,7 +44,11 @@ const InventarioForm = ({ initialData, onSubmit, onCancel }) => {
     ]).then(([aliRes, sucRes]) => {
       setAlimentos(aliRes.data.data || []);
       setSucursales(sucRes.data.data || []);
+      // Los <option> llegan después del primer render: sin este reset el select
+      // se queda en "Seleccionar..." aunque el registro sí traiga el valor.
+      reset(valoresIniciales);
     }).catch(err => console.error('Error cargando datos:', err));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onFormSubmit = async (data) => {
@@ -89,7 +97,6 @@ const InventarioForm = ({ initialData, onSubmit, onCancel }) => {
           <select
             {...register('id_alimento', { required: 'El producto es requerido' })}
             className={inputClass}
-            disabled={isEditing}
           >
             <option value="">Seleccionar producto...</option>
             {alimentos.map(a => (
