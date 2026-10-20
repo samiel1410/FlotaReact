@@ -10,7 +10,7 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
   const [fotoPreview, setFotoPreview] = useState(initialData?.foto_cliente ? `${CONFIG.API_URL || 'http://localhost:3002'}/cliente/fotos/${initialData.foto_cliente}` : null);
   const [fotoBase64, setFotoBase64] = useState(null);
 
-  const { register, handleSubmit, formState: { errors } } = useForm({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
     defaultValues: isEditing ? {
       tipo_identificacion_cliente: initialData.tipo_identificacion_cliente || 'C',
       identificacion_cliente: initialData.identificacion_cliente || '',
@@ -33,7 +33,11 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
   const onFormSubmit = async (data) => {
     setLoading(true);
     try {
-      const payload = { ...data, estado_clientes: data.estado_clientes ? '1' : '0' };
+      const payload = {
+        ...data,
+        telefono_cliente: (data.telefono_cliente || '').replace(/\D/g, '').slice(0, 10),
+        estado_clientes: data.estado_clientes ? '1' : '0'
+      };
       if (isEditing) payload.id_clientes = initialData.id_clientes;
       if (fotoBase64) payload.foto_cliente = fotoBase64;
 
@@ -159,14 +163,17 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
           <label className={labelClass}>Teléfono</label>
           <input
             type="text"
-            {...register('telefono_cliente')}
+            inputMode="numeric"
+            maxLength={10}
+            {...register('telefono_cliente', {
+              pattern: { value: /^\d*$/, message: 'Solo se permiten números' },
+              maxLength: { value: 10, message: 'Máximo 10 dígitos' }
+            })}
             className={inputClass}
             placeholder="Ej: 0998765432"
-            onChange={e => {
-              const val = e.target.value.replace(/\D/g, '');
-              e.target.value = val;
-            }}
+            onChange={e => setValue('telefono_cliente', e.target.value.replace(/\D/g, '').slice(0, 10), { shouldValidate: true })}
           />
+          {errors.telefono_cliente && <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.telefono_cliente.message}</span>}
         </div>
 
         <div className="md:col-span-2">

@@ -1377,8 +1377,8 @@ export const NuevaGuiaNotaVentaPage = () => {
                   </div>
                   <div>
                     <label className={labelClass}>Teléfono</label>
-                    <input className={inputClass} value={otrosNewCliente.telefono_cliente}
-                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, telefono_cliente: e.target.value.replace(/\D/g, '') })} />
+                    <input className={inputClass} inputMode="numeric" maxLength={10} value={otrosNewCliente.telefono_cliente}
+                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, telefono_cliente: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
                   </div>
                   <div style={{ gridColumn: 'span 2' }}>
                     <label className={labelClass}>Email</label>
@@ -1406,7 +1406,7 @@ export const NuevaGuiaNotaVentaPage = () => {
                   </div>
                   <div>
                     <label className={labelClass}>Teléfono</label>
-                    <input type="text" className={inputRO} readOnly value={otrosTelefono} />
+                    <input type="text" className={inputRO} inputMode="numeric" maxLength={10} readOnly value={otrosTelefono} />
                   </div>
                   <div>
                     <label className={labelClass}>Correo</label>

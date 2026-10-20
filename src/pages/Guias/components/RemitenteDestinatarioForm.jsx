@@ -87,7 +87,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
             tipo_identificacion_cliente: cli.tipo_identificacion || '05',
             nombre_cliente: clienteData.nombres || '',
             direccion_cliente: clienteData.direccion || '',
-            telefono_cliente: clienteData.telefono || '',
+            telefono_cliente: (clienteData.telefono || '').replace(/\D/g, '').slice(0, 10),
             correo_cliente: clienteData.email || '',
             provincia: cli.provincia || '',
             canton: cli.canton || '',
@@ -148,7 +148,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         nombre_cliente: newCliente.nombre_cliente,
         direccion_cliente: newCliente.direccion_cliente,
         correo_cliente: newCliente.correo_cliente,
-        telefono_cliente: newCliente.telefono_cliente
+        telefono_cliente: (newCliente.telefono_cliente || '').replace(/\D/g, '').slice(0, 10)
       });
       const clienteData = {
         id_cliente: null,
@@ -191,7 +191,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         nombre_cliente: editFormData.nombre_cliente,
         direccion_cliente: editFormData.direccion_cliente,
         correo_cliente: editFormData.correo_cliente || editFormData.email_cliente || '',
-        telefono_cliente: editFormData.telefono_cliente,
+        telefono_cliente: (editFormData.telefono_cliente || '').replace(/\D/g, '').slice(0, 10),
         fecha_nacimiento: editFormData.fecha_nacimiento || ''
       };
       await clienteApi.post('/cliente/actualizarCliente', payload);
@@ -203,7 +203,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         cedula: editFormData.identificacion_cliente,
         nombres: editFormData.nombre_cliente,
         direccion: editFormData.direccion_cliente,
-        telefono: editFormData.telefono_cliente,
+        telefono: (editFormData.telefono_cliente || '').replace(/\D/g, '').slice(0, 10),
         email: editFormData.correo_cliente || editFormData.email_cliente || '',
         telefono2: editFormData.telefono2 || ''
       };
@@ -316,8 +316,8 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                 </div>
                 <div>
                   <label className={labelClass}>Teléfono</label>
-                  <input className={inputClass} value={newCliente.telefono_cliente}
-                    onChange={(e) => setNewCliente({...newCliente, telefono_cliente: e.target.value.replace(/\D/g, '')})} />
+                  <input className={inputClass} inputMode="numeric" maxLength={10} value={newCliente.telefono_cliente}
+                    onChange={(e) => setNewCliente({...newCliente, telefono_cliente: e.target.value.replace(/\D/g, '').slice(0, 10)})} />
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
                   <label className={labelClass}>Email</label>
@@ -351,7 +351,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                   tipo_identificacion_cliente: cliente.tipo_identificacion || '05',
                   nombre_cliente: cliente.nombres || '',
                   direccion_cliente: cliente.direccion || '',
-                  telefono_cliente: cliente.telefono || '',
+                  telefono_cliente: (cliente.telefono || '').replace(/\D/g, '').slice(0, 10),
                   correo_cliente: cliente.email || '',
                   provincia: cliente.provincia || '',
                   canton: cliente.canton || '',
@@ -380,8 +380,8 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
                   <div>
                     <label style={{ fontSize: '9px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '2px', display: 'block' }}>Teléfono</label>
-                    <input type="text" className={inputClass} value={cliente.telefono}
-                      onChange={(e) => onChange({ ...cliente, telefono: e.target.value.replace(/\D/g, '') })}
+                    <input type="text" className={inputClass} inputMode="numeric" maxLength={10} value={cliente.telefono}
+                      onChange={(e) => onChange({ ...cliente, telefono: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                       placeholder="Teléfono" />
                   </div>
                   <div>
@@ -440,8 +440,8 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
             </div>
             <div>
               <label className={labelClass}>Teléfono</label>
-              <input className={inputClass} value={editFormData.telefono_cliente}
-                onChange={(e) => setEditFormData({...editFormData, telefono_cliente: e.target.value.replace(/\D/g, '')})} />
+              <input className={inputClass} inputMode="numeric" maxLength={10} value={editFormData.telefono_cliente}
+                onChange={(e) => setEditFormData({...editFormData, telefono_cliente: e.target.value.replace(/\D/g, '').slice(0, 10)})} />
             </div>
             <div style={{ gridColumn: 'span 2' }}>
               <label className={labelClass}>Email</label>

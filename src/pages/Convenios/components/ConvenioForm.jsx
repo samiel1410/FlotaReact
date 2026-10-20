@@ -112,8 +112,8 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
         ruc: data.ruc ? data.ruc.trim() : '',
         porcentaje_comision: data.porcentaje_comision !== '' ? parseFloat(data.porcentaje_comision) : 0,
         direccion: data.direccion ? data.direccion.trim() : '',
-        telefono: data.telefono ? data.telefono.trim() : '',
-        celular: data.celular ? data.celular.trim() : '',
+        telefono: data.telefono ? data.telefono.replace(/\D/g, '').slice(0, 10) : '',
+        celular: data.celular ? data.celular.replace(/\D/g, '').slice(0, 10) : '',
         correo: data.correo ? data.correo.trim() : '',
         estado: data.estado ? '1' : '0',
         observacion: data.observacion ? data.observacion.trim() : '',
@@ -256,12 +256,13 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
             maxLength={10}
             {...register('telefono', {
               pattern: { value: /^[0-9]*$/, message: 'Solo se permiten números' },
-              minLength: { value: 7, message: 'El teléfono debe tener al menos 7 dígitos' }
+              minLength: { value: 7, message: 'El teléfono debe tener al menos 7 dígitos' },
+              maxLength: { value: 10, message: 'El teléfono debe tener máximo 10 dígitos' }
             })}
             className={inputClass}
             placeholder="Ej: 022345678"
             onChange={e => {
-              const val = e.target.value.replace(/\D/g, '');
+              const val = e.target.value.replace(/\D/g, '').slice(0, 10);
               e.target.value = val;
             }}
           />
@@ -276,12 +277,13 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
             maxLength={10}
             {...register('celular', {
               pattern: { value: /^[0-9]*$/, message: 'Solo se permiten números' },
-              minLength: { value: 10, message: 'El celular debe tener 10 dígitos' }
+              minLength: { value: 10, message: 'El celular debe tener 10 dígitos' },
+              maxLength: { value: 10, message: 'El celular debe tener máximo 10 dígitos' }
             })}
             className={inputClass}
             placeholder="Ej: 0998765432"
             onChange={e => {
-              const val = e.target.value.replace(/\D/g, '');
+              const val = e.target.value.replace(/\D/g, '').slice(0, 10);
               e.target.value = val;
             }}
           />
