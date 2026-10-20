@@ -1,4 +1,4 @@
-export const RecaudadoGrid = ({ data, loading, page, limit, total, totales, onPageChange, onReload }) => {
+export const RecaudadoGrid = ({ data, loading, page, limit, total, totales, onPageChange, onReload, onVerDetalle }) => {
 
   const totalPages = Math.ceil(total / limit) || 1;
 
@@ -33,18 +33,19 @@ export const RecaudadoGrid = ({ data, loading, page, limit, total, totales, onPa
               <th className="text-center"># FACTURAS</th>
               <th className="text-right">VENTA</th>
               <th className="text-right">RETENIDO</th>
+              <th className="text-center">DETALLE</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
               <tr className="loading-row">
-                <td colSpan="8">
+                <td colSpan="9">
                   <i className="fas fa-spinner fa-spin" style={{marginRight: 8}}></i> Cargando datos de recaudación...
                 </td>
               </tr>
             ) : !data || data.length === 0 ? (
               <tr className="empty-row">
-                <td colSpan="8">
+                <td colSpan="9">
                   <i className="fas fa-inbox" style={{marginRight: 8, opacity: 0.4}}></i>
                   No se encontraron registros de recaudación.
                 </td>
@@ -63,6 +64,16 @@ export const RecaudadoGrid = ({ data, loading, page, limit, total, totales, onPa
                   </td>
                   <td className="monto-retenido text-right">
                     ${parseFloat(item.retenidio ?? item.retenido ?? 0).toFixed(2)}
+                  </td>
+                  <td className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => onVerDetalle?.(item)}
+                      title="Ver desglose de retenciones"
+                      className="recaudado-btn-detalle"
+                    >
+                      <i className="fas fa-list-ul"></i> Ver
+                    </button>
                   </td>
                 </tr>
               ))

@@ -28,6 +28,15 @@ export const RecaudadoService = {
     return response.data;
   },
 
+  /**
+   * Desglose de retenciones de un viaje (Unión, Seguros, cuota administrativa, etc.)
+   * @param {number} idViaje
+   */
+  getDetalleRetenciones: async (idViaje) => {
+    const response = await api.get('/boleteria/retencionesDetalle', { params: { id_viaje: idViaje } });
+    return response.data;
+  },
+
   getRutasParaFiltro: async () => {
     const response = await api.get('/rutas/rutasSeleccionCombo');
     return response.data;

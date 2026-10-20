@@ -19,6 +19,7 @@ import { NuevoClienteModal } from './components/NuevoClienteModal';
 import { CambiarBusModal } from './components/CambiarBusModal';
 import { ReagendarBoletoModal } from './components/ReagendarBoletoModal';
 import { CambiarAgenciaModal } from './components/CambiarAgenciaModal';
+import { AsientoOcupadoModal } from './components/AsientoOcupadoModal';
 import { ListadoPasajerosModal } from './components/ListadoPasajerosModal';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import Modal from '../../components/common/Modal';
@@ -145,6 +146,7 @@ export const NuevoBoletoPage = () => {
   const [showReagendarModal, setShowReagendarModal] = useState(false);
   const [boletoAReagendar, setBoletoAReagendar] = useState(null);
   const [showCambiarAgenciaModal, setShowCambiarAgenciaModal] = useState(false);
+  const [asientoOcupado, setAsientoOcupado] = useState(null);
   const [showListadoPasajeros, setShowListadoPasajeros] = useState(false);
   const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [descuentoGlobalBoleto, setDescuentoGlobalBoleto] = useState(false);
@@ -915,36 +917,33 @@ export const NuevoBoletoPage = () => {
 
   const handleAsientoOcupadoClick = (ocupado) => {
     if (!ocupado) return;
-    const destino = destinosViaje.find(d => String(d.id_sub_rutas) === String(ocupado.id_destino_boleto));
-    Swal.fire({
-      title: `Asiento ${ocupado.asiento_boleto_detalle}`,
-      html: `
-        <div style="text-align:left;font-size:13px">
-          <p><strong>Pasajero:</strong> ${ocupado.nombre_cliente || '---'}</p>
-          <p><strong>Cédula:</strong> ${ocupado.identificacion_cliente || '---'}</p>
-          <p><strong>Total:</strong> $${parseFloat(ocupado.total_boleto_detalle || 0).toFixed(2)}</p>
-          <p><strong>Destino:</strong> ${destino?.nombre_sub_rutas || ocupado.id_destino_boleto || '---'}</p>
-          <p><strong>Boleto #:</strong> ${ocupado.id_boleto}</p>
-        </div>
-      `,
-      icon: 'info',
-      showCancelButton: true,
-      confirmButtonText: 'IMPRIMIR',
-      confirmButtonColor: '#28a745',
-      cancelButtonText: 'CERRAR',
-      showDenyButton: true,
-      denyButtonText: 'CAMBIAR/REUBICAR',
-      denyButtonColor: '#035f2c',
-      showCloseButton: true,
-      focusConfirm: false,
-    }).then(result => {
-      if (result.isConfirmed && ocupado.id_boleto) {
-        imprimirBoleto(ocupado.id_boleto);
-      } else if (result.isDenied && ocupado.id_boleto) {
-        setBoletoAReagendar(ocupado);
-        setShowReagendarModal(true);
-      }
-    });
+    marcarActividadReal();
+    setAsientoOcupado(ocupado);
+  };
+
+  const cerrarAsientoOcupado = () => setAsientoOcupado(null);
+
+  // El nombre del tramo puede venir del backend (sub-ruta del boleto, incluso de
+  // otra agencia) o, si no, del catálogo local de destinos del viaje.
+  const destinoNombreAsiento = asientoOcupado
+    ? (asientoOcupado.nombre_destino
+        || destinosViaje.find(d => String(d.id_sub_rutas) === String(asientoOcupado.id_destino_boleto))?.nombre_sub_rutas
+        || '')
+    : '';
+
+  const imprimirAsientoOcupado = () => {
+    const idBoleto = asientoOcupado?.id_boleto;
+    cerrarAsientoOcupado();
+    if (idBoleto) imprimirBoleto(idBoleto);
+  };
+
+  const reubicarAsientoOcupado = () => {
+    const ocupado = asientoOcupado;
+    cerrarAsientoOcupado();
+    if (ocupado?.id_boleto) {
+      setBoletoAReagendar(ocupado);
+      setShowReagendarModal(true);
+    }
   };
 
   const handleTotalesChange = (t) => {
@@ -1783,6 +1782,14 @@ export const NuevoBoletoPage = () => {
             });
           }
         }}
+      />
+      <AsientoOcupadoModal
+        isOpen={Boolean(asientoOcupado)}
+        onClose={cerrarAsientoOcupado}
+        ocupado={asientoOcupado}
+        destinoNombre={destinoNombreAsiento}
+        onImprimir={imprimirAsientoOcupado}
+        onReubicar={reubicarAsientoOcupado}
       />
       <CambiarAgenciaModal
         isOpen={showCambiarAgenciaModal}

@@ -161,7 +161,10 @@ export const BusquedaBusModal = ({ onSelect, onClose, filterMode = false }) => {
                         <button
                           onClick={() => {
                             if (filterMode) {
-                              onSelect(bus.codigo_buses || bus.id_buses, bus.placa_buses || bus.placa);
+                              // Los endpoints de filtros esperan el ID del bus.
+                              // Enviar el código (p. ej. "52") se interpretaba como
+                              // ID y mezclaba la información con otra unidad.
+                              onSelect(bus.id_buses ?? bus.codigo_buses, bus.placa_buses || bus.placa);
                             } else {
                               onSelect(bus);
                             }

@@ -329,6 +329,28 @@
   font-weight: 700;
 }
 
+.recaudado-btn-detalle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 6px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #4338ca;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+  white-space: nowrap;
+}
+
+.recaudado-btn-detalle:hover {
+  background: #4338ca;
+  color: #fff;
+  border-color: #4338ca;
+}
+
 .recaudado-table .loading-row td,
 .recaudado-table .empty-row td {
   padding: 40px 20px;

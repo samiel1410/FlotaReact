@@ -265,7 +265,8 @@ const VerDetalleCobroModal = ({ detalle, onClose }) => {
               <table className="w-full text-xs text-left">
                 <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-bold text-slate-600 uppercase">
                   <tr>
-                    <th className="px-3 py-2">Viaje / Despacho</th>
+                    <th className="px-3 py-2">Viaje</th>
+                    <th className="px-3 py-2">Despacho / Oficina</th>
                     <th className="px-3 py-2">Ruta</th>
                     <th className="px-3 py-2">Fecha Despacho</th>
                     <th className="px-3 py-2 text-right">Monto Retenido</th>
@@ -276,6 +277,14 @@ const VerDetalleCobroModal = ({ detalle, onClose }) => {
                     <tr key={idx} className="hover:bg-slate-100/60">
                       <td className="px-3 py-2 font-bold text-indigo-700">
                         Viaje #{ret.id_viaje || ret.id_despacho_viaje || '-'}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="font-bold text-slate-700">
+                          Despacho #{ret.id_despacho_viaje || '-'}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-medium">
+                          {ret.nombre_sucursal || ret.usuario_despacho || 'Oficina'}
+                        </div>
                       </td>
                       <td className="px-3 py-2 font-medium text-slate-700">
                         {ret.ruta || 'Despacho de Terminal'}

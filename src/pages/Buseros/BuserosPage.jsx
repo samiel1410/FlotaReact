@@ -5,6 +5,7 @@ import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { BusquedaPersonalModal } from './components/BusquedaPersonalModal';
 import { BusquedaRutaModal } from './components/BusquedaRutaModal';
 import { BusquedaBusModal } from '../Despacho/components/BusquedaBusModal';
+import { RecaudadoDetalleModal } from '../Recaudado/components/RecaudadoDetalleModal';
 
 const PAGE_SIZE = 40;
 
@@ -45,6 +46,9 @@ export const BuserosPage = () => {
 
   // Modales de búsqueda
   const [modalBusqueda, setModalBusqueda] = useState(null); // 'socio' | 'ruta' | 'bus'
+
+  // Detalle de retenciones del viaje
+  const [detalleViaje, setDetalleViaje] = useState(null);
 
   // Filtros
   const [filters, setFilters] = useState({
@@ -312,11 +316,12 @@ export const BuserosPage = () => {
                   <th className="px-3 py-2 text-right font-bold text-slate-500 uppercase tracking-wider"># FACTURAS</th>
                   <th className="px-3 py-2 text-right font-bold text-slate-500 uppercase tracking-wider">VENTA</th>
                   <th className="px-3 py-2 text-right font-bold text-slate-500 uppercase tracking-wider">RETENIDO</th>
+                  <th className="px-3 py-2 text-center font-bold text-slate-500 uppercase tracking-wider">DETALLE</th>
                 </tr>
               </thead>
               <tbody>
                 {data.length === 0 ? (
-                  <tr><td colSpan={8} className="text-center py-8 text-slate-400">Sin datos para mostrar</td></tr>
+                  <tr><td colSpan={9} className="text-center py-8 text-slate-400">Sin datos para mostrar</td></tr>
                 ) : (
                   data.map((row, idx) => (
                     <tr key={row.viaje || idx} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
@@ -328,6 +333,16 @@ export const BuserosPage = () => {
                       <td className="px-3 py-2 text-right font-bold">{row.facturas || 0}</td>
                       <td className="px-3 py-2 text-right font-bold text-emerald-600">${parseFloat(row.venta || 0).toFixed(2)}</td>
                       <td className="px-3 py-2 text-right font-bold text-rose-600">${parseFloat(row.retenidio || 0).toFixed(2)}</td>
+                      <td className="px-3 py-2 text-center">
+                        <button
+                          type="button"
+                          onClick={() => setDetalleViaje(row)}
+                          title="Ver desglose de retenciones"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-bold border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-colors"
+                        >
+                          <i className="fas fa-list-ul"></i> Ver
+                        </button>
+                      </td>
                     </tr>
                   ))
                 )}
@@ -401,6 +416,13 @@ export const BuserosPage = () => {
           onClose={() => setModalBusqueda(null)}
         />
       )}
+
+      {/* Detalle de retenciones */}
+      <RecaudadoDetalleModal
+        isOpen={Boolean(detalleViaje)}
+        onClose={() => setDetalleViaje(null)}
+        idViaje={detalleViaje?.viaje}
+      />
     </div>
   );
 };

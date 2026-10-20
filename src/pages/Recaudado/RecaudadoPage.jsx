@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { RecaudadoFilterPanel } from './components/RecaudadoFilterPanel';
 import { RecaudadoGrid } from './components/RecaudadoGrid';
+import { RecaudadoDetalleModal } from './components/RecaudadoDetalleModal';
 import { RecaudadoService } from '../../services/recaudado.service';
 import toast from 'react-hot-toast';
 import './RecaudadoPage.css';
@@ -21,6 +22,7 @@ export const RecaudadoPage = () => {
   
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [detalleViaje, setDetalleViaje] = useState(null);
   const limit = 40; // Mismo pageSize que ExtJS
 
   const loadData = async (currentFiltros, currentPage) => {
@@ -95,9 +97,16 @@ export const RecaudadoPage = () => {
             totales={totales}
             onPageChange={setPage} 
             onReload={() => loadData(filtros, page)}
+            onVerDetalle={(item) => setDetalleViaje(item)}
           />
         </div>
       </div>
+
+      <RecaudadoDetalleModal
+        isOpen={Boolean(detalleViaje)}
+        onClose={() => setDetalleViaje(null)}
+        idViaje={detalleViaje?.viaje}
+      />
     </div>
   );
 };
