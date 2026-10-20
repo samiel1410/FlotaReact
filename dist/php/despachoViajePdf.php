@@ -71,6 +71,8 @@ try {
             u.id_fksucursal_usuario,
             s.nombre_sucursal,
             s.porcentaje_retencion,
+            s.id_sucursal AS id_sucursal_despacho_resuelta,
+            s.suc_codigo_sucursal AS codigo_sucursal_despacho,
             v.id_viajes,
             v.fecha_cierre as fecha_viaje,
             v.hora_origen_salida,
@@ -114,6 +116,8 @@ try {
             u.id_fksucursal_usuario,
             s.nombre_sucursal,
             s.porcentaje_retencion,
+            s.id_sucursal AS id_sucursal_despacho_resuelta,
+            s.suc_codigo_sucursal AS codigo_sucursal_despacho,
             v.id_viajes,
             v.fecha_cierre as fecha_viaje,
             v.hora_origen_salida,
@@ -161,7 +165,11 @@ try {
     $id_despacho_viaje = intval($despacho['id_viajes']);
     $id_despacho_num = !empty($despacho['id_despacho_viaje']) ? intval($despacho['id_despacho_viaje']) : $id_despacho_viaje;
     $id_usuario_aprueba = intval($despacho['id_fkusuario_aprueba'] ?? 0);
-    $id_sucursal_despacho = intval($despacho['id_fksucursal_usuario'] ?? $id_sucursal_param);
+    // La sucursal puede venir como id interno o como código: se resuelve a ambos
+    // para que el filtro de boletos coincida con el de la lista de pasajeros.
+    $id_sucursal_despacho = intval($despacho['id_sucursal_despacho_resuelta'] ?? 0)
+        ?: intval($despacho['id_fksucursal_usuario'] ?? $id_sucursal_param);
+    $codigo_sucursal_despacho = trim((string)($despacho['codigo_sucursal_despacho'] ?? ''));
 
     $nombre_chofer = trim($despacho['nombre_completo_chofer'] ?? '');
     if (empty($nombre_chofer) && !empty($despacho['chofer_viajes'])) {
@@ -171,26 +179,38 @@ try {
         $nombre_chofer = 'N/A';
     }
 
-    // 2. Consulta de boletos correspondientes a ESTE despacho
+    // 2. Consulta de boletos correspondientes a ESTE despacho.
+    // La sucursal del boleto se resuelve igual que en la lista de pasajeros
+    // (y que en el motor de retenciones): id_sucursal_venta -> id_fksucursal_boleto
+    // -> sucursal del usuario que vendio, cruzando por id o por codigo.
+    // Antes se comparaba solo id_fksucursal_boleto/id_sucursal_venta contra el id
+    // del usuario, lo que dejaba fuera boletos de la misma oficina y descuadraba
+    // el total contra la lista de pasajeros.
     $query_totales = "SELECT 
         IFNULL(SUM(bd.total_boleto_detalle), 0) AS total_boletos,
         COUNT(bd.id_boleto_detalle) AS cantidad_boletos
       FROM boletos b
       JOIN boleto_detalle bd ON b.id_boleto = bd.id_fkboleto_boleto_detalle
-      WHERE b.id_fkviaje_boleto = ? 
-        AND b.estado_boleto != 3
+      LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
+      WHERE b.id_fkviaje_boleto = ?
+        AND (b.estado_boleto IS NULL OR b.estado_boleto != 3)
         AND (
-            (? > 0 AND (b.id_fksucursal_boleto = ? OR b.id_sucursal_venta = ?))
-            OR (? > 0 AND b.id_fkusuario_boleto = ?)
-            OR (? = 0 AND ? = 0)
+            (? = 0 AND ? = '')
+            OR EXISTS (
+                SELECT 1 FROM sucursal2 s_bol
+                WHERE (
+                        s_bol.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                        OR s_bol.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                      )
+                  AND (s_bol.id_sucursal = ? OR s_bol.suc_codigo_sucursal = ?)
+            )
         )";
 
     $stmt_tot = $conn->prepare($query_totales);
-    $stmt_tot->bind_param("iiiiiiii", 
+    $stmt_tot->bind_param("iis" . "is", 
         $id_despacho_viaje, 
-        $id_sucursal_despacho, $id_sucursal_despacho, $id_sucursal_despacho,
-        $id_usuario_aprueba, $id_usuario_aprueba,
-        $id_sucursal_despacho, $id_usuario_aprueba
+        $id_sucursal_despacho, $codigo_sucursal_despacho,
+        $id_sucursal_despacho, $codigo_sucursal_despacho
     );
     $stmt_tot->execute();
     $res_tot = $stmt_tot->get_result();
@@ -269,30 +289,39 @@ try {
         $nombre_oficinista = !empty($despacho['username_usuario']) ? $despacho['username_usuario'] : ($usuario_param ?: 'DESPACHO AUTOMÁTICO');
     }
 
-    // 4. Ventas por punto
+    // 4. Ventas por punto (mismo criterio de sucursal que el total)
     $query_origen = "SELECT 
-        IFNULL(NULLIF(TRIM(b.nombre_origen), ''), IFNULL(s.nombre_sucursal, 'ORIGEN PRINCIPAL')) as origen, 
+        IFNULL(NULLIF(TRIM(b.nombre_origen), ''),
+          IFNULL((SELECT s.nombre_sucursal FROM sucursal2 s
+                  WHERE s.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                     OR s.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                  LIMIT 1), 'ORIGEN PRINCIPAL')) as origen, 
         COUNT(bd.id_boleto_detalle) as cantidad, 
         SUM(bd.total_boleto_detalle) as total
       FROM boletos b
       JOIN boleto_detalle bd ON b.id_boleto = bd.id_fkboleto_boleto_detalle
-      LEFT JOIN sucursal2 s ON b.id_fksucursal_boleto = s.id_sucursal
+      LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
       WHERE b.id_fkviaje_boleto = ? 
-        AND b.estado_boleto != 3
+        AND (b.estado_boleto IS NULL OR b.estado_boleto != 3)
         AND (
-            (? > 0 AND b.id_fksucursal_boleto = ?)
-            OR (? > 0 AND b.id_fkusuario_boleto = ?)
-            OR (? = 0 AND ? = 0)
+            (? = 0 AND ? = '')
+            OR EXISTS (
+                SELECT 1 FROM sucursal2 s_bol
+                WHERE (
+                        s_bol.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                        OR s_bol.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                      )
+                  AND (s_bol.id_sucursal = ? OR s_bol.suc_codigo_sucursal = ?)
+            )
         )
-      GROUP BY IFNULL(NULLIF(TRIM(b.nombre_origen), ''), IFNULL(s.nombre_sucursal, 'ORIGEN PRINCIPAL'))
+      GROUP BY origen
       ORDER BY origen ASC";
 
     $stmt_origen = $conn->prepare($query_origen);
-    $stmt_origen->bind_param("iiiiiii", 
+    $stmt_origen->bind_param("iisis", 
         $id_despacho_viaje, 
-        $id_sucursal_despacho, $id_sucursal_despacho, 
-        $id_usuario_aprueba, $id_usuario_aprueba,
-        $id_sucursal_despacho, $id_usuario_aprueba
+        $id_sucursal_despacho, $codigo_sucursal_despacho,
+        $id_sucursal_despacho, $codigo_sucursal_despacho
     );
     $stmt_origen->execute();
     $result_origen = $stmt_origen->get_result();
