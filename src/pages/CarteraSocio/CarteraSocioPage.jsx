@@ -1,8 +1,9 @@
 import { useState, useRef, useCallback } from 'react';
 import { api } from '../../config/axios';
-import Swal from 'sweetalert2';
+import { dialog } from '../../components/common/dialog/dialog';
 import Modal from '../../components/common/Modal';
 import { DateRangePicker } from '../../components/common/DateRangePicker';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 const formatCurrency = (v) => `$${parseFloat(v || 0).toFixed(2)}`;
 const formatFecha = (f) => {
@@ -22,24 +23,40 @@ const PagarDeudaModal = ({ deuda, onClose, onSuccess }) => {
 
   const handlePagar = async () => {
     if (!monto || parseFloat(monto) <= 0) {
-      Swal.fire('Validación', 'Ingrese un monto válido mayor a 0', 'warning');
+      dialog.fire({ title: 'Validación', text: 'Ingrese un monto válido mayor a 0', icon: 'warning' });
       return;
     }
     if (parseFloat(monto) > parseFloat(deuda?.saldo_pendiente || 0)) {
-      Swal.fire('Validación', 'El monto no puede superar el saldo pendiente', 'warning');
+      dialog.fire({ title: 'Validación', text: 'El monto no puede superar el saldo pendiente', icon: 'warning' });
       return;
     }
     setLoading(true);
     try {
-      const res = await api.post('/deuda/pagar', { id_deuda: deuda.id_deuda, monto, observacion });
+      const res = await api.post('/deuda/pagar', { id_deuda: deuda.id_deuda, monto, observacion, fuente: deuda.fuente || 'deuda' });
       if (res.data?.success) {
-        Swal.fire('Éxito', 'Pago registrado correctamente', 'success');
+        const comp = res.data?.data?.comprobante;
+        if (comp?.numero_comprobante) {
+          const r = await dialog.fire({
+            title: 'Pago registrado',
+            html: `Se generó el comprobante <b>N° ${comp.numero_comprobante}</b> por <b>${formatCurrency(res.data.data.monto_pagado)}</b>.`,
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonText: 'Imprimir comprobante',
+            cancelButtonText: 'Cerrar',
+            confirmButtonColor: '#059669',
+          });
+          if (r.isConfirmed) {
+            window.open(buildPdfUrl(`/php/cobros/imprimirComprobanteCobro.php?numero_comprobante=${comp.numero_comprobante}`), '_blank');
+          }
+        } else {
+          dialog.fire({ title: 'Pago registrado', text: 'El pago se guardó, pero no se pudo generar el comprobante.', icon: 'warning' });
+        }
         onSuccess();
       } else {
-        Swal.fire('Error', res.data?.error || 'Error al procesar el pago', 'error');
+        dialog.fire({ title: 'Error', text: res.data?.error || 'Error al procesar el pago', icon: 'error' });
       }
     } catch (err) {
-      Swal.fire('Error', err.response?.data?.error || err.message, 'error');
+      dialog.fire({ title: 'Error', text: err.response?.data?.error || err.message, icon: 'error' });
     } finally {
       setLoading(false);
     }
@@ -121,7 +138,7 @@ const AnularCobroModal = ({ cobro, onClose, onSuccess }) => {
       });
 
       if (res.data?.success) {
-        Swal.fire({
+        dialog.fire({
           icon: 'success',
           title: 'Anulado',
           text: res.data.message || 'Registro anulado correctamente',
@@ -428,11 +445,11 @@ export const CarteraSocioPage = () => {
       if (res.data?.success) {
         setCartera(res.data);
       } else {
-        Swal.fire('Error', res.data?.error || 'Error al consultar cartera', 'error');
+        dialog.fire({ title: 'Error', text: res.data?.error || 'Error al consultar cartera', icon: 'error' });
       }
     } catch (err) {
       console.error('Error cargando cartera:', err);
-      Swal.fire('Error', err.response?.data?.error || err.message || 'Error al consultar cartera', 'error');
+      dialog.fire({ title: 'Error', text: err.response?.data?.error || err.message || 'Error al consultar cartera', icon: 'error' });
     } finally {
       setLoading(false);
     }
@@ -442,7 +459,7 @@ export const CarteraSocioPage = () => {
   const handleBuscar = async () => {
     const q = busqueda ? busqueda.trim() : '';
     if (!q) {
-      Swal.fire('Aviso', 'Ingrese un valor de búsqueda (Cédula o Disco de Bus)', 'warning');
+      dialog.fire({ title: 'Aviso', text: 'Ingrese un valor de búsqueda (Cédula o Disco de Bus)', icon: 'warning' });
       return;
     }
 
@@ -454,7 +471,7 @@ export const CarteraSocioPage = () => {
         });
         const socio = pRes.data?.data?.[0];
         if (!socio) {
-          Swal.fire('No encontrado', `No se encontró ningún socio con la cédula "${q}"`, 'error');
+          dialog.fire({ title: 'No encontrado', text: `No se encontró ningún socio con la cédula "${q}"`, icon: 'error' });
           setLoading(false);
           return;
         }
@@ -472,7 +489,7 @@ export const CarteraSocioPage = () => {
         });
         const bus = bRes.data?.data?.[0];
         if (!bus) {
-          Swal.fire('No encontrado', `No se encontró ningún bus con el número/disco "${q}"`, 'error');
+          dialog.fire({ title: 'No encontrado', text: `No se encontró ningún bus con el número/disco "${q}"`, icon: 'error' });
           setLoading(false);
           return;
         }
@@ -486,7 +503,7 @@ export const CarteraSocioPage = () => {
       }
     } catch (err) {
       console.error('Error en búsqueda:', err);
-      Swal.fire('Error', err.response?.data?.error || err.message, 'error');
+      dialog.fire({ title: 'Error', text: err.response?.data?.error || err.message, icon: 'error' });
       setLoading(false);
     }
   };
@@ -534,11 +551,11 @@ export const CarteraSocioPage = () => {
       if (res.data?.success && res.data?.data) {
         setDetalleCobro(res.data.data);
       } else {
-        Swal.fire('Información', 'No se encontró información detallada del cobro', 'info');
+        dialog.fire({ title: 'Información', text: 'No se encontró información detallada del cobro', icon: 'info' });
       }
     } catch (err) {
       console.error('Error obteniendo detalle de pago:', err);
-      Swal.fire('Error', 'No se pudo cargar el detalle del cobro', 'error');
+      dialog.fire({ title: 'Error', text: 'No se pudo cargar el detalle del cobro', icon: 'error' });
     } finally {
       setLoadingDetalle(false);
     }

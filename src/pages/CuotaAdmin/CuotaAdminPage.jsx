@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import Swal from 'sweetalert2';
+import { dialog } from '../../components/common/dialog/dialog';
 import toast from 'react-hot-toast';
 import { cobrosService } from '../../services/cobros.service';
 import { DateRangePicker } from '../../components/common/DateRangePicker';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 const MESES = [
   { value: '01', label: 'Enero' },
@@ -36,6 +37,7 @@ export const CuotaAdminPage = () => {
   // ── Estados de Datos y Paginación ───────────────────────────
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
+  const [totales, setTotales] = useState(null);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -94,6 +96,7 @@ export const CuotaAdminPage = () => {
         });
         setData(cuotasAdmin);
         setTotal(res.total || cuotasAdmin.length);
+        setTotales(res.totales || null);
       } else {
         toast.error(res.message || 'Error al cargar cuotas');
       }
@@ -131,6 +134,16 @@ export const CuotaAdminPage = () => {
 
   // ── Métricas de resumen ──────────────────────────────────────
   const metrics = useMemo(() => {
+    // Los totales del servidor cubren todos los registros del filtro, no solo
+    // la página visible (25 de 33), así que los KPI no se quedan cortos.
+    if (totales) {
+      return {
+        emitido: parseFloat(totales.emitido || 0),
+        pagado: parseFloat(totales.pagado || 0),
+        pendiente: parseFloat(totales.pendiente || 0),
+      };
+    }
+
     let emitido = 0;
     let pagado = 0;
     let pendiente = 0;
@@ -144,13 +157,13 @@ export const CuotaAdminPage = () => {
     });
 
     return { emitido, pagado, pendiente };
-  }, [filteredData]);
+  }, [filteredData, totales]);
 
   // ── Generar Cuota Masiva ─────────────────────────────────────
   const handleGenerarCuota = async (e) => {
     e?.preventDefault();
     const mesObj = MESES.find((m) => m.value === mesGen);
-    const confirm = await Swal.fire({
+    const confirm = await dialog.fire({
       title: '¿Generar cuota administrativa mensual?',
       html: `
         <div style="text-align:left; font-size:13px; line-height:1.6;">
@@ -178,7 +191,7 @@ export const CuotaAdminPage = () => {
       });
       if (res.success) {
         const d = res.data || {};
-        Swal.fire({
+        dialog.fire({
           title: d.fallidos ? 'Cuotas Generadas con Observaciones' : 'Cuotas Generadas con Éxito',
           html: `Se registraron <b>${d.insertados || 0}</b> cuotas administrativas de un total de <b>${d.total_socios || 0}</b> socios activos.`
             + (d.omitidos ? `<br><span style="color:#64748b;">Omitidas (ya existían): <b>${d.omitidos}</b></span>` : '')
@@ -189,10 +202,10 @@ export const CuotaAdminPage = () => {
         setShowGenerarModal(false);
         loadData();
       } else {
-        Swal.fire('Error', res.message || 'No se pudo generar la cuota', 'error');
+        dialog.fire({ title: 'Error', text: res.message || 'No se pudo generar la cuota', icon: 'error' });
       }
     } catch (err) {
-      Swal.fire('Error', err.message || 'Error de conexión', 'error');
+      dialog.fire({ title: 'Error', text: err.message || 'Error de conexión', icon: 'error' });
     } finally {
       setGenerando(false);
     }
@@ -200,7 +213,7 @@ export const CuotaAdminPage = () => {
 
   // ── Anular Cuota ─────────────────────────────────────────────
   const handleAnular = async (item) => {
-    const { value: motivo } = await Swal.fire({
+    const { value: motivo } = await dialog.fire({
       title: '¿Anular cuota administrativa?',
       html: `¿Está seguro de anular la cuota de <b>${item.socio_nombre}</b> (Bus ${item.disco_buses}) por <b>${formatCurrency(item.saldo_pendiente)}</b>?`,
       input: 'text',
@@ -251,10 +264,27 @@ export const CuotaAdminPage = () => {
         id_deuda: cuotaSeleccionada.id_deuda,
         monto: parseFloat(montoPagar),
         observacion: observacionPago.trim(),
+        fuente: cuotaSeleccionada.fuente || 'deuda',
       });
       if (res.success) {
-        toast.success('Pago registrado correctamente');
         setShowPagarModal(false);
+        const comp = res.data?.comprobante;
+        if (comp?.numero_comprobante) {
+          const r = await dialog.fire({
+            title: 'Pago registrado',
+            html: `Se generó el comprobante <b>N° ${comp.numero_comprobante}</b> por <b>${formatCurrency(res.data.monto_pagado)}</b>.`,
+            icon: 'success',
+            showCancelButton: true,
+            confirmButtonText: 'Imprimir comprobante',
+            cancelButtonText: 'Cerrar',
+            confirmButtonColor: '#059669',
+          });
+          if (r.isConfirmed) {
+            window.open(buildPdfUrl(`/php/cobros/imprimirComprobanteCobro.php?numero_comprobante=${comp.numero_comprobante}`), '_blank');
+          }
+        } else {
+          toast.success('Pago registrado correctamente');
+        }
         loadData();
       } else {
         toast.error(res.message || 'Error al registrar pago');

@@ -1475,13 +1475,18 @@ export const NuevoBoletoPage = () => {
           viajesDisponibles={viajesDisponibles}
           idViajeSeleccionado={formData.idViaje}
           onSelectViaje={(v) => {
-            if (formData.idViaje !== String(v.id_viajes)) {
+            const cambioViaje = formData.idViaje !== String(v.id_viajes);
+            if (cambioViaje) {
               deseleccionarAsientosActuales();
+              setDestinosViaje([]);
+              setSubrutaSeleccionada('');
+              setPrecioUnitario(0);
             }
             setFormData(prev => ({
               ...prev,
               idViaje: String(v.id_viajes),
               viajeTexto: `${v.hora_salida_parada || v.hora || v.hora_salida} - Bus ${v.bus_disco || v.bus_codigo}`,
+              destino: cambioViaje ? '' : prev.destino,
               origen: v.id_origen || prev.origen,
               asientosSeleccionados: [],
               pasajeros: []
@@ -1503,11 +1508,22 @@ export const NuevoBoletoPage = () => {
               viajesDisponibles={viajesDisponibles}
               onViajeChange={(viajeId) => {
                 marcarActividadReal();
-                if (formData.idViaje !== viajeId) {
+                const cambioViaje = formData.idViaje !== viajeId;
+                if (cambioViaje) {
                   deseleccionarAsientosActuales();
+                  setDestinosViaje([]);
+                  setSubrutaSeleccionada('');
+                  setPrecioUnitario(0);
                 }
                 const v = viajesDisponibles.find(vv => String(vv.id_viajes) === viajeId);
-                setFormData(prev => ({ ...prev, idViaje: viajeId, origen: v?.id_origen || prev.origen, asientosSeleccionados: [], pasajeros: [] }));
+                setFormData(prev => ({
+                  ...prev,
+                  idViaje: viajeId,
+                  destino: cambioViaje ? '' : prev.destino,
+                  origen: v?.id_origen || prev.origen,
+                  asientosSeleccionados: [],
+                  pasajeros: []
+                }));
                 if (v) {
                   setDiscoBus(v.bus_disco || v.bus_codigo || '');
                   setHoraViaje(v.hora_salida_parada || v.hora_origen_salida || v.hora_salida_rutas || v.hora || v.hora_salida || '');

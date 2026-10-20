@@ -5,7 +5,7 @@ class CobrosService {
   async listarDeudas(params = {}) {
     try {
       const res = await api.get('/deuda/listar', { params });
-      return { success: true, data: res.data?.data || [], total: res.data?.total || 0 };
+      return { success: true, data: res.data?.data || [], total: res.data?.total || 0, totales: res.data?.totales || null };
     } catch (error) {
       return { success: false, data: [], total: 0, message: error.response?.data?.error || 'Error al cargar deudas' };
     }
