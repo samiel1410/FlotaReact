@@ -74,7 +74,9 @@ const DetalleRow = memo(({ detalle, onQuitarGuia }) => (
 
 export const DespachoGuiasNotaVentaPage = () => {
   const { user } = useAuth();
-  const usuarioSucursalId = user?.id_oficina || user?.id_fkdestino_usuario || user?.id_fksucursal_usuario || user?.sucursal_usuario || user?.id_sucursal || user?.id_fksucursal;
+  // El despacho guarda la sucursal de destino como suc_codigo_sucursal,
+  // por eso se prioriza la sucursal del usuario (no id_fkdestino_usuario).
+  const usuarioSucursalId = user?.id_fksucursal_usuario || user?.sucursal_usuario || user?.id_fksucursal || user?.id_oficina || user?.id_sucursal || user?.id_fkdestino_usuario;
 
   // ─── Estado Principal ───
   const [despachos, setDespachos] = useState([]);
