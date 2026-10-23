@@ -80,8 +80,16 @@ export const useListado = (endpoint, defaultParams = {}, customParamsFn) => {
       } else if (Array.isArray(d.rows)) {
         rows = d.rows;
       } else {
-        // Si d.data es string, objeto o cualquier otra cosa, usar array vacío
+        // Si d.data es string, objeto o cualquier otra cosa, usar array vacío.
+        // El backend responde { success:false, data:'<mensaje de error>' } en
+        // fallos de SQL (p. ej. "PROCEDURE ... does not exist"); sin esto la
+        // tabla se ve vacía y el error real queda solo en la consola.
         console.warn(`[useListado] Formato inesperado en ${endpoint}:`, typeof d.data, d);
+        const mensaje = [d && d.data, d && d.message, d && d.mensaje, d && d.error]
+          .find(v => typeof v === 'string' && v.trim());
+        if (mensaje) {
+          toast.error(`No se pudo cargar la información: ${String(mensaje).slice(0, 220)}`, { duration: 7000 });
+        }
         rows = [];
       }
 
