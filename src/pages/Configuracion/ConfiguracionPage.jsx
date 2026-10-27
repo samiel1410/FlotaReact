@@ -32,6 +32,8 @@ export const ConfiguracionPage = () => {
   const [sistemaModo, setSistemaModo] = useState('prueba');
   const [savingModo, setSavingModo] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [configCargada, setConfigCargada] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [logoPreview, setLogoPreview] = useState(null);
   const [logoFile, setLogoFile] = useState(null);
   const [firmaFile, setFirmaFile] = useState(null);
@@ -85,6 +87,10 @@ export const ConfiguracionPage = () => {
             id_configuracion: conf.id_configuracion,
             iva: conf.iva || 15,
             leyenda_ticket: conf.leyenda_ticket || '',
+            leyenda: conf.leyendamensaje_configuracion || conf.leyenda_ticket || '',
+            formapago: conf.id_forma_pago_configuracion != null ? String(conf.id_forma_pago_configuracion) : '',
+            numero_factura: conf.numero_factura != null ? String(conf.numero_factura) : '',
+            numero_version: conf.version_sistema || '',
             maneja_leyenda: conf.mostrar_leyenda_ticket === 1 || conf.mostrar_leyenda_ticket === true,
 
             leyenda_boleteria: conf.leyenda_boleteria || '',
@@ -127,9 +133,20 @@ export const ConfiguracionPage = () => {
           setConfigData(newConf);
           reset(newConf);
           setRucTieneDatos(!!conf.ruc_empresa);
+          setConfigCargada(true);
+          setLoadError('');
+        } else {
+          // Sin datos NO se debe permitir guardar: un formulario vacío borraría la configuración
+          setConfigCargada(false);
+          setLoadError(
+            (confRes.data && typeof confRes.data.data === 'string' && confRes.data.data) ||
+            'No se pudo cargar la configuración de la empresa. Recargue la página antes de guardar.'
+          );
         }
       } catch (error) {
         console.error("Error cargando configuración:", error);
+        setConfigCargada(false);
+        setLoadError('No se pudo cargar la configuración. Recargue la página antes de guardar.');
       } finally {
         setLoading(false);
       }
@@ -231,6 +248,24 @@ export const ConfiguracionPage = () => {
 
   const handleSave = async (data) => {
     if (savingConfig) return;
+
+    // Si la configuración no se cargó, guardar dejaría la empresa en blanco
+    if (!configCargada) {
+      toast.error('La configuración no se cargó correctamente. Recargue la página antes de guardar.');
+      return;
+    }
+
+    const esVacio = (v) => v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
+    const datosEmpresaBorrados =
+      (!esVacio(configData.razon_social_empresa) && esVacio(data.razon_social_empresa)) ||
+      (!esVacio(configData.ruc_empresa) && esVacio(data.ruc_empresa)) ||
+      (!esVacio(configData.direccion_empresa) && esVacio(data.direccion_empresa));
+
+    if (datosEmpresaBorrados) {
+      toast.error('No se permite borrar la Razón Social, el RUC ni la Dirección de la empresa.');
+      return;
+    }
+
     setSavingConfig(true);
     try {
       let finalFirmaPath = null;
@@ -288,6 +323,8 @@ export const ConfiguracionPage = () => {
       const payload = Object.entries(data).reduce((acc, [key, value]) => {
         if (CAMPOS_ESPECIALES.includes(key)) return acc; // se agregan abajo si aplican
         if (value === undefined || value === null) return acc;
+        // Un campo vacío no debe sobrescribir lo que ya está guardado en la base de datos
+        if (typeof value === 'string' && value.trim() === '') return acc;
 
         if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto' || key === 'permitir_consumidor_final') {
           acc[key] = +!!value;
@@ -527,6 +564,27 @@ export const ConfiguracionPage = () => {
           </div>
         </div>
       </div>
+
+      {/* Error de carga: se bloquea el guardado para no borrar datos */}
+      {loadError && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3">
+          <i className="fas fa-triangle-exclamation text-red-500 mt-0.5 text-lg"></i>
+          <div className="text-sm text-red-800">
+            <p className="font-bold">No se pudo cargar la configuración de la empresa</p>
+            <p className="mt-1 break-words">{loadError}</p>
+            <p className="mt-1 text-red-700/80">
+              Por seguridad el botón <strong>Guardar</strong> está deshabilitado: guardar un formulario vacío borraría los datos existentes.
+            </p>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-3 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Recargar página
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Pestañas */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -1237,7 +1295,8 @@ export const ConfiguracionPage = () => {
             <div className="flex justify-end pt-6 border-t border-slate-200 mt-8">
               <button
                 type="submit"
-                disabled={savingConfig}
+                disabled={savingConfig || !configCargada}
+                title={!configCargada ? 'La configuración no se cargó correctamente' : undefined}
                 className="px-6 py-2.5 bg-slate-800 text-white font-bold rounded-xl shadow-md shadow-slate-200 hover:bg-slate-700 hover:shadow-lg hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:shadow-md"
               >
                 {savingConfig ? (

@@ -164,7 +164,13 @@ export const BusquedaBusModal = ({ onSelect, onClose, filterMode = false }) => {
                               // Los endpoints de filtros esperan el ID del bus.
                               // Enviar el código (p. ej. "52") se interpretaba como
                               // ID y mezclaba la información con otra unidad.
-                              onSelect(bus.id_buses ?? bus.codigo_buses, bus.placa_buses || bus.placa);
+                              // El tercer argumento es el disco (número de bus) para
+                              // que los filtros lo muestren en vez de la placa.
+                              onSelect(
+                                bus.id_buses ?? bus.codigo_buses,
+                                bus.placa_buses || bus.placa,
+                                bus.disco_buses || bus.disco
+                              );
                             } else {
                               onSelect(bus);
                             }

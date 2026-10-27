@@ -145,6 +145,9 @@ export const RecaudadoDetalleModal = ({ isOpen, onClose, idViaje }) => {
                 <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
                   <i className="fas fa-file-invoice-dollar text-indigo-600"></i> Desglose por despacho
                 </h4>
+                <p className="text-[10px] text-slate-500 leading-relaxed">
+                  «Salió con» = venta de los boletos de la oficina del despacho − lo retenido en ese despacho.
+                </p>
                 {detalle.despachos.map((d) => (
                   <div key={d.id_despacho_viaje} className="border border-slate-200 rounded-xl overflow-hidden">
                     <div className="bg-slate-800 text-white px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px]">
@@ -154,6 +157,33 @@ export const RecaudadoDetalleModal = ({ isOpen, onClose, idViaje }) => {
                         {d.fecha ? ` · ${String(d.fecha).replace('T', ' ').slice(0, 16)}` : ''}
                       </span>
                     </div>
+
+                    {/* Resumen económico del despacho: con cuánto salió la unidad */}
+                    <div className="grid grid-cols-3 divide-x divide-slate-100 border-b border-slate-100 text-center bg-white">
+                      <div className="px-2 py-2">
+                        <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Venta oficina</p>
+                        <p className="font-mono font-black text-emerald-700">{money(d.venta)}</p>
+                        <p className="text-[9px] text-slate-400">{d.boletos || 0} boleto(s)</p>
+                      </div>
+                      <div className="px-2 py-2">
+                        <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">Retenido</p>
+                        <p className="font-mono font-black text-rose-600">{money(d.total)}</p>
+                        <p className="text-[9px] text-slate-400">&nbsp;</p>
+                      </div>
+                      <div className="px-2 py-2 bg-indigo-50/50">
+                        <p className="text-[9px] font-black uppercase tracking-wider text-indigo-500">Salió con</p>
+                        <p className="font-mono font-black text-indigo-700">{money(d.entregado)}</p>
+                        <p className="text-[9px] text-indigo-400">entregado</p>
+                      </div>
+                    </div>
+
+                    {d.sin_oficina && (
+                      <p className="px-3 py-1.5 text-[10px] text-amber-800 bg-amber-50 border-b border-amber-100">
+                        <i className="fas fa-exclamation-circle mr-1"></i>
+                        Sin oficina identificada: no se puede atribuir la venta a este despacho.
+                      </p>
+                    )}
+
                     {d.conceptos.length === 0 ? (
                       <p className="px-3 py-2 text-xs text-slate-500 italic">Sin retenciones en este despacho.</p>
                     ) : (
@@ -173,7 +203,7 @@ export const RecaudadoDetalleModal = ({ isOpen, onClose, idViaje }) => {
                         </tbody>
                         <tfoot className="bg-slate-50 border-t border-slate-200">
                           <tr>
-                            <td className="px-3 py-2 font-bold text-slate-700" colSpan={2}>Total despacho</td>
+                            <td className="px-3 py-2 font-bold text-slate-700" colSpan={2}>Total retenido del despacho</td>
                             <td className="px-3 py-2 text-right font-mono font-black text-rose-700">{money(d.total)}</td>
                           </tr>
                         </tfoot>
@@ -181,6 +211,14 @@ export const RecaudadoDetalleModal = ({ isOpen, onClose, idViaje }) => {
                     )}
                   </div>
                 ))}
+
+                {detalle.venta_sin_despacho > 0 && (
+                  <p className="text-[10px] text-slate-500 italic bg-slate-50 border border-slate-200 rounded-xl p-2.5">
+                    <i className="fas fa-info-circle mr-1 text-slate-400"></i>
+                    Venta no incluida en ningún despacho: <strong className="font-mono text-slate-700">{money(detalle.venta_sin_despacho)}</strong>
+                    {' '}(boletos vendidos después del último despacho o de una oficina sin despacho).
+                  </p>
+                )}
               </div>
             )}
 

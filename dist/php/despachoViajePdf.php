@@ -61,6 +61,7 @@ try {
             dv.tarifa_despacho_viaje,
             dv.fecha_salida_despacho_viaje,
             dv.hora_salida_despacho_viaje,
+            dv.fecha_creacion_despacho_viaje,
             dv.motivo_despacho_viaje,
             dv.id_fkusuario_aprueba,
             dv.id_fkviaje_despacho_viaje,
@@ -106,6 +107,7 @@ try {
             dv.tarifa_despacho_viaje,
             dv.fecha_salida_despacho_viaje,
             dv.hora_salida_despacho_viaje,
+            dv.fecha_creacion_despacho_viaje,
             dv.motivo_despacho_viaje,
             dv.id_fkusuario_aprueba,
             dv.id_fkviaje_despacho_viaje,
@@ -171,6 +173,30 @@ try {
         ?: intval($despacho['id_fksucursal_usuario'] ?? $id_sucursal_param);
     $codigo_sucursal_despacho = trim((string)($despacho['codigo_sucursal_despacho'] ?? ''));
 
+    // ─── CORTE TEMPORAL DEL DESPACHO ─────────────────────────────────────────
+    // La hoja de despacho debe reflejar EXACTAMENTE lo que existía cuando se
+    // despachó. Si después alguien vende más boletos para el viaje, una
+    // reimpresión no debe mostrar más pasajeros ni otro "RECIBE": eso permitía
+    // que el oficinista aparentara haber entregado más dinero al socio.
+    $sello_despacho = '';
+    if (!empty($despacho['fecha_creacion_despacho_viaje'])) {
+        $ts_sello = strtotime($despacho['fecha_creacion_despacho_viaje']);
+        if ($ts_sello !== false) {
+            $sello_despacho = date('Y-m-d H:i:s', $ts_sello);
+        }
+    }
+    if ($sello_despacho === '') {
+        $fecha_sello = $despacho['fecha_salida_despacho_viaje'] ?? '';
+        $hora_sello = $despacho['hora_salida_despacho_viaje'] ?? '';
+        if (!empty($fecha_sello)) {
+            $sello_despacho = date('Y-m-d', strtotime($fecha_sello)) . ' ' . (!empty($hora_sello) ? $hora_sello : '23:59:59');
+        }
+    }
+    if ($sello_despacho === '') {
+        // Sin sello conocido: no se limita (compatibilidad con datos antiguos)
+        $sello_despacho = '9999-12-31 23:59:59';
+    }
+
     $nombre_chofer = trim($despacho['nombre_completo_chofer'] ?? '');
     if (empty($nombre_chofer) && !empty($despacho['chofer_viajes'])) {
         $nombre_chofer = trim($despacho['chofer_viajes']);
@@ -204,13 +230,15 @@ try {
                       )
                   AND (s_bol.id_sucursal = ? OR s_bol.suc_codigo_sucursal = ?)
             )
-        )";
+        )
+        AND (b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= ?)";
 
     $stmt_tot = $conn->prepare($query_totales);
-    $stmt_tot->bind_param("iis" . "is", 
+    $stmt_tot->bind_param("iisiss", 
         $id_despacho_viaje, 
         $id_sucursal_despacho, $codigo_sucursal_despacho,
-        $id_sucursal_despacho, $codigo_sucursal_despacho
+        $id_sucursal_despacho, $codigo_sucursal_despacho,
+        $sello_despacho
     );
     $stmt_tot->execute();
     $res_tot = $stmt_tot->get_result();
@@ -226,17 +254,17 @@ try {
     $id_desp_val = !empty($despacho['id_despacho_viaje']) ? intval($despacho['id_despacho_viaje']) : 0;
     $id_viaje_val = intval($despacho['id_viajes'] ?? $id_despacho_viaje);
 
-    if ($id_desp_val > 0 || $id_viaje_val > 0) {
+    if ($id_desp_val > 0) {
         $query_log = "SELECT 
             drl.monto_aplicado as monto_cobros,
             COALESCE(d.concepto, td.nombre, drl.tipo, 'RETENCIÓN DESPACHO') as tipo_cobro
           FROM despacho_retencion_log drl
           LEFT JOIN deudas d ON drl.id_deuda = d.id_deuda
           LEFT JOIN tipo_deudas td ON COALESCE(drl.id_tipo_deuda, d.id_tipo_deuda) = td.id_tipo_deuda
-          WHERE (drl.id_despacho_viaje = ? AND ? > 0) OR (drl.id_despacho_viaje = ? AND ? > 0)";
+          WHERE drl.id_despacho_viaje = ?";
 
         $stmt_log = $conn->prepare($query_log);
-        $stmt_log->bind_param("iiii", $id_desp_val, $id_desp_val, $id_viaje_val, $id_viaje_val);
+        $stmt_log->bind_param("i", $id_desp_val);
         $stmt_log->execute();
         $cobros_log = $stmt_log->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt_log->close();
@@ -247,10 +275,10 @@ try {
           FROM despacho_viaje_reteciones dvr
           JOIN cobros c ON dvr.id_fkcobro_despacho_viaje_reteciones = c.id_cobros
           JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
-          WHERE (dvr.id_fkdespacho_viaje = ? AND ? > 0) OR (dvr.id_fkdespacho_viaje = ? AND ? > 0)";
+          WHERE dvr.id_fkdespacho_viaje = ?";
 
         $stmt_cobros = $conn->prepare($query_cobros);
-        $stmt_cobros->bind_param("iiii", $id_desp_val, $id_desp_val, $id_viaje_val, $id_viaje_val);
+        $stmt_cobros->bind_param("i", $id_desp_val);
         $stmt_cobros->execute();
         $cobros_bus = $stmt_cobros->get_result()->fetch_all(MYSQLI_ASSOC);
         $stmt_cobros->close();
@@ -284,6 +312,25 @@ try {
             ? $despacho['hora_salida_estimado'] 
             : (!empty($despacho['hora_salida_despacho_viaje']) ? $despacho['hora_salida_despacho_viaje'] : ''));
 
+    // Fecha y hora REALES del despacho. Se graban una sola vez al crear el
+    // despacho (despacho_viaje.fecha_creacion_despacho_viaje) y no se modifican
+    // al reprogramar el viaje, así que sirven como sello inmutable para saber a
+    // qué hora se despachó realmente la unidad.
+    $fecha_despacho_real = '';
+    if (!empty($despacho['fecha_creacion_despacho_viaje'])) {
+        $ts_despacho = strtotime($despacho['fecha_creacion_despacho_viaje']);
+        if ($ts_despacho !== false) {
+            $fecha_despacho_real = date('d/m/Y H:i:s', $ts_despacho);
+        }
+    }
+    if ($fecha_despacho_real === '') {
+        $fecha_sello = $despacho['fecha_salida_despacho_viaje'] ?? '';
+        $hora_sello = $despacho['hora_salida_despacho_viaje'] ?? '';
+        if (!empty($fecha_sello)) {
+            $fecha_despacho_real = date('d/m/Y', strtotime($fecha_sello)) . (!empty($hora_sello) ? ' ' . $hora_sello : '');
+        }
+    }
+
     $nombre_oficinista = trim(($despacho['nombre_usuario'] ?? '') . ' ' . ($despacho['apellido_usuario'] ?? ''));
     if (empty($nombre_oficinista)) {
         $nombre_oficinista = !empty($despacho['username_usuario']) ? $despacho['username_usuario'] : ($usuario_param ?: 'DESPACHO AUTOMÁTICO');
@@ -314,14 +361,16 @@ try {
                   AND (s_bol.id_sucursal = ? OR s_bol.suc_codigo_sucursal = ?)
             )
         )
+        AND (b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= ?)
       GROUP BY origen
       ORDER BY origen ASC";
 
     $stmt_origen = $conn->prepare($query_origen);
-    $stmt_origen->bind_param("iisis", 
+    $stmt_origen->bind_param("iisiss", 
         $id_despacho_viaje, 
         $id_sucursal_despacho, $codigo_sucursal_despacho,
-        $id_sucursal_despacho, $codigo_sucursal_despacho
+        $id_sucursal_despacho, $codigo_sucursal_despacho,
+        $sello_despacho
     );
     $stmt_origen->execute();
     $result_origen = $stmt_origen->get_result();
@@ -384,6 +433,7 @@ try {
         ['DISCO:', (string)($despacho['disco_buses'] ?? ''), false],
         ['RUTA:', (string)($despacho['nombre_rutas'] ?? ''), false],
         ['SALIDA:', $fecha_salida . ' ' . $hora_salida, false],
+        ['DESPACHADO:', $fecha_despacho_real !== '' ? $fecha_despacho_real : 'NO REGISTRADO', true],
         ['PLACA:', (string)($despacho['placa_buses'] ?? ''), false],
         ['CHOFER:', strtoupper($nombre_chofer), false],
     ];

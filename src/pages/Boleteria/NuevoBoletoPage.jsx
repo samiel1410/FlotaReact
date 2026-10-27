@@ -637,12 +637,46 @@ export const NuevoBoletoPage = () => {
     cargarAsientos();
   }, [formData.idViaje, formData.origen, subrutaSeleccionada, refreshAsientosKey, activeSucursalId, sucursalCambiada]);
 
+  // Copia fresca de los asientos marcados por este usuario: los handlers de
+  // socket se registran una sola vez por viaje y no pueden leer `formData`.
+  const asientosSeleccionadosRef = useRef([]);
+  useEffect(() => {
+    asientosSeleccionadosRef.current = formData.asientosSeleccionados;
+  }, [formData.asientosSeleccionados]);
+
   // Sockets: Bloqueo/Liberación en tiempo real
   useEffect(() => {
+    // ¿El evento corresponde al usuario de esta ventana?
+    const esMismoUsuario = (data) => {
+      if (!data) return false;
+      const actual = getSessionUser() || {};
+      const miId = actual.id_usuario ?? actual.id_usuario_original ?? actual.id;
+      if (data.userId !== undefined && data.userId !== null && miId !== undefined && miId !== null) {
+        if (String(data.userId) === String(miId)) return true;
+      }
+      const nombres = [actual.nombre_usuario, actual.username_usuario, actual.username]
+        .filter(Boolean)
+        .map((n) => String(n).trim().toLowerCase());
+      return Boolean(data.usuario) && nombres.includes(String(data.usuario).trim().toLowerCase());
+    };
+
+    const quitarAsientoDeLaVenta = (asientoNum) => {
+      setFormData(prev => {
+        if (!prev.asientosSeleccionados.includes(asientoNum)) return prev;
+        return {
+          ...prev,
+          asientosSeleccionados: prev.asientosSeleccionados.filter(a => a !== asientoNum),
+          pasajeros: prev.pasajeros.filter(p => Number(p.asiento) !== asientoNum),
+        };
+      });
+    };
+
     const handleBloqueado = (e) => {
       const data = e.detail;
       if (!data || !data.id_viaje || !data.asiento) return;
       if (String(data.id_viaje) !== String(formData.idViaje)) return;
+      // El bloqueo propio no significa "seleccionado por otro usuario".
+      if (esMismoUsuario(data)) return;
 
       const asientoNum = Number(data.asiento);
       setAsientosPendientes(prev => ({
@@ -652,6 +686,16 @@ export const NuevoBoletoPage = () => {
           lockedAt: data.lockedAt || Date.now()
         }
       }));
+
+      // Si este usuario lo tenía marcado (p. ej. su bloqueo expiró y otro lo
+      // tomó), se retira de la venta: el servidor manda sobre el bloqueo.
+      if ((asientosSeleccionadosRef.current || []).includes(asientoNum)) {
+        quitarAsientoDeLaVenta(asientoNum);
+        toast.error(
+          `El asiento ${asientoNum} lo tomó ${data.usuario || 'otro usuario'} y se quitó de tu venta.`,
+          { id: `asiento-tomado-${data.id_viaje}-${asientoNum}`, duration: 5000 }
+        );
+      }
     };
 
     const handleLiberado = (e) => {
@@ -686,8 +730,26 @@ export const NuevoBoletoPage = () => {
 
     const handleRechazado = (e) => {
       const data = e.detail;
-      if (!data || !data.motivo) return;
-      toast.error(data.motivo, { duration: 3000 });
+      if (!data) return;
+      if (data.id_viaje && formData.idViaje && String(data.id_viaje) !== String(formData.idViaje)) return;
+
+      const asientoNum = Number(data.asiento);
+
+      // El backend rechazó el bloqueo porque otro usuario lo tiene tomado: el
+      // asiento NO puede quedar marcado en esta venta (antes la selección era
+      // optimista y se quedaba marcada, permitiendo "vender" el mismo asiento).
+      if (Number.isFinite(asientoNum)) {
+        quitarAsientoDeLaVenta(asientoNum);
+        setAsientosPendientes(prev => ({
+          ...prev,
+          [asientoNum]: { usuario: data.usuario || 'Otro usuario', lockedAt: Date.now() }
+        }));
+      }
+
+      toast.error(
+        data.motivo || `El asiento ${data.asiento} ya está siendo seleccionado por otro usuario`,
+        { id: `asiento-rechazado-${data.id_viaje}-${data.asiento}`, duration: 4500 }
+      );
     };
 
     window.addEventListener('asiento_bloqueado', handleBloqueado);

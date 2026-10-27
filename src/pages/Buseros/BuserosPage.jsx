@@ -225,8 +225,15 @@ export const BuserosPage = () => {
           <div className="flex flex-col">
             <label className={labelCls}>Bus</label>
             <div className="flex gap-1">
-              <input type="text" value={filters.bus_busqueda} onChange={e => updateFilter('bus_busqueda', e.target.value)}
-                className={inputCls} placeholder="Placa..." />
+              <input type="text" value={filters.bus_busqueda}
+                onChange={e => {
+                  const valor = e.target.value;
+                  // Al escribir manualmente la búsqueda es por disco o placa, así que
+                  // se descarta el ID del bus seleccionado para no restringir el filtro.
+                  setFilters(prev => ({ ...prev, bus_busqueda: valor, id_bus_busqueda: '' }));
+                  if (!valor.trim()) setSelectedLabels(prev => ({ ...prev, bus: 'Bus:Ninguno' }));
+                }}
+                className={inputCls} placeholder="N° bus o placa..." />
               <button onClick={() => setModalBusqueda('bus')}
                 className="px-2 py-1 bg-emerald-600 text-white rounded-lg text-[10px] hover:bg-emerald-700"
                 title="Buscar Bus">
@@ -408,9 +415,10 @@ export const BuserosPage = () => {
       {modalBusqueda === 'bus' && (
         <BusquedaBusModal
           filterMode={true}
-          onSelect={(busId, placa) => {
-            setFilters(prev => ({ ...prev, id_bus_busqueda: String(busId), bus_busqueda: placa }));
-            setSelectedLabels(prev => ({ ...prev, bus: `Bus:${placa}` }));
+          onSelect={(busId, placa, disco) => {
+            const etiquetaBus = String(disco || '').trim() || placa || '';
+            setFilters(prev => ({ ...prev, id_bus_busqueda: String(busId), bus_busqueda: etiquetaBus }));
+            setSelectedLabels(prev => ({ ...prev, bus: `Bus:${etiquetaBus}` }));
             setModalBusqueda(null);
           }}
           onClose={() => setModalBusqueda(null)}
