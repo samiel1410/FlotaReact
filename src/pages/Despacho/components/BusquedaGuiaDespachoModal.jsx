@@ -19,13 +19,14 @@ export const BusquedaGuiaDespachoModal = ({ idDespachoMaestro, bus, onClose, onS
       const guiasRes = await api.get('/guia/guialistadoDespacho', {
         params: {
           numeroguia: numeroGuia.trim(),
-          numero_bloque: page,
-          tamanio_bloque: 50
+          limit: 50,
+          page
         }
       });
 
       if (guiasRes.data?.success) {
         setGuias(guiasRes.data.data || []);
+        if (guiasRes.data?.mensaje) toast.error(guiasRes.data.mensaje);
       } else {
         setGuias([]);
       }

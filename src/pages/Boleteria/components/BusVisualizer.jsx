@@ -14,6 +14,8 @@ export const BusVisualizer = ({
   asientosOcupados = [],
   asientosSeleccionados = [],
   asientosPendientes = {},  // { [numeroAsiento]: { usuario: 'nombre', lockedAt: timestamp } }
+  pasajeros = [],           // pasajeros ya cargados en la venta ({ asiento, nombres, cedula, id_destino })
+  destinosViaje = [],       // sub-rutas del viaje ({ id_sub_rutas, nombre_sub_rutas })
   onAsientoClick,
   onAsientoOcupadoClick,
   capacidad = 40,
@@ -28,6 +30,19 @@ export const BusVisualizer = ({
     return () => clearInterval(interval);
   }, []);
   const [pisoActivo, setPisoActivo] = useState(0);
+  // Tooltip flotante (position: fixed) para que no lo recorte el scroll del mapa
+  const [tooltip, setTooltip] = useState(null);
+
+  useEffect(() => {
+    if (!tooltip) return undefined;
+    const ocultar = () => setTooltip(null);
+    window.addEventListener('scroll', ocultar, true);
+    window.addEventListener('resize', ocultar);
+    return () => {
+      window.removeEventListener('scroll', ocultar, true);
+      window.removeEventListener('resize', ocultar);
+    };
+  }, [tooltip]);
 
   // Parsear mapa de asientos personalizado
   let mapaData = null;
@@ -74,8 +89,34 @@ export const BusVisualizer = ({
     return 'libre';
   };
 
-  const getTooltip = (numeroAsiento) => {
+  // Filas de ocupación de un asiento: un mismo asiento puede tener varios
+  // boletos (tramos distintos), por eso se devuelven todas las coincidencias.
+  const getOcupadosDeAsiento = (numeroAsiento) => {
     const num = Number(numeroAsiento);
+    return asientosOcupados.filter((a) => (a && typeof a === 'object'
+      ? Number(a.asiento_boleto_detalle) === num
+      : Number(a) === num));
+  };
+
+  // El nombre del tramo viene resuelto del backend; si falta (asiento llegado
+  // por socket) se busca en las sub-rutas del viaje.
+  const nombreDestinoDe = (fila) => {
+    if (!fila) return '';
+    if (fila.nombre_destino) return fila.nombre_destino;
+    const sub = destinosViaje.find((d) => String(d.id_sub_rutas) === String(fila.id_destino_boleto));
+    return sub?.nombre_sub_rutas || '';
+  };
+
+  const textoEstadoOcupado = (estado) => {
+    if (estado === 'ocupado-parcial') return 'Ocupado parcialmente';
+    if (estado === 'libre-parada') return 'Libre en esta parada';
+    if (estado === 'ocupado') return 'Ocupado todo el recorrido';
+    return 'Ocupado';
+  };
+
+  const getTooltipInfo = (numeroAsiento) => {
+    const num = Number(numeroAsiento);
+    const base = { numero: num, estado: 'libre', titulo: 'Disponible' };
 
     // Pendiente (siendo seleccionado por otro)
     if (asientosPendientes && asientosPendientes[num]) {
@@ -84,27 +125,70 @@ export const BusVisualizer = ({
       const lockedAt = typeof info === 'object' ? info.lockedAt : null;
       const tiempo = lockedAt ? formatearTiempoBloqueo(lockedAt, now) : '';
       const restante = lockedAt ? Math.max(0, Math.floor((seatLockTimeoutMs - (now - lockedAt)) / 1000)) : null;
-      const restanteTexto = restante !== null ? ` - Restan ${Math.floor(restante / 60)}m ${restante % 60}s` : '';
-      return `Asiento ${num} - ${usuario} lo está seleccionando (${tiempo}${restanteTexto})`;
+      return {
+        ...base,
+        estado: 'pendiente',
+        titulo: 'Lo está seleccionando otro usuario',
+        usuario,
+        tiempo: restante !== null
+          ? `${tiempo} · restan ${Math.floor(restante / 60)}m ${restante % 60}s`
+          : tiempo
+      };
     }
 
-    const ocupado = asientosOcupados.find(a =>
-      Number(a.asiento_boleto_detalle) === num || Number(a) === num
-    );
-    if (!ocupado && !asientosSeleccionados.includes(num)) {
-      return `Asiento ${num} - Disponible`;
-    }
+    // Asiento de esta venta: se muestra el pasajero ya capturado
     if (asientosSeleccionados.includes(num)) {
-      return `Asiento ${num} - Seleccionado`;
+      const pasajero = pasajeros.find((p) => Number(p.asiento) === num);
+      const sub = destinosViaje.find((d) => String(d.id_sub_rutas) === String(pasajero?.id_destino));
+      return {
+        ...base,
+        estado: 'seleccionado',
+        titulo: 'Seleccionado (tú)',
+        cliente: pasajero?.nombres || pasajero?.nombre || '',
+        documento: pasajero?.cedula || '',
+        destino: nombreDestinoDe(pasajero ? { id_destino_boleto: pasajero.id_destino } : null),
+        origen: sub?.nombre_lugar_origen || sub?.origen_nombre || ''
+      };
     }
-    if (typeof ocupado === 'object') {
-      const estado = getSeatStatus(num);
-      if (estado === 'libre-parada') return `Asiento ${num} - Libre en esta parada`;
-      if (estado === 'ocupado-parcial') return `Asiento ${num} - Ocupado hasta destino`;
-      return `Asiento ${num} - Ocupado Fin de Viaje`;
-    }
-    return `Asiento ${num} - Ocupado`;
+
+    const ocupados = getOcupadosDeAsiento(num);
+    if (ocupados.length === 0) return base;
+
+    const estado = getSeatStatus(num);
+    // El primer boleto con cliente identificado aporta los datos principales
+    const principal = ocupados.find((o) => o.nombre_cliente) || ocupados[0];
+    const destinos = [...new Set(ocupados.map(nombreDestinoDe).filter(Boolean))];
+    const origen = principal?.nombre_origen || '';
+    const oficinaVenta = principal?.nombre_sucursal_venta || '';
+
+    return {
+      ...base,
+      estado,
+      titulo: textoEstadoOcupado(estado),
+      cliente: principal?.nombre_cliente || '',
+      documento: principal?.identificacion_cliente || '',
+      destino: destinos.join(' · '),
+      origen,
+      // La agencia que vendió solo se distingue cuando no coincide con la salida
+      oficina: oficinaVenta && oficinaVenta !== origen ? oficinaVenta : (origen ? '' : oficinaVenta),
+      etiquetaOficina: origen && oficinaVenta && oficinaVenta !== origen ? 'Vendido en' : 'Oficina'
+    };
   };
+
+  const mostrarTooltip = (event, numeroAsiento) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const info = getTooltipInfo(numeroAsiento);
+    const ancho = 240;
+    const x = Math.min(
+      Math.max(rect.left + rect.width / 2, ancho / 2 + 8),
+      window.innerWidth - ancho / 2 - 8
+    );
+    // Sin espacio arriba, el tooltip se abre hacia abajo
+    const below = rect.top < 170;
+    setTooltip({ ...info, x, y: below ? rect.bottom + 6 : rect.top - 6, below });
+  };
+
+  const ocultarTooltip = () => setTooltip(null);
 
   const renderPiso = (pisoData, pisoIdx) => {
     if (mapaData && mapaData.pisos) {
@@ -126,6 +210,7 @@ export const BusVisualizer = ({
                   <button
                     className={`bus-seat ${status}`}
                     onClick={() => {
+                      ocultarTooltip();
                       if (status === 'ocupado' || status === 'ocupado-parcial') {
                         const ocupado = asientosOcupados.find(a =>
                           Number(a.asiento_boleto_detalle) === num
@@ -135,7 +220,11 @@ export const BusVisualizer = ({
                         onAsientoClick(num);
                       }
                     }}
-                    title={getTooltip(num)}
+                    onMouseEnter={(e) => mostrarTooltip(e, num)}
+                    onMouseLeave={ocultarTooltip}
+                    onFocus={(e) => mostrarTooltip(e, num)}
+                    onBlur={ocultarTooltip}
+                    aria-label={`Asiento ${num} - ${getTooltipInfo(num).titulo}`}
                   >
                     <span className="seat-number">{num}</span>
                   </button>
@@ -193,6 +282,7 @@ export const BusVisualizer = ({
                 <button
                   className={`bus-seat ${status}`}
                   onClick={() => {
+                    ocultarTooltip();
                     if (status === 'ocupado' || status === 'ocupado-parcial') {
                       const ocupado = asientosOcupados.find(a =>
                         Number(a.asiento_boleto_detalle) === seatNum
@@ -202,7 +292,11 @@ export const BusVisualizer = ({
                       onAsientoClick(seatNum);
                     }
                   }}
-                  title={getTooltip(seatNum)}
+                  onMouseEnter={(e) => mostrarTooltip(e, seatNum)}
+                  onMouseLeave={ocultarTooltip}
+                  onFocus={(e) => mostrarTooltip(e, seatNum)}
+                  onBlur={ocultarTooltip}
+                  aria-label={`Asiento ${seatNum} - ${getTooltipInfo(seatNum).titulo}`}
                 >
                   <span className="seat-number">{seatNum}</span>
                 </button>
@@ -325,6 +419,39 @@ export const BusVisualizer = ({
           <span style={{ color: '#3b82f6' }}>Seleccionado (tú)</span>
         </div>
       </div>
+
+      {/* TOOLTIP DEL ASIENTO (cliente, destino y oficina de venta) */}
+      {tooltip && (
+        <div
+          className={`seat-tooltip ${tooltip.estado}`}
+          role="tooltip"
+          style={{
+            left: tooltip.x,
+            top: tooltip.y,
+            transform: tooltip.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)'
+          }}
+        >
+          <div className="seat-tooltip-head">
+            <span className="seat-tooltip-num">Asiento {tooltip.numero}</span>
+            <span className="seat-tooltip-status">{tooltip.titulo}</span>
+          </div>
+          {[
+            tooltip.cliente && { icon: 'fa-user', label: 'Cliente', value: tooltip.cliente },
+            tooltip.documento && { icon: 'fa-id-card', label: 'CI/RUC', value: tooltip.documento },
+            tooltip.destino && { icon: 'fa-location-dot', label: 'Destino', value: tooltip.destino },
+            tooltip.origen && { icon: 'fa-bus', label: 'Sale de', value: tooltip.origen },
+            tooltip.oficina && { icon: 'fa-building', label: tooltip.etiquetaOficina || 'Oficina', value: tooltip.oficina },
+            tooltip.usuario && { icon: 'fa-user-clock', label: 'Usuario', value: tooltip.usuario },
+            tooltip.tiempo && { icon: 'fa-hourglass-half', label: 'Tiempo', value: tooltip.tiempo }
+          ].filter(Boolean).map((fila) => (
+            <div key={fila.label} className="seat-tooltip-row">
+              <i className={`fas ${fila.icon}`}></i>
+              <span className="seat-tooltip-label">{fila.label}:</span>
+              <span className="seat-tooltip-value">{fila.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
     </div>
   );

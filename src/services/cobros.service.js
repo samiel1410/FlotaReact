@@ -104,13 +104,34 @@ class CobrosService {
   }
 
   // ─── BONOS ────────────────────────────────────────────────
+  async cajasDisponiblesBono() {
+    try {
+      const res = await api.get('/bono/cajas-disponibles');
+      return {
+        success: res.data?.success !== false,
+        cajas: res.data?.cajas || [],
+        requiere_seleccion: res.data?.requiere_seleccion === true,
+        message: res.data?.message || ''
+      };
+    } catch (error) {
+      return { success: false, cajas: [], message: error.response?.data?.error || 'No se pudieron verificar las cajas aperturadas' };
+    }
+  }
+
   async agregarBono(data) {
     try {
       const res = await api.post('/bono/agregar', data);
       return { success: res.data?.success, data: res.data?.data, ticket: res.data?.data?.ticket, message: res.data?.message || res.data?.error, notificacion: res.data?.notificacion };
     } catch (error) {
-      const msg = error.response?.data?.error || error.response?.data?.message || 'Error al crear bono';
-      return { success: false, message: msg, requiere_caja: error.response?.data?.requiere_caja === true };
+      const payload = error.response?.data || {};
+      const msg = payload.error || payload.message || 'Error al crear bono';
+      return {
+        success: false,
+        message: msg,
+        requiere_caja: payload.requiere_caja === true,
+        requiere_seleccion_caja: payload.requiere_seleccion_caja === true,
+        cajas_disponibles: payload.cajas_disponibles || []
+      };
     }
   }
 

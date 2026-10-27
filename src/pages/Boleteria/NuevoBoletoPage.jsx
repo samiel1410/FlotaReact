@@ -798,6 +798,9 @@ export const NuevoBoletoPage = () => {
           identificacion_cliente: a.identificacion_cliente || '',
           total_boleto_detalle: a.total_boleto_detalle || 0,
           id_destino_boleto: a.id_destino_boleto || null,
+          // Datos del tooltip del asiento (destino y oficina que vendió)
+          nombre_destino: a.nombre_destino || '',
+          nombre_sucursal_venta: a.nombre_sucursal_venta || '',
           estado_boleto_detalle: 1,
           id_boleto: data.id_boleto
         }));
@@ -1272,6 +1275,10 @@ export const NuevoBoletoPage = () => {
         id_origen: formData.origen,
         identificacion: formData.pasajeros[0]?.cedula || formData.identificacion,
         nombres: formData.pasajeros[0]?.nombres || formData.nombres,
+        // Datos de contacto del facturado: el PDF del boleto (boletoFactura.php)
+        // y el XML del SRI los leen desde celular_boleto / correo_boleto.
+        celular: formData.celular,
+        correo: formData.correo,
         total_final: totalVenta,
         es_reserva: esReserva ? 1 : 0,
         observacion: formData.observacion,
@@ -1741,6 +1748,8 @@ export const NuevoBoletoPage = () => {
                     asientosOcupados={asientosOcupados}
                     asientosSeleccionados={formData.asientosSeleccionados}
                     asientosPendientes={asientosPendientes}
+                    pasajeros={formData.pasajeros}
+                    destinosViaje={destinosViaje}
                     onAsientoClick={handleAsientoClick}
                     onAsientoOcupadoClick={handleAsientoOcupadoClick}
                     discoBus={discoBus}

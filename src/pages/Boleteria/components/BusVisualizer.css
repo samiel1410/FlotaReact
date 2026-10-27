@@ -190,3 +190,110 @@
   font-size: 12px;
   font-weight: bold;
 }
+
+/* Tooltip flotante del asiento: cliente, destino y oficina de venta */
+.seat-tooltip {
+  position: fixed;
+  z-index: 9999;
+  min-width: 190px;
+  max-width: 260px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.97);
+  border-left: 3px solid #64748b;
+  color: #e2e8f0;
+  font-size: 11px;
+  line-height: 1.35;
+  text-align: left;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.35);
+  pointer-events: none;
+  animation: seatTooltipIn 0.12s ease-out;
+}
+
+.seat-tooltip.ocupado,
+.seat-tooltip.ocupado-parcial {
+  border-left-color: #ef4444;
+}
+
+.seat-tooltip.ocupado-parcial {
+  border-left-color: #f1c40f;
+}
+
+.seat-tooltip.pendiente {
+  border-left-color: #8b5cf6;
+}
+
+.seat-tooltip.seleccionado {
+  border-left-color: #3b82f6;
+}
+
+.seat-tooltip.libre-parada {
+  border-left-color: #27ae60;
+}
+
+.seat-tooltip-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-bottom: 5px;
+  margin-bottom: 5px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.18);
+}
+
+.seat-tooltip-num {
+  font-weight: 700;
+  font-size: 12px;
+  color: #ffffff;
+}
+
+.seat-tooltip-status {
+  font-size: 10px;
+  font-weight: 600;
+  color: #93c5fd;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.seat-tooltip.ocupado .seat-tooltip-status,
+.seat-tooltip.ocupado-parcial .seat-tooltip-status {
+  color: #fca5a5;
+}
+
+.seat-tooltip.ocupado-parcial .seat-tooltip-status {
+  color: #fcd34d;
+}
+
+.seat-tooltip.pendiente .seat-tooltip-status {
+  color: #c4b5fd;
+}
+
+.seat-tooltip-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 5px;
+  padding: 1px 0;
+}
+
+.seat-tooltip-row i {
+  width: 11px;
+  margin-top: 2px;
+  font-size: 10px;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.seat-tooltip-label {
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.seat-tooltip-value {
+  color: #f8fafc;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+@keyframes seatTooltipIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}

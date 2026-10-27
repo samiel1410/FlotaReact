@@ -4,10 +4,8 @@ import Swal from 'sweetalert2';
 import Modal from '../../components/common/Modal';
 import MotivoModal from '../../components/common/MotivoModal';
 import SocioBusSelector from '../../components/common/SocioBusSelector';
-import AperturaCajaCobrosModal from '../../components/common/AperturaCajaCobrosModal';
 import AccionesFila from '../../components/common/AccionesFila';
 import { cobrosService } from '../../services/cobros.service';
-import { cajaCobrosService } from '../../services/cajaCobros.service';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import toast from 'react-hot-toast';
@@ -63,31 +61,42 @@ const urlPdfBono = (ticket) => {
 };
 
 // ─── Nuevo Bono Modal ──────────────────────────────────────────────
-const NuevoBonoModal = ({ onClose, onSuccess, onNoCaja }) => {
+const NuevoBonoModal = ({ onClose, onSuccess, cajas = [], onCajasActualizadas }) => {
   const [form, setForm] = useState({ id_socio: '', id_bus: '', valor: '50', motivo: '', observacion: '', fecha: new Date().toISOString().split('T')[0] });
+  const [cajaTipo, setCajaTipo] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Con una sola caja abierta se usa automáticamente; con varias debe escogerse
+  const cajaSeleccionada = cajas.length === 1 ? cajas[0].tipo : cajaTipo;
 
   const handleChange = (field, value) => setForm(f => ({ ...f, [field]: value }));
 
   const handleSubmit = async () => {
     const { id_socio, id_bus, valor, motivo } = form;
     if (!id_socio || !id_bus || !valor || !motivo) { Swal.fire('Validación', 'Complete todos los campos requeridos', 'warning'); return; }
+    if (!cajaSeleccionada) { Swal.fire('Validación', 'Seleccione la caja de la que se genera el egreso', 'warning'); return; }
     setLoading(true);
     try {
-      const res = await cobrosService.agregarBono(form);
+      const res = await cobrosService.agregarBono({ ...form, caja_tipo: cajaSeleccionada });
       if (res.success) {
         if (res.notificacion) {
           api.post('/whatsapp/enviar', { number: res.notificacion.telefono, message: res.notificacion.mensaje }).catch(() => {});
         }
-        onSuccess({ ...(res.data?.ticket || res.ticket || {}), id_bono: res.data?.id_bono });
+        onSuccess({ ...(res.data?.ticket || res.ticket || {}), id_bono: res.data?.id_bono, caja_origen: res.data?.caja_origen });
+      } else if (res.requiere_seleccion_caja) {
+        // Aparecieron más cajas aperturadas: se refresca la lista sin cerrar el formulario
+        onCajasActualizadas?.(res.cajas_disponibles || []);
+        Swal.fire({ icon: 'info', title: 'Seleccione la caja', text: res.message || 'Tiene más de una caja aperturada.', confirmButtonColor: '#059669' });
+      } else if (res.requiere_caja) {
+        onClose();
+        Swal.fire({
+          icon: 'warning',
+          title: 'Sin caja aperturada',
+          text: res.message || 'Debe aperturar una caja de Boletería o de Encomiendas antes de registrar un bono.',
+          confirmButtonColor: '#059669'
+        });
       } else {
-        // Solo se abre el modal de apertura si el backend lo indica explícitamente
-        if (res.requiere_caja) {
-          onClose();
-          onNoCaja();
-        } else {
-          Swal.fire({ icon: 'error', title: 'No se pudo registrar el bono', text: res.message || 'Error desconocido', confirmButtonColor: '#dc2626' });
-        }
+        Swal.fire({ icon: 'error', title: 'No se pudo registrar el bono', text: res.message || 'Error desconocido', confirmButtonColor: '#dc2626' });
       }
     } catch (err) { Swal.fire('Error', err.message, 'error'); }
     finally { setLoading(false); }
@@ -96,6 +105,25 @@ const NuevoBonoModal = ({ onClose, onSuccess, onNoCaja }) => {
   return (
     <Modal isOpen={true} onClose={onClose} title="Nuevo Bono" width="max-w-md">
       <div className="space-y-4">
+        <div>
+          <label className="block text-[11px] font-bold text-slate-600 mb-1">Caja de origen del egreso</label>
+          {cajas.length > 1 ? (
+            <>
+              <select value={cajaTipo} onChange={e => setCajaTipo(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm">
+                <option value="">Seleccione una caja...</option>
+                {cajas.map(c => <option key={c.tipo} value={c.tipo}>{c.label}</option>)}
+              </select>
+              <p className="mt-1 text-[10px] text-amber-600 font-medium">
+                <i className="fas fa-info-circle"></i> Tiene varias cajas aperturadas; el egreso se registrará en la que seleccione.
+              </p>
+            </>
+          ) : (
+            <div className="w-full px-3 py-2 border border-emerald-200 bg-emerald-50 rounded-lg text-sm font-bold text-emerald-700 flex items-center gap-2">
+              <i className="fas fa-cash-register"></i> {cajas[0]?.label || 'Sin caja aperturada'}
+            </div>
+          )}
+        </div>
         <SocioBusSelector
           idSocio={form.id_socio} idBus={form.id_bus}
           onSocioChange={v => handleChange('id_socio', v)}
@@ -136,7 +164,7 @@ export const BonosPage = () => {
   const [pageSize] = useState(25);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [showApertura, setShowApertura] = useState(false);
+  const [cajasBono, setCajasBono] = useState([]);
   const [anularBono, setAnularBono] = useState(null);
   const hoyStr = new Date().toISOString().split('T')[0];
   const [filtros, setFiltros] = useState({ id_socio: '', id_bus: '', estado: '', numero_ticket: '', fecha_desde: '', fecha_hasta: '', socio_busqueda: '', bus_busqueda: '' });
@@ -147,12 +175,23 @@ export const BonosPage = () => {
   const [pdfModalTitle, setPdfModalTitle] = useState('');
 
   const handleNuevoBonoClick = async () => {
-    const res = await cajaCobrosService.validarCaja();
-    if (res.success && res.data) {
-      setShowModal(true);
-    } else {
-      setShowApertura(true);
+    const res = await cobrosService.cajasDisponiblesBono();
+    if (!res.success) {
+      Swal.fire({ icon: 'error', title: 'No se pudieron verificar las cajas', text: res.message || 'Intente nuevamente.', confirmButtonColor: '#dc2626' });
+      return;
     }
+    if (res.cajas.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Sin caja aperturada',
+        html: 'Para generar un bono necesita su caja de <b>Boletería</b> o de <b>Encomiendas</b> aperturada.<br/><span class="text-sm text-slate-500">Aperture la caja desde el módulo correspondiente e intente nuevamente.</span>',
+        confirmButtonText: 'Entendido',
+        confirmButtonColor: '#059669'
+      });
+      return;
+    }
+    setCajasBono(res.cajas);
+    setShowModal(true);
   };
 
   // Método de impresión desde localStorage
@@ -254,7 +293,7 @@ export const BonosPage = () => {
       Swal.fire({
         icon: 'success',
         title: 'Bono registrado',
-        text: `Ticket N° ${ticket.numero}`,
+        text: `Ticket N° ${ticket.numero}${ticket.caja_origen?.nombre ? ` · ${ticket.caja_origen.nombre}` : ''}`,
         showCancelButton: true,
         confirmButtonText: 'Imprimir',
         cancelButtonText: 'Cerrar',
@@ -290,13 +329,15 @@ export const BonosPage = () => {
         showPrintButton
       />
 
-      {showModal && <NuevoBonoModal onClose={() => setShowModal(false)} onSuccess={handleBonoCreado} onNoCaja={() => setShowApertura(true)} />}
+      {showModal && (
+        <NuevoBonoModal
+          cajas={cajasBono}
+          onCajasActualizadas={setCajasBono}
+          onClose={() => setShowModal(false)}
+          onSuccess={handleBonoCreado}
+        />
+      )}
       {anularBono && <MotivoModal isOpen={true} onClose={() => setAnularBono(null)} onConfirm={handleAnularConfirm} title="Anular Bono" confirmText="Anular" />}
-      <AperturaCajaCobrosModal
-        isOpen={showApertura}
-        onClose={() => setShowApertura(false)}
-        onSuccess={() => { setShowApertura(false); setShowModal(true); }}
-      />
 
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-800 flex items-center gap-3">
