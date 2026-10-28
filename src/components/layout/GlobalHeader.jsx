@@ -214,14 +214,14 @@ export const GlobalHeader = ({ onMenuToggle }) => {
   const puntoBoleteria = userDetails?.punto_emision_boleteria || '1';
 
   return (
-    <header className="h-14 sm:h-16 bg-white border-b border-slate-200 px-2 sm:px-4 lg:px-6 flex items-center justify-between gap-2 shadow-sm z-10 shrink-0 min-w-0">
+    <header className="ui-header h-14 sm:h-16 border-b px-2 sm:px-4 lg:px-6 flex items-center justify-between gap-2 shadow-sm z-10 shrink-0 min-w-0">
       
       {/* Izquierda */}
       <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
         <button
           type="button"
           onClick={onMenuToggle}
-          className="lg:hidden h-9 w-9 shrink-0 rounded-lg text-slate-600 hover:bg-slate-100"
+          className="ui-header-action lg:hidden h-9 w-9 shrink-0 rounded-lg"
           aria-label="Abrir menú"
           title="Abrir menú"
         >
@@ -256,18 +256,18 @@ export const GlobalHeader = ({ onMenuToggle }) => {
               <i className="fas fa-bus text-blue-600"></i>
             </div>
           )}
-          <span className="hidden sm:block text-sm font-bold text-slate-800 truncate max-w-[300px]">{empresa.nombre}</span>
+          <span className="ui-header-strong hidden sm:block text-sm font-bold truncate max-w-[300px]">{empresa.nombre}</span>
         </div>
 
-        <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
+        <div className="ui-header-divider h-8 w-px hidden sm:block"></div>
 
         {/* Reloj */}
         <div className="hidden sm:flex flex-col shrink-0">
-          <span className="text-lg font-bold text-slate-800 leading-none">{formattedTime}</span>
-          <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{formattedDate}</span>
+          <span className="ui-header-strong text-lg font-bold leading-none">{formattedTime}</span>
+          <span className="ui-header-muted text-[10px] font-medium uppercase tracking-wider">{formattedDate}</span>
         </div>
 
-        <div className="h-8 w-px bg-slate-200 hidden sm:block"></div>
+        <div className="ui-header-divider h-8 w-px hidden sm:block"></div>
 
         {/* Socket Status */}
         <div 
@@ -314,13 +314,13 @@ export const GlobalHeader = ({ onMenuToggle }) => {
           title="Mi Perfil"
         >
           <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-slate-800">{nombreUsuario}</span>
+            <span className="ui-header-strong text-sm font-bold">{nombreUsuario}</span>
             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 tracking-wide uppercase">
               {rolName}
             </span>
           </div>
-          <div className="flex items-center gap-3 text-xs text-slate-500 mt-0.5">
-            <span className="flex items-center gap-1"><i className="fas fa-map-marker-alt text-slate-400"></i> {sucursalNombre ? `${sucursalNombre} - ${userCiudad}` : userCiudad}</span>
+          <div className="ui-header-muted flex items-center gap-3 text-xs mt-0.5">
+            <span className="flex items-center gap-1"><i className="fas fa-map-marker-alt"></i> {sucursalNombre ? `${sucursalNombre} - ${userCiudad}` : userCiudad}</span>
             <span className="flex items-center gap-1 font-mono bg-slate-100 px-1.5 rounded text-[10px]">B:{puntoBoleteria} G:{puntoGuia}</span>
           </div>
         </button>
@@ -342,7 +342,7 @@ export const GlobalHeader = ({ onMenuToggle }) => {
         <div className="relative" ref={notifDropdownRef}>
           <button
             onClick={() => { setShowNotifDropdown(!showNotifDropdown); if (!showNotifDropdown) marcarLeidas(); }}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors relative"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[color:var(--ui-header-fg-muted)] hover:text-amber-600 hover:bg-amber-50 transition-colors relative"
             title="Notificaciones"
           >
             <i className="fas fa-bell text-lg"></i>
@@ -424,21 +424,21 @@ export const GlobalHeader = ({ onMenuToggle }) => {
           )}
         </div>
 
-        <div className="hidden sm:block h-8 w-px bg-slate-200"></div>
+        <div className="ui-header-divider hidden sm:block h-8 w-px"></div>
 
         {/* Actions */}
         <div className="flex items-center gap-2">
           {hasPermission('administracion.configuracion_sistema') && (
             <Link 
               to="/configuracion"
-              className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-[color:var(--ui-header-fg-muted)] hover:text-blue-600 hover:bg-blue-50 transition-colors"
               title="Configuración"
             >
               <i className="fas fa-cog text-lg"></i>
             </Link>
           )}
           <button 
-            className="w-9 h-9 rounded-full flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+            className="w-9 h-9 rounded-full flex items-center justify-center text-[color:var(--ui-header-fg-muted)] hover:text-rose-600 hover:bg-rose-50 transition-colors"
             onClick={handleLogout}
             title="Cerrar Sesión"
           >

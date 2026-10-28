@@ -243,11 +243,11 @@ export const Sidebar = ({ isOpen = false, onNavigate }) => {
     });
 
   return (
-    <aside className={`fixed inset-y-0 left-0 z-40 flex h-screen h-dvh w-64 shrink-0 flex-col bg-slate-900 text-white shadow-2xl transition-transform duration-200 lg:static lg:z-20 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+    <aside className={`ui-sidebar fixed inset-y-0 left-0 z-40 flex h-screen h-dvh w-64 shrink-0 flex-col shadow-2xl transition-transform duration-200 lg:static lg:z-20 lg:translate-x-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       {/* Brand - nombre configurable en branding.json */}
-      <div className="flex items-center justify-center gap-3 h-16 border-b border-slate-800 bg-slate-950/50 shrink-0">
+      <div className="ui-sidebar-brand flex items-center justify-center gap-3 h-16 border-b shrink-0">
         <img src={BRAND.logo} alt={BRAND.name} className="w-10 h-10 object-contain" />
-        <span className="font-bold text-lg tracking-wider text-slate-100 uppercase">{BRAND.name}</span>
+        <span className="ui-sidebar-brand-text font-bold text-lg tracking-wider uppercase">{BRAND.name}</span>
       </div>
 
       {/* Inicio rápido */}
@@ -256,10 +256,7 @@ export const Sidebar = ({ isOpen = false, onNavigate }) => {
           to="/inicio"
           onClick={onNavigate}
           className={({ isActive }) =>
-            `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 mb-1 ${isActive
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-            }`
+            `ui-sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 mb-1 ${isActive ? 'is-active shadow-md' : ''}`
           }
         >
           <i className="fas fa-home w-5 text-center"></i>
@@ -279,9 +276,7 @@ export const Sidebar = ({ isOpen = false, onNavigate }) => {
             <div key={cat.id}>
               <button
                 onClick={() => toggle(cat.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors group ${hasActive
-                  ? 'text-blue-400 bg-blue-900/20'
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
+                className={`ui-sidebar-section w-full flex items-center justify-between px-3 py-2 rounded-lg transition-colors group ${hasActive ? 'is-active' : ''
                   }`}
               >
                 <div className="flex items-center gap-2.5">
@@ -295,7 +290,7 @@ export const Sidebar = ({ isOpen = false, onNavigate }) => {
                 className={`overflow-hidden transition-all duration-250 ease-in-out ${isOpen ? 'max-h-[950px] opacity-100' : 'max-h-0 opacity-0'
                   }`}
               >
-                <div className="ml-2 pl-2 border-l border-slate-700/60 flex flex-col gap-0.5 py-1">
+                <div className="ui-sidebar-divider ml-2 pl-2 border-l flex flex-col gap-0.5 py-1">
                   {cat.items.map(item => (
                     <NavLink
                       key={item.to}
@@ -303,9 +298,7 @@ export const Sidebar = ({ isOpen = false, onNavigate }) => {
                       onClick={onNavigate}
                       end={item.to === '/guias'}
                       className={({ isActive }) =>
-                        `flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[12px] font-medium transition-all duration-150 ${isActive
-                          ? 'bg-blue-600 text-white shadow-sm'
-                          : 'text-slate-400 hover:bg-slate-800 hover:text-slate-100'
+                        `ui-sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-md text-[12px] font-medium transition-all duration-150 ${isActive ? 'is-active shadow-sm' : ''
                         }`
                       }
                     >

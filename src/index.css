@@ -40,3 +40,95 @@ body {
   flex-direction: column;
 }
 
+/* ─── Apariencia configurable (Configuración → Apariencia) ───────────────
+   Las variables las escribe src/services/apariencia.service.js en :root. */
+:root {
+  --ui-sidebar-bg: #0f172a;
+  --ui-sidebar-brand-bg: #090f1d;
+  --ui-sidebar-fg: #f8fafc;
+  --ui-sidebar-fg-muted: rgba(226, 232, 240, 0.78);
+  --ui-sidebar-hover: rgba(255, 255, 255, 0.1);
+  --ui-sidebar-border: rgba(255, 255, 255, 0.12);
+  --ui-sidebar-accent: #60a5fa;
+  --ui-sidebar-active-bg: #2563eb;
+  --ui-sidebar-active-fg: #ffffff;
+  --ui-sidebar-active-soft-bg: rgba(37, 99, 235, 0.28);
+  --ui-header-bg: #ffffff;
+  --ui-header-fg: #0f172a;
+  --ui-header-fg-muted: #64748b;
+  --ui-header-hover: #f1f5f9;
+  --ui-header-border: #e2e8f0;
+}
+
+.ui-sidebar {
+  background-color: var(--ui-sidebar-bg);
+}
+
+.ui-sidebar-brand {
+  background-color: var(--ui-sidebar-brand-bg);
+  border-color: var(--ui-sidebar-border);
+}
+
+.ui-sidebar-brand-text {
+  color: var(--ui-sidebar-fg);
+}
+
+.ui-sidebar-divider {
+  border-color: var(--ui-sidebar-border);
+}
+
+.ui-sidebar-section {
+  color: var(--ui-sidebar-fg-muted);
+}
+
+.ui-sidebar-section:hover {
+  background-color: var(--ui-sidebar-hover);
+  color: var(--ui-sidebar-fg);
+}
+
+.ui-sidebar-section.is-active {
+  background-color: var(--ui-sidebar-active-soft-bg);
+  color: var(--ui-sidebar-accent);
+}
+
+.ui-sidebar-link {
+  color: var(--ui-sidebar-fg-muted);
+}
+
+.ui-sidebar-link:hover {
+  background-color: var(--ui-sidebar-hover);
+  color: var(--ui-sidebar-fg);
+}
+
+.ui-sidebar-link.is-active {
+  background-color: var(--ui-sidebar-active-bg);
+  color: var(--ui-sidebar-active-fg);
+}
+
+.ui-header {
+  background-color: var(--ui-header-bg);
+  border-color: var(--ui-header-border);
+}
+
+.ui-header-strong {
+  color: var(--ui-header-fg);
+}
+
+.ui-header-muted {
+  color: var(--ui-header-fg-muted);
+}
+
+.ui-header-divider {
+  background-color: var(--ui-header-border);
+}
+
+.ui-header-action {
+  color: var(--ui-header-fg-muted);
+}
+
+.ui-header-action:hover {
+  background-color: var(--ui-header-hover);
+  color: var(--ui-header-fg);
+}
+
+

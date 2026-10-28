@@ -3,10 +3,15 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { GlobalHeader } from './GlobalHeader';
 import { Sidebar } from './Sidebar';
 import { RouteProgressBar, PageContentLoader } from '../common/RouteTransitionLoader';
+import { cargarApariencia } from '../../services/apariencia.service';
 
 export const AppMain = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+
+  useEffect(() => {
+    cargarApariencia();
+  }, []);
 
   useEffect(() => {
     setSidebarOpen(false);

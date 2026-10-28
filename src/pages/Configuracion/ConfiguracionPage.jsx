@@ -5,11 +5,15 @@ import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 import { getSistemaModo, setSistemaModoCache } from '../../services/sistema.service';
+import { APARIENCIA_DEFAULT, aplicarApariencia, construirPaleta, normalizarColor } from '../../services/apariencia.service';
 import { WhatsAppTestForm } from './components/WhatsAppTestForm';
 import { CONFIG } from '../../config/env';
 
 const inputClass = "w-full pl-3 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all";
 const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2";
+
+const PRESETS_COLOR_SIDEBAR = ['#0f172a', '#1e293b', '#0b3b60', '#14532d', '#4c1d95', '#7f1d1d', '#0f766e', '#f8fafc'];
+const PRESETS_COLOR_HEADER = ['#ffffff', '#f8fafc', '#e2e8f0', '#1e293b', '#0f172a', '#1d4ed8', '#0f766e', '#b91c1c'];
 
 const resolveLogoUrl = (img) => {
   if (!img) return null;
@@ -57,7 +61,7 @@ export const ConfiguracionPage = () => {
     }
   }, []);
 
-  const { register, handleSubmit, setValue, getValues, reset } = useForm({
+  const { register, handleSubmit, setValue, getValues, watch, reset } = useForm({
     values: configData
   });
 
@@ -129,9 +133,12 @@ export const ConfiguracionPage = () => {
             descuento_global_boleto: conf.descuento_global_boleto === 1 || conf.descuento_global_boleto === true,
             omitir_confirmacion_boleto: conf.omitir_confirmacion_boleto === 1 || conf.omitir_confirmacion_boleto === true,
             permitir_consumidor_final: conf.permitir_consumidor_final === undefined || conf.permitir_consumidor_final === 1 || conf.permitir_consumidor_final === true,
+            color_sidebar: normalizarColor(conf.color_sidebar, APARIENCIA_DEFAULT.sidebar),
+            color_header: normalizarColor(conf.color_header, APARIENCIA_DEFAULT.header),
           };
           setConfigData(newConf);
           reset(newConf);
+          aplicarApariencia({ sidebar: newConf.color_sidebar, header: newConf.color_header });
           setRucTieneDatos(!!conf.ruc_empresa);
           setConfigCargada(true);
           setLoadError('');
@@ -171,6 +178,23 @@ export const ConfiguracionPage = () => {
   }, [configData.imagen_empresa]);
 
   const esProduccion = sistemaModo === 'produccion';
+
+  const colorSidebarPreview = watch('color_sidebar') || APARIENCIA_DEFAULT.sidebar;
+  const colorHeaderPreview = watch('color_header') || APARIENCIA_DEFAULT.header;
+  const paletaPreview = construirPaleta(colorSidebarPreview, colorHeaderPreview);
+
+  const previsualizarColores = (parcial = {}) => {
+    aplicarApariencia({
+      sidebar: parcial.sidebar ?? getValues('color_sidebar') ?? APARIENCIA_DEFAULT.sidebar,
+      header: parcial.header ?? getValues('color_header') ?? APARIENCIA_DEFAULT.header,
+    });
+  };
+
+  const seleccionarColor = (campo, valor) => {
+    const color = valor || (campo === 'color_sidebar' ? APARIENCIA_DEFAULT.sidebar : APARIENCIA_DEFAULT.header);
+    setValue(campo, color, { shouldDirty: true });
+    previsualizarColores(campo === 'color_sidebar' ? { sidebar: color } : { header: color });
+  };
 
   const handleModoChange = async (nuevoModo) => {
     if (nuevoModo === sistemaModo || esProduccion) return;
@@ -391,6 +415,12 @@ export const ConfiguracionPage = () => {
         setConfigData(prev => ({ ...prev, ...data }));
         reset({ ...configData, ...data });
 
+        // Aplicar de inmediato los colores del sidebar/header
+        aplicarApariencia({
+          sidebar: data.color_sidebar || configData.color_sidebar || APARIENCIA_DEFAULT.sidebar,
+          header: data.color_header || configData.color_header || APARIENCIA_DEFAULT.header,
+        });
+
         // Actualizar sessionStorage para el header
         const stored = sessionStorage.getItem('empresa_data');
         if (stored) {
@@ -601,6 +631,12 @@ export const ConfiguracionPage = () => {
                 activeTab === 'empresa' ? 'border-emerald-500 text-emerald-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
               }`}>
               <i className="fas fa-building text-lg"></i> Empresa
+            </button>
+            <button type="button" onClick={() => setActiveTab('apariencia')}
+              className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-bold text-sm transition-colors ${
+                activeTab === 'apariencia' ? 'border-fuchsia-500 text-fuchsia-600' : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+              }`}>
+              <i className="fas fa-palette text-lg"></i> Apariencia
             </button>
             <button type="button" onClick={() => setActiveTab('whatsapp')}
               className={`py-4 px-1 inline-flex items-center gap-2 border-b-2 font-bold text-sm transition-colors ${
@@ -1232,6 +1268,143 @@ export const ConfiguracionPage = () => {
                               Se aplicará a guías, notas de venta, boletos y reportes térmicos.
                             </span>
                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+            </div>
+
+            {/* ════ TAB APARIENCIA ════ */}
+            <div className={activeTab === 'apariencia' ? 'grid grid-cols-1 lg:grid-cols-2 gap-8' : 'hidden'}>
+                <div className="space-y-5">
+                  <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
+                    <i className="fas fa-palette text-fuchsia-500 mr-2"></i>Colores del layout
+                  </h2>
+                  <p className="text-sm text-slate-500 leading-relaxed">
+                    Personalice el color de fondo del menú lateral y de la barra superior. El texto y los íconos se ajustan
+                    automáticamente entre claro y oscuro para mantener la legibilidad.
+                  </p>
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <label className={labelClass} htmlFor="color_sidebar">Color del sidebar (menú lateral)</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        id="color_sidebar"
+                        type="color"
+                        {...register('color_sidebar', {
+                          onChange: (e) => previsualizarColores({ sidebar: e.target.value }),
+                        })}
+                        className="h-11 w-16 p-1 bg-white border border-slate-200 rounded-lg cursor-pointer"
+                      />
+                      <span className="font-mono text-xs font-bold text-slate-600 uppercase">{colorSidebarPreview}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {PRESETS_COLOR_SIDEBAR.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          title={color}
+                          onClick={() => seleccionarColor('color_sidebar', color)}
+                          className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                            String(colorSidebarPreview).toLowerCase() === color ? 'border-fuchsia-500' : 'border-white shadow'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <label className={labelClass} htmlFor="color_header">Color del header (barra superior)</label>
+                    <div className="flex items-center gap-3">
+                      <input
+                        id="color_header"
+                        type="color"
+                        {...register('color_header', {
+                          onChange: (e) => previsualizarColores({ header: e.target.value }),
+                        })}
+                        className="h-11 w-16 p-1 bg-white border border-slate-200 rounded-lg cursor-pointer"
+                      />
+                      <span className="font-mono text-xs font-bold text-slate-600 uppercase">{colorHeaderPreview}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {PRESETS_COLOR_HEADER.map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          title={color}
+                          onClick={() => seleccionarColor('color_header', color)}
+                          className={`h-7 w-7 rounded-full border-2 transition-transform hover:scale-110 ${
+                            String(colorHeaderPreview).toLowerCase() === color ? 'border-fuchsia-500' : 'border-slate-200 shadow'
+                          }`}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                    <i className="fas fa-circle-info text-amber-500 mt-0.5"></i>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      Los cambios se previsualizan al instante y quedan guardados al presionar
+                      <strong> Guardar Configuración</strong>.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setValue('color_sidebar', APARIENCIA_DEFAULT.sidebar, { shouldDirty: true });
+                      setValue('color_header', APARIENCIA_DEFAULT.header, { shouldDirty: true });
+                      aplicarApariencia(APARIENCIA_DEFAULT);
+                    }}
+                    className="px-4 py-2 text-xs font-bold text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
+                  >
+                    <i className="fas fa-rotate-left mr-2"></i>Restablecer colores predeterminados
+                  </button>
+                </div>
+
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
+                    <i className="fas fa-eye text-slate-500 mr-2"></i>Vista previa
+                  </h2>
+                  <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                    <div className="flex min-h-[220px]" style={{ backgroundColor: paletaPreview.sidebar.bg }}>
+                      <div className="w-36 p-2 space-y-1 border-r" style={{ borderColor: paletaPreview.sidebar.border }}>
+                        <div
+                          className="h-9 rounded-lg flex items-center justify-center text-[11px] font-black uppercase tracking-wider"
+                          style={{ backgroundColor: paletaPreview.sidebar.brandBg, color: paletaPreview.sidebar.fg }}
+                        >
+                          Easysplus
+                        </div>
+                        <div
+                          className="h-7 rounded-md flex items-center gap-2 px-2 text-[10px] font-semibold"
+                          style={{ backgroundColor: paletaPreview.sidebar.activeBg, color: paletaPreview.sidebar.activeFg }}
+                        >
+                          <i className="fas fa-home text-[9px]"></i> Inicio
+                        </div>
+                        {['Guías', 'Caja', 'Reportes'].map((item) => (
+                          <div
+                            key={item}
+                            className="h-7 rounded-md flex items-center gap-2 px-2 text-[10px] font-medium"
+                            style={{ color: paletaPreview.sidebar.fgMuted }}
+                          >
+                            <i className="fas fa-angle-right text-[9px]"></i> {item}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex-1 flex flex-col">
+                        <div
+                          className="h-11 px-3 flex items-center justify-between border-b"
+                          style={{ backgroundColor: paletaPreview.header.bg, borderColor: paletaPreview.header.border }}
+                        >
+                          <span className="text-[11px] font-bold" style={{ color: paletaPreview.header.fg }}>Easysplus</span>
+                          <span className="text-[10px] font-semibold" style={{ color: paletaPreview.header.fgMuted }}>Usuario</span>
+                        </div>
+                        <div className="flex-1 bg-slate-50 p-3 space-y-2">
+                          <div className="h-3 w-2/3 bg-white rounded border border-slate-200"></div>
+                          <div className="h-3 w-1/2 bg-white rounded border border-slate-200"></div>
                         </div>
                       </div>
                     </div>
