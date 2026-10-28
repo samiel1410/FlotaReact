@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { api } from '../../config/axios';
 import { reportesService } from '../../services/reportes.service';
 import toast from 'react-hot-toast';
@@ -242,9 +242,16 @@ export const CierreViajesPage = () => {
   }), { subtotal: 0, retiene: 0, entrega: 0, viajes: 0 });
 
   return (
-    <div style={{ fontFamily: 'Inter, Arial, sans-serif', background: '#f1f5f9', minHeight: '100vh', padding: 16 }}>
+    <div className="cierre-print" style={{ fontFamily: 'Inter, Arial, sans-serif', background: '#f1f5f9', minHeight: '100vh', padding: 16 }}>
+      <style>{`
+        @media print {
+          aside, header, nav, .no-print { display: none !important; }
+          html, body { height: auto !important; overflow: visible !important; background: #fff !important; }
+          .cierre-print { padding: 0 !important; min-height: auto !important; background: #fff !important; }
+        }
+      `}</style>
       {/* FILTROS */}
-      <div style={{ background: 'white', borderRadius: 8, padding: '12px 16px', marginBottom: 12, boxShadow: '0 1px 4px rgba(0,0,0,.08)', display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+      <div className="no-print" style={{ background: 'white', borderRadius: 8, padding: '12px 16px', marginBottom: 12, boxShadow: '0 1px 4px rgba(0,0,0,.08)', display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
         <div>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#475569', marginBottom: 3 }}>REPORTE</div>
           <div style={{ fontSize: 16, fontWeight: 800, color: '#1e3a5f' }}>Cierre de Viajes por Agencia</div>
@@ -272,6 +279,9 @@ export const CierreViajesPage = () => {
         </button>
         {data.length > 0 && (
           <>
+            <button onClick={() => window.print()} style={{ ...btnSecondary, background: '#1e3a5f' }}>
+              <i className="fas fa-print" /> Impresión Rápida
+            </button>
             <button onClick={handleExportPDF} disabled={exporting.pdf} style={{ ...btnSecondary, background: '#dc2626' }}>
               <i className={`fas ${exporting.pdf ? 'fa-spinner fa-spin' : 'fa-file-pdf'}`} /> {exporting.pdf ? 'Generando...' : 'PDF'}
             </button>
@@ -284,7 +294,7 @@ export const CierreViajesPage = () => {
 
       {/* INDICADOR DE PROGRESO */}
       {showProgress && (
-        <div style={{ background: 'white', borderRadius: 8, padding: '16px 20px', marginBottom: 12, boxShadow: '0 1px 4px rgba(0,0,0,.08)' }}>
+        <div className="no-print" style={{ background: 'white', borderRadius: 8, padding: '16px 20px', marginBottom: 12, boxShadow: '0 1px 4px rgba(0,0,0,.08)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>
               <i className="fas fa-spinner fa-spin" style={{ marginRight: 6 }} />
@@ -349,17 +359,62 @@ export const CierreViajesPage = () => {
                       {of.viajes.map((v, vi) => {
                         const isHighlight = v.retiene > 0;
                         return (
-                          <tr key={vi} style={{ background: isHighlight ? '#f0fdf4' : (vi % 2 === 0 ? 'white' : '#f8fafc') }}>
-                            <td style={td}>{v.id_viajes}</td>
-                            <td style={td}>{v.fecha_viaje || '-'}</td>
-                            <td style={{ ...td, textAlign: 'center' }}>{v.hora_salida || '-'}</td>
-                            <td style={{ ...td, textAlign: 'center' }}>{v.disco}</td>
-                            <td style={td}>{v.chofer}</td>
-                            <td style={td}>{v.ruta}</td>
-                            <td style={{ ...td, textAlign: 'right' }}>{fmt(v.subtotal)}</td>
-                            <td style={{ ...td, textAlign: 'right', background: isHighlight ? '#bbf7d0' : 'inherit' }}>{fmt(v.retiene)}</td>
-                            <td style={{ ...td, textAlign: 'right', background: isHighlight ? '#bbf7d0' : 'inherit' }}>{fmt(v.entrega)}</td>
-                          </tr>
+                          <Fragment key={vi}>
+                            <tr style={{ background: isHighlight ? '#f0fdf4' : (vi % 2 === 0 ? 'white' : '#f8fafc') }}>
+                              <td style={td}>{v.id_viajes}</td>
+                              <td style={td}>{v.fecha_viaje || '-'}</td>
+                              <td style={{ ...td, textAlign: 'center' }}>{v.hora_salida || '-'}</td>
+                              <td style={{ ...td, textAlign: 'center' }}>{v.disco}</td>
+                              <td style={td}>{v.chofer}</td>
+                              <td style={td}>{v.ruta}</td>
+                              <td style={{ ...td, textAlign: 'right' }}>{fmt(v.subtotal)}</td>
+                              <td style={{ ...td, textAlign: 'right', background: isHighlight ? '#bbf7d0' : 'inherit' }}>{fmt(v.retiene)}</td>
+                              <td style={{ ...td, textAlign: 'right', background: isHighlight ? '#bbf7d0' : 'inherit' }}>{fmt(v.entrega)}</td>
+                            </tr>
+                            {(v.despachos || []).length > 0 && (
+                              <tr>
+                                <td colSpan={9} style={{ ...td, background: '#fffbeb', padding: '4px 10px' }}>
+                                  <div style={{ fontSize: 9, fontWeight: 800, color: '#92400e', marginBottom: 3, textTransform: 'uppercase', letterSpacing: '.04em' }}>
+                                    Despachos registrados ({v.despachos.length})
+                                  </div>
+                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
+                                    <thead>
+                                      <tr style={{ background: '#fef3c7', color: '#78350f' }}>
+                                        <th style={{ border: '1px solid #fcd34d', padding: '2px 4px' }}>N° Desp.</th>
+                                        <th style={{ border: '1px solid #fcd34d', padding: '2px 4px' }}>Oficina</th>
+                                        <th style={{ border: '1px solid #fcd34d', padding: '2px 4px' }}>Usuario</th>
+                                        <th style={{ border: '1px solid #fcd34d', padding: '2px 4px' }}>Hora</th>
+                                        <th style={{ border: '1px solid #fcd34d', padding: '2px 4px', textAlign: 'right' }}>Pasaj.</th>
+                                        <th style={{ border: '1px solid #fcd34d', padding: '2px 4px', textAlign: 'right' }}>Vendido</th>
+                                        <th style={{ border: '1px solid #fcd34d', padding: '2px 4px', textAlign: 'right' }}>Retenido</th>
+                                        <th style={{ border: '1px solid #fcd34d', padding: '2px 4px', textAlign: 'right' }}>Entrega</th>
+                                        <th style={{ border: '1px solid #fcd34d', padding: '2px 4px' }}>Conceptos retenidos</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {v.despachos.map((d) => (
+                                        <tr key={d.id_despacho_viaje} style={{ background: 'white' }}>
+                                          <td style={{ border: '1px solid #fde68a', padding: '2px 4px', textAlign: 'center', fontWeight: 700 }}>#{d.id_despacho_viaje}</td>
+                                          <td style={{ border: '1px solid #fde68a', padding: '2px 4px' }}>{d.oficina || 'Sin oficina'}</td>
+                                          <td style={{ border: '1px solid #fde68a', padding: '2px 4px' }}>{d.usuario || '-'}</td>
+                                          <td style={{ border: '1px solid #fde68a', padding: '2px 4px', textAlign: 'center' }}>{d.hora_despacho || '-'}</td>
+                                          <td style={{ border: '1px solid #fde68a', padding: '2px 4px', textAlign: 'right' }}>{d.pasajeros || 0}</td>
+                                          <td style={{ border: '1px solid #fde68a', padding: '2px 4px', textAlign: 'right' }}>{fmt(d.vendido)}</td>
+                                          <td style={{ border: '1px solid #fde68a', padding: '2px 4px', textAlign: 'right', fontWeight: 700 }}>{fmt(d.retenido)}</td>
+                                          <td style={{ border: '1px solid #fde68a', padding: '2px 4px', textAlign: 'right' }}>{fmt(d.entrega)}</td>
+                                          <td style={{ border: '1px solid #fde68a', padding: '2px 4px' }}>
+                                            {(d.conceptos || []).length > 0
+                                              ? d.conceptos.map((c) => `${c.concepto}: $${fmt(c.monto)}`).join(' · ')
+                                              : 'Sin retenciones'}
+                                          </td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </td>
+                              </tr>
+                            )}
+                          </Fragment>
                         );
                       })}
                       {/* SUBTOTAL OFICINISTA */}

@@ -72,6 +72,26 @@ const ViajesService = {
   },
 
   // ─── DESPACHO ────────────────────────────────────────────────────────────
+  getListadoDespachos: async (params = {}) => {
+    try {
+      const response = await api.get('/viajes/listadoDespachos', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching dispatch list:', error);
+      return { success: false, data: [], total: 0, message: error.response?.data?.error || 'Error al cargar despachos' };
+    }
+  },
+
+  getVentasSinDespacho: async (params = {}) => {
+    try {
+      const response = await api.get('/viajes/ventasSinDespacho', { params });
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching sales without dispatch:', error);
+      return { success: false, data: [], total: 0, message: error.response?.data?.error || 'Error al cargar ventas sin despacho' };
+    }
+  },
+
   getTripsToDispatch: async (params = {}) => {
     try {
       const response = await api.get('/viajes/viajesDespachar', { params });

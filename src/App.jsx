@@ -45,6 +45,7 @@ const AuditoriaPage = lazy(() => import('./pages/Auditoria/AuditoriaPage').then(
 const ConfiguracionPage = lazy(() => import('./pages/Configuracion/ConfiguracionPage').then(m => ({ default: m.ConfiguracionPage })));
 const CreacionViajesPage = lazy(() => import('./pages/Viajes/CreacionViajesPage').then(m => ({ default: m.CreacionViajesPage })));
 const DespachoViajesPage = lazy(() => import('./pages/Viajes/DespachoViajesPage').then(m => ({ default: m.DespachoViajesPage })));
+const DespachosOficinaPage = lazy(() => import('./pages/Viajes/DespachosOficinaPage').then(m => ({ default: m.DespachosOficinaPage })));
 const ListaViajes = lazy(() => import('./pages/Viajes/ListaViajes').then(m => ({ default: m.ListaViajes })));
 const PlanificacionViajesPage = lazy(() => import('./pages/Viajes/PlanificacionViajesPage').then(m => ({ default: m.PlanificacionViajesPage })));
 const CobrosRealizadosPage = lazy(() => import('./pages/Guias/CobrosRealizadosPage').then(m => ({ default: m.CobrosRealizadosPage })));
@@ -145,6 +146,7 @@ function App() {
           <Route path="alimentos" element={<DynamicPage key="alimentos" configKey="alimentos" />} />
           <Route path="creacion-viajes" element={<CreacionViajesPage />} />
           <Route path="despacho-viajes" element={<DespachoViajesPage />} />
+          <Route path="despachos-oficina" element={<DespachosOficinaPage />} />
           <Route path="viajes" element={<ListaViajes />} />
           <Route path="planificacion-viajes" element={<PlanificacionViajesPage />} />
           <Route path="cierre-viajes" element={<CierreViajesPage />} />
