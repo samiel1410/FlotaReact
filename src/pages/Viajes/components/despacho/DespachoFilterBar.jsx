@@ -119,7 +119,10 @@ export const DespachoFilterBar = ({
         </div>
 
         {/* 4. Switch "Solo Mi Oficina" (25%) */}
-        <div className="w-full flex items-center justify-between h-9 px-3.5 bg-white rounded-xl border border-slate-200">
+        <div
+          className="w-full flex items-center justify-between h-9 px-3.5 bg-white rounded-xl border border-slate-200"
+          title="Muestra los viajes donde tu oficina o tú vendieron boletos, sin importar la ruta ni la oficina dueña del viaje"
+        >
           <div className="flex items-center gap-2">
             <i className="fas fa-building text-xs text-blue-600" />
             <span className="text-xs font-bold text-slate-700 select-none">Solo Mi Oficina</span>
