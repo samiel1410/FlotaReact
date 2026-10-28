@@ -199,7 +199,7 @@ try {
         fp.tipo_forma_pago
     FROM comprobante_cobro_nota_venta cc
     LEFT JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
-    WHERE cc.id_fkfactura_comprobante_cobro = $id_guia AND cc.estado_comprobante_cobro != 'ANULADA'
+    WHERE cc.id_fkfactura_comprobante_cobro = $id_guia AND cc.estado_comprobante_cobro = 'COBRADA'
     GROUP BY fp.id_forma_pago, fp.nombre_forma_pago, fp.tipo_forma_pago";
 
     $rec_pagos_nv = mysqli_query($conn, $sql_pagos_nv);
@@ -214,30 +214,19 @@ try {
         }
     }
 
-    // Determinar ESTADO (COBRADA / POR COBRAR)
-    $estado_cobro_raw = strtoupper(trim((string)($vals_guia['estado_cobro_guia'] ?? '')));
-    $cancelado_por_raw = strtoupper(trim((string)($vals_guia['cancelado_por_guia'] ?? '')));
+    // Determinar ESTADO (COBRADA / POR COBRAR) según el saldo real,
+    // igual que el listado (por_cobrar = total_guia - cobrado).
+    $saldo_por_cobrar = max(0.0, $total_guia - $suma_cobrada);
 
-    $esDestinatario = ($cancelado_por_raw === '1' || $cancelado_por_raw === 'DESTINATARIO' || $cancelado_por_raw === 'DESTINO' || $estado_cobro_raw === 'AL COBRO');
-
-    if ($esDestinatario) {
-        $estado_nota_venta = "POR COBRAR";
-        $total_cobrado = max(0.0, $total_guia - $suma_cobrada);
-    } else if ($total_guia > 0 && $suma_cobrada >= ($total_guia - 0.001)) {
+    if ($total_guia <= 0.001 || $saldo_por_cobrar <= 0.001) {
         $estado_nota_venta = "COBRADA";
         $total_cobrado = 0.00;
     } else if ($suma_cobrada > 0.001) {
         $estado_nota_venta = "POR COBRAR";
-        $total_cobrado = max(0.0, $total_guia - $suma_cobrada);
-    } else if ($estado_cobro_raw === 'NO COBRADA' || $estado_cobro_raw === 'POR COBRAR' || $estado_cobro_raw === 'PENDIENTE') {
-        $estado_nota_venta = "POR COBRAR";
-        $total_cobrado = $total_guia;
-    } else if ($suma_cobrada <= 0.001 && $total_guia > 0) {
-        $estado_nota_venta = "POR COBRAR";
-        $total_cobrado = $total_guia;
+        $total_cobrado = $saldo_por_cobrar;
     } else {
-        $estado_nota_venta = ($total_guia <= 0.001 || $suma_cobrada >= $total_guia) ? "COBRADA" : "POR COBRAR";
-        $total_cobrado = max(0.0, $total_guia - $suma_cobrada);
+        $estado_nota_venta = "POR COBRAR";
+        $total_cobrado = $total_guia;
     }
 
     if (empty(trim($detalles_forma_pago))) {
