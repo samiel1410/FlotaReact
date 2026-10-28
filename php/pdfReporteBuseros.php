@@ -82,37 +82,73 @@ try {
     }
 
     // ─── CONSULTA SQL ────────────────────────────────────────────────────────
+    // Los datos se PRE-AGREGAN por viaje en subconsultas: unir cobros, boletos y
+    // bonos en el mismo FROM producía un producto cartesiano (fanout) que
+    // multiplicaba la venta por la cantidad de cobros (viaje 3233: $505.50 en
+    // lugar de $252.75). Además `SUM(DISTINCT bn.valor)` restaba bonos con el
+    // mismo importe (2 bonos de $50 → $50 en vez de $100).
     $sql = "
-      SELECT 
-        v.id_viajes as viaje,
-        r.nombre_rutas as ruta,
-        TRIM(CONCAT(COALESCE(p.per_apellidos_personal, ''), ' ', COALESCE(p.per_nombres_persona, ''))) as socio,
-        v.fecha_cierre,
-        IFNULL(TIME_FORMAT(v.hora_origen_salida, '%H:%i'), '') as hora_salida,
-        COALESCE(SUM(c.monto_cobros), 0) as retenido,
-        COALESCE(SUM(CASE WHEN c.tipo_cobro = 1 OR tc.nombre_tipo_cobros LIKE '%admin%' OR tc.nombre_tipo_cobros LIKE '%cuota%' THEN c.monto_cobros ELSE 0 END), 0) as cuota_admin,
-        COALESCE(SUM(CASE WHEN c.tipo_cobro = 2 OR tc.nombre_tipo_cobros LIKE '%multa%' THEN c.monto_cobros ELSE 0 END), 0) as multas,
-        COALESCE(SUM(CASE WHEN tc.nombre_tipo_cobros LIKE '%refrig%' OR tc.nombre_tipo_cobros LIKE '%alim%' OR c.tipo_cobro = 4 THEN c.monto_cobros ELSE 0 END), 0) as refrigerio,
-        COALESCE(SUM(CASE WHEN tc.nombre_tipo_cobros LIKE '%accid%' OR c.tipo_cobro = 5 THEN c.monto_cobros ELSE 0 END), 0) as accidentes,
-        COALESCE(SUM(CASE WHEN (c.tipo_cobro NOT IN (1,2,4,5) AND tc.nombre_tipo_cobros NOT LIKE '%admin%' AND tc.nombre_tipo_cobros NOT LIKE '%cuota%' AND tc.nombre_tipo_cobros NOT LIKE '%multa%' AND tc.nombre_tipo_cobros NOT LIKE '%refrig%' AND tc.nombre_tipo_cobros NOT LIKE '%alim%' AND tc.nombre_tipo_cobros NOT LIKE '%accid%') THEN c.monto_cobros ELSE 0 END), 0) as otros_desc,
-        COALESCE(SUM(b.total_boleto), 0) as venta,
-        COUNT(DISTINCT b.id_boleto) as facturas,
-        COALESCE(SUM(DISTINCT bn.valor), 0) as bonos,
-        COALESCE(bu.disco_buses, '-') as bus_disco,
-        p.id_personal as per_codigo
-      FROM viajes v
-        LEFT JOIN cobros c ON c.id_fkviajes_cobros = v.id_viajes AND c.estado_cobros != 0
-        LEFT JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
-        LEFT JOIN boletos b ON b.id_fkviaje_boleto = v.id_viajes AND b.estado_boleto != 3
-        LEFT JOIN personal p ON v.id_fkchofer_viajes = p.id_personal
-        LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
-        LEFT JOIN buses bu ON v.id_fkbus_viajes = bu.id_buses
-        LEFT JOIN bonos bn ON (bn.id_bus = v.id_fkbus_viajes OR bn.id_socio = bu.id_fksocio_buses OR bn.id_socio = p.id_personal) 
-                           AND bn.fecha = DATE(v.fecha_cierre) AND bn.estado = 'activo'
-      $where
-      GROUP BY v.id_viajes, r.nombre_rutas, p.per_nombres_persona, p.per_apellidos_personal, v.fecha_cierre, v.hora_origen_salida, bu.disco_buses, p.id_personal
-      HAVING (COUNT(DISTINCT b.id_boleto) > 0 OR COALESCE(SUM(c.monto_cobros), 0) > 0 OR COALESCE(SUM(DISTINCT bn.valor), 0) > 0)
-      ORDER BY socio ASC, bus_disco ASC, v.fecha_cierre ASC
+      SELECT * FROM (
+        SELECT 
+          v.id_viajes as viaje,
+          r.nombre_rutas as ruta,
+          TRIM(CONCAT(COALESCE(p.per_apellidos_personal, ''), ' ', COALESCE(p.per_nombres_persona, ''))) as socio,
+          v.fecha_cierre,
+          IFNULL(TIME_FORMAT(v.hora_origen_salida, '%H:%i'), '') as hora_salida,
+          COALESCE(c.retenido, 0) as retenido,
+          COALESCE(c.cuota_admin, 0) as cuota_admin,
+          COALESCE(c.multas, 0) as multas,
+          COALESCE(c.refrigerio, 0) as refrigerio,
+          COALESCE(c.accidentes, 0) as accidentes,
+          COALESCE(c.otros_desc, 0) as otros_desc,
+          COALESCE(b.venta, 0) as venta,
+          COALESCE(b.facturas, 0) as facturas,
+          COALESCE((
+            SELECT SUM(bnx.valor) FROM bonos bnx
+             WHERE bnx.estado = 'activo'
+               AND bnx.fecha = DATE(v.fecha_cierre)
+               AND (bnx.id_bus = v.id_fkbus_viajes
+                    OR bnx.id_socio = bu.id_fksocio_buses
+                    OR bnx.id_socio = p.id_personal)
+          ), 0) as bonos,
+          COALESCE(bu.disco_buses, '-') as bus_disco,
+          p.id_personal as per_codigo
+        FROM viajes v
+          LEFT JOIN (
+            SELECT c.id_fkviajes_cobros AS vid,
+                   SUM(c.monto_cobros) AS retenido,
+                   SUM(CASE WHEN c.tipo_cobro = 1 OR tc.nombre_tipo_cobros LIKE '%admin%' OR tc.nombre_tipo_cobros LIKE '%cuota%' THEN c.monto_cobros ELSE 0 END) AS cuota_admin,
+                   SUM(CASE WHEN c.tipo_cobro = 2 OR tc.nombre_tipo_cobros LIKE '%multa%' THEN c.monto_cobros ELSE 0 END) AS multas,
+                   SUM(CASE WHEN tc.nombre_tipo_cobros LIKE '%refrig%' OR tc.nombre_tipo_cobros LIKE '%alim%' OR c.tipo_cobro = 4 THEN c.monto_cobros ELSE 0 END) AS refrigerio,
+                   SUM(CASE WHEN tc.nombre_tipo_cobros LIKE '%accid%' OR c.tipo_cobro = 5 THEN c.monto_cobros ELSE 0 END) AS accidentes,
+                   SUM(CASE WHEN (c.tipo_cobro NOT IN (1,2,4,5)
+                                  AND IFNULL(tc.nombre_tipo_cobros,'') NOT LIKE '%admin%'
+                                  AND IFNULL(tc.nombre_tipo_cobros,'') NOT LIKE '%cuota%'
+                                  AND IFNULL(tc.nombre_tipo_cobros,'') NOT LIKE '%multa%'
+                                  AND IFNULL(tc.nombre_tipo_cobros,'') NOT LIKE '%refrig%'
+                                  AND IFNULL(tc.nombre_tipo_cobros,'') NOT LIKE '%alim%'
+                                  AND IFNULL(tc.nombre_tipo_cobros,'') NOT LIKE '%accid%') THEN c.monto_cobros ELSE 0 END) AS otros_desc
+              FROM cobros c
+              LEFT JOIN tipo_cobros tc ON c.tipo_cobro = tc.id_tipo_cobros
+             WHERE c.estado_cobros != 0
+               AND IFNULL(c.id_fkviajes_cobros, 0) != 0
+             GROUP BY c.id_fkviajes_cobros
+          ) c ON c.vid = v.id_viajes
+          LEFT JOIN (
+            SELECT b.id_fkviaje_boleto AS vid,
+                   SUM(b.total_boleto) AS venta,
+                   COUNT(*) AS facturas
+              FROM boletos b
+             WHERE (b.estado_boleto IS NULL OR b.estado_boleto != 3)
+             GROUP BY b.id_fkviaje_boleto
+          ) b ON b.vid = v.id_viajes
+          LEFT JOIN personal p ON v.id_fkchofer_viajes = p.id_personal
+          LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
+          LEFT JOIN buses bu ON v.id_fkbus_viajes = bu.id_buses
+        $where
+      ) t
+      WHERE (t.facturas > 0 OR t.retenido > 0 OR t.bonos > 0)
+      ORDER BY t.socio ASC, t.bus_disco ASC, t.fecha_cierre ASC
     ";
 
     $rs = mysqli_query($conn, $sql) or die(mysqli_error($conn));

@@ -212,33 +212,42 @@ try {
     // Antes se comparaba solo id_fksucursal_boleto/id_sucursal_venta contra el id
     // del usuario, lo que dejaba fuera boletos de la misma oficina y descuadraba
     // el total contra la lista de pasajeros.
+    // La venta se toma de la CABECERA del boleto (boletos.total_boleto), igual
+    // que el sistema y la lista de pasajeros: sumar boleto_detalle daba centavos
+    // de más por redondeo (ej. boleto de 4 asientos: 39.38 cabecera vs 39.39
+    // detalle) y la hoja no cuadraba con el resto de reportes.
+    // Los pasajeros se siguen contando por línea de detalle.
     $query_totales = "SELECT 
-        IFNULL(SUM(bd.total_boleto_detalle), 0) AS total_boletos,
-        COUNT(bd.id_boleto_detalle) AS cantidad_boletos
-      FROM boletos b
-      JOIN boleto_detalle bd ON b.id_boleto = bd.id_fkboleto_boleto_detalle
-      LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
-      WHERE b.id_fkviaje_boleto = ?
-        AND (b.estado_boleto IS NULL OR b.estado_boleto != 3)
-        AND (
-            (? = 0 AND ? = '')
-            OR EXISTS (
-                SELECT 1 FROM sucursal2 s_bol
-                WHERE (
-                        s_bol.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
-                        OR s_bol.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
-                      )
-                  AND (s_bol.id_sucursal = ? OR s_bol.suc_codigo_sucursal = ?)
-            )
-        )
-        AND (b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= ?)";
+        IFNULL(SUM(t.total_boleto), 0) AS total_boletos,
+        IFNULL(SUM(t.lineas), 0) AS cantidad_boletos
+      FROM (
+        SELECT b.id_boleto, b.total_boleto, COUNT(bd.id_boleto_detalle) AS lineas
+          FROM boletos b
+          JOIN boleto_detalle bd ON b.id_boleto = bd.id_fkboleto_boleto_detalle
+          LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
+         WHERE b.id_fkviaje_boleto = ?
+           AND (b.estado_boleto IS NULL OR b.estado_boleto != 3)
+           AND (b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= ?)
+           AND (
+               (? = 0 AND ? = '')
+               OR EXISTS (
+                   SELECT 1 FROM sucursal2 s_bol
+                   WHERE (
+                           s_bol.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                           OR s_bol.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                         )
+                     AND (s_bol.id_sucursal = ? OR s_bol.suc_codigo_sucursal = ?)
+               )
+           )
+         GROUP BY b.id_boleto, b.total_boleto
+      ) t";
 
     $stmt_tot = $conn->prepare($query_totales);
-    $stmt_tot->bind_param("iisiss", 
-        $id_despacho_viaje, 
+    $stmt_tot->bind_param("isiiss",
+        $id_despacho_viaje,
+        $sello_despacho,
         $id_sucursal_despacho, $codigo_sucursal_despacho,
-        $id_sucursal_despacho, $codigo_sucursal_despacho,
-        $sello_despacho
+        $id_sucursal_despacho, $codigo_sucursal_despacho
     );
     $stmt_tot->execute();
     $res_tot = $stmt_tot->get_result();

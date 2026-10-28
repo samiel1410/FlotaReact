@@ -40,7 +40,12 @@ export const DespachoRetencionesModal = ({
   );
 
   const avisosRetencion = React.useMemo(() => valores?.avisos_retencion || [], [valores?.avisos_retencion]);
-  const conceptosRetencion = React.useMemo(() => valores?.conceptos_retencion || [], [valores?.conceptos_retencion]);
+  const conceptosRetencion = React.useMemo(
+  // Solo los conceptos que REALMENTE se cobran: los que quedan en $0 no aportan
+  // nada aquí (su saldo pendiente ya se informa en "Cobros pendientes").
+  () => (valores?.conceptos_retencion || []).filter(c => parseFloat(c.aplicado || 0) > 0),
+  [valores?.conceptos_retencion]
+);
   const conceptosPendientes = React.useMemo(() => valores?.conceptos_pendientes || [], [valores?.conceptos_pendientes]);
 
   const isSucursal = modoVista === 'SUCURSAL' && valoresSucursal;
