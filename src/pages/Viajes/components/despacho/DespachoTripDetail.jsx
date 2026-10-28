@@ -130,6 +130,26 @@ export const DespachoTripDetail = ({
       : sucursalesEnViaje.find(s => s.key === selectedSucursalKey);
   }, [selectedSucursalKey, miSucursalActiva, sucursalesEnViaje]);
 
+  // La vista arranca en "mi sucursal", pero si mi oficina NO vendió boletos en
+  // este viaje los valores salían en $0.00 aunque el viaje tenga ventas de otra
+  // oficina (viaje 2349: Oficina Tena $21.56 vista desde ENCOMIENDAS GUAYAQUIL).
+  // En ese caso se pasa automáticamente al consolidado para ver lo que se
+  // retendría / entregaría.
+  const autoCambioVistaRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!detailData) return;
+    const miCantidad = Number(detailData?.valores?.sucursal_usuario?.cantidad_boletos || 0);
+    const miVenta = parseFloat(detailData?.valores?.sucursal_usuario?.boletos || 0);
+    const hayAsientos = (detailData?.asientos?.length || 0) > 0;
+    const marca = `${tripId}-${miCantidad}-${miVenta}`;
+
+    if (selectedSucursalKey === 'SUCURSAL' && hayAsientos && miCantidad === 0 && miVenta <= 0
+        && autoCambioVistaRef.current !== marca) {
+      autoCambioVistaRef.current = marca;
+      setSelectedSucursalKey('TODOS');
+    }
+  }, [detailData, selectedSucursalKey, tripId]);
+
   // Asientos filtrados según pestaña (directamente del backend para 'SUCURSAL' o completo para 'TODOS')
   const asientosFiltrados = React.useMemo(() => {
     if (selectedSucursalKey === 'TODOS') {
@@ -161,6 +181,7 @@ export const DespachoTripDetail = ({
       return {
         boletos: globalBoletos,
         retencion: globalRetencion,
+        retencion_techo: parseFloat(detailData?.valores?.retencion_porcentual || 0),
         entrega: globalEntrega,
         esPorSucursal: false,
         sucursalNombre: 'General'
@@ -197,6 +218,7 @@ export const DespachoTripDetail = ({
       return {
         boletos: parseFloat(desgloseMatch.total_boletos || 0),
         retencion: parseFloat(desgloseMatch.retencion_monto || 0),
+        retencion_techo: parseFloat(desgloseMatch.total_boletos || 0) * (parseFloat(desgloseMatch.porcentaje_retencion || 0) / 100),
         entrega: parseFloat(desgloseMatch.entrega ?? Math.max(0, desgloseMatch.total_boletos - desgloseMatch.retencion_monto)),
         porcentaje_retencion: parseFloat(desgloseMatch.porcentaje_retencion || 0),
         esPorSucursal: true,
@@ -207,6 +229,7 @@ export const DespachoTripDetail = ({
     return {
       boletos: globalBoletos,
       retencion: globalRetencion,
+      retencion_techo: parseFloat(detailData?.valores?.retencion_porcentual || 0),
       entrega: globalEntrega,
       esPorSucursal: false,
       sucursalNombre: 'General'
@@ -479,7 +502,7 @@ export const DespachoTripDetail = ({
               </span>
               <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                 {valoresVista.esPorSucursal
-                  ? `Valores correspondientes a los ${asientosFiltrados.length} boletos de ${valoresVista.sucursalNombre}`
+                  ? `Valores de ${asientosFiltrados.length} pasajero(s) por ${Number(valoresVista.boletos || 0).toFixed(2)} USD de ${valoresVista.sucursalNombre}`
                   : 'Valores consolidados de todas las sucursales del viaje'}
               </p>
             </div>
