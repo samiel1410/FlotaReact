@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   CAMPO_COLOR_POR_ESTADO,
   ESTADOS_ASIENTO,
@@ -7,7 +7,9 @@ import {
 } from '../../../config/coloresAsientos';
 import './BusVisualizer.css';
 
-const ORDEN_LEYENDA = ['libre', 'ocupado', 'ocupado-parcial', 'libre-parada', 'pendiente', 'seleccionado'];
+const LEYENDA_ESTADOS = ['libre', 'ocupado', 'ocupado-parcial', 'libre-parada', 'pendiente', 'seleccionado']
+  .map((key) => ESTADOS_ASIENTO.find((estado) => estado.key === key))
+  .filter(Boolean);
 
 const formatearTiempoBloqueo = (lockedAt, now) => {
   if (!lockedAt) return '';
@@ -32,8 +34,18 @@ export const BusVisualizer = ({
   coloresAsientos = null,   // colores configurados por la agencia para cada estado
   seatLockTimeoutMs = 15 * 60 * 1000  // 15 minutos por defecto
 }) => {
-  const paletaAsientos = normalizarColoresAsientos(coloresAsientos);
-  const estiloEstado = (estado) => estiloAsiento(paletaAsientos[CAMPO_COLOR_POR_ESTADO[estado]]);
+  const paletaAsientos = useMemo(
+    () => normalizarColoresAsientos(coloresAsientos),
+    [coloresAsientos]
+  );
+  const estilosPorEstado = useMemo(() => {
+    const estilos = {};
+    for (const [estado, campo] of Object.entries(CAMPO_COLOR_POR_ESTADO)) {
+      estilos[estado] = estiloAsiento(paletaAsientos[campo]);
+    }
+    return estilos;
+  }, [paletaAsientos]);
+  const estiloEstado = (estado) => estilosPorEstado[estado];
   // Timer para actualizar los tiempos de bloqueo cada segundo
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -407,15 +419,13 @@ export const BusVisualizer = ({
         display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 6px',
         marginTop: 4, fontSize: 10
       }}>
-        {ORDEN_LEYENDA.map((estadoKey) => {
-          const estado = ESTADOS_ASIENTO.find((item) => item.key === estadoKey);
-          if (!estado) return null;
-          const color = paletaAsientos[estado.campo];
+        {LEYENDA_ESTADOS.map((estado) => {
+          const estilo = estilosPorEstado[estado.key];
           return (
-            <div key={estadoKey} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div key={estado.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
               <div style={{
-                width: 10, height: 10, background: color,
-                border: `1px solid ${estiloAsiento(color).borderColor}`,
+                width: 10, height: 10, background: estilo.background,
+                border: `1px solid ${estilo.borderColor}`,
                 borderRadius: 2
               }}></div>
               <span style={{ color: '#64748b', fontWeight: 600 }}>{estado.label}</span>
@@ -436,6 +446,7 @@ export const BusVisualizer = ({
           style={{
             left: tooltip.x,
             top: tooltip.y,
+            borderLeftColor: estilosPorEstado[tooltip.estado]?.background,
             transform: tooltip.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)'
           }}
         >
