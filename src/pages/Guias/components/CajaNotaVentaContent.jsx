@@ -191,7 +191,7 @@ export const CajaNotaVentaContent = () => {
   // ─── IMPRESIÓN RÁPIDA ────────────────────────────────────────────────
   const handleImpresionRapida = (row) => {
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-    window.open(baseUrl + buildPdfUrl(`/php/pdfCajaImpresion.php?id_caja=${row.id_caja}`), '_blank');
+    window.open(baseUrl + buildPdfUrl(`/php/pdfCajaNotaVentaImpresion.php?id_caja=${row.id_caja}`), '_blank');
   };
 
   // ─── BUSCAR MI CAJA ABIERTA ──────────────────────────────────────────

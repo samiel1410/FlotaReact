@@ -119,7 +119,7 @@ try {
                cc.observacion_comprobante_cobro, cc.estado_comprobante_cobro,
                cc.concepto_detalle_comprobante_cobro,
                g.id_guia, g.numero_guia, g.punto_emision_guia,
-               g.ruc_cliente_remitente, g.nombre_cliente_remitente,
+               g.cedula_cliente_remitente, g.nombre_cliente_remitente,
                s.punto_emision_sucursal,
                fp.nombre_forma_pago, fp.tipo_forma_pago
         FROM comprobante_cobro_nota_venta cc
@@ -361,7 +361,7 @@ try {
         $nro = $c['numero_comprobante_cobro'];
         $fec = date('Y-m-d', strtotime($c['fecha_emision_comprobante_cobro']));
         $nroFact = !empty($c['id_guia']) ? fmtGuia($c['numero_guia'], $c['punto_emision_sucursal'], $c['punto_emision_guia']) : '-';
-        $cli = trim(($c['ruc_cliente_remitente'] ?? '').' '.($c['nombre_cliente_remitente'] ?? ''));
+        $cli = trim(($c['cedula_cliente_remitente'] ?? '').' '.($c['nombre_cliente_remitente'] ?? ''));
         if (empty($cli)) {
             $cli = 'CONSUMIDOR FINAL';
         }
