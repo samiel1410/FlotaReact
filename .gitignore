@@ -38,3 +38,7 @@ dist/php/tmp/*
 tmp/*
 
 
+
+# Metadatos de macOS (AppleDouble) generados por unidades exFAT/FAT
+._*
+.DS_Store
