@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react';
+import {
+  CAMPO_COLOR_POR_ESTADO,
+  ESTADOS_ASIENTO,
+  normalizarColoresAsientos,
+  estiloAsiento,
+} from '../../../config/coloresAsientos';
 import './BusVisualizer.css';
+
+const ORDEN_LEYENDA = ['libre', 'ocupado', 'ocupado-parcial', 'libre-parada', 'pendiente', 'seleccionado'];
 
 const formatearTiempoBloqueo = (lockedAt, now) => {
   if (!lockedAt) return '';
@@ -21,8 +29,11 @@ export const BusVisualizer = ({
   capacidad = 40,
   mapaAsientos = null,
   onCambiarBus,
+  coloresAsientos = null,   // colores configurados por la agencia para cada estado
   seatLockTimeoutMs = 15 * 60 * 1000  // 15 minutos por defecto
 }) => {
+  const paletaAsientos = normalizarColoresAsientos(coloresAsientos);
+  const estiloEstado = (estado) => estiloAsiento(paletaAsientos[CAMPO_COLOR_POR_ESTADO[estado]]);
   // Timer para actualizar los tiempos de bloqueo cada segundo
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -209,6 +220,7 @@ export const BusVisualizer = ({
               <div key={cellId} className="seat-wrapper">
                   <button
                     className={`bus-seat ${status}`}
+                    style={estiloEstado(status)}
                     onClick={() => {
                       ocultarTooltip();
                       if (status === 'ocupado' || status === 'ocupado-parcial') {
@@ -281,6 +293,7 @@ export const BusVisualizer = ({
               <div key={seatNum} className="seat-wrapper" style={{ marginRight }}>
                 <button
                   className={`bus-seat ${status}`}
+                  style={estiloEstado(status)}
                   onClick={() => {
                     ocultarTooltip();
                     if (status === 'ocupado' || status === 'ocupado-parcial') {
@@ -394,29 +407,24 @@ export const BusVisualizer = ({
         display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 6px',
         marginTop: 4, fontSize: 10
       }}>
+        {ORDEN_LEYENDA.map((estadoKey) => {
+          const estado = ESTADOS_ASIENTO.find((item) => item.key === estadoKey);
+          if (!estado) return null;
+          const color = paletaAsientos[estado.campo];
+          return (
+            <div key={estadoKey} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <div style={{
+                width: 10, height: 10, background: color,
+                border: `1px solid ${estiloAsiento(color).borderColor}`,
+                borderRadius: 2
+              }}></div>
+              <span style={{ color: '#64748b', fontWeight: 600 }}>{estado.label}</span>
+            </div>
+          );
+        })}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 10, height: 10, background: 'white', border: '1px solid #bdc3c7', borderRadius: 2 }}></div>
-          <span style={{ color: '#7f8c8d' }}>Libre</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <div style={{ width: 10, height: 10, background: '#c0392b', borderRadius: 2 }}></div>
-          <span style={{ color: '#c0392b' }}>Ocupado fin</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <div style={{ width: 10, height: 10, background: '#f1c40f', borderRadius: 2 }}></div>
-          <span style={{ color: '#f39c12' }}>Ocupado parcial</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
           <div style={{ width: 10, height: 10, background: '#95a5a6', borderRadius: 2 }}></div>
-          <span style={{ color: '#7f8c8d' }}>No dispone</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <div style={{ width: 10, height: 10, background: '#8b5cf6', borderRadius: 2 }}></div>
-          <span style={{ color: '#8b5cf6' }}>Seleccionado por otro</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-          <div style={{ width: 10, height: 10, background: '#3b82f6', borderRadius: 2 }}></div>
-          <span style={{ color: '#3b82f6' }}>Seleccionado (tú)</span>
+          <span style={{ color: '#64748b', fontWeight: 600 }}>No dispone</span>
         </div>
       </div>
 

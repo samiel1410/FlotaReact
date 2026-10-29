@@ -3,14 +3,18 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { GlobalHeader } from './GlobalHeader';
 import { Sidebar } from './Sidebar';
 import { RouteProgressBar, PageContentLoader } from '../common/RouteTransitionLoader';
-import { cargarApariencia } from '../../services/apariencia.service';
+import { aplicarApariencia, cargarApariencia, leerAparienciaCache } from '../../services/apariencia.service';
 
 export const AppMain = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
   useEffect(() => {
-    cargarApariencia();
+    // Pintar primero lo cacheado (evita parpadeo) y luego confirmar con la BD,
+    // que es la fuente de verdad de los colores configurados.
+    const cache = leerAparienciaCache();
+    if (cache) aplicarApariencia(cache);
+    cargarApariencia(true);
   }, []);
 
   useEffect(() => {

@@ -350,7 +350,7 @@ export const ConfiguracionPage = () => {
         // Un campo vacío no debe sobrescribir lo que ya está guardado en la base de datos
         if (typeof value === 'string' && value.trim() === '') return acc;
 
-        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto' || key === 'permitir_consumidor_final') {
+        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto' || key === 'omitir_confirmacion_boleto' || key === 'permitir_consumidor_final') {
           acc[key] = +!!value;
         } else if (key === 'cobrar_iva_guia' || key === 'imprimir_boucher_guia') {
           acc[key] = value ? 1 : 0;

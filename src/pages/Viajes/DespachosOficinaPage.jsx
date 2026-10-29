@@ -348,6 +348,14 @@ export const DespachosOficinaPage = () => {
                               <span className="inline-block px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-800">
                                 Despachado
                               </span>
+                              {d.es_automatico && (
+                                <span
+                                  className="ml-1 inline-block px-2 py-0.5 rounded-full text-[9px] font-black bg-sky-100 text-sky-800"
+                                  title="Despacho generado automáticamente por el sistema"
+                                >
+                                  <i className="fas fa-robot mr-1" style={{ fontSize: 8 }}></i>Auto
+                                </span>
+                              )}
                             </td>
                             <td className="px-2 py-2.5 text-center">
                               <button
@@ -370,6 +378,14 @@ export const DespachosOficinaPage = () => {
                                     <div><span className="font-bold text-slate-500">Ruta:</span> {d.nombre_rutas || '-'}</div>
                                     <div><span className="font-bold text-slate-500">Chofer:</span> {d.chofer || 'Sin asignar'}</div>
                                     <div><span className="font-bold text-slate-500">Motivo:</span> {d.motivo_despacho_viaje || '-'}</div>
+                                    <div>
+                                      <span className="font-bold text-slate-500">Origen del despacho:</span>{' '}
+                                      {d.es_automatico ? (
+                                        <span className="font-bold text-sky-700">Automático (sistema)</span>
+                                      ) : (
+                                        <span className="font-semibold text-slate-600">Manual (oficinista)</span>
+                                      )}
+                                    </div>
                                     <div><span className="font-bold text-slate-500">Salida viaje:</span> {d.fecha_viaje || '-'} {d.hora_viaje || ''}</div>
                                     <div><span className="font-bold text-slate-500">Registro despacho:</span> {d.fecha_despacho || '-'} {d.hora_despacho || ''}</div>
                                   </div>

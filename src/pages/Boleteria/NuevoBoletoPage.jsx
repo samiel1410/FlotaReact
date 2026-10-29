@@ -27,7 +27,9 @@ import { AperturaCajaForm } from '../CajaBoleteria/components/AperturaCajaForm';
 
 // Servicios y Utilidades
 import { BoleteriaService } from '../../services/boleteria.service';
+import { AsientosService } from '../../services/asientos.service';
 import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
+import { COLORES_ASIENTOS_DEFAULT, normalizarColoresAsientos } from '../../config/coloresAsientos';
 import { api, clienteApi } from '../../config/axios';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { useSocket } from '../../hooks/useSocket';
@@ -177,6 +179,29 @@ export const NuevoBoletoPage = () => {
 
   const [activeSucursalId, setActiveSucursalId] = useState(() => idSucursalSesion(getSessionUser()));
   const [activeSucursalCodigo, setActiveSucursalCodigo] = useState(() => codigoSucursalSesion(getSessionUser()));
+
+  // Colores del mapa de asientos configurados en la agencia activa.
+  const [coloresAsientos, setColoresAsientos] = useState(COLORES_ASIENTOS_DEFAULT);
+  useEffect(() => {
+    let cancelado = false;
+    const cargarColores = async () => {
+      if (!activeSucursalId) {
+        setColoresAsientos(COLORES_ASIENTOS_DEFAULT);
+        return;
+      }
+      try {
+        const respuesta = await AsientosService.getColoresAsientos(activeSucursalId);
+        if (!cancelado) {
+          setColoresAsientos(normalizarColoresAsientos(respuesta?.data ?? respuesta));
+        }
+      } catch (error) {
+        console.error('Error cargando colores de asientos de la agencia:', error);
+        if (!cancelado) setColoresAsientos(COLORES_ASIENTOS_DEFAULT);
+      }
+    };
+    cargarColores();
+    return () => { cancelado = true; };
+  }, [activeSucursalId]);
 
   // Sucursal con la que el operador entró a la pantalla: permite restaurarla
   // desde el botón "Reiniciar" (cambiar de agencia sobrescribe la sesión).
@@ -1816,6 +1841,7 @@ export const NuevoBoletoPage = () => {
                     onAsientoOcupadoClick={handleAsientoOcupadoClick}
                     discoBus={discoBus}
                     totalVenta={totalVenta}
+                    coloresAsientos={coloresAsientos}
                     seatLockTimeoutMs={15 * 60 * 1000}
                   />
                 </div>

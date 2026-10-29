@@ -134,7 +134,19 @@ export const cargarApariencia = async (forzar = false) => {
 
   try {
     const res = await api.get('/configuracion/configuracionSeleccion');
-    const conf = res.data?.data?.[0] || {};
+    const conf = res.data?.success && Array.isArray(res.data?.data) ? res.data.data[0] : null;
+
+    if (!conf) {
+      // Respuesta inválida (sin configuración o error del backend): conservar lo actual
+      const cache = leerAparienciaCache();
+      if (cache) {
+        aplicarApariencia(cache);
+        return cache;
+      }
+      aplicarApariencia(APARIENCIA_DEFAULT);
+      return APARIENCIA_DEFAULT;
+    }
+
     const colores = {
       sidebar: normalizarColor(conf.color_sidebar, APARIENCIA_DEFAULT.sidebar),
       header: normalizarColor(conf.color_header, APARIENCIA_DEFAULT.header),
@@ -142,6 +154,12 @@ export const cargarApariencia = async (forzar = false) => {
     aplicarApariencia(colores);
     return colores;
   } catch {
+    // Si la consulta falla, no se deben perder los colores que ya estaba viendo el usuario
+    const cache = leerAparienciaCache();
+    if (cache) {
+      aplicarApariencia(cache);
+      return cache;
+    }
     aplicarApariencia(APARIENCIA_DEFAULT);
     return APARIENCIA_DEFAULT;
   }

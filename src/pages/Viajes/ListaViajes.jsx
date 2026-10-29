@@ -155,7 +155,7 @@ export const ListaViajes = () => {
       const inputOptions = {};
       trip.despachos.forEach(d => {
         const oficina = d.nombre_sucursal || `Oficina #${d.id_fksucursal_usuario || ''}`;
-        const motivo = d.motivo_despacho_viaje || 'Despacho';
+        const motivo = `${d.motivo_despacho_viaje || 'Despacho'}${Number(d.es_automatico_despacho_viaje) === 1 ? ' · AUTO' : ''}`;
         const hora = d.hora_salida_despacho_viaje ? ` (${String(d.hora_salida_despacho_viaje).substring(0, 5)})` : '';
         const userTxt = d.usuario_despacho ? ` - ${d.usuario_despacho}` : '';
         inputOptions[d.id_despacho_viaje] = `Despacho #${d.id_despacho_viaje}: ${oficina} [${motivo}]${hora}${userTxt}`;

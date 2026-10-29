@@ -2,6 +2,7 @@ import { createContext, useState, useEffect, useCallback } from 'react';
 import { AuthService } from '../services/auth.service';
 import { CONFIG } from '../config/env';
 import { api } from '../config/axios';
+import { parsePermisos, normalizarPermisos, aplicarAlias } from '../config/permisos';
 
 import { useContext } from 'react';
 
@@ -117,21 +118,17 @@ export const AuthProvider = ({ children }) => {
     if (idRol) {
       try {
         const res = await api.post('/roles/selectRolesAcciones', { id_rol: idRol });
-        if (res.data?.success && res.data?.data?.length > 0 && res.data.data[0]?.descripcion_rol) {
-          const raw = res.data.data[0].descripcion_rol;
-          if (typeof raw === 'object' && raw !== null) {
-            setPermisos(raw);
-            return;
-          }
-          if (typeof raw === 'string' && (raw.trim().startsWith('{') || raw.trim().startsWith('['))) {
-            try {
-              const parsed = JSON.parse(raw);
-              setPermisos(parsed);
-              return;
-            } catch (e) {
-              // String no es JSON válido (texto plano o descripción textual del rol)
-            }
-          }
+        const raw = res.data?.success ? res.data?.data?.[0]?.descripcion_rol : null;
+
+        // El backend puede devolver el JSON como string o ya parseado como objeto
+        const texto = typeof raw === 'string' ? raw.trim() : '';
+        const esJsonValido = raw !== null && raw !== undefined && (
+          typeof raw === 'object' || texto.startsWith('{') || texto.startsWith('[')
+        );
+
+        if (esJsonValido) {
+          setPermisos(normalizarPermisos(parsePermisos(raw)));
+          return;
         }
       } catch (err) {
         console.warn('No se pudieron cargar los permisos del rol:', err.message);
@@ -143,6 +140,11 @@ export const AuthProvider = ({ children }) => {
       setPermisos(null); // null hace que hasPermission devuelva true para admin
     }
   }, []);
+
+  // Recargar permisos (se usa después de guardar cambios en la pantalla de roles)
+  const refreshPermisos = useCallback(async () => {
+    if (user) await cargarPermisosRol(user);
+  }, [user, cargarPermisosRol]);
 
   // Inicializar estado desde sessionStorage / localStorage (para soportar nuevas pestañas)
   useEffect(() => {
@@ -322,12 +324,10 @@ export const AuthProvider = ({ children }) => {
     if (permisos === null) return true;
     
     // Prioridad: permisos cargados del backend > user.permisos del auth service
-    const sourcePermisos = permisos || user.permisos || user.permissions || user.descripcion_rol || {};
-    
-    // Si es un string JSON (viene de /buscarUsuario), parsearlo
-    const parsedPermisos = typeof sourcePermisos === 'string' ? (() => {
-      try { return JSON.parse(sourcePermisos); } catch { return {}; }
-    })() : sourcePermisos;
+    const fuente = permisos || user.permisos || user.permissions || user.descripcion_rol || {};
+
+    // Si viene del usuario (no del backend) hay que aplicar los alias de claves antiguas
+    const parsedPermisos = permisos ? fuente : aplicarAlias(parsePermisos(fuente));
     
     // Soporte para notación "modulo.permiso" (ej. "administracion.gestion_usuarios")
     if (permission && typeof permission === 'string' && permission.includes('.')) {
@@ -403,7 +403,7 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, loginFromImpersonation, hasRole, hasPermission, userName, userRole }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, loginFromImpersonation, hasRole, hasPermission, refreshPermisos, userName, userRole }}>
       {!loading && children}
     </AuthContext.Provider>
   );

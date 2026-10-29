@@ -3,6 +3,13 @@ import { useForm } from 'react-hook-form';
 import { api } from '../../../config/axios';
 import toast from 'react-hot-toast';
 import ToggleSwitch from '../../../components/common/ToggleSwitch';
+import {
+  COLORES_ASIENTOS_DEFAULT,
+  ESTADOS_ASIENTO,
+  normalizarColoresAsientos,
+  normalizarColorHex,
+  estiloAsiento,
+} from '../../../config/coloresAsientos';
 
 const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
@@ -23,13 +30,15 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
       punto_emision_sucursal: '',
       tiene_encomiendas: false,
       punto_emision_boleteria_sucursal: '',
-      estado_sucursales: true
+      estado_sucursales: true,
+      ...COLORES_ASIENTOS_DEFAULT,
     }
   });
 
   const tienePuntoEmision = watch('tiene_punto_emision');
   const tieneEncomiendas = watch('tiene_encomiendas');
   const estadoValue = watch('estado_sucursales');
+  const coloresActuales = normalizarColoresAsientos(watch());
 
   // Cargar provincias y TODAS las ciudades al montar (sin depender de provincia)
   useEffect(() => {
@@ -52,6 +61,7 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
         if (isEditing && initialData) {
           reset({
             ...initialData,
+            ...normalizarColoresAsientos(initialData),
             estado_sucursales: (initialData.estado_sucursales ?? initialData.estado ?? 1) == 1 || (initialData.estado_sucursales ?? initialData.estado ?? 1) === '1',
             tiene_punto_emision: !!initialData.punto_emision_sucursal,
             tiene_encomiendas: !!initialData.punto_emision_boleteria_sucursal,
@@ -92,12 +102,19 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
     ? todasCiudades.filter(c => String(c.id_fkprovincia) === String(selectedProvincia))
     : todasCiudades;
 
+  const restaurarColores = () => {
+    ESTADOS_ASIENTO.forEach(({ campo }) => {
+      setValue(campo, COLORES_ASIENTOS_DEFAULT[campo], { shouldDirty: true });
+    });
+  };
+
   const onFormSubmit = async (formData) => {
     setLoading(true);
     try {
       // Mapear datos de vuelta al formato del servidor
       const payload = {
         ...formData,
+        ...normalizarColoresAsientos(formData),
         // Si el checkbox está apagado, enviamos vacío como en el legacy
         punto_emision_sucursal: formData.tiene_punto_emision ? formData.punto_emision_sucursal : '',
         punto_emision_boleteria_sucursal: formData.tiene_encomiendas ? formData.punto_emision_boleteria_sucursal : '',
@@ -264,6 +281,59 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
             className={`w-full h-10 px-3 text-xs font-bold border rounded-xl transition-all outline-none ${tieneEncomiendas ? 'bg-white border-slate-200' : 'bg-slate-100 border-transparent text-slate-400'}`}
             placeholder="Ej: 002"
           />
+        </div>
+
+        {/* Colores del mapa de asientos */}
+        <div className="md:col-span-2 border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
+          <div className="flex items-start justify-between gap-3 mb-3">
+            <div>
+              <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Colores del mapa de asientos</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase">Se aplican al vender boletos en esta agencia</p>
+            </div>
+            <button
+              type="button"
+              onClick={restaurarColores}
+              className="h-8 px-3 text-[9px] font-black text-slate-500 hover:text-indigo-600 bg-white border border-slate-200 hover:border-indigo-200 rounded-lg transition-all uppercase tracking-widest flex items-center gap-1.5"
+            >
+              <i className="fas fa-rotate-left"></i> Restaurar
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            {ESTADOS_ASIENTO.map((estado) => (
+              <div key={estado.campo} className="border border-slate-200 rounded-xl p-2 bg-white" title={estado.descripcion}>
+                <label className="block text-[9px] font-black text-slate-500 uppercase tracking-wide mb-1">
+                  {estado.label}
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    {...register(estado.campo)}
+                    className="w-10 h-8 rounded-lg border border-slate-200 bg-transparent cursor-pointer p-0.5"
+                  />
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">
+                    {normalizarColorHex(coloresActuales[estado.campo])}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 grid grid-cols-3 md:grid-cols-6 gap-2">
+            {ESTADOS_ASIENTO.map((estado) => (
+              <div key={`preview-${estado.campo}`} className="flex flex-col items-center gap-1">
+                <span
+                  className="w-8 h-8 rounded-t-lg rounded-b border-2 flex items-center justify-center text-[11px] font-black shadow-sm"
+                  style={estiloAsiento(coloresActuales[estado.campo])}
+                >
+                  1
+                </span>
+                <span className="text-[8px] font-black text-slate-400 uppercase text-center leading-tight">
+                  {estado.label}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
 
       </div>

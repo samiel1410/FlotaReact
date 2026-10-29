@@ -22,6 +22,7 @@ import { TipoCobroForm } from '../pages/TipoCobros/components/TipoCobroForm';
 import { SucursalesBadgeCell } from '../pages/TipoCobros/components/SucursalesBadgeCell';
 import { NuevaGuiaCompaniaForm } from '../pages/Guias/components/NuevaGuiaCompaniaForm';
 import { createAperturaAction, createBuscarCajaAction, createCerrarAction } from './cajaUtils';
+import { ESTADOS_ASIENTO, normalizarColoresAsientos } from './coloresAsientos';
 import { api, authApi } from '../config/axios';
 import toast from 'react-hot-toast';
 import comprobantesService from '../services/comprobantes.service';
@@ -472,6 +473,25 @@ export const PAGES_CONFIG = {
       { key: 'punto_emision_sucursal', label: 'P.E. Guías', render: v => v || '-' },
       { key: 'punto_emision_boleteria_sucursal', label: 'P.E. Boletería', render: v => v || '-' },
       { key: 'porcentaje_retencion', label: '% Ret.', render: v => `${parseFloat(v || 0).toFixed(2)} %` },
+      {
+        key: 'color_asiento_libre',
+        label: 'Colores asientos',
+        render: (_, row) => {
+          const colores = normalizarColoresAsientos(row);
+          return (
+            <div className="flex items-center gap-1">
+              {ESTADOS_ASIENTO.map((estado) => (
+                <span
+                  key={estado.key}
+                  title={`${estado.label}: ${colores[estado.campo]}`}
+                  className="w-3 h-3 rounded-full border border-white shadow-sm"
+                  style={{ background: colores[estado.campo] }}
+                />
+              ))}
+            </div>
+          );
+        },
+      },
     ],
     filters: [
       { key: 'nombre_sucursal', label: 'Nombre', type: 'text' },

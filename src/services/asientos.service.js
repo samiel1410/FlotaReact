@@ -40,5 +40,16 @@ export const AsientosService = {
   getRutasParaFiltro: async () => {
     const response = await api.get('/rutas/rutasSeleccionCombo');
     return response.data;
+  },
+
+  /**
+   * Colores del mapa de asientos configurados para una agencia/sucursal.
+   * Sin id, el backend usa la sucursal del usuario autenticado.
+   */
+  getColoresAsientos: async (idSucursal) => {
+    const response = await api.get('/sucursal/coloresAsientosSucursal', {
+      params: idSucursal ? { id_sucursal: idSucursal } : {},
+    });
+    return response.data;
   }
 };

@@ -174,7 +174,7 @@ const ModalReversarDespacho = ({ trip, onClose, onReversado }) => {
                         <span className="text-[10px] font-bold text-slate-400 shrink-0">{hora}</span>
                       </div>
                       <div className="text-[10px] text-slate-500 font-semibold ml-5 truncate">
-                        Despacho #{d.id_despacho_viaje}{d.motivo_despacho_viaje ? ` • ${d.motivo_despacho_viaje}` : ''}
+                        Despacho #{d.id_despacho_viaje}{d.motivo_despacho_viaje ? ` • ${d.motivo_despacho_viaje}` : ''}{Number(d.es_automatico_despacho_viaje) === 1 ? ' • AUTO' : ''}
                       </div>
                     </button>
                   );

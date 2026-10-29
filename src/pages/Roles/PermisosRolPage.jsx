@@ -2,186 +2,14 @@ import { useState, useEffect } from 'react';
 import { api } from '../../config/axios';
 import toast from 'react-hot-toast';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
-
-// Visualmente se muestran en 3 subgrupos, pero todos se guardan bajo la clave 'administracion'
-// para mantener compatibilidad con los permisos existentes en BD y en el Sidebar
-const SUBGROUPS_ADMIN = [
-  {
-    label: 'Seguridad',
-    icon: 'fas fa-shield-alt',
-    permisos: {
-      gestion_usuarios: 'Usuarios',
-      gestion_roles: 'Roles',
-      ver_auditoria: 'Auditoría',
-      monitoreo_vivo: 'Monitoreo en Vivo',
-      graficos_dashboard: 'Estadísticas',
-    }
-  },
-  {
-    label: 'Catálogos',
-    icon: 'fas fa-book',
-    permisos: {
-      gestion_sucursales: 'Agencias',
-      gestion_ciudades: 'Ciudades',
-      gestion_provincias: 'Provincias',
-      gestion_lugares: 'Lugares',
-      gestion_destinos: 'Destinos',
-      gestion_convenios: 'Convenios',
-      gestion_tipos_envios: 'Tipo de Envíos',
-      gestion_formas_pago: 'Forma de Pago',
-      gestion_bancos: 'Banco',
-    }
-  },
-  {
-    label: 'Operaciones',
-    icon: 'fas fa-tools',
-    permisos: {
-      gestion_buses: 'Buses',
-      gestion_vehiculos: 'Vehículos',
-      gestion_socios: 'Socios',
-      gestion_clientes: 'Clientes',
-      gestion_rutas: 'Rutas',
-      gestion_sub_rutas: 'Sub-Rutas',
-      config_rutas: 'Config. Rutas',
-      auditoria_rutas: 'Auditoría Rutas',
-      gestion_alimentos: 'Alimentos',
-      gestion_inventario: 'Inventario',
-      gestion_impresoras: 'Impresoras',
-    }
-  }
-];
-
-const ALL_PERMISSIONS = {
-  // Se mantiene 'administracion' como clave única en BD (compatibilidad con sidebar)
-  administracion: {
-    label: 'Administración',
-    icon: 'fas fa-cogs',
-    isSubGrouped: true,
-    subGroups: SUBGROUPS_ADMIN,
-    // Unión de todos los permisos de los subgrupos (para el toggle general y conteo)
-    permisos: Object.assign({}, ...SUBGROUPS_ADMIN.map(sg => sg.permisos)),
-    hiddenPermisos: {
-      configuracion_sistema: 'Configuración del Sistema',
-    }
-  },
-  aprobaciones: {
-    label: 'Aprobaciones',
-    icon: 'fas fa-check-circle',
-    permisos: {
-      listado_aprobaciones: 'Listado Aprobaciones'
-    }
-  },
-  viajes: {
-    label: 'Viajes',
-    icon: 'fas fa-road',
-    permisos: {
-      listado_viajes: 'Listado Viajes',
-      crear_viaje: 'Creación Viajes',
-      planificacion_viajes: 'Planificación',
-      despacho_viaje: 'Despacho Viajes',
-      cierre_viajes: 'Cierre Viajes',
-    }
-  },
-  guias: {
-    label: 'Guías',
-    icon: 'fas fa-box',
-    permisos: {
-      crear_guia: 'Nueva Guía',
-      listado_guias: 'Listado Guías',
-      busqueda_oficina: 'Buscar Guía Oficina',
-      guias_companias: 'Guías Compañías',
-      despacho_guias: 'Desp. Guías Compañías',
-      despacho_guia: 'Despacho',
-      entrega_guia: 'Entrega de Guías',
-      seguimiento_guia: 'Seguimientos',
-      reimpresion: 'Reimpresión de Guías',
-      listado_cajas: 'Listado Cajas',
-      cajas_comprobantes: 'Cajas Comprobantes',
-      comprobantes: 'Comprobantes',
-    }
-  },
-  notas_venta: {
-    label: 'Notas de Venta',
-    icon: 'fas fa-receipt',
-    permisos: {
-      crear_nota_venta: 'Nueva Nota Venta',
-      listado_notas_venta: 'Listado Notas Venta',
-      despacho_notas_venta: 'Despachos Notas Venta',
-      seguimiento_notas_venta: 'Seguimiento Notas Venta',
-      entrega_notas_venta: 'Entrega Notas Venta',
-      caja_notas_venta: 'Cajas Notas Venta',
-    }
-  },
-  cobros: {
-    label: 'Cobros',
-    icon: 'fas fa-dollar-sign',
-    permisos: {
-      listado_cobros: 'Listado Cobros',
-      tipos_cobros: 'Tipo Cobros',
-      caja_cobros: 'Caja Cobros',
-      cartera_socio: 'Cartera Socio',
-      multas: 'Multas',
-      creditos_admin: 'Créditos Admin.',
-      bonos: 'Bonos',
-      cuota_admin: 'Cuota Admin.',
-      cierre_cobros: 'Cierre x Concepto',
-    }
-  },
-  boletos: {
-    label: 'Boletos',
-    icon: 'fas fa-ticket-alt',
-    permisos: {
-      listado_boletos: 'Listado Boletos',
-      nuevo_boleto: 'Nuevo Boleto',
-      reagendamientos: 'Reagendamientos',
-      facturacion_boletos: 'Facturación',
-      caja_boleteria: 'Caja Boletería',
-      reportes_boleteria: 'Reportes Boletería',
-      reservaciones: 'Reservaciones',
-      pasajeros: 'Pasajeros',
-    }
-  },
-  anulaciones: {
-    label: 'Anulaciones',
-    icon: 'fas fa-ban',
-    permisos: {
-      listado_anulaciones: 'Listado Anulaciones',
-      anulacion_boleteria: 'Anulación Boletería',
-      verificacion_boleteria: 'Verificaciones',
-    }
-  },
-  facturas: {
-    label: 'Facturas',
-    icon: 'fas fa-file-invoice',
-    permisos: {
-      listado_facturas: 'Listado Facturas',
-    }
-  },
-  buseros: {
-    label: 'Buseros / Socios',
-    icon: 'fas fa-id-card',
-    permisos: {
-      gestion_buseros: 'Facturación Socio',
-      gestion_asientos: 'Asientos',
-      recaudado: 'Recaudado',
-    }
-  },
-  notificaciones: {
-    label: 'Notificaciones',
-    icon: 'fas fa-bell',
-    permisos: {
-      notificaciones: 'Notificaciones Push',
-    }
-  },
-  reportes: {
-    label: 'Reportes',
-    icon: 'fas fa-chart-bar',
-    permisos: {
-      ranking_ventas: 'Ranking Ventas',
-      reportes: 'Reportes',
-    }
-  }
-};
+import { useAuth } from '../../hooks/useAuth';
+import {
+  ALL_PERMISSIONS,
+  parsePermisos,
+  permisosVacios,
+  normalizarPermisos,
+  construirPayloadPermisos,
+} from '../../config/permisos';
 
 export const PermisosRolPage = () => {
   const { id } = useParams();
@@ -189,7 +17,10 @@ export const PermisosRolPage = () => {
   const location = useLocation();
   const rol = location.state?.rol || { id_rol: id, nombre_rol: 'Rol ' + id };
   
-  const [permisos, setPermisos] = useState({});
+  const { refreshPermisos } = useAuth();
+  const [permisos, setPermisos] = useState(permisosVacios);
+  // Se conserva lo que ya estaba en BD para no borrar permisos/módulos desconocidos
+  const [permisosOriginales, setPermisosOriginales] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -201,41 +32,32 @@ export const PermisosRolPage = () => {
     setLoading(true);
     try {
       const res = await api.post('/roles/selectRolesAcciones', { id_rol: id });
-      if (res.data?.success && res.data?.data?.length > 0 && res.data.data[0]?.descripcion_rol) {
-        try {
-          const parsed = JSON.parse(res.data.data[0].descripcion_rol);
-          setPermisos(parsed);
-        } catch {
-          setPermisos(inicializarPermisosVacios());
-        }
+      const raw = res.data?.success ? res.data?.data?.[0]?.descripcion_rol : null;
+
+      // El backend puede devolver el JSON como string o ya parseado como objeto
+      if (raw !== undefined && raw !== null && raw !== '') {
+        const parsed = parsePermisos(raw);
+        setPermisosOriginales(parsed);
+        setPermisos(normalizarPermisos(parsed));
       } else {
-        setPermisos(inicializarPermisosVacios());
+        setPermisosOriginales({});
+        setPermisos(permisosVacios());
       }
     } catch (err) {
       console.error('Error cargando permisos:', err);
       toast.error('Error al cargar los permisos');
-      setPermisos(inicializarPermisosVacios());
+      setPermisosOriginales({});
+      setPermisos(permisosVacios());
     } finally {
       setLoading(false);
     }
-  };
-
-  const inicializarPermisosVacios = () => {
-    const result = {};
-    Object.keys(ALL_PERMISSIONS).forEach(mod => {
-      result[mod] = {};
-      Object.keys(ALL_PERMISSIONS[mod].permisos).forEach(perm => {
-        result[mod][perm] = false;
-      });
-    });
-    return result;
   };
 
   const togglePermiso = (modulo, permiso) => {
     setPermisos(prev => ({
       ...prev,
       [modulo]: {
-        ...prev[modulo],
+        ...(prev[modulo] || {}),
         [permiso]: !prev[modulo]?.[permiso]
       }
     }));
@@ -247,7 +69,7 @@ export const PermisosRolPage = () => {
     const newValue = !allTrue;
 
     setPermisos(prev => {
-      const updated = { ...prev, [modulo]: { ...prev[modulo] } };
+      const updated = { ...prev, [modulo]: { ...(prev[modulo] || {}) } };
       Object.keys(ALL_PERMISSIONS[modulo].permisos).forEach(p => {
         updated[modulo][p] = newValue;
       });
@@ -258,13 +80,20 @@ export const PermisosRolPage = () => {
   const guardarPermisos = async () => {
     setSaving(true);
     try {
+      const payload = construirPayloadPermisos(permisosOriginales, permisos);
       const res = await api.post('/roles/editarAccionesRoles', {
         id_rol: id,
-        valores: JSON.stringify(permisos)
+        valores: JSON.stringify(payload)
       });
 
       if (res.data?.success) {
         toast.success('Permisos actualizados correctamente');
+        // Refrescar el menú del usuario sin necesidad de recargar la página
+        try {
+          await refreshPermisos?.();
+        } catch (refreshError) {
+          console.warn('No se pudieron refrescar los permisos en pantalla:', refreshError);
+        }
         navigate('/roles');
       } else {
         toast.error(res.data?.message || 'Error al guardar permisos');
