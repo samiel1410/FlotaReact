@@ -122,15 +122,16 @@ try {
     INNER JOIN sucursal2 as f ON a.sucursal_guia = f.suc_codigo_sucursal
     LEFT JOIN detalle_guia_nota_venta as v ON a.id_guia = v.id_fkguia_detalle_envio
     LEFT JOIN (
-        SELECT fa.id_fkguia_factura, SUM(cc.monto_comprobante_cobro) as monto_comprobante_cobro
-        FROM comprobante_cobro cc
-        JOIN factura fa ON cc.id_fkfactura_comprobante_cobro = fa.id_factura
-        JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
+        -- En notas de venta `id_fkfactura_comprobante_cobro` guarda el ID de la
+        -- guía (ver insertarComprobanteIndividualNotaVenta), no el de la factura.
+        SELECT cc.id_fkfactura_comprobante_cobro as id_fkguia, SUM(cc.monto_comprobante_cobro) as monto_comprobante_cobro
+        FROM comprobante_cobro_nota_venta cc
+        LEFT JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
         WHERE cc.estado_comprobante_cobro = 'COBRADA'
-        AND fp.tipo_forma_pago = 2
+        AND COALESCE(fp.tipo_forma_pago, 0) <> 4
         AND cc.id_fkcaja_comprobante_cobro = $id_caja
-        GROUP BY fa.id_fkguia_factura
-    ) as h ON h.id_fkguia_factura = a.id_guia
+        GROUP BY cc.id_fkfactura_comprobante_cobro
+    ) as h ON h.id_fkguia = a.id_guia
     WHERE id_fkcaja_guia = $id_caja AND estado_guia = 1
     GROUP BY a.id_guia, a.punto_emision_guia, a.numero_guia, a.total_guia, f.punto_emision_sucursal, h.monto_comprobante_cobro
     ORDER BY a.id_guia DESC";
@@ -160,17 +161,16 @@ try {
     }
 
     // ─── OTRAS GUÍAS ─────────────────────────────────────────────────────────
-    $query_comprobantes = "SELECT SUM(monto_comprobante_cobro) as monto_comprobante_cobro,
-        id_guia, punto_emision_sucursal, punto_emision_guia, numero_guia 
-    FROM comprobante_cobro, factura, guia, sucursal2 
-    WHERE comprobante_cobro.id_fkcaja_comprobante_cobro = $id_caja 
-      AND comprobante_cobro.id_fkfactura_comprobante_cobro = factura.id_factura 
-      AND factura.id_fkguia_factura = guia.id_guia 
-      AND factura.id_fkcaja_factura != $id_caja 
-      AND guia.id_fkcaja_guia != $id_caja 
-      AND guia.sucursal_guia = sucursal2.suc_codigo_sucursal 
-      AND estado_guia = 1 
-    GROUP BY id_guia, punto_emision_sucursal, punto_emision_guia, numero_guia";
+    $query_comprobantes = "SELECT SUM(cc.monto_comprobante_cobro) as monto_comprobante_cobro,
+        guia_nota_venta.id_guia, punto_emision_sucursal, punto_emision_guia, numero_guia
+    FROM comprobante_cobro_nota_venta cc, guia_nota_venta, sucursal2
+    WHERE cc.id_fkcaja_comprobante_cobro = $id_caja
+      AND cc.id_fkfactura_comprobante_cobro = guia_nota_venta.id_guia
+      AND guia_nota_venta.id_fkcaja_guia != $id_caja
+      AND guia_nota_venta.sucursal_guia = sucursal2.suc_codigo_sucursal
+      AND cc.estado_comprobante_cobro = 'COBRADA'
+      AND estado_guia = 1
+    GROUP BY guia_nota_venta.id_guia, punto_emision_sucursal, punto_emision_guia, numero_guia";
 
     $recuperar_comprobantes = mysqli_query($conn, $query_comprobantes) or die(mysqli_error($conn));
     $otrasGuias = [];

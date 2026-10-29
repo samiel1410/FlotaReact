@@ -43,20 +43,27 @@ try {
     $total_cierre   = $caja['cierre_total_caja'] ?? 0;
 
     // ─── GUÍAS DE LA CAJA ────────────────────────────────────────────────────
+    // Los cobros de nota de venta viven en `comprobante_cobro_nota_venta` y su
+    // columna `id_fkfactura_comprobante_cobro` guarda el ID de la GUÍA (no el de
+    // una factura), por eso antes no se encontraba ningún cobro y todo salía
+    // como NO COBRADA. Se excluye CRÉDITO (tipo_forma_pago = 4).
     $rsGuias = mysqli_query($conn, "
         SELECT g.id_guia, g.numero_guia, g.total_guia, g.fecha_guia, g.estado_guia,
                g.punto_emision_guia, g.cedula_cliente_remitente, g.nombre_cliente_remitente,
                g.cedula_cliente_receptor, g.nombre_cliente_receptor,
                s.punto_emision_sucursal,
-               EXISTS (
-                   SELECT 1 FROM comprobante_cobro cc2
-                   JOIN factura f2 ON cc2.id_fkfactura_comprobante_cobro = f2.id_factura
-                   WHERE f2.id_fkguia_factura = g.id_guia
-                     AND cc2.estado_comprobante_cobro = 'COBRADA'
-                     AND cc2.monto_comprobante_cobro > 0
-               ) as cobrada
+               COALESCE(pc.monto_cobrado, 0) as cobrado
         FROM guia_nota_venta g
         JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal
+        LEFT JOIN (
+            SELECT cc2.id_fkfactura_comprobante_cobro as id_guia, SUM(cc2.monto_comprobante_cobro) as monto_cobrado
+            FROM comprobante_cobro_nota_venta cc2
+            LEFT JOIN forma_pago fp2 ON cc2.id_fkforma_pago = fp2.id_forma_pago
+            WHERE cc2.estado_comprobante_cobro = 'COBRADA'
+              AND COALESCE(fp2.tipo_forma_pago, 0) <> 4
+              AND cc2.monto_comprobante_cobro > 0
+            GROUP BY cc2.id_fkfactura_comprobante_cobro
+        ) pc ON pc.id_guia = g.id_guia
         WHERE g.id_fkcaja_guia = $idcaja
         ORDER BY g.id_guia DESC
     ") or die(mysqli_error($conn));
@@ -70,45 +77,54 @@ try {
     }
 
     // ─── FACTURAS DE LA CAJA ─────────────────────────────────────────────────
-    $rsFacturas = mysqli_query($conn, "
-        SELECT f.id_factura, f.numero_factura, f.total_factura, f.fecha_factura,
-               f.estado_factura, f.nombre_cliente_factura, f.ruc_cliente_factura,
-               f.punto_emision_factura, s.punto_emision_sucursal,
-               EXISTS (
-                   SELECT 1 FROM comprobante_cobro cc2
-                   WHERE cc2.id_fkfactura_comprobante_cobro = f.id_factura
-                     AND cc2.estado_comprobante_cobro = 'COBRADA'
-                     AND cc2.monto_comprobante_cobro > 0
-               ) as cobrada
-        FROM factura f
-        JOIN sucursal2 s ON f.id_fksucursal_factura = s.suc_codigo_sucursal
-        WHERE f.id_fkcaja_factura = $idcaja
-        ORDER BY f.id_factura DESC
-    ") or die(mysqli_error($conn));
+    // Las facturas de nota de venta se guardan en `factura_nota_venta` (no en
+    // `factura`, que pertenece a guías normales). Si el tenant no tiene esa
+    // tabla, la sección simplemente queda vacía.
     $facturas = [];
     $total_facturas = 0;
-    while ($row = mysqli_fetch_array($rsFacturas)) {
-        $facturas[] = $row;
-        if ($row['estado_factura'] != 2) {
-            $total_facturas += floatval($row['total_factura']);
+    $rsTieneFacturaNV = mysqli_query($conn, "SHOW TABLES LIKE 'factura_nota_venta'");
+    if ($rsTieneFacturaNV && mysqli_num_rows($rsTieneFacturaNV) > 0) {
+        $rsFacturas = mysqli_query($conn, "
+            SELECT f.id_factura, f.numero_factura, f.total_factura, f.fecha_factura,
+                   f.estado_factura, f.nombre_cliente_factura, f.ruc_cliente_factura,
+                   f.punto_emision_factura, s.punto_emision_sucursal,
+                   EXISTS (
+                       SELECT 1 FROM comprobante_cobro_nota_venta cc2
+                       LEFT JOIN forma_pago fp2 ON cc2.id_fkforma_pago = fp2.id_forma_pago
+                       WHERE cc2.id_fkfactura_comprobante_cobro = f.id_fkguia_factura
+                         AND cc2.estado_comprobante_cobro = 'COBRADA'
+                         AND COALESCE(fp2.tipo_forma_pago, 0) <> 4
+                         AND cc2.monto_comprobante_cobro > 0
+                   ) as cobrada
+            FROM factura_nota_venta f
+            JOIN sucursal2 s ON f.id_fksucursal_factura = s.suc_codigo_sucursal
+            WHERE f.id_fkcaja_factura = $idcaja
+               OR f.id_fkguia_factura IN (SELECT id_guia FROM guia_nota_venta WHERE id_fkcaja_guia = $idcaja)
+            ORDER BY f.id_factura DESC
+        ") or die(mysqli_error($conn));
+        while ($row = mysqli_fetch_array($rsFacturas)) {
+            $facturas[] = $row;
+            if ($row['estado_factura'] != 2) {
+                $total_facturas += floatval($row['total_factura']);
+            }
         }
     }
 
     // ─── COMPROBANTES DE COBRO ───────────────────────────────────────────────
+    // Cobros de nota de venta: `id_fkfactura_comprobante_cobro` referencia la
+    // GUÍA, por eso se une con `guia_nota_venta` y no con `factura`.
     $rsComprobantes = mysqli_query($conn, "
         SELECT cc.id_comprobante_cobro, cc.numero_comprobante_cobro,
                cc.fecha_emision_comprobante_cobro, cc.monto_comprobante_cobro,
                cc.observacion_comprobante_cobro, cc.estado_comprobante_cobro,
                cc.concepto_detalle_comprobante_cobro,
-               f.id_factura, f.numero_factura, f.punto_emision_factura,
-               f.ruc_cliente_factura, f.nombre_cliente_factura,
-               cl.identificacion_cliente, cl.nombre_cliente,
+               g.id_guia, g.numero_guia, g.punto_emision_guia,
+               g.ruc_cliente_remitente, g.nombre_cliente_remitente,
                s.punto_emision_sucursal,
                fp.nombre_forma_pago, fp.tipo_forma_pago
-        FROM comprobante_cobro cc
-        LEFT JOIN factura f ON cc.id_fkfactura_comprobante_cobro = f.id_factura
-        LEFT JOIN cliente cl ON cc.id_fkcliente_comprobante_cobro = cl.id_cliente
-        LEFT JOIN sucursal2 s ON f.id_fksucursal_factura = s.suc_codigo_sucursal
+        FROM comprobante_cobro_nota_venta cc
+        LEFT JOIN guia_nota_venta g ON cc.id_fkfactura_comprobante_cobro = g.id_guia
+        LEFT JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal
         LEFT JOIN forma_pago fp ON (
             (cc.id_fkforma_pago IS NOT NULL AND cc.id_fkforma_pago > 0 AND cc.id_fkforma_pago = fp.id_forma_pago)
             OR ((cc.id_fkforma_pago IS NULL OR cc.id_fkforma_pago = 0) AND LOWER(TRIM(cc.concepto_detalle_comprobante_cobro)) = LOWER(TRIM(fp.nombre_forma_pago)))
@@ -207,8 +223,15 @@ try {
         if ($est == 0) return 'EN PROCESO';
         return 'DESCONOCIDO';
     }
-    function estadoCobrada($cobrada) {
-        return $cobrada ? 'COBRADA' : 'NO COBRADA';
+    function estadoCobrada($cobrado, $total = null) {
+        if ($total === null) {
+            return $cobrado ? 'COBRADA' : 'NO COBRADA';
+        }
+        $cobrado = floatval($cobrado);
+        $total   = floatval($total);
+        if ($total <= 0.001 || $cobrado >= ($total - 0.005)) return 'COBRADA';
+        if ($cobrado > 0.001) return 'PARCIAL';
+        return 'NO COBRADA';
     }
 
     $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>COMPROBANTES CAJA NOTA DE VENTA</title>
@@ -284,7 +307,7 @@ try {
             <td>'.$fec.'</td>
             <td class="right">$'.fmtNum($g['total_guia']).'</td>
             <td>'.$est.'</td>
-            <td>'.estadoCobrada($g['cobrada']).'</td>
+            <td>'.estadoCobrada($g['cobrado'], $g['total_guia']).'</td>
             <td>'.$g['nombre_cliente_remitente'].' ('.$g['cedula_cliente_remitente'].')</td>
             <td>'.$g['nombre_cliente_receptor'].' ('.$g['cedula_cliente_receptor'].')</td>
         </tr>';
@@ -328,7 +351,7 @@ try {
     $html .= '<table><tr>
         <th width="8%">NRO.</th>
         <th width="10%">FECHA EMI.</th>
-        <th width="18%">CONCEPTO</th>
+        <th width="18%">GUÍA</th>
         <th width="12%">FORMA PAGO</th>
         <th width="10%">TOTAL</th>
         <th width="22%">CLIENTE</th>
@@ -337,10 +360,10 @@ try {
     foreach ($comprobantes as $c) {
         $nro = $c['numero_comprobante_cobro'];
         $fec = date('Y-m-d', strtotime($c['fecha_emision_comprobante_cobro']));
-        $nroFact = !empty($c['id_factura']) ? fmtFactura($c['numero_factura'], $c['punto_emision_sucursal'], $c['punto_emision_factura']) : '-';
-        $cli = trim(($c['ruc_cliente_factura'] ?? '').' '.($c['nombre_cliente_factura'] ?? ''));
+        $nroFact = !empty($c['id_guia']) ? fmtGuia($c['numero_guia'], $c['punto_emision_sucursal'], $c['punto_emision_guia']) : '-';
+        $cli = trim(($c['ruc_cliente_remitente'] ?? '').' '.($c['nombre_cliente_remitente'] ?? ''));
         if (empty($cli)) {
-            $cli = trim(($c['identificacion_cliente'] ?? '').' '.($c['nombre_cliente'] ?? ''));
+            $cli = 'CONSUMIDOR FINAL';
         }
         $obs = ($c['observacion_comprobante_cobro'] === 'null' || empty($c['observacion_comprobante_cobro'])) ? '' : $c['observacion_comprobante_cobro'];
         $html .= '<tr>
