@@ -117,6 +117,10 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
     }
   };
 
+  const cedulaValida = cedula.length === 10 || cedula.length === 13;
+  const nombreEditable = entregaTercero || !clienteInfo;
+  const nombreObligatorio = entregaTercero || (!clienteInfo && cedulaValida);
+
   return (
     <>
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
@@ -198,7 +202,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
               <div className="mt-3">
                 <label className="block text-xs font-semibold text-slate-700 mb-1">
                   Nombre de quien recibe{' '}
-                  {entregaTercero
+                  {nombreObligatorio
                     ? <span className="text-red-500">*</span>
                     : <span className="text-[10px] font-medium text-slate-400">(del cliente)</span>}
                 </label>
@@ -206,14 +210,16 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                   type="text"
                   value={nombreRecibe}
                   onChange={(e) => setNombreRecibe(e.target.value)}
-                  placeholder={entregaTercero ? 'Nombre completo de la persona que recibe' : 'Nombre del cliente'}
-                  disabled={!entregaTercero}
+                  placeholder={nombreEditable ? 'Nombre completo de la persona que recibe' : 'Nombre del cliente'}
+                  disabled={!nombreEditable}
                   className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500 text-sm"
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
                   {entregaTercero
                     ? 'Se guarda junto a la cédula para dejar constancia de quién recibió.'
-                    : 'Si entrega un tercero, marque "Entrega a tercero" y escriba su nombre.'}
+                    : (!clienteInfo && cedulaValida)
+                      ? 'La identificación no está registrada: escriba el nombre de quien recibe.'
+                      : 'Si entrega un tercero, marque "Entrega a tercero" y escriba su nombre.'}
                 </p>
               </div>
             </div>
@@ -269,7 +275,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
             <button
               onClick={handleSubmit}
               className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-60"
-              disabled={saving || cedula.length < 10 || (entregaTercero && !nombreRecibe.trim())}
+              disabled={saving || !cedulaValida || (nombreObligatorio && !nombreRecibe.trim())}
             >
               {saving ? (
                 <><i className="fas fa-spinner fa-spin"></i> Procesando...</>
