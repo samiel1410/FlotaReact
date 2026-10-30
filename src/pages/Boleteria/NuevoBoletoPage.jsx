@@ -1492,6 +1492,9 @@ export const NuevoBoletoPage = () => {
     const sucursalId = record.id_sucursal || record.suc_codigo_sucursal;
     const codigoSucursal = record.suc_codigo_sucursal || sucursalId;
     const usuario = getSessionUser();
+    // La agencia activa solo define qué viajes/P.E. se usan en esta pantalla:
+    // la venta se registra en el backend con la oficina real del usuario
+    // (JWT), no con la agencia a la que se cambia.
     usuario.id_sucursal = sucursalId;
     usuario.suc_codigo_sucursal = codigoSucursal;
     usuario.id_fksucursal = codigoSucursal;
