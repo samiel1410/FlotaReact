@@ -261,9 +261,10 @@ export const ListaViajes = () => {
     return <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-black ${e.bg} ${e.text}`}>{e.label}</span>;
   };
 
-  // El despacho representa la ENTREGA DE DINERO AL BUSERO (no la salida del bus),
-  // por eso se detecta por la EXISTENCIA del despacho y no por estado_viajes.
-  const tieneDespacho = (t) => Number(t.estado_viajes) === 2 || (Array.isArray(t.despachos) && t.despachos.length > 0);
+  // El despacho representa la ENTREGA DE DINERO AL BUSERO (no la salida del bus).
+  // Se considera despachado si el viaje ya está completo (estado 2) o si MI
+  // oficina registró su despacho; no por el despacho de otra sede.
+  const tieneDespacho = (t) => Number(t.estado_viajes) === 2 || Boolean(t.id_despacho_viaje);
 
   return (
     <div className="absolute inset-0 overflow-y-auto bg-slate-50 p-4 sm:p-6 lg:p-8">
@@ -434,7 +435,7 @@ export const ListaViajes = () => {
                     </td>
                     <td className="px-3 py-2.5 text-center">{renderEstado(tieneDespacho(t) && Number(t.estado_viajes) === 1 ? 2 : t.estado_viajes)}</td>
                     <td className="px-3 py-2.5">
-                      {t.estado_viajes == 2 || t.hora_despacho || (t.despachos && t.despachos.length > 0) ? (
+                      {Number(t.estado_viajes) === 2 || t.id_despacho_viaje ? (
                         <div className="text-[10px] leading-tight">
                           <div className="font-bold text-amber-700 flex items-center gap-1">
                             <i className="far fa-clock text-amber-500"></i> Desp: {t.hora_despacho ? String(t.hora_despacho).substring(0, 5) : (t.fecha_despacho ? t.fecha_despacho.split(' ')[1]?.substring(0, 5) : '-')}

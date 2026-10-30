@@ -9,6 +9,10 @@ const formatFecha = (f) => {
 export const DespachoTripCard = ({ trip, isSelected, onSelect }) => {
   const tripId = trip.id_viajes || trip.id_viaje;
   const boletosCount = trip.asientos_ocupados || trip.cantidad_boletos || 0;
+  // El despacho es por oficina: no basta con que otra sede haya despachado.
+  const estaDespachado = trip.despachado_en_mi_sucursal !== undefined
+    ? Number(trip.despachado_en_mi_sucursal) > 0
+    : Number(trip.despachos_count || 0) > 0 || Number(trip.estado || trip.estado_viajes) === 2;
 
   return (
     <div
@@ -28,7 +32,7 @@ export const DespachoTripCard = ({ trip, isSelected, onSelect }) => {
             <span className="bg-slate-100 text-slate-700 font-bold text-[10px] px-2 py-0.5 rounded-md border border-slate-200">
               N° VIAJE #{tripId}
             </span>
-            {Number(trip.despachos_count || 0) > 0 || Number(trip.estado || trip.estado_viajes) === 2 ? (
+            {estaDespachado ? (
               <span className="bg-blue-50 text-blue-700 font-bold text-[9px] px-2 py-0.5 rounded-md border border-blue-200">
                 DESPACHADO
               </span>

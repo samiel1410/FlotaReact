@@ -145,7 +145,7 @@ export const ViajesSelector = ({
                   }}
                 >
                   <i className="fas fa-paper-plane" style={{ fontSize: 8 }}></i>
-                  En ruta
+                  {v.es_despachado_mi_oficina ? 'Despachado' : 'En ruta'}
                 </span>
               )}
               <i className="fas fa-clock" style={{ fontSize: 12 }}></i>
@@ -224,14 +224,23 @@ export const ViajesSelector = ({
               )}
             </div>
             <div>
-              {hoveredViaje.es_despachado_origen ? (
+              {hoveredViaje.es_despachado_mi_oficina ? (
                 <span style={{
                   background: '#dcfce7', color: '#166534', fontSize: 10,
                   padding: '2px 7px', borderRadius: 4, fontWeight: 700,
                   border: '1px solid #bbf7d0',
                   display: 'inline-flex', alignItems: 'center', gap: 4
                 }}>
-                  <i className="fas fa-check-circle"></i> Despachado
+                  <i className="fas fa-check-circle"></i> Despachado aquí
+                </span>
+              ) : hoveredViaje.es_despachado_origen ? (
+                <span style={{
+                  background: '#fef3c7', color: '#92400e', fontSize: 10,
+                  padding: '2px 7px', borderRadius: 4, fontWeight: 700,
+                  border: '1px solid #fde68a',
+                  display: 'inline-flex', alignItems: 'center', gap: 4
+                }}>
+                  <i className="fas fa-bus"></i> En ruta · pendiente aquí
                 </span>
               ) : (
                 <span style={{
