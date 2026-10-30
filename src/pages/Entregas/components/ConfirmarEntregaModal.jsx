@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { CameraCapture } from './CameraCapture';
+import { CONFIG } from '../../../config/env';
 import { EntregaService, abrirPdfEntrega } from '../../../services/entrega.service';
 import { GuiaService } from '../../../services/guia.service';
 
@@ -17,6 +18,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
   const [saving, setSaving] = useState(false);
   const [buscandoCliente, setBuscandoCliente] = useState(false);
   const [clienteInfo, setClienteInfo] = useState(null);
+  const [clienteFotoUrl, setClienteFotoUrl] = useState(null);
   const [nombreRecibe, setNombreRecibe] = useState('');
   const [entregaTercero, setEntregaTercero] = useState(false);
 
@@ -38,10 +40,12 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
         if (cancelado) return;
         const cliente = res?.success && res.data?.length > 0 ? res.data[0] : null;
         setClienteInfo(cliente);
+        setClienteFotoUrl(cliente?.foto_cliente ? `${CONFIG.CLIENTE_URL}/cliente/fotos/${cliente.foto_cliente}` : null);
         setNombreRecibe(cliente?.nombre_cliente || '');
       } catch (e) {
         if (!cancelado) {
           setClienteInfo(null);
+          setClienteFotoUrl(null);
           setNombreRecibe('');
         }
       }
@@ -52,6 +56,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
       buscarCliente(cedula);
     } else {
       setClienteInfo(null);
+      setClienteFotoUrl(null);
       setNombreRecibe('');
     }
 
@@ -230,7 +235,20 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                   Foto de Entrega <span className="text-[10px] font-medium text-slate-400">(opcional)</span>
                 </label>
 
-                {!fotoPreview && (
+                {!fotoPreview && clienteFotoUrl && (
+                  <div className="flex flex-col items-center gap-2">
+                    <span className="text-[11px] text-slate-500">Foto registrada del cliente:</span>
+                    <img src={clienteFotoUrl} alt="Cliente" className="h-28 w-28 object-cover rounded-full border-4 border-white shadow-md" />
+                    <button
+                      onClick={() => setShowCamera(true)}
+                      className="px-4 py-2 bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 rounded-lg text-sm font-bold transition-colors shadow-sm"
+                    >
+                      <i className="fas fa-camera mr-1"></i> Tomar nueva foto (opcional)
+                    </button>
+                  </div>
+                )}
+
+                {!fotoPreview && !clienteFotoUrl && (
                   <div className="flex flex-col items-center gap-2">
                     <p className="text-[11px] text-slate-500 text-center">La foto es opcional; puede confirmar solo con la cédula.</p>
                     <button
