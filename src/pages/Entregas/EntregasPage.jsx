@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { CONFIG } from '../../config/env';
-import { EntregaService } from '../../services/entrega.service';
+
+import { EntregaService, abrirPdfEntrega } from '../../services/entrega.service';
 import { CobrarEntregarModal } from './components/CobrarEntregarModal';
 import { ConfirmarEntregaModal } from './components/ConfirmarEntregaModal';
 
@@ -221,11 +221,10 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
       const idUsuario = userRes.data.id_usuario;
 
       const pdfRes = await EntregaService.generarPdfEntrega(guia.id_guia, idUsuario, isNotaVenta);
-      if (pdfRes?.success && pdfRes?.ruta) {
-        const url = `${CONFIG.PHP_URL}/tmp/${pdfRes.ruta}`;
-        window.open(url, 'PDF_Entrega', 'width=800,height=600');
+      if (pdfRes?.success && pdfRes?.url) {
+        abrirPdfEntrega(pdfRes.url);
       } else {
-        toast.error('Error al generar PDF');
+        toast.error(pdfRes?.message || 'Error al generar PDF');
       }
     } catch (err) {
       console.error('Error PDF:', err);

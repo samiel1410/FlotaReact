@@ -3,6 +3,24 @@ import { CONFIG } from '../config/env';
 import { buildPdfUrl } from '../utils/pdfUrlUtils';
 
 /**
+ * Abre un PDF de entrega en una ventana nueva. Si el navegador bloquea el
+ * popup (la generación es asíncrona), lo abre con un enlace temporal.
+ */
+export const abrirPdfEntrega = (url) => {
+  if (!url) return;
+  const w = window.open(url, 'PDF_Entrega', 'width=900,height=700');
+  if (w) return;
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+
+/**
  * Servicio para interactuar con el backend de Entregas de Guías
  */
 export const EntregaService = {
@@ -75,19 +93,61 @@ export const EntregaService = {
   },
 
   /**
-   * Generar PDF de guía entregada (PHP)
+   * Generar PDF de guía entregada (PHP).
+   *
+   * El script PHP (`guiaEntregadaPdf.php`) entrega el PDF directamente
+   * (`Output(..., 'I')`), no un JSON con la ruta del archivo. Antes se hacía
+   * `r.json()`, lo que lanzaba un error y el comprobante nunca se imprimía.
+   * También soporta el formato antiguo `{ success, ruta }` por si el servidor
+   * todavía devuelve la ruta en `tmp/`.
+   *
+   * @returns {Promise<{success: boolean, url?: string, ruta?: string, message?: string}>}
    */
   generarPdfEntrega: async (idGuia, idUsuario, isNotaVenta = false) => {
+    const phpScript = isNotaVenta ? 'guiaEntregadaNotaVentaPdf.php' : 'guiaEntregadaPdf.php';
+    const rawUrl = `${CONFIG.PHP_URL}/${phpScript}?id_guia=${encodeURIComponent(idGuia)}&id_usuario=${encodeURIComponent(idUsuario)}`;
+    const phpUrl = buildPdfUrl(rawUrl);
+
+    // Si el PHP vive en otro origin, el fetch no comparte la sesión (de ahí
+    // salen los PDF de otro tenant). En ese caso se abre la URL directa.
     try {
-      const phpScript = isNotaVenta ? 'guiaEntregadaNotaVentaPdf.php' : 'guiaEntregadaPdf.php';
-      const rawUrl = `${CONFIG.PHP_URL}/${phpScript}?id_guia=${encodeURIComponent(idGuia)}&id_usuario=${encodeURIComponent(idUsuario)}`;
-      const phpUrl = buildPdfUrl(rawUrl);
+      if (new URL(phpUrl, window.location.href).origin !== window.location.origin) {
+        return { success: true, url: phpUrl, directo: true };
+      }
+    } catch (e) { /* URL relativa válida */ }
+
+    try {
       const r = await fetch(phpUrl, { credentials: 'same-origin' });
-      const data = await r.json();
-      return data;
+      const contentType = (r.headers.get('content-type') || '').toLowerCase();
+
+      // El PHP devuelve el PDF como archivo (stream directo).
+      if (contentType.includes('application/pdf')) {
+        const blob = await r.blob();
+        return { success: true, url: URL.createObjectURL(blob), tipo: 'pdf' };
+      }
+
+      const texto = await r.text();
+      try {
+        const data = JSON.parse(texto);
+        if (data?.error || data?.success === false) {
+          return { success: false, message: data.error || data?.message || 'No se pudo generar el PDF de entrega' };
+        }
+        if (data?.ruta) {
+          return { success: true, ruta: data.ruta, url: `${CONFIG.PHP_URL}/tmp/${data.ruta}`, tipo: 'ruta' };
+        }
+      } catch (e) {
+        // Respuesta no JSON (HTML de error del servidor).
+      }
+
+      if (!r.ok) {
+        return { success: false, message: `No se pudo generar el PDF (HTTP ${r.status})` };
+      }
+
+      // Respuesta no reconocida: se abre la URL directa.
+      return { success: true, url: phpUrl, directo: true };
     } catch (err) {
-      console.error('Error generando PDF entrega:', err);
-      throw err;
+      console.warn('No se pudo previsualizar el PDF, se abre la URL directa:', err?.message || err);
+      return { success: true, url: phpUrl, directo: true };
     }
   },
 

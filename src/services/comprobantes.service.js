@@ -2,6 +2,37 @@ import { api } from '../config/axios';
 import { buildPdfUrl } from '../utils/pdfUrlUtils';
 
 /**
+ * Resuelve la URL de un PDF servido por PHP.
+ *
+ * Algunos scripts entregan el PDF directamente (`Output(..., 'I')`) y otros
+ * responden `{ success, ruta }` con el archivo guardado en `php/tmp/`. Antes se
+ * asumía siempre JSON, por lo que los scripts que transmiten el PDF fallaban.
+ */
+const resolverPdfPhp = async (url, mensajeError = 'No se pudo generar el PDF') => {
+  const res = await fetch(url, { credentials: 'same-origin' });
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+
+  if (contentType.includes('application/pdf')) {
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  }
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch (e) {
+    // Respuesta no JSON (HTML de error del servidor)
+  }
+
+  if (data?.success && data?.ruta) {
+    const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
+    return `${baseUrl}/php/tmp/${data.ruta}`;
+  }
+
+  throw new Error(data?.error || data?.msg || mensajeError);
+};
+
+/**
  * Servicio para Comprobantes
  * Replica toda la lógica del ExtJS ComprobanteController
  */
@@ -82,13 +113,10 @@ const comprobantesService = {
    * @returns {Promise<string>} URL del PDF generado
    */
   async generarPdf(id) {
-    const res = await fetch(buildPdfUrl(`/php/comprobantePdf.php?id_comprobante=${id}`));
-    const data = await res.json();
-    if (data?.success && data?.ruta) {
-      const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-      return `${baseUrl}/php/tmp/${data.ruta}`;
-    }
-    throw new Error(data?.msg || 'No se pudo generar el PDF');
+    return resolverPdfPhp(
+      buildPdfUrl(`/php/comprobantePdf.php?id_comprobante=${id}`),
+      'No se pudo generar el PDF'
+    );
   },
 
   /**
@@ -97,13 +125,10 @@ const comprobantesService = {
    * @returns {Promise<string>} URL del PDF generado
    */
   async generarPdfCobro(id) {
-    const res = await fetch(buildPdfUrl(`/php/pdfImpresionCobro.php?id_comprobante=${id}`));
-    const data = await res.json();
-    if (data?.success && data?.ruta) {
-      const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-      return `${baseUrl}/php/tmp/${data.ruta}`;
-    }
-    throw new Error(data?.msg || 'No se pudo generar el PDF de cobro');
+    return resolverPdfPhp(
+      buildPdfUrl(`/php/pdfImpresionCobro.php?id_comprobante=${id}`),
+      'No se pudo generar el PDF de cobro'
+    );
   },
 
   /**

@@ -67,6 +67,18 @@ try {
     $fecha_hora_entrega = limpiarTextoPdf($vals_guia["fecha_hora_entrega"] ?? '');
     $cliente = limpiarTextoPdf($vals_guia["nombre_destinatario_guias_entregadas"] ?? '');
     $cedula_cliente = limpiarTextoPdf($vals_guia["ruc_destinatario_guias_entregadas"] ?? '');
+    // Nombre/cédula de quien recibió (la columna puede no existir en BD antiguas)
+    $nombre_recibe = '';
+    $cedula_recibe = '';
+    $col_recibe = @mysqli_query($conn, "SHOW COLUMNS FROM guia LIKE 'nombre_recibe_guia'");
+    if ($col_recibe && mysqli_num_rows($col_recibe) > 0) {
+        $rec_recibe = @mysqli_query($conn, "SELECT nombre_recibe_guia, cedula_recibe_guia FROM guia WHERE id_guia = $id_guia LIMIT 1");
+        if ($rec_recibe && $vals_recibe = mysqli_fetch_assoc($rec_recibe)) {
+            $nombre_recibe = limpiarTextoPdf($vals_recibe['nombre_recibe_guia'] ?? '');
+            $cedula_recibe = limpiarTextoPdf($vals_recibe['cedula_recibe_guia'] ?? '');
+        }
+    }
+
     $usuario_entrego = limpiarTextoPdf(trim(($vals_guia["nombre_usuario"] ?? '') . ' ' . ($vals_guia["apellido_usuario"] ?? '')));
     $numero_guia = $punto_emision_sucursal . '-' . $punto_emision_guia . '-' . $resultado;
 
@@ -164,6 +176,20 @@ try {
     $pdf->Cell(18, 3.8, 'CÉDULA:', 0, 0, 'L');
     $pdf->SetFont('helvetica', '', 7.5);
     $pdf->Cell($anchoUtil - 18, 3.8, $cedula_cliente, 0, 1, 'L');
+    if ($nombre_recibe !== '') {
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell(22, 3.8, 'RECIBIÓ:', 0, 0, 'L');
+        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->Cell($anchoUtil - 22, 3.8, $nombre_recibe, 0, 1, 'L');
+    }
+
+    if ($cedula_recibe !== '') {
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell(28, 3.8, 'CÉDULA RECIBE:', 0, 0, 'L');
+        $pdf->SetFont('helvetica', '', 7.5);
+        $pdf->Cell($anchoUtil - 28, 3.8, $cedula_recibe, 0, 1, 'L');
+    }
+
 
     $pdf->SetFont('helvetica', 'B', 7.5);
     $pdf->Cell(32, 3.8, 'F. HORA ENTREGA:', 0, 0, 'L');

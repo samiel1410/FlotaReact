@@ -1,5 +1,15 @@
 DirectoryIndex index.php index.html
 
+# El shell de la SPA no debe cachearse: así el navegador toma el nuevo build
+# (chunks con hash) inmediatamente después de cada despliegue.
+<IfModule mod_headers.c>
+  <FilesMatch "^(index\.html|index\.php)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+  </FilesMatch>
+</IfModule>
+
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteCond %{REQUEST_FILENAME} !-f

@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { CameraCapture } from './CameraCapture';
-import { CONFIG } from '../../../config/env';
-import { EntregaService } from '../../../services/entrega.service';
+import { EntregaService, abrirPdfEntrega } from '../../../services/entrega.service';
 import { GuiaService } from '../../../services/guia.service';
 
 /**
@@ -16,9 +15,9 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
   const [fotoPreview, setFotoPreview] = useState('');
   const [showCamera, setShowCamera] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [esLaPersona, setEsLaPersona] = useState(false);
-  const [clienteFotoUrl, setClienteFotoUrl] = useState(null);
   const [buscandoCliente, setBuscandoCliente] = useState(false);
+  const [clienteInfo, setClienteInfo] = useState(null);
+  const [nombreRecibe, setNombreRecibe] = useState('');
   const [entregaTercero, setEntregaTercero] = useState(false);
 
   // Precargar la cédula si viene en la guía
@@ -28,34 +27,35 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
     }
   }, [guia]);
 
-  // Buscar cliente cuando cambia la cédula
+  // Buscar cliente cuando cambia la cédula para mostrar a quién se entrega
   useEffect(() => {
+    let cancelado = false;
+
     const buscarCliente = async (ident) => {
       setBuscandoCliente(true);
       try {
         const res = await GuiaService.buscarClientePorIdentificacion(ident);
-        if (res?.success && res.data && res.data.length > 0) {
-          const cliente = res.data[0];
-          if (cliente.foto_cliente) {
-            setClienteFotoUrl(`${CONFIG.API_URL || 'http://localhost:3002'}/cliente/fotos/${cliente.foto_cliente}`);
-          } else {
-            setClienteFotoUrl(null);
-          }
-        } else {
-          setClienteFotoUrl(null);
-        }
+        if (cancelado) return;
+        const cliente = res?.success && res.data?.length > 0 ? res.data[0] : null;
+        setClienteInfo(cliente);
+        setNombreRecibe(cliente?.nombre_cliente || '');
       } catch (e) {
-        setClienteFotoUrl(null);
+        if (!cancelado) {
+          setClienteInfo(null);
+          setNombreRecibe('');
+        }
       }
-      setBuscandoCliente(false);
+      if (!cancelado) setBuscandoCliente(false);
     };
 
     if (cedula && (cedula.length === 10 || cedula.length === 13)) {
       buscarCliente(cedula);
     } else {
-      setClienteFotoUrl(null);
-      setEsLaPersona(false);
+      setClienteInfo(null);
+      setNombreRecibe('');
     }
+
+    return () => { cancelado = true; };
   }, [cedula]);
 
   const handleCameraCapture = (dataUrl) => {
@@ -82,6 +82,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
         nombre_oficina: nombre_oficina || '',
         destino_guia: destinoGuia || guia.destino_guia || '',
         cedula_recibe: cedula,
+        nombre_recibe: (nombreRecibe || clienteInfo?.nombre_cliente || '').trim(),
         foto_base64: fotoBase64
       }, isNotaVenta);
 
@@ -93,24 +94,17 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
 
       toast.success('Guía entregada correctamente');
 
-      // 3. Generar PDF de entrega
+      // 3. Generar e imprimir el comprobante de entrega
       try {
         const pdfRes = await EntregaService.generarPdfEntrega(guia.id_guia, id_usuario, isNotaVenta);
-        if (pdfRes?.success && pdfRes?.ruta) {
-          const w = window.open(
-            `${CONFIG.PHP_URL}/tmp/${pdfRes.ruta}`,
-            'PDF_Entrega',
-            'width=800,height=600'
-          );
-          if (!w) {
-            const a = document.createElement('a');
-            a.href = `${CONFIG.PHP_URL}/tmp/${pdfRes.ruta}`;
-            a.target = '_blank';
-            a.click();
-          }
+        if (pdfRes?.success && pdfRes?.url) {
+          abrirPdfEntrega(pdfRes.url);
+        } else {
+          toast.error(pdfRes?.message || 'No se pudo imprimir el comprobante de entrega');
         }
       } catch (pdfErr) {
         console.warn('Error generando PDF:', pdfErr);
+        toast.error('No se pudo imprimir el comprobante de entrega');
       }
 
       if (onSuccess) onSuccess();
@@ -138,7 +132,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
           </div>
 
           {/* Body */}
-          <div className="p-6 flex flex-col gap-5">
+          <div className="p-6 flex flex-col gap-5 max-h-[70vh] overflow-y-auto">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <p className="text-sm text-blue-800">
                 <i className="fas fa-info-circle mr-1"></i>
@@ -160,89 +154,84 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                 className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 required
               />
+
+              {buscandoCliente && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                  <i className="fas fa-spinner fa-spin text-blue-500"></i> Buscando datos del cliente...
+                </div>
+              )}
+
+              {!buscandoCliente && clienteInfo && (
+                <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Cliente registrado</p>
+                  <p className="text-sm font-semibold text-emerald-900 break-words">
+                    <i className="fas fa-user-check mr-1"></i> {clienteInfo.nombre_cliente}
+                  </p>
+                  <p className="text-[11px] text-emerald-700">
+                    {clienteInfo.tipo_identificacion_cliente} {clienteInfo.identificacion_cliente}
+                  </p>
+                </div>
+              )}
+
+              {!buscandoCliente && !clienteInfo && cedula.length >= 10 && (
+                <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Identificación no registrada</p>
+                  <p className="text-[11px] text-amber-700">No es un cliente del sistema. Puede entregar igual indicando el nombre de quien recibe.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+              <label className={`flex items-center gap-2 text-xs font-semibold cursor-pointer select-none rounded-full px-3 py-1 border shadow-sm w-fit transition-colors ${entregaTercero ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+                <input
+                  type="checkbox"
+                  checked={entregaTercero}
+                  onChange={(e) => {
+                    setEntregaTercero(e.target.checked);
+                    if (!e.target.checked) setNombreRecibe(clienteInfo?.nombre_cliente || '');
+                  }}
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                Entrega a tercero
+              </label>
+
+              <div className="mt-3">
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Nombre de quien recibe{' '}
+                  {entregaTercero
+                    ? <span className="text-red-500">*</span>
+                    : <span className="text-[10px] font-medium text-slate-400">(del cliente)</span>}
+                </label>
+                <input
+                  type="text"
+                  value={nombreRecibe}
+                  onChange={(e) => setNombreRecibe(e.target.value)}
+                  placeholder={entregaTercero ? 'Nombre completo de la persona que recibe' : 'Nombre del cliente'}
+                  disabled={!entregaTercero}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:bg-slate-100 disabled:text-slate-500 text-sm"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {entregaTercero
+                    ? 'Se guarda junto a la cédula para dejar constancia de quién recibió.'
+                    : 'Si entrega un tercero, marque "Entrega a tercero" y escriba su nombre.'}
+                </p>
+              </div>
             </div>
 
             <div>
-              <div className="mt-4 border border-slate-200 rounded-lg p-5 bg-slate-50">
-                <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
-                  <label className="block text-sm font-semibold text-slate-700">
-                    Identidad / Foto de Entrega {!entregaTercero && <span className="text-red-500">*</span>}
-                  </label>
-                  <label className={`flex items-center gap-2 text-xs font-semibold cursor-pointer select-none rounded-full px-3 py-1 border shadow-sm transition-colors ${entregaTercero ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
-                    <input
-                      type="checkbox"
-                      checked={entregaTercero}
-                      onChange={(e) => {
-                        setEntregaTercero(e.target.checked);
-                        if (e.target.checked) setEsLaPersona(false);
-                      }}
-                      className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                    />
-                    Entrega a tercero
-                  </label>
-                </div>
+              <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                  Foto de Entrega <span className="text-[10px] font-medium text-slate-400">(opcional)</span>
+                </label>
 
-                {entregaTercero && (
-                  <div className="bg-indigo-50 text-indigo-700 px-4 py-3 rounded-lg border border-indigo-100 text-center shadow-sm w-full mb-3">
-                    <i className="fas fa-user-friends text-lg mb-1 block"></i>
-                    <p className="text-xs font-bold uppercase tracking-wider mb-1">Entrega a tercero</p>
-                    <p className="text-[11px] font-medium opacity-80">No se exige foto de identidad. Se registrará la cédula de quien recibe.</p>
-                  </div>
-                )}
-
-                {entregaTercero && !fotoPreview && (
-                  <div className="flex justify-center">
+                {!fotoPreview && (
+                  <div className="flex flex-col items-center gap-2">
+                    <p className="text-[11px] text-slate-500 text-center">La foto es opcional; puede confirmar solo con la cédula.</p>
                     <button
                       onClick={() => setShowCamera(true)}
-                      className="px-4 py-2 bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50 rounded-lg text-sm font-bold transition-colors shadow-sm"
+                      className="px-4 py-2 bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 rounded-lg text-sm font-bold transition-colors shadow-sm"
                     >
                       <i className="fas fa-camera mr-1"></i> Tomar foto (opcional)
-                    </button>
-                  </div>
-                )}
-
-                {!entregaTercero && buscandoCliente && (
-                  <div className="flex items-center justify-center py-4">
-                    <i className="fas fa-spinner fa-spin text-blue-500 mr-2"></i>
-                    <span className="text-xs text-slate-500">Buscando datos del cliente...</span>
-                  </div>
-                )}
-
-                {!entregaTercero && !buscandoCliente && clienteFotoUrl && !fotoPreview && (
-                  <div className="flex flex-col items-center gap-3">
-                    <span className="text-xs text-slate-500 font-medium bg-white px-2 py-1 rounded-md border border-slate-200 shadow-sm">
-                      Foto registrada en el sistema:
-                    </span>
-                    <img src={clienteFotoUrl} alt="Cliente" className="h-32 w-32 object-cover rounded-full border-4 border-white shadow-md" />
-                    <div className="flex flex-col sm:flex-row gap-2 mt-2">
-                      <button
-                        onClick={() => setEsLaPersona(!esLaPersona)}
-                        className={`px-4 py-2 rounded-lg text-sm font-bold transition-all shadow-sm ${esLaPersona ? 'bg-green-600 text-white ring-2 ring-green-300 ring-offset-1' : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
-                      >
-                        <i className={`fas ${esLaPersona ? 'fa-check-circle' : 'fa-check'} mr-1`}></i> {esLaPersona ? 'Sí, es la persona' : 'Confirmar: Sí es la persona'}
-                      </button>
-                      <button
-                        onClick={() => setShowCamera(true)}
-                        className="px-4 py-2 bg-blue-100 text-blue-700 hover:bg-blue-200 rounded-lg text-sm font-bold transition-colors shadow-sm"
-                      >
-                        <i className="fas fa-camera mr-1"></i> Tomar nueva foto
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {!entregaTercero && !buscandoCliente && !clienteFotoUrl && !fotoPreview && (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg border border-red-100 text-center shadow-sm w-full">
-                      <i className="fas fa-exclamation-triangle text-lg mb-1 block"></i>
-                      <p className="text-xs font-bold uppercase tracking-wider mb-1">Cliente sin foto registrada</p>
-                      <p className="text-[11px] font-medium opacity-80">Debe tomar una foto a la persona que recibe para continuar.</p>
-                    </div>
-                    <button
-                      onClick={() => setShowCamera(true)}
-                      className="flex items-center justify-center gap-2 px-5 py-3 w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold transition-all shadow-md transform hover:-translate-y-0.5"
-                    >
-                      <i className="fas fa-camera text-lg"></i> Tomar Foto Obligatoria
                     </button>
                   </div>
                 )}
@@ -280,7 +269,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
             <button
               onClick={handleSubmit}
               className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-60"
-              disabled={saving || !cedula || (!entregaTercero && !esLaPersona && !fotoBase64)}
+              disabled={saving || cedula.length < 10 || (entregaTercero && !nombreRecibe.trim())}
             >
               {saving ? (
                 <><i className="fas fa-spinner fa-spin"></i> Procesando...</>
