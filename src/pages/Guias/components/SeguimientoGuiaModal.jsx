@@ -86,6 +86,13 @@ export const SeguimientoGuiaModal = ({ guia, onClose, isNotaVenta = false }) => 
 
   const formatFecha = (fecha) => {
     if (!fecha) return '-';
+    const texto = String(fecha).trim();
+    // MySQL entrega 'YYYY-MM-DD HH:mm:ss' en hora local; se muestra tal cual
+    // para no volver a convertirla con la zona horaria del navegador.
+    const partes = texto.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/);
+    if (partes && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(texto)) {
+      return `${partes[3]}/${partes[2]}/${partes[1]} ${partes[4]}:${partes[5]}`;
+    }
     try {
       const d = new Date(fecha);
       return d.toLocaleDateString('es-EC') + ' ' + d.toLocaleTimeString('es-EC', { hour: '2-digit', minute: '2-digit' });

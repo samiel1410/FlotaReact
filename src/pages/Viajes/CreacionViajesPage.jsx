@@ -5,15 +5,32 @@ import ViajesService from '../../services/viajes.service';
 import { api } from '../../config/axios';
 import { useAuth } from '../../hooks/useAuth';
 
+// Fecha local (no UTC): después de las 19:00 en Ecuador, toISOString()
+// devuelve el día siguiente y el viaje se creaba para una fecha equivocada.
+const hoyLocal = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const MINUTOS_GRACIA_VENTA = 10;
+
+const salidaVencida = (fecha, hora) => {
+  if (!fecha || !hora) return false;
+  const salida = new Date(`${fecha}T${hora}:00`);
+  if (Number.isNaN(salida.getTime())) return false;
+  return salida.getTime() < Date.now() - MINUTOS_GRACIA_VENTA * 60 * 1000;
+};
+
 export const CreacionViajesPage = () => {
   const { user } = useAuth();
+  const valoresIniciales = {
+    fecha: hoyLocal(),
+    hora_salida_viaje: '',
+    id_ruta_viaje: '',
+    id_buses_viaje: '',
+  };
   const { register, handleSubmit, formState: { errors }, reset } = useForm({
-    defaultValues: {
-      fecha: new Date().toISOString().split('T')[0],
-      hora_salida_viaje: '',
-      id_ruta_viaje: '',
-      id_buses_viaje: '',
-    }
+    defaultValues: valoresIniciales,
   });
 
   const [routes, setRoutes] = useState([]);
@@ -24,7 +41,7 @@ export const CreacionViajesPage = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const idSucursal = user?.id_sucursal || user?.sucursal || null;
+        const idSucursal = user?.id_sucursal || user?.id_fksucursal || user?.sucursal || null;
         const params = idSucursal ? { id_sucursal: idSucursal } : {};
 
         const [routesRes, busesRes] = await Promise.all([
@@ -44,17 +61,24 @@ export const CreacionViajesPage = () => {
   }, [user]);
 
   const onSubmit = async (data) => {
+    // Un viaje cuya salida ya pasó (más la tolerancia de venta) no aparece en
+    // boletería. Se avisa antes de crearlo para no dejarlo "invisible".
+    if (salidaVencida(data.fecha, data.hora_salida_viaje)) {
+      toast.error('La hora de salida ya pasó. Ajusta la hora para que el viaje aparezca al vender boletos.', { duration: 6000 });
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await ViajesService.createTrip(data);
       if (response.success) {
-        toast.success('Viaje creado exitosamente');
-        reset();
+        toast.success(`Viaje creado para ${data.fecha} ${data.hora_salida_viaje}`);
+        reset(valoresIniciales);
       } else {
-        toast.error(response.message || 'Error al crear el viaje');
+        toast.error(response.message || 'Error al crear el viaje', { duration: 6000 });
       }
     } catch (error) {
-      toast.error('Error al crear el viaje');
+      toast.error(error?.message || 'Error al crear el viaje');
     } finally {
       setLoading(false);
     }
@@ -153,7 +177,7 @@ export const CreacionViajesPage = () => {
             <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => reset()}
+                onClick={() => reset(valoresIniciales)}
                 className="h-10 px-6 text-[10px] font-black text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all uppercase tracking-widest"
               >
                 Limpiar

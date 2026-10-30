@@ -237,6 +237,9 @@ export const NuevoBoletoPage = () => {
     destino: '',
     idViaje: '',
     viajeTexto: '',
+    // Punto final real del pasaje cuando la agencia vende más allá de la
+    // última parada de la ruta (ej. ruta Ambato - Coca vendida a Aguagrio).
+    puntoFinal: '',
     asientosSeleccionados: [],
     pasajeros: [],
     totales: { subtotal: 0, total: 0 },
@@ -887,6 +890,7 @@ export const NuevoBoletoPage = () => {
           id_destino_boleto: a.id_destino_boleto || null,
           // Datos del tooltip del asiento (destino y oficina que vendió)
           nombre_destino: a.nombre_destino || '',
+          punto_final_destino: a.punto_final_destino || '',
           nombre_sucursal_venta: a.nombre_sucursal_venta || '',
           estado_boleto_detalle: 1,
           id_boleto: data.id_boleto
@@ -1122,6 +1126,7 @@ export const NuevoBoletoPage = () => {
       destino: '',
       idViaje: '',
       viajeTexto: '',
+      puntoFinal: '',
       asientosSeleccionados: [],
       pasajeros: [],
       totales: { subtotal: 0, total: 0 },
@@ -1159,6 +1164,9 @@ export const NuevoBoletoPage = () => {
       ...prev,
       idCliente: '',
       fechaViaje: prev.fechaViaje || hoyLocal(),
+      // El punto final es una excepción de la venta: no debe arrastrarse a la
+      // siguiente venta del mismo viaje.
+      puntoFinal: '',
       asientosSeleccionados: [],
       pasajeros: [],
       totales: { subtotal: 0, total: 0 },
@@ -1309,6 +1317,7 @@ export const NuevoBoletoPage = () => {
         <div style="text-align:center">
           <p style="font-size:16px;font-weight:bold;color:#0a365d">${formData.pasajeros.length} asiento(s)</p>
           <p style="font-size:13px;color:#64748b">Pasajero: ${formData.nombres || '---'}</p>
+          <p style="font-size:13px;color:#64748b">Destino: <strong>${(destinosViaje.find(d => String(d.id_sub_rutas) === String(subrutaSeleccionada))?.nombre_sub_rutas || '---')}${(formData.puntoFinal || '').trim() ? ' / ' + (formData.puntoFinal || '').trim().toUpperCase() : ''}</strong></p>
           <p style="font-size:13px;color:#64748b">Total: <strong>$${totalVenta.toFixed(2)}</strong></p>
         </div>
       `,
@@ -1347,6 +1356,7 @@ export const NuevoBoletoPage = () => {
           tarifa_boleto_detalle: p.tarifa || 'Normal',
           id_destino: parseInt(pasajeroDestino) || null,
           nombre_destino: subrutaPasajero?.nombre_sub_rutas || '',
+          punto_final: (p.puntoFinal ?? formData.puntoFinal ?? '').toString().trim().slice(0, 120),
           incluye_alimento_boleto_detalle: alimentoInfo?.incluye_alimentos ? 1 : 0,
           precio_alimento_boleto_detalle: alimentoInfo?.incluye_alimentos ? parseFloat(alimentoInfo.precio_alimentos || 0) : 0,
         };
@@ -1359,6 +1369,8 @@ export const NuevoBoletoPage = () => {
         cedula_chofer: cedulaChofer,
         destino: subrutaSeleccionada,
         nombre_destino: subrutaGeneralObj?.nombre_sub_rutas || '',
+        // Punto final real vendido (más allá de la última parada de la ruta).
+        punto_final: (formData.puntoFinal || '').trim().slice(0, 120),
         id_origen: formData.origen,
         identificacion: formData.pasajeros[0]?.cedula || formData.identificacion,
         nombres: formData.pasajeros[0]?.nombres || formData.nombres,
@@ -1614,6 +1626,7 @@ export const NuevoBoletoPage = () => {
                   ...prev,
                   idViaje: viajeId,
                   destino: cambioViaje ? '' : prev.destino,
+                  puntoFinal: cambioViaje ? '' : prev.puntoFinal,
                   origen: v?.id_origen || prev.origen,
                   asientosSeleccionados: [],
                   pasajeros: []
@@ -1670,6 +1683,11 @@ export const NuevoBoletoPage = () => {
                     toast.error('Error al refrescar destinos');
                   });
                 }
+              }}
+              puntoFinal={formData.puntoFinal}
+              onPuntoFinalChange={(valor) => {
+                marcarActividadReal();
+                setFormData(prev => ({ ...prev, puntoFinal: valor.toUpperCase() }));
               }}
               alimentoInfo={alimentoInfo}
             />

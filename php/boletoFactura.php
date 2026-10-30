@@ -101,6 +101,49 @@ function extraerDestinoLimpio($candidato)
     return trim($cand);
 }
 
+/**
+ * ¿La tabla tiene la columna? El punto final se agregó después, así que en
+ * bases sin la migración el boleto debe seguir imprimiéndose igual.
+ */
+function existe_columna_boleto($conn, $tabla, $columna)
+{
+    static $cache = [];
+    $clave = $tabla . '.' . $columna;
+    if (array_key_exists($clave, $cache)) {
+        return $cache[$clave];
+    }
+    $cache[$clave] = false;
+    $tablaSegura = preg_replace('/[^a-zA-Z0-9_]/', '', $tabla);
+    $columnaSegura = preg_replace('/[^a-zA-Z0-9_]/', '', $columna);
+    $res = @mysqli_query($conn, "SHOW COLUMNS FROM `{$tablaSegura}` LIKE '{$columnaSegura}'");
+    if ($res && mysqli_num_rows($res) > 0) {
+        $cache[$clave] = true;
+    }
+    return $cache[$clave];
+}
+
+/**
+ * Texto del punto final a imprimir: destino real vendido cuando la agencia
+ * vende más allá de la última parada de la ruta (ej. ruta Ambato - Coca
+ * vendida hasta Aguagrio, o Coca - Guayaquil continuando en Ambato).
+ */
+function unir_destino_con_punto_final($destinoBase, $puntoFinal)
+{
+    $base = trim((string)$destinoBase);
+    $final = trim((string)$puntoFinal);
+    if ($final === '') {
+        return $base;
+    }
+    if ($base === '' || strcasecmp($base, $final) === 0) {
+        return $final;
+    }
+    // Evita duplicar cuando el destino ya contiene el punto final escrito.
+    if (stripos($base, $final) !== false) {
+        return $base;
+    }
+    return $base . ' / ' . $final;
+}
+
 function obtener_datos_factura($id_boleto, $conn)
 {
     $id_boleto_esc = (int)$id_boleto;
@@ -113,6 +156,9 @@ b.id_boleto, b.identificacion_boleto, b.nombres_boleto, b.observacion_boleto,
 b.fecha_boleto, b.total_boleto, b.numero_boleto,
 b.punto_emision_boleto, b.sucursal_emision_boleto, b.id_fkviaje_boleto,
 b.nombre_origen, b.nombre_destino, b.origen_boleto, b.destino_boleto, b.id_fksubruta_boleto,
+" . (existe_columna_boleto($conn, 'boletos', 'punto_final_boleto')
+        ? "b.punto_final_boleto,"
+        : "NULL AS punto_final_boleto,") . "
 b.clave_acceso_boletos, b.fecha_creacion_boleto,
 s.nombre_sucursal, u.nombre_usuario, bu.disco_buses, bu.placa_buses,
 r.nombre_rutas, r.andes_rutas, r.piso_rutas, r.id_fkdestino_rutas, b.celular_boleto, b.tipo_boleto, b.estado_boleto,
@@ -154,6 +200,9 @@ bd.identificacion_boleto_detalle,
 bd.incluye_alimento_boleto_detalle,
 bd.precio_alimento_boleto_detalle,
 bd.id_destino_boleto,
+" . (existe_columna_boleto($conn, 'boleto_detalle', 'punto_final_boleto_detalle')
+        ? "bd.punto_final_boleto_detalle,"
+        : "NULL AS punto_final_boleto_detalle,") . "
 sr_det.nombre_sub_rutas as subruta_detalle_nombre,
 d_det_sr.nombre_destino as destino_det_sr_nombre,
 d_det_sr.lugar_destino as destino_det_sr_lugar,
@@ -504,6 +553,9 @@ try {
         if (!empty($dest)) { $destinoGeneral = $dest; break; }
     }
 
+    // Punto final escrito por la agencia (venta más allá de la última parada).
+    $puntoFinalBoleto = trim((string)($boleto['punto_final_boleto'] ?? ''));
+
     // ── DETALLES DE PASAJEROS ─────────────────────────────────────────────────
     foreach ($detalles as $detalle) {
         $nombrePasajero = strtoupper($detalle['nombre_cliente_boleto_detalle'] ?? ($boleto['nombres_boleto'] ?? 'PASAJERO'));
@@ -516,7 +568,15 @@ try {
             $dest = extraerDestinoLimpio($cand);
             if (!empty($dest)) { $destinoDetalle = $dest; break; }
         }
-        $destinoMostrar = !empty($destinoDetalle) ? strtoupper($destinoDetalle) : (!empty($destinoGeneral) ? strtoupper($destinoGeneral) : '—');
+        $destinoBase = !empty($destinoDetalle) ? $destinoDetalle : $destinoGeneral;
+        $puntoFinalPasajero = trim((string)($detalle['punto_final_boleto_detalle'] ?? ''));
+        if ($puntoFinalPasajero === '') {
+            $puntoFinalPasajero = $puntoFinalBoleto;
+        }
+        $destinoMostrar = strtoupper(unir_destino_con_punto_final($destinoBase, $puntoFinalPasajero));
+        if ($destinoMostrar === '') {
+            $destinoMostrar = '—';
+        }
         $asientoVal     = isset($detalle['asiento_boleto_detalle']) ? str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT) : '01';
         $totalDetalle   = isset($detalle['total_boleto_detalle']) ? (float)$detalle['total_boleto_detalle'] : (float)($boleto['total_boleto'] ?? 0);
         $tarifaDetalle  = !empty($detalle['tarifa_boleto_detalle']) ? $detalle['tarifa_boleto_detalle'] : 'Normal';
@@ -527,7 +587,7 @@ try {
         $pdf->Cell($w * 0.4, $lh * 1.2, 'Asiento ' . $asientoVal, 0, 1, 'R');
 
         $pdf->SetFont('helvetica', 'B', $fT);
-        $pdf->Cell($w, $lh * 1.1, 'DESTINO: ' . $destinoMostrar, 0, 1, 'R');
+        $pdf->Cell($w, $lh * 1.1, 'DESTINO: ' . mb_substr($destinoMostrar, 0, 48, 'UTF-8'), 0, 1, 'R');
 
         $pdf->SetFont('helvetica', 'B', $fD);
         $pdf->Cell($w, $lh * 1.3, 'Valor $' . number_format($totalDetalle, 2, ',', '.'), 0, 1, 'R');

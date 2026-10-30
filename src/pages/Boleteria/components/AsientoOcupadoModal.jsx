@@ -68,6 +68,16 @@ export const AsientoOcupadoModal = ({ isOpen, onClose, ocupado, destinoNombre, o
             </p>
           </div>
 
+          {(ocupado.punto_final_destino || ocupado.punto_final_boleto_detalle) && (
+            <div className="p-3">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Punto final vendido</p>
+              <p className="font-bold text-amber-700 flex items-center gap-1.5">
+                <i className="fas fa-flag-checkered text-[10px]"></i>
+                {ocupado.punto_final_destino || ocupado.punto_final_boleto_detalle}
+              </p>
+            </div>
+          )}
+
           <div className="p-3 flex items-center justify-between">
             <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Boleto</span>
             <span className="font-mono font-bold text-slate-700">#{ocupado.id_boleto || '---'}</span>

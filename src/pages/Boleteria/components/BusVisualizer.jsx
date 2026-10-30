@@ -192,6 +192,9 @@ export const BusVisualizer = ({
       documento: principal?.identificacion_cliente || '',
       destino: destinos.join(' · '),
       origen,
+      // Punto final escrito por la agencia que vendió (venta más allá de la
+      // última parada de la ruta, ej. Coca → Aguagrio).
+      puntoFinal: principal?.punto_final_destino || principal?.punto_final_boleto_detalle || '',
       // La agencia que vendió solo se distingue cuando no coincide con la salida
       oficina: oficinaVenta && oficinaVenta !== origen ? oficinaVenta : (origen ? '' : oficinaVenta),
       etiquetaOficina: origen && oficinaVenta && oficinaVenta !== origen ? 'Vendido en' : 'Oficina'
@@ -458,6 +461,7 @@ export const BusVisualizer = ({
             tooltip.cliente && { icon: 'fa-user', label: 'Cliente', value: tooltip.cliente },
             tooltip.documento && { icon: 'fa-id-card', label: 'CI/RUC', value: tooltip.documento },
             tooltip.destino && { icon: 'fa-location-dot', label: 'Destino', value: tooltip.destino },
+            tooltip.puntoFinal && { icon: 'fa-flag-checkered', label: 'Punto final', value: tooltip.puntoFinal },
             tooltip.origen && { icon: 'fa-bus', label: 'Sale de', value: tooltip.origen },
             tooltip.oficina && { icon: 'fa-building', label: tooltip.etiquetaOficina || 'Oficina', value: tooltip.oficina },
             tooltip.usuario && { icon: 'fa-user-clock', label: 'Usuario', value: tooltip.usuario },

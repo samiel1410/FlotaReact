@@ -534,4 +534,45 @@ function imprimirLogoTcpdfA4($pdf, $rutaLogo, $x = 15.0, $y = 12.0, $maxW = 35.0
     $pdf->Image($rutaLogo, $x, $y, $targetW, $targetH, '', '', 'T', false, 300, 'L');
     return ['w' => $targetW, 'h' => $targetH];
 }
+
+/**
+ * ¿Existe la columna en la tabla? El punto final del boleto se agregó después,
+ * así que los PDF deben funcionar también en bases sin la migración aplicada.
+ */
+function columna_boleto_existe($conn, $tabla, $columna)
+{
+    static $cache = [];
+    $clave = $tabla . '.' . $columna;
+    if (array_key_exists($clave, $cache)) {
+        return $cache[$clave];
+    }
+    $cache[$clave] = false;
+    $tablaSegura = preg_replace('/[^a-zA-Z0-9_]/', '', $tabla);
+    $columnaSegura = preg_replace('/[^a-zA-Z0-9_]/', '', $columna);
+    $res = @mysqli_query($conn, "SHOW COLUMNS FROM `{$tablaSegura}` LIKE '{$columnaSegura}'");
+    if ($res && mysqli_num_rows($res) > 0) {
+        $cache[$clave] = true;
+    }
+    return $cache[$clave];
+}
+
+/**
+ * Une el destino de la sub-ruta con el punto final escrito por la agencia.
+ * Ej.: destino "Coca" + punto final "Aguagrio" => "Coca / Aguagrio".
+ */
+function unir_destino_punto_final($destinoBase, $puntoFinal)
+{
+    $base = trim((string)$destinoBase);
+    $final = trim((string)$puntoFinal);
+    if ($final === '') {
+        return $base;
+    }
+    if ($base === '' || strcasecmp($base, $final) === 0) {
+        return $final;
+    }
+    if (stripos($base, $final) !== false) {
+        return $base;
+    }
+    return $base . ' / ' . $final;
+}
 ?>

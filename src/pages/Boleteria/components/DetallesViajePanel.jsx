@@ -9,6 +9,8 @@ export const DetallesViajePanel = ({
   destinosViaje = [],
   onDestinoChange,
   onRefrescarDestinos,
+  puntoFinal = '',
+  onPuntoFinalChange,
   alimentoInfo
 }) => {
   const labelStyle = {
@@ -106,6 +108,51 @@ export const DetallesViajePanel = ({
             <i className="fas fa-sync-alt" style={{ fontSize: 11 }}></i>
           </button>
         </div>
+
+        {/* Punto final: destino real vendido cuando es más allá de la ruta */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, gridColumn: 'span 2' }}>
+          <label
+            htmlFor="punto-final-destino"
+            style={{ ...labelStyle, width: 54, minWidth: 54 }}
+            title="Destino real del pasajero cuando se vende más allá de la última parada de la ruta"
+          >
+            P. final:
+          </label>
+          <input
+            id="punto-final-destino"
+            type="text"
+            value={puntoFinal}
+            onChange={e => onPuntoFinalChange?.(e.target.value)}
+            maxLength={60}
+            placeholder="Opcional. Ej: Aguagrio, Riobamba, Guayaquil"
+            style={{ ...selectStyle, height: 28, textTransform: 'uppercase' }}
+            title="Se imprime en el boleto como punto final del viaje"
+          />
+          <button
+            type="button"
+            title="Limpiar punto final"
+            onClick={() => onPuntoFinalChange?.('')}
+            style={{
+              background: puntoFinal ? '#b91c1c' : '#cbd5e1', color: 'white', border: 'none',
+              borderRadius: 3, width: 26, height: 26, cursor: puntoFinal ? 'pointer' : 'default',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+            }}
+            disabled={!puntoFinal}
+          >
+            <i className="fas fa-times" style={{ fontSize: 11 }}></i>
+          </button>
+        </div>
+
+        {puntoFinal && (
+          <div style={{ gridColumn: 'span 2', fontSize: 11, color: '#0a365d', fontWeight: 600 }}>
+            <i className="fas fa-info-circle" style={{ fontSize: 11 }}></i> Se imprimirá como:{' '}
+            <span style={{ fontWeight: 800 }}>
+              {(destinosViaje.find(d => String(d.id_sub_rutas) === String(subrutaSeleccionada))?.nombre_sub_rutas || '').toUpperCase()}
+              {subrutaSeleccionada ? ' / ' : ''}
+              {puntoFinal.toUpperCase()}
+            </span>
+          </div>
+        )}
 
         {/* Alimento label */}
         {alimentoInfo?.incluye_alimentos && (

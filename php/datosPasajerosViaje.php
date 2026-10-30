@@ -39,10 +39,19 @@ try {
     $info = mysqli_fetch_assoc($res_info);
 
     // 2. Detalle de pasajeros del viaje
+    // El punto final es opcional: si la base no tiene la columna se consulta sin ella.
+    $tienePuntoFinal = false;
+    $resCol = @mysqli_query($conn, "SHOW COLUMNS FROM `boleto_detalle` LIKE 'punto_final_boleto_detalle'");
+    if ($resCol && mysqli_num_rows($resCol) > 0) {
+        $tienePuntoFinal = true;
+    }
+    $camposPuntoFinal = $tienePuntoFinal ? 'bd.punto_final_boleto_detalle,' : '';
+
     $query_pasajeros = "SELECT
         bd.asiento_boleto_detalle AS asiento,
         bd.identificacion_boleto_detalle AS cedula,
         bd.nombre_cliente_boleto_detalle AS pasajero,
+        $camposPuntoFinal
         COALESCE(NULLIF(TRIM(sr.nombre_sub_rutas), ''), NULLIF(TRIM(d.lugar_destino), ''), 'N/A') AS destino,
         bd.total_boleto_detalle AS valor,
         b.nombre_origen AS embarque,
@@ -65,6 +74,16 @@ try {
 
     while ($row = mysqli_fetch_assoc($res_pasajeros)) {
         $row['valor'] = floatval($row['valor']);
+        $puntoFinal = trim((string)($row['punto_final_boleto_detalle'] ?? ''));
+        $destinoBase = trim((string)($row['destino'] ?? ''));
+        if ($puntoFinal !== '') {
+            $baseValida = $destinoBase !== '' && strcasecmp($destinoBase, 'N/A') !== 0;
+            if (!$baseValida || strcasecmp($destinoBase, $puntoFinal) === 0) {
+                $row['destino'] = strtoupper($puntoFinal);
+            } elseif (stripos($destinoBase, $puntoFinal) === false) {
+                $row['destino'] = $destinoBase . ' / ' . strtoupper($puntoFinal);
+            }
+        }
         $total_recaudado += $row['valor'];
         $pasajeros[] = $row;
     }

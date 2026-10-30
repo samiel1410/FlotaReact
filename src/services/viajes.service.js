@@ -55,10 +55,21 @@ const ViajesService = {
   createTrip: async (tripData) => {
     try {
       const response = await api.post('/viajes/crearViaje', tripData);
-      return { success: true, data: response.data };
+      const payload = response.data || {};
+      // El backend responde 200 incluso cuando rechaza la creación; hay que
+      // respetar su `success` para no mostrar un falso "Viaje creado".
+      return {
+        success: payload.success !== false,
+        message: payload.message || payload.error || '',
+        data: payload.data ?? payload,
+      };
     } catch (error) {
       console.error('Error creating trip:', error);
-      return { success: false, message: error.response?.data?.message || 'Error al crear viaje' };
+      const payload = error.response?.data;
+      return {
+        success: false,
+        message: payload?.message || payload?.error || 'Error al crear viaje',
+      };
     }
   },
 

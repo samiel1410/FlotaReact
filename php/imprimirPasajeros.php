@@ -170,8 +170,12 @@ try {
     }
 
     // ─── CONSULTA DE PASAJEROS ───────────────────────────────────────────────
+    $colPuntoFinal = columna_boleto_existe($conn, 'boleto_detalle', 'punto_final_boleto_detalle')
+        ? 'bd.punto_final_boleto_detalle'
+        : 'NULL AS punto_final_boleto_detalle';
     $query_pasajeros = "SELECT 
         COALESCE(NULLIF(TRIM(sr.nombre_sub_rutas), ''), NULLIF(TRIM(d.lugar_destino), ''), 'N/A') AS lugar_destino,
+        $colPuntoFinal,
         r.nombre_rutas, bd.estado_boleto_detalle, bd.identificacion_boleto_detalle,
         bd.asiento_boleto_detalle, bd.total_boleto_detalle,
         bd.nombre_cliente_boleto_detalle, b.nombre_origen,
@@ -360,7 +364,10 @@ try {
         $txtAsi = (string)($row['asiento_boleto_detalle'] ?? '');
         $txtCed = substr((string)($row['identificacion_boleto_detalle'] ?? ''), 0, 13);
         $txtNom = substr(trim((string)($row['nombre_cliente_boleto_detalle'] ?? '')), 0, 22);
-        $txtDes = substr(trim((string)($row['lugar_destino'] ?? '')), 0, 34);
+        $txtDes = substr(trim(unir_destino_punto_final(
+            (string)($row['lugar_destino'] ?? ''),
+            (string)($row['punto_final_boleto_detalle'] ?? '')
+        )), 0, 34);
 
         // Fila 1: asiento, cédula y nombre
         $pdf->SetFont('helvetica', '', 6.8);

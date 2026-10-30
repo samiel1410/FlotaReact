@@ -34,6 +34,13 @@ const formatNumeroGuia = (value) => {
 
 const formatFecha = (fecha) => {
   if (!fecha) return '-';
+  const texto = String(fecha).trim();
+  // MySQL entrega 'YYYY-MM-DD HH:mm:ss' en hora local; se muestra tal cual
+  // para no volver a convertirla con la zona horaria del navegador.
+  const partes = texto.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}:\d{2})/);
+  if (partes && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(texto)) {
+    return `${partes[1]}-${partes[2]}-${partes[3]} ${partes[4]}`;
+  }
   try {
     const d = new Date(fecha);
     const year = d.getFullYear();
@@ -177,35 +184,38 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
 
   /**
    * Resuelve la ubicación y la oficina del usuario (los mismos datos que envía la app móvil).
-   * Se intenta con la sesión, luego con el usuario del backend y, por último, con su sucursal.
+   * La fuente confiable es el backend: `user.id_sucursal` puede quedar apuntando a
+   * otra agencia si el usuario cambió de agencia en Boletería (se persiste en user_data).
    */
   const resolverUbicacion = async () => {
-    let ubicacion = user?.nombre_canton || user?.canton || user?.ciudad || '';
+    let ubicacion = '';
     // id_oficina debe ser el id real de la sucursal, no su código
-    let idOficina = user?.id_sucursal || '';
-    const codigoSucursal = user?.id_fksucursal_usuario || user?.sucursal_usuario || '';
+    let idOficina = '';
 
-    if (!ubicacion || !idOficina) {
-      try {
-        const res = await api.get('/buscarUsuario');
-        const u = res.data?.data;
-        if (u) {
-          ubicacion = ubicacion || u.nombre_canton || u.canton || u.ciudad || u.ciudad_sucursal || '';
-          idOficina = idOficina || u.id_sucursal || '';
-        }
-      } catch (e) {
-        // Sin datos del usuario se intenta con la sucursal
+    try {
+      const res = await api.get('/buscarUsuario');
+      const u = res.data?.data;
+      if (u) {
+        ubicacion = u.nombre_canton || u.ciudad_sucursal || u.canton || u.ciudad || '';
+        idOficina = u.id_sucursal || '';
       }
+    } catch (e) {
+      // Sin datos del backend se usan los de la sesión
     }
 
-    if ((!ubicacion || !idOficina) && codigoSucursal) {
+    if (!ubicacion) {
+      ubicacion = user?.nombre_canton || user?.canton || user?.ciudad || '';
+    }
+
+    const codigoSucursal = user?.id_fksucursal_usuario || user?.sucursal_usuario || user?.id_fksucursal || '';
+    if (!idOficina && codigoSucursal) {
       try {
         const res = await api.get('/sucursal/comboSucursal');
         const lista = res.data?.data || [];
         const miSucursal = lista.find((s) => String(s.suc_codigo_sucursal) === String(codigoSucursal));
         if (miSucursal) {
-          ubicacion = ubicacion || miSucursal.nombre_sucursal || '';
-          idOficina = idOficina || miSucursal.id_sucursal || '';
+          ubicacion = ubicacion || miSucursal.nombre_sucursal || miSucursal.ciudad_sucursal || '';
+          idOficina = miSucursal.id_sucursal || '';
         }
       } catch (e) {
         // Si falla, se envía lo disponible (el backend lo acepta)
