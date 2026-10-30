@@ -119,7 +119,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
 
   const cedulaValida = cedula.length === 10 || cedula.length === 13;
   const nombreEditable = entregaTercero || !clienteInfo;
-  const nombreObligatorio = entregaTercero || (!clienteInfo && cedulaValida);
+  const nombreObligatorio = entregaTercero;
 
   return (
     <>
@@ -218,7 +218,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                   {entregaTercero
                     ? 'Se guarda junto a la cédula para dejar constancia de quién recibió.'
                     : (!clienteInfo && cedulaValida)
-                      ? 'La identificación no está registrada: escriba el nombre de quien recibe.'
+                      ? 'La identificación no está registrada: escriba el nombre de quien recibe (recomendado).'
                       : 'Si entrega un tercero, marque "Entrega a tercero" y escriba su nombre.'}
                 </p>
               </div>
