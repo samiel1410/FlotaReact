@@ -19,6 +19,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
   const [esLaPersona, setEsLaPersona] = useState(false);
   const [clienteFotoUrl, setClienteFotoUrl] = useState(null);
   const [buscandoCliente, setBuscandoCliente] = useState(false);
+  const [entregaTercero, setEntregaTercero] = useState(false);
 
   // Precargar la cédula si viene en la guía
   useEffect(() => {
@@ -163,16 +164,51 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
 
             <div>
               <div className="mt-4 border border-slate-200 rounded-lg p-5 bg-slate-50">
-                <label className="block text-sm font-semibold text-slate-700 mb-3 text-center">Identidad / Foto de Entrega <span className="text-red-500">*</span></label>
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-3">
+                  <label className="block text-sm font-semibold text-slate-700">
+                    Identidad / Foto de Entrega {!entregaTercero && <span className="text-red-500">*</span>}
+                  </label>
+                  <label className={`flex items-center gap-2 text-xs font-semibold cursor-pointer select-none rounded-full px-3 py-1 border shadow-sm transition-colors ${entregaTercero ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+                    <input
+                      type="checkbox"
+                      checked={entregaTercero}
+                      onChange={(e) => {
+                        setEntregaTercero(e.target.checked);
+                        if (e.target.checked) setEsLaPersona(false);
+                      }}
+                      className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    Entrega a tercero
+                  </label>
+                </div>
 
-                {buscandoCliente && (
+                {entregaTercero && (
+                  <div className="bg-indigo-50 text-indigo-700 px-4 py-3 rounded-lg border border-indigo-100 text-center shadow-sm w-full mb-3">
+                    <i className="fas fa-user-friends text-lg mb-1 block"></i>
+                    <p className="text-xs font-bold uppercase tracking-wider mb-1">Entrega a tercero</p>
+                    <p className="text-[11px] font-medium opacity-80">No se exige foto de identidad. Se registrará la cédula de quien recibe.</p>
+                  </div>
+                )}
+
+                {entregaTercero && !fotoPreview && (
+                  <div className="flex justify-center">
+                    <button
+                      onClick={() => setShowCamera(true)}
+                      className="px-4 py-2 bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50 rounded-lg text-sm font-bold transition-colors shadow-sm"
+                    >
+                      <i className="fas fa-camera mr-1"></i> Tomar foto (opcional)
+                    </button>
+                  </div>
+                )}
+
+                {!entregaTercero && buscandoCliente && (
                   <div className="flex items-center justify-center py-4">
                     <i className="fas fa-spinner fa-spin text-blue-500 mr-2"></i>
                     <span className="text-xs text-slate-500">Buscando datos del cliente...</span>
                   </div>
                 )}
 
-                {!buscandoCliente && clienteFotoUrl && !fotoPreview && (
+                {!entregaTercero && !buscandoCliente && clienteFotoUrl && !fotoPreview && (
                   <div className="flex flex-col items-center gap-3">
                     <span className="text-xs text-slate-500 font-medium bg-white px-2 py-1 rounded-md border border-slate-200 shadow-sm">
                       Foto registrada en el sistema:
@@ -195,7 +231,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                   </div>
                 )}
 
-                {!buscandoCliente && !clienteFotoUrl && !fotoPreview && (
+                {!entregaTercero && !buscandoCliente && !clienteFotoUrl && !fotoPreview && (
                   <div className="flex flex-col items-center gap-3">
                     <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg border border-red-100 text-center shadow-sm w-full">
                       <i className="fas fa-exclamation-triangle text-lg mb-1 block"></i>
@@ -244,7 +280,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
             <button
               onClick={handleSubmit}
               className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-60"
-              disabled={saving || !cedula || (!esLaPersona && !fotoBase64)}
+              disabled={saving || !cedula || (!entregaTercero && !esLaPersona && !fotoBase64)}
             >
               {saving ? (
                 <><i className="fas fa-spinner fa-spin"></i> Procesando...</>

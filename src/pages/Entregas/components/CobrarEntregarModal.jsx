@@ -19,6 +19,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   const [esLaPersona, setEsLaPersona] = useState(false);
   const [clienteFotoUrl, setClienteFotoUrl] = useState(null);
   const [buscandoCliente, setBuscandoCliente] = useState(false);
+  const [entregaTercero, setEntregaTercero] = useState(false);
 
   const [formData, setFormData] = useState({
     monto: '',
@@ -399,16 +400,51 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
               </div>
               <div>
                 <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
-                  <label className="block text-sm font-semibold text-slate-700 mb-2 text-center">Identidad / Foto de Entrega <span className="text-red-500">*</span></label>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <label className="block text-sm font-semibold text-slate-700">
+                      Identidad / Foto de Entrega {!entregaTercero && <span className="text-red-500">*</span>}
+                    </label>
+                    <label className={`flex items-center gap-1.5 text-[10px] font-bold cursor-pointer select-none rounded-full px-2 py-1 border shadow-sm transition-colors ${entregaTercero ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+                      <input
+                        type="checkbox"
+                        checked={entregaTercero}
+                        onChange={(e) => {
+                          setEntregaTercero(e.target.checked);
+                          if (e.target.checked) setEsLaPersona(false);
+                        }}
+                        className="h-3 w-3 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      Entrega a tercero
+                    </label>
+                  </div>
+
+                  {entregaTercero && (
+                    <div className="bg-indigo-50 text-indigo-700 px-3 py-2 rounded-lg border border-indigo-100 text-center shadow-sm w-full mb-2">
+                      <i className="fas fa-user-friends mb-1 block"></i>
+                      <p className="text-[10px] font-bold uppercase tracking-wider mb-1">Entrega a tercero</p>
+                      <p className="text-[10px] font-medium opacity-80">No se exige foto de identidad.</p>
+                    </div>
+                  )}
+
+                  {entregaTercero && !fotoCapturada && (
+                    <div className="flex justify-center">
+                      <button
+                        onClick={() => setShowCamera(true)}
+                        className="w-full px-3 py-1.5 bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-50 rounded-lg text-xs font-bold transition-colors shadow-sm"
+                      >
+                        <i className="fas fa-camera mr-1"></i> Tomar foto (opcional)
+                      </button>
+                    </div>
+                  )}
                   
-                  {buscandoCliente && (
+                  {!entregaTercero && buscandoCliente && (
                     <div className="flex items-center justify-center py-2">
                       <i className="fas fa-spinner fa-spin text-blue-500 mr-2"></i>
                       <span className="text-xs text-slate-500">Buscando datos del cliente...</span>
                     </div>
                   )}
                   
-                  {!buscandoCliente && clienteFotoUrl && !fotoCapturada && (
+                  {!entregaTercero && !buscandoCliente && clienteFotoUrl && !fotoCapturada && (
                     <div className="flex flex-col items-center gap-2">
                       <span className="text-xs text-slate-500 font-medium bg-white px-2 py-0.5 rounded-md border border-slate-200 shadow-sm">
                         Foto registrada en el sistema:
@@ -431,7 +467,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                     </div>
                   )}
                   
-                  {!buscandoCliente && !clienteFotoUrl && !fotoCapturada && (
+                  {!entregaTercero && !buscandoCliente && !clienteFotoUrl && !fotoCapturada && (
                     <div className="flex flex-col items-center gap-2">
                       <div className="bg-red-50 text-red-600 px-3 py-2 rounded-lg border border-red-100 text-center shadow-sm w-full">
                         <i className="fas fa-exclamation-triangle mb-1 block"></i>
@@ -480,7 +516,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
             <button
               onClick={handleSubmit}
               className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-60"
-              disabled={saving || !formData.cedula_recibe || (!esLaPersona && !fotoCapturada)}
+              disabled={saving || !formData.cedula_recibe || (!entregaTercero && !esLaPersona && !fotoCapturada)}
             >
               {saving ? (
                 <><i className="fas fa-spinner fa-spin"></i> Procesando...</>
