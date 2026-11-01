@@ -78,7 +78,7 @@ try {
 
     $fecha_apertura = $vals_caja['fecha_caja'];
     $total_apertura = (float)$vals_caja['apertura_total_caja'];
-    $fecha_hora_cierre = !empty($vals_caja['fecha_hora_cierre']) && $vals_caja['fecha_hora_cierre'] !== '0000-00-00 00:00:00' ? $vals_caja['fecha_hora_cierre'] : 'EN PROCESO';
+    $fecha_hora_cierre = textoFechaHoraCierreCaja($vals_caja['fecha_hora_cierre'] ?? null, $vals_caja['estado_caja'] ?? null);
     $cierre_total_caja = (float)$vals_caja['cierre_total_caja'];
     $usuario = $vals_caja['usuario'] ?? 'OFICINISTA';
 

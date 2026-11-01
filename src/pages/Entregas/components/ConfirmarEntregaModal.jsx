@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { CameraCapture } from './CameraCapture';
 import { CONFIG } from '../../../config/env';
@@ -7,7 +7,9 @@ import { GuiaService } from '../../../services/guia.service';
 
 /**
  * Modal para confirmar entrega simple (cuando total_factura <= 0)
- * Permite capturar cédula de quien recibe y foto opcional (archivo o cámara)
+ * Permite capturar cédula de quien recibe y foto opcional (archivo o cámara).
+ * Con "Entrega a tercero" se ingresa la cédula del tercero y se recuperan sus
+ * datos personales antes de confirmar.
  * Recrea la funcionalidad de ExtJS en EntregadoController.onentregarGuia
  */
 export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, onClose, onSuccess }) => {
@@ -21,6 +23,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
   const [clienteFotoUrl, setClienteFotoUrl] = useState(null);
   const [nombreRecibe, setNombreRecibe] = useState('');
   const [entregaTercero, setEntregaTercero] = useState(false);
+  const cedulaInputRef = useRef(null);
 
   // Precargar la cédula si viene en la guía
   useEffect(() => {
@@ -62,6 +65,29 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
 
     return () => { cancelado = true; };
   }, [cedula]);
+
+  // Al marcar "Entrega a tercero" se limpia la identificación del destinatario
+  // para que el oficinista ingrese la del tercero y se recuperen sus datos.
+  const handleEntregaTerceroChange = (checked) => {
+    setEntregaTercero(checked);
+
+    if (checked) {
+      setCedula('');
+      setClienteInfo(null);
+      setClienteFotoUrl(null);
+      setNombreRecibe('');
+      setTimeout(() => cedulaInputRef.current?.focus(), 0);
+      return;
+    }
+
+    const cedulaDestinatario = guia.cedula_cliente_receptor || '';
+    setCedula(cedulaDestinatario);
+    if (!cedulaDestinatario) {
+      setClienteInfo(null);
+      setClienteFotoUrl(null);
+      setNombreRecibe('');
+    }
+  };
 
   const handleCameraCapture = (dataUrl) => {
     setFotoBase64(dataUrl);
@@ -152,40 +178,71 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">
-                Cédula de quien recibe <span className="text-red-500">*</span>
+                {entregaTercero ? 'Cédula del tercero que recibe' : 'Cédula de quien recibe'}{' '}
+                <span className="text-red-500">*</span>
               </label>
               <input
+                ref={cedulaInputRef}
                 type="text"
                 value={cedula}
                 onChange={(e) => setCedula(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="Ingrese cédula o RUC"
+                placeholder={entregaTercero ? 'Ingrese la cédula del tercero' : 'Ingrese cédula o RUC'}
                 maxLength={13}
                 className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 required
               />
 
+              {entregaTercero && !cedula && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  <i className="fas fa-id-card mr-1"></i>
+                  Ingrese la cédula del tercero para recuperar sus datos personales.
+                </p>
+              )}
+
               {buscandoCliente && (
                 <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
-                  <i className="fas fa-spinner fa-spin text-blue-500"></i> Buscando datos del cliente...
+                  <i className="fas fa-spinner fa-spin text-blue-500"></i> Buscando datos personales...
                 </div>
               )}
 
               {!buscandoCliente && clienteInfo && (
                 <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Cliente registrado</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                    {entregaTercero ? 'Datos personales del tercero' : 'Cliente registrado'}
+                  </p>
                   <p className="text-sm font-semibold text-emerald-900 break-words">
                     <i className="fas fa-user-check mr-1"></i> {clienteInfo.nombre_cliente}
                   </p>
                   <p className="text-[11px] text-emerald-700">
                     {clienteInfo.tipo_identificacion_cliente} {clienteInfo.identificacion_cliente}
                   </p>
+                  {clienteInfo.direccion_cliente && (
+                    <p className="text-[11px] text-emerald-700 break-words">
+                      <i className="fas fa-map-marker-alt mr-1"></i> {clienteInfo.direccion_cliente}
+                    </p>
+                  )}
+                  {(clienteInfo.telefono_cliente || clienteInfo.email_cliente) && (
+                    <p className="text-[11px] text-emerald-700 break-words">
+                      {clienteInfo.telefono_cliente && (
+                        <><i className="fas fa-phone mr-1"></i>{clienteInfo.telefono_cliente}</>
+                      )}
+                      {clienteInfo.telefono_cliente && clienteInfo.email_cliente && ' · '}
+                      {clienteInfo.email_cliente && (
+                        <><i className="fas fa-envelope mr-1"></i>{clienteInfo.email_cliente}</>
+                      )}
+                    </p>
+                  )}
                 </div>
               )}
 
               {!buscandoCliente && !clienteInfo && cedula.length >= 10 && (
                 <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Identificación no registrada</p>
-                  <p className="text-[11px] text-amber-700">No es un cliente del sistema. Puede entregar igual indicando el nombre de quien recibe.</p>
+                  <p className="text-[11px] text-amber-700">
+                    {entregaTercero
+                      ? 'El tercero no está registrado en el sistema. Puede continuar escribiendo el nombre de quien recibe.'
+                      : 'No es un cliente del sistema. Puede entregar igual indicando el nombre de quien recibe.'}
+                  </p>
                 </div>
               )}
             </div>
@@ -195,10 +252,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                 <input
                   type="checkbox"
                   checked={entregaTercero}
-                  onChange={(e) => {
-                    setEntregaTercero(e.target.checked);
-                    if (!e.target.checked) setNombreRecibe(clienteInfo?.nombre_cliente || '');
-                  }}
+                  onChange={(e) => handleEntregaTerceroChange(e.target.checked)}
                   className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 Entrega a tercero
@@ -221,10 +275,10 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
                   {entregaTercero
-                    ? 'Se guarda junto a la cédula para dejar constancia de quién recibió.'
+                    ? 'Se completa con los datos del tercero al ingresar su cédula; puede ajustarlo si es necesario.'
                     : (!clienteInfo && cedulaValida)
                       ? 'La identificación no está registrada: escriba el nombre de quien recibe (recomendado).'
-                      : 'Si entrega un tercero, marque "Entrega a tercero" y escriba su nombre.'}
+                      : 'Si entrega un tercero, marque "Entrega a tercero" e ingrese su cédula.'}
                 </p>
               </div>
             </div>

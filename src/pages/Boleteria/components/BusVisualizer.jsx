@@ -79,32 +79,36 @@ export const BusVisualizer = ({
   const gridWidth = mapaData?.gridWidth || 4;
   const gridHeight = mapaData?.gridHeight || Math.ceil(capacidad / 4);
 
+  // Estado de un asiento con boleto. El backend lo resuelve por solape de
+  // recorrido ('ocupado', 'ocupado-parcial', 'libre-parada'); si no viene, se
+  // mantiene el cálculo anterior por órdenes.
+  const estadoDeOcupacion = (ocupado) => {
+    if (!ocupado || typeof ocupado !== 'object') return 'ocupado';
+    if (ocupado.estado_ocupacion) return ocupado.estado_ocupacion;
+    if (ocupado.orden_destino !== undefined) {
+      const ordenDestino = ocupado.orden_destino || 9999;
+      const ordenActual = ocupado.orden_actual || 0;
+      const ordenVenta = ocupado.orden_venta || 0;
+      const maxOrden = ocupado.max_orden || 9999;
+
+      if (ordenDestino <= ordenActual || ordenActual < ordenVenta) return 'libre-parada';
+      if (ordenDestino < maxOrden) return 'ocupado-parcial';
+      return 'ocupado';
+    }
+    return 'ocupado';
+  };
+
   const getSeatStatus = (numeroAsiento) => {
     const num = Number(numeroAsiento);
     if (asientosSeleccionados.includes(num)) return 'seleccionado';
 
-    // Primero verificar si está ocupado (más importante que pendiente)
-    const ocupado = asientosOcupados.find(a =>
-      Number(a.asiento_boleto_detalle) === num || Number(a) === num
-    );
-    if (ocupado) {
-      // El backend resuelve el tipo por solape de recorrido (origen→destino).
-      if (typeof ocupado === 'object' && ocupado.estado_ocupacion) {
-        return ocupado.estado_ocupacion === 'ocupado' ? 'ocupado' : 'ocupado-parcial';
-      }
-      // Compatibilidad con el cálculo anterior por órdenes.
-      if (typeof ocupado === 'object' && ocupado.orden_destino !== undefined) {
-        const ordenDestino = ocupado.orden_destino || 9999;
-        const ordenActual = ocupado.orden_actual || 0;
-        const ordenVenta = ocupado.orden_venta || 0;
-        const maxOrden = ocupado.max_orden || 9999;
-
-        if (ordenDestino <= ordenActual || ordenActual < ordenVenta) return 'libre-parada';
-        if (ordenDestino < maxOrden) return 'ocupado-parcial';
-        return 'ocupado';
-      }
-      return 'ocupado';
-    }
+    // Un mismo asiento puede tener varios boletos (tramos distintos): gana el
+    // estado más restrictivo para la venta actual. 'libre-parada' significa que
+    // el pasajero anterior bajó en esta parada, así que se puede vender.
+    const estados = getOcupadosDeAsiento(num).map(estadoDeOcupacion);
+    if (estados.includes('ocupado')) return 'ocupado';
+    if (estados.includes('ocupado-parcial')) return 'ocupado-parcial';
+    if (estados.includes('libre-parada')) return 'libre-parada';
 
     // Luego verificar si otro usuario lo está seleccionando
     if (asientosPendientes && asientosPendientes[num]) return 'pendiente';

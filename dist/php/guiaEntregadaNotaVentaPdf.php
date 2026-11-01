@@ -48,6 +48,7 @@ try {
         ge.punto_emision_sucursal_guias_entregadas,
         ge.fecha_hora_entrega,
         ge.id_fkguia_guias_entregadas,
+        ge.total_guias_entregadas,
         u.nombre_usuario,
         u.apellido_usuario
     FROM guias_entregadas ge
@@ -81,6 +82,7 @@ try {
 
     $usuario_entrego = limpiarTextoPdf(trim(($vals_guia["nombre_usuario"] ?? '') . ' ' . ($vals_guia["apellido_usuario"] ?? '')));
     $numero_guia = $punto_emision_sucursal . '-' . $punto_emision_guia . '-' . $resultado;
+    $total_guia = (float)($vals_guia["total_guias_entregadas"] ?? 0);
 
     // Oficinista que imprime
     $nombre_usuario = '';
@@ -104,14 +106,18 @@ try {
     }
 
     // Contenido
-    $query_contenido = "SELECT contenido_guia, cantidad_detalle_guia FROM detalle_guia_nota_venta WHERE id_fkguia_detalle_envio = $id_guia";
+    $query_contenido = "SELECT contenido_guia, cantidad_detalle_guia, total_detalle_guia FROM detalle_guia_nota_venta WHERE id_fkguia_detalle_envio = $id_guia";
     $recuperar_contenido = mysqli_query($conn, $query_contenido) or die(mysqli_error($conn));
     $items = [];
     while ($r = mysqli_fetch_assoc($recuperar_contenido)) {
         $items[] = [
             'contenido_guia' => limpiarTextoPdf($r['contenido_guia'] ?? ''),
-            'cantidad_detalle_guia' => $r['cantidad_detalle_guia'] ?? 1
+            'cantidad_detalle_guia' => $r['cantidad_detalle_guia'] ?? 1,
+            'total_detalle_guia' => (float)($r['total_detalle_guia'] ?? 0)
         ];
+    }
+    if ($total_guia <= 0) {
+        $total_guia = array_sum(array_column($items, 'total_detalle_guia'));
     }
     $conn->close();
 
@@ -158,9 +164,9 @@ try {
 
     // Datos Entrega
     $pdf->SetFont('helvetica', 'B', 8);
-    $pdf->Cell(32, 4, 'NOTA DE V. ENTREGADA:', 0, 0, 'L');
+    $pdf->Cell(40, 4, 'NOTA DE V. ENTREGADA:', 0, 0, 'L');
     $pdf->SetFont('helvetica', '', 8);
-    $pdf->Cell($anchoUtil - 32, 4, $numero_guia, 0, 1, 'L');
+    $pdf->Cell($anchoUtil - 40, 4, $numero_guia, 0, 1, 'L');
 
     $pdf->SetFont('helvetica', 'B', 7.5);
     $pdf->Cell(22, 3.8, 'OFICINISTA:', 0, 0, 'L');
@@ -201,16 +207,30 @@ try {
     $pdf->SetFont('helvetica', 'B', 8);
     $pdf->Cell($anchoUtil, 4, 'CONTENIDO', 0, 1, 'C');
 
+    $anchoCant = 10;
+    $anchoValor = 18;
+    $anchoDesc = $anchoUtil - $anchoCant - $anchoValor;
+
     $pdf->SetFont('helvetica', 'B', 7);
     $pdf->SetFillColor(240, 240, 240);
-    $pdf->Cell(12, 3.8, 'CANT', 1, 0, 'C', true);
-    $pdf->Cell($anchoUtil - 12, 3.8, 'DESCRIPCIÓN', 1, 1, 'L', true);
+    $pdf->Cell($anchoCant, 3.8, 'CANT', 1, 0, 'C', true);
+    $pdf->Cell($anchoDesc, 3.8, 'DESCRIPCIÓN', 1, 0, 'L', true);
+    $pdf->Cell($anchoValor, 3.8, 'VALOR', 1, 1, 'C', true);
 
     $pdf->SetFont('helvetica', '', 7);
     foreach ($items as $it) {
-        $pdf->Cell(12, 3.8, $it['cantidad_detalle_guia'], 1, 0, 'C');
-        $pdf->Cell($anchoUtil - 12, 3.8, ' ' . substr($it['contenido_guia'], 0, 38), 1, 1, 'L');
+        $descripcion = ' ' . $it['contenido_guia'];
+        $numLineas = max(1, (int)$pdf->getNumLines($descripcion, $anchoDesc));
+        $altoFila = max(3.8, $numLineas * 3.4);
+
+        $pdf->Cell($anchoCant, $altoFila, $it['cantidad_detalle_guia'], 1, 0, 'C', false, '', 0, false, 'T', 'M');
+        $pdf->MultiCell($anchoDesc, $altoFila / $numLineas, $descripcion, 1, 'L', false, 0, '', '', true, 0, false, true, $altoFila, 'M');
+        $pdf->Cell($anchoValor, $altoFila, '$ ' . number_format($it['total_detalle_guia'], 2), 1, 1, 'R', false, '', 0, false, 'T', 'M');
     }
+
+    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->Cell($anchoCant + $anchoDesc, 4, 'TOTAL:', 1, 0, 'R');
+    $pdf->Cell($anchoValor, 4, '$ ' . number_format($total_guia, 2), 1, 1, 'R');
 
     // Firmas
     $pdf->Ln(5);

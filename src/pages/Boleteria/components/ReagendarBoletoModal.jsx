@@ -147,7 +147,13 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
           
           if (resAsientos.asiento) {
             resAsientos.asiento.forEach(a => {
-              if (a.estado_boleto_detalle !== '0' && Number(a.estado_boleto_detalle) !== 0) {
+              // El backend clasifica la ocupación por tramo: 'libre' no está
+              // ocupado; 'libre-parada' sí tiene boleto (otro tramo) y no se
+              // ofrece para reubicar.
+              const esOcupado = a.estado_ocupacion
+                ? a.estado_ocupacion !== 'libre'
+                : (a.estado_boleto_detalle !== '0' && Number(a.estado_boleto_detalle) !== 0);
+              if (esOcupado) {
                 ocupados.push(Number(a.asiento_boleto_detalle));
               }
             });

@@ -65,11 +65,11 @@ export const SeguimientoGuiaModal = ({ guia, onClose, isNotaVenta = false }) => 
   }, [guia.id_guia]);
 
   const getEstadoBadge = (value) => {
-    // ExtJS render: 1: EN OFICINA, 2: POR ENTREGAR, 3: PENDIENTE ANULAR, 8: EN BUS, 7: VIAJANDO, 4: ANULADO, 9: CANCELADO, 10: ENTREGADO
+    // 1: EN OFICINA, 2: POR ENTREGAR, 3: ENTREGADO, 8: EN BUS, 7: VIAJANDO, 4: ANULADO, 9: CANCELADO, 10: ENTREGADO
     const val = String(value);
     if (val === '1') return { label: 'EN OFICINA', color: 'bg-slate-100 text-slate-700' };
     if (val === '2') return { label: 'POR ENTREGAR', color: 'bg-yellow-100 text-yellow-700' };
-    if (val === '3') return { label: 'PEND. ANULAR', color: 'bg-orange-100 text-orange-700' };
+    if (val === '3') return { label: 'ENTREGADO', color: 'bg-emerald-100 text-emerald-700' };
     if (val === '8') return { label: 'EN BUS', color: 'bg-indigo-100 text-indigo-700' };
     if (val === '7') return { label: 'VIAJANDO', color: 'bg-blue-100 text-blue-700' };
     if (val === '4') return { label: 'ANULADO', color: 'bg-red-100 text-red-700' };
@@ -152,6 +152,16 @@ export const SeguimientoGuiaModal = ({ guia, onClose, isNotaVenta = false }) => 
                       <p className="text-xs font-semibold text-slate-500 uppercase">Total</p>
                       <p className="mt-1 font-mono font-bold text-slate-800">${parseFloat(guiaInfo.total_guia || 0).toFixed(2)}</p>
                     </div>
+                    {!isNotaVenta && (
+                      <div className="md:col-span-2">
+                        <p className="text-xs font-semibold text-slate-500 uppercase">Ingreso a oficina</p>
+                        <p className="mt-1 font-medium text-slate-700">
+                          {guiaInfo.fecha_ingreso_oficina
+                            ? `${formatFecha(guiaInfo.fecha_ingreso_oficina)}${guiaInfo.oficina_llegada ? ` · ${guiaInfo.oficina_llegada}` : ''}`
+                            : 'No registrado'}
+                        </p>
+                      </div>
+                    )}
                     <div className="md:col-span-2">
                       <p className="text-xs font-semibold text-slate-500 uppercase">Remitente</p>
                       <p className="mt-1 font-medium text-slate-700">{guiaInfo.nombre_cliente_remitente || '-'}</p>

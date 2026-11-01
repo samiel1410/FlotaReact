@@ -126,8 +126,7 @@ try {
     $oficinista      = $caja['oficinista'] ?? 'OFICINISTA';
     $nombre_sucursal = $caja['nombre_sucursal'] ?? '';
     $fecha_apertura  = $caja['fecha_caja'] ? date('Y-m-d H:i', strtotime($caja['fecha_caja'])) : '';
-    $fecha_cierre    = ($caja['fecha_hora_cierre'] && $caja['fecha_hora_cierre'] != '0000-00-00 00:00:00')
-        ? date('Y-m-d H:i', strtotime($caja['fecha_hora_cierre'])) : 'EN PROCESO';
+    $fecha_cierre    = textoFechaHoraCierreCaja($caja['fecha_hora_cierre'] ?? null, $caja['estado_caja'] ?? null, 'Y-m-d H:i');
 
     // ─── DESPACHOS DEL OFICINISTA (período de la caja) ───────────────────────
     // El "facturado" se limita a los boletos vendidos por la SUCURSAL dueña de

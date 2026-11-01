@@ -575,4 +575,24 @@ function unir_destino_punto_final($destinoBase, $puntoFinal)
     }
     return $base . ' / ' . $final;
 }
+
+/**
+ * Texto de la fecha/hora de cierre para los comprobantes de caja.
+ * Si la caja ya está cerrada pero no tiene fecha registrada (cierres
+ * históricos hechos con la edición de caja), no debe mostrarse "EN PROCESO".
+ *
+ * @param string|null $fechaHoraCierre
+ * @param string|null $estadoCaja
+ * @param string $formato
+ * @return string
+ */
+function textoFechaHoraCierreCaja($fechaHoraCierre, $estadoCaja, $formato = 'Y-m-d H:i:s')
+{
+    $fecha = trim((string)$fechaHoraCierre);
+    $timestamp = ($fecha !== '' && $fecha !== '0000-00-00 00:00:00') ? strtotime($fecha) : false;
+    if ($timestamp !== false) {
+        return date($formato, $timestamp);
+    }
+    return strtoupper(trim((string)$estadoCaja)) === 'CERRADA' ? 'NO REGISTRADA' : 'EN PROCESO';
+}
 ?>

@@ -613,7 +613,12 @@ export const NuevoBoletoPage = () => {
           const ocupados = [];
           if (asientosRes.asiento) {
             asientosRes.asiento.forEach(a => {
-              if (a.estado_boleto_detalle !== '0' && Number(a.estado_boleto_detalle) !== 0) {
+              // El backend clasifica la ocupación por tramo: 'libre' no es
+              // ocupado y 'libre-parada' sí llega al mapa (se vende desde aquí).
+              const esOcupado = a.estado_ocupacion
+                ? a.estado_ocupacion !== 'libre'
+                : (a.estado_boleto_detalle !== '0' && Number(a.estado_boleto_detalle) !== 0);
+              if (esOcupado) {
                 ocupados.push(a);
               }
             });

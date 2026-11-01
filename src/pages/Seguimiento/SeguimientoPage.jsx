@@ -7,11 +7,11 @@ import { SeguimientoService } from '../../services/seguimiento.service';
 
 const PAGE_SIZE = 15;
 
-/** Mapa de estado_seguimiento a etiqueta legible (fiel al ExtJS) */
+/** Mapa de estado_seguimiento a etiqueta legible (según los datos del sistema) */
 const ESTADO_MAP = {
   '1': { label: 'EN OFICINA', color: 'bg-slate-100 text-slate-700' },
   '2': { label: 'POR ENTREGAR', color: 'bg-yellow-100 text-yellow-700' },
-  '3': { label: 'PENDIENTE ANULAR', color: 'bg-orange-100 text-orange-700' },
+  '3': { label: 'ENTREGADO', color: 'bg-emerald-100 text-emerald-700' },
   '8': { label: 'EN BUS', color: 'bg-indigo-100 text-indigo-700' },
   '7': { label: 'VIAJANDO', color: 'bg-blue-100 text-blue-700' },
   '4': { label: 'ANULADO', color: 'bg-red-100 text-red-700' },
@@ -23,6 +23,9 @@ const getEstadoBadge = (value) => {
   const v = String(value);
   return ESTADO_MAP[v] || { label: v || '-', color: 'bg-slate-100 text-slate-600' };
 };
+
+/** El estado 3 es el que registra el sistema al entregar; el 10 se mantiene por compatibilidad. */
+const esEstadoEntregado = (value) => ['3', '10'].includes(String(value));
 
 /** Formatea número de guía con guiones automáticos: XXX-XXX-XXXXXXXXX (3-3-9) */
 const formatNumeroGuia = (value) => {
@@ -105,6 +108,20 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
   }, [resultados, pagina]);
 
   const totalPaginas = Math.max(1, Math.ceil(resultados.length / PAGE_SIZE));
+
+  /**
+   * Fecha y hora en que la guía ingresó a la oficina. Se toma del registro de
+   * entrega y, si la guía llegó por la app móvil, del seguimiento POR ENTREGAR.
+   */
+  const ingresoOficina = useMemo(() => {
+    const seguimientoLlegada = resultados.find((r) => String(r.estado_seguimiento) === '2');
+    const fecha = guiaInfo?.fecha_ingreso_oficina || seguimientoLlegada?.fecha_creacion_seguimiento;
+    if (!fecha) return null;
+    return {
+      fecha,
+      ubicacion: guiaInfo?.oficina_llegada || seguimientoLlegada?.ubicacion_seguimiento || '',
+    };
+  }, [guiaInfo, resultados]);
 
   const apiEndpoint = isNotaVenta ? '/seguimiento_nota_venta' : '/seguimiento';
 
@@ -314,9 +331,7 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
   };
 
   const handleEliminar = async (record) => {
-    const estadoVal = String(record.estado_seguimiento);
-
-    if (estadoVal !== '10') {
+    if (!esEstadoEntregado(record.estado_seguimiento)) {
       toast.error('Solo se pueden eliminar los seguimientos con estado ENTREGADO');
       return;
     }
@@ -416,6 +431,18 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
                   {guiaInfo.origen_guia || '-'}
                   <i className="fas fa-arrow-right text-[10px] text-slate-400"></i>
                   {guiaInfo.destino_guia || '-'}
+                </p>
+                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                  <i className="fas fa-warehouse text-[10px] text-slate-400"></i>
+                  Ingreso a oficina:
+                  {ingresoOficina ? (
+                    <>
+                      <span className="font-mono">{formatFecha(ingresoOficina.fecha)}</span>
+                      {ingresoOficina.ubicacion ? <span>· {ingresoOficina.ubicacion}</span> : null}
+                    </>
+                  ) : (
+                    <span className="italic">no registrado</span>
+                  )}
                 </p>
               </div>
             </div>
@@ -564,7 +591,7 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
                   <tbody className="divide-y divide-slate-100">
                     {resultadosPaginados.map((r, idx) => {
                       const badge = getEstadoBadge(r.estado_seguimiento);
-                      const puedeEliminar = String(r.estado_seguimiento) === '10';
+                      const puedeEliminar = esEstadoEntregado(r.estado_seguimiento);
                       return (
                         <tr key={r.id_seguimiento || idx} className="hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-3 font-mono text-slate-700 font-medium text-xs">
