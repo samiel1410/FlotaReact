@@ -189,11 +189,10 @@ try {
         g.estado_cobro_guia,
         g.cancelado_por_guia,
         CONCAT(u.nombre_usuario, ' ', u.apellido_usuario) AS usuario,
-        du.lugar_destino AS ubicacion_usuario
+        COALESCE(NULLIF(TRIM(s.ciudad_sucursal), ''), NULLIF(TRIM(s.nombre_sucursal), '')) AS ubicacion_usuario
     FROM guia g
     LEFT JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal
     LEFT JOIN usuario u ON g.id_fkusuario_guia = u.id_usuario
-    LEFT JOIN destino du ON u.id_fkdestino_usuario = du.id_destino
     WHERE g.id_guia = $id_guia
     LIMIT 1";
 
@@ -382,7 +381,8 @@ try {
     $datosHash = md5(json_encode([
         $id_guia, $numero_guia, $total_guia, $estado_factura,
         $numero_factura, $detalles_forma_pago, $total_cobrado,
-        count($items_detalle), (string)$reimpreso_por, $imprimir_boucher_guia
+        count($items_detalle), (string)$reimpreso_por, $imprimir_boucher_guia,
+        $ubicacion_usuario
     ]));
     $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
     if (!is_dir($pdfCacheDir)) @mkdir($pdfCacheDir, 0777, true);

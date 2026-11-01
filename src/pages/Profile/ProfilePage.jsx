@@ -26,17 +26,22 @@ export const ProfilePage = () => {
   }, []);
 
   const nombreUsuario = user?.nombre_usuario || user?.usuario || 'Usuario';
-  const rolUsuario = user?.rol_usuario;
-  let rolNombre = 'Usuario';
-  if (rolUsuario === 5) rolNombre = 'Administrador';
-  else if (rolUsuario === 1) rolNombre = 'Oficina';
-  else if (rolUsuario === 2) rolNombre = 'Bodega';
-  else if (rolUsuario === 3) rolNombre = 'Cobrador';
-  else if (rolUsuario === 4) rolNombre = 'Supervisor';
+
+  const ROLES_MOVIL = {
+    1: 'Administrador',
+    2: 'Busero',
+    3: 'Cliente',
+    4: 'Oficinista',
+    5: 'Super Administrador',
+  };
+  const rolMovilId = Number(userDetails?.rol_usuario ?? user?.rol_usuario);
+  const rolMovilNombre = ROLES_MOVIL[rolMovilId] || 'Sin rol';
+  const rolWebNombre = userDetails?.nombre_rol || user?.nombre_rol || 'Sin rol';
 
   const detalles = [
     { label: 'Usuario', value: nombreUsuario, icon: 'fas fa-user' },
-    { label: 'Rol', value: rolNombre, icon: 'fas fa-user-tag' },
+    { label: 'Rol Web', value: rolWebNombre, icon: 'fas fa-globe' },
+    { label: 'Rol Móvil', value: rolMovilNombre, icon: 'fas fa-mobile-alt' },
     { label: 'Sucursal', value: userDetails?.nombre_sucursal || '—', icon: 'fas fa-building' },
     { label: 'Ciudad', value: userDetails?.ciudad_sucursal || userDetails?.nombre_canton || '—', icon: 'fas fa-map-marker-alt' },
     { label: 'Pto. Boletería', value: userDetails?.punto_emision_boleteria || '—', icon: 'fas fa-ticket-alt' },
@@ -70,9 +75,14 @@ export const ProfilePage = () => {
             </div>
             <div className="text-white">
               <h1 className="text-xl font-bold">{nombreUsuario}</h1>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-white/20 text-white/90 uppercase tracking-wide">
-                  {rolNombre}
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-sky-500/30 text-sky-50 border border-sky-300/40 uppercase tracking-wide">
+                  <i className="fas fa-globe"></i>
+                  Web: {rolWebNombre}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/30 text-emerald-50 border border-emerald-300/40 uppercase tracking-wide">
+                  <i className="fas fa-mobile-alt"></i>
+                  Móvil: {rolMovilNombre}
                 </span>
                 {userDetails?.nombre_sucursal && (
                   <span className="text-xs text-white/70 flex items-center gap-1">

@@ -101,10 +101,11 @@ class metodoXmlBoleto
             $infoFactura = $xml->addChild('infoFactura');
             $infoFactura->addChild('fechaEmision', $fechaEmision);
             $infoFactura->addChild('dirEstablecimiento', $direccionEmisor);
-            $infoFactura->addChild('obligadoContabilidad', $datosEmpresa[0]['obligado_contabilidad']);
+            // Orden exigido por el XSD de factura 1.1.0: contribuyenteEspecial va antes de obligadoContabilidad
             if (!empty($datosEmpresa[0]['contribuyente_especial'])) {
                 $infoFactura->addChild('contribuyenteEspecial', $datosEmpresa[0]['contribuyente_especial']);
             }
+            $infoFactura->addChild('obligadoContabilidad', $datosEmpresa[0]['obligado_contabilidad']);
             $infoFactura->addChild('tipoIdentificacionComprador', $tipoIdentificacion);
             $infoFactura->addChild('razonSocialComprador', $nombreCliente);
             $infoFactura->addChild('identificacionComprador', $rucCliente);

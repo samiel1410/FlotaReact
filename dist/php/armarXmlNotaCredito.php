@@ -68,10 +68,11 @@ class metodoXmlNotaCredito
             $infoNotaCredito->addChild('tipoIdentificacionComprador', $tipoIdentificacion);
             $infoNotaCredito->addChild('razonSocialComprador', $nombreCliente);
             $infoNotaCredito->addChild('identificacionComprador', $rucCliente);
-            $infoNotaCredito->addChild('obligadoContabilidad', $datosEmpresa[0]['obligado_contabilidad']);
+            // Orden exigido por el XSD de nota de crédito 1.1.0: contribuyenteEspecial va antes de obligadoContabilidad
             if (!empty($datosEmpresa[0]['contribuyente_especial'])) {
                 $infoNotaCredito->addChild('contribuyenteEspecial', $datosEmpresa[0]['contribuyente_especial']);
             }
+            $infoNotaCredito->addChild('obligadoContabilidad', $datosEmpresa[0]['obligado_contabilidad']);
             $infoNotaCredito->addChild('codDocModificado', '01');
             $infoNotaCredito->addChild('numDocModificado', $numFacturaOriginal);
             $infoNotaCredito->addChild('fechaEmisionDocSustento', $fechaOriginal);

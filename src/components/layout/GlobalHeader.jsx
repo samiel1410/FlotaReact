@@ -73,12 +73,19 @@ export const GlobalHeader = ({ onMenuToggle }) => {
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
     const stored = sessionStorage.getItem('empresa_data');
+    let empresaCacheada = null;
     if (stored) {
       try {
-        const parsed = JSON.parse(stored);
-        setEmpresa(parsed);
+        empresaCacheada = JSON.parse(stored);
+        setEmpresa(empresaCacheada);
       } catch { /* ignorar */ }
     }
+    // El logo cacheado puede venir corrupto (lecturas antiguas del BLOB como texto):
+    // en ese caso se refresca desde el servidor en lugar de mostrar una imagen rota.
+    const logoCacheadoInvalido = !!empresaCacheada?.imagen && (
+      empresaCacheada.imagen.includes('\uFFFD') ||
+      !/^(data:image\/|blob:|https?:\/\/|\/|uploads\/)/.test(empresaCacheada.imagen)
+    );
     // Cargar datos detallados del usuario (sucursal, ciudad, puntos)
     api.get('/buscarUsuario').then(res => {
       if (res.data?.success && res.data?.data) {
@@ -97,7 +104,7 @@ export const GlobalHeader = ({ onMenuToggle }) => {
     }
 
     // Cargar datos de la empresa (logo + nombre) si no están en sessionStorage
-    if (!stored) {
+    if (!stored || logoCacheadoInvalido) {
       api.get('/empresa/selectempresa').then(res => {
         if (res.data?.success && res.data?.data?.length > 0) {
           const e = res.data.data[0];

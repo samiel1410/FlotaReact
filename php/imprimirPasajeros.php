@@ -27,60 +27,25 @@ try {
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    // ─── CACHÉ NIVEL 1: EMPRESA Y LOGO ────────────────────────────────────────
-    $logosDir = __DIR__ . '/tmp/logos/';
-    if (!is_dir($logosDir)) {
-        @mkdir($logosDir, 0777, true);
-    }
-
+    // ─── EMPRESA Y CONFIGURACIÓN (sin logo: los PDFs no imprimen logos) ──────
     $vals_empresa = null;
-    $rutaLogo = null;
     $vals_config = null;
 
-    
-        $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
-        $rec_empresa = mysqli_query($conn, $query_empresa);
-        $vals_empresa = $rec_empresa ? mysqli_fetch_assoc($rec_empresa) : [];
-        if (!$vals_empresa) {
-            $vals_empresa = [
-                'razon_social_empresa' => 'SISTEMA FLOTA',
-                'ruc_empresa' => '',
-                'direccion_empresa' => '',
-                'telefono_empresa' => ''
-            ];
-        }
-
-        $query_config = "SELECT formato_impresion FROM configuracion LIMIT 1";
-        $rec_cfg = mysqli_query($conn, $query_config);
-        $vals_config = $rec_cfg ? mysqli_fetch_assoc($rec_cfg) : [];
-
-        $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
-        $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
-        if (esImagenValidaParaTcpdf($cachedLogoPng)) {
-            $rutaLogo = $cachedLogoPng;
-        } else if (esImagenValidaParaTcpdf($cachedLogoJpg)) {
-            $rutaLogo = $cachedLogoJpg;
-        } else {
-            $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
-            $res_img = mysqli_query($conn, $query_img);
-            if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
-                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
-                if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
-                    $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
-                    $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
-                    if ($rawLogo !== $targetLogo) {
-                        @copy($rawLogo, $targetLogo);
-                    }
-                    $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
-                }
-            }
-        }
-
-        
-
-    if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
-        $rutaLogo = obtenerRutaLogoEmpresa($conn);
+    $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+    $rec_empresa = mysqli_query($conn, $query_empresa);
+    $vals_empresa = $rec_empresa ? mysqli_fetch_assoc($rec_empresa) : [];
+    if (!$vals_empresa) {
+        $vals_empresa = [
+            'razon_social_empresa' => 'SISTEMA FLOTA',
+            'ruc_empresa' => '',
+            'direccion_empresa' => '',
+            'telefono_empresa' => ''
+        ];
     }
+
+    $query_config = "SELECT formato_impresion FROM configuracion LIMIT 1";
+    $rec_cfg = mysqli_query($conn, $query_config);
+    $vals_config = $rec_cfg ? mysqli_fetch_assoc($rec_cfg) : [];
 
     $razon_social = $vals_empresa["razon_social_empresa"] ?? 'SISTEMA FLOTA';
     $ruc_empresa = $vals_empresa["ruc_empresa"] ?? '';
@@ -229,24 +194,8 @@ try {
         $oficinaEmite = $pasajeros[0]['nombre_sucursal'];
     }
 
-    if ($rutaLogo && file_exists($rutaLogo)) {
-        $logoW = 22;
-        // Altura real según proporción para no tapar el texto
-        $logoH = 12;
-        $sizeLogo = @getimagesize($rutaLogo);
-        if ($sizeLogo && $sizeLogo[0] > 0) {
-            $logoH = round($logoW * $sizeLogo[1] / $sizeLogo[0], 1);
-            if ($logoH > 26) {
-                $logoH = 26;
-            }
-        }
-        $xLogo = $margen + ($anchoUtil - $logoW) / 2;
-        $pdf->Image($rutaLogo, $xLogo, $pdf->GetY(), $logoW, $logoH, '', '', '', true, 150);
-        $pdf->Ln($logoH + 2);
-    }
-
-    $pdf->SetFont('helvetica', 'B', 10.5);
-    $pdf->Cell($anchoUtil, 4.5, strtoupper($razon_social), 0, 1, 'C');
+    $pdf->SetFont('helvetica', 'B', 9.5);
+    $pdf->MultiCell($anchoUtil, 4, strtoupper($razon_social), 0, 'C', false, 1);
 
     if (!empty($ruc_empresa)) {
         $pdf->SetFont('helvetica', '', 7.5);

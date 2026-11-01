@@ -394,7 +394,8 @@ export const ConfiguracionPage = () => {
       }
 
       // Campos que se manejan por separado — excluir del bucle general
-      const CAMPOS_ESPECIALES = ['password_p12', 'firma_empresa'];
+      // imagen_empresa: el logo se sube aparte a /empresa/empresaActualizar (BLOB en BD)
+      const CAMPOS_ESPECIALES = ['password_p12', 'firma_empresa', 'imagen_empresa'];
 
       const payload = Object.entries(data).reduce((acc, [key, value]) => {
         if (CAMPOS_ESPECIALES.includes(key)) return acc; // se agregan abajo si aplican
@@ -474,14 +475,12 @@ export const ConfiguracionPage = () => {
         });
 
         // Actualizar sessionStorage para el header
+        // El logo NO se toca aquí: solo cambia cuando se sube uno nuevo (bloque de logoFile)
         const stored = sessionStorage.getItem('empresa_data');
         if (stored) {
           const emp = JSON.parse(stored);
           emp.nombre = data.razon_social_empresa || data.nombre_comercial_empresa || emp.nombre;
           emp.cobrar_iva_guia = data.cobrar_iva_guia ? 1 : 0;
-          if (data.imagen_empresa) {
-            emp.imagen = data.imagen_empresa;
-          }
           sessionStorage.setItem('empresa_data', JSON.stringify(emp));
         }
       } else {

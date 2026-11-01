@@ -15,7 +15,19 @@
  */
 function esImagenValidaParaTcpdf($ruta)
 {
-    if (empty($ruta) || !@file_exists($ruta) || @filesize($ruta) < 100) {
+    if (empty($ruta)) {
+        return false;
+    }
+
+    // Los logos de empresa están deshabilitados en todos los PDFs (rendimiento).
+    // Se descarta y elimina cualquier caché antigua de tmp/logos/ que aún exista
+    // en el servidor para que no vuelva a imprimirse un logo no deseado.
+    if (stripos(str_replace('\\', '/', (string) $ruta), '/tmp/logos/') !== false) {
+        @unlink($ruta);
+        return false;
+    }
+
+    if (!@file_exists($ruta) || @filesize($ruta) < 100) {
         if (!empty($ruta) && @file_exists($ruta)) {
             @unlink($ruta);
         }
@@ -595,4 +607,41 @@ function textoFechaHoraCierreCaja($fechaHoraCierre, $estadoCaja, $formato = 'Y-m
     }
     return strtoupper(trim((string)$estadoCaja)) === 'CERRADA' ? 'NO REGISTRADA' : 'EN PROCESO';
 }
+
+/**
+ * Purga única de los caches generados cuando los PDFs todavía imprimían logos
+ * (PDFs ya emitidos, logos en tmp/logos y config de empresa con logo_path).
+ * Sin esto los documentos cacheados seguirían mostrando el logo viejo hasta que
+ * cambien sus datos. Se ejecuta una sola vez por instalación mediante un marcador.
+ */
+function purgarCachesPdfConLogo()
+{
+    static $ejecutado = false;
+    if ($ejecutado) {
+        return;
+    }
+    $ejecutado = true;
+
+    $marca = __DIR__ . '/tmp/.pdf_sin_logos_v1';
+    if (@file_exists($marca)) {
+        return;
+    }
+
+    $patrones = [
+        __DIR__ . '/tmp/pdfs/*.pdf',
+        __DIR__ . '/tmp/logos/*',
+        __DIR__ . '/tmp/cache/empresa_cfg_*.json',
+    ];
+    foreach ($patrones as $patron) {
+        foreach ((array)@glob($patron) as $archivo) {
+            if (is_file($archivo)) {
+                @unlink($archivo);
+            }
+        }
+    }
+
+    @file_put_contents($marca, date('c'));
+}
+
+purgarCachesPdfConLogo();
 ?>

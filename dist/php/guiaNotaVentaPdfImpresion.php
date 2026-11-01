@@ -84,11 +84,10 @@ try {
         g.valor_tarifa_adicional_guia,
         g.impuesto_iva_guia,
         CONCAT(u.nombre_usuario, ' ', u.apellido_usuario) AS usuario,
-        du.lugar_destino AS ubicacion_usuario
+        COALESCE(NULLIF(TRIM(s.ciudad_sucursal), ''), NULLIF(TRIM(s.nombre_sucursal), '')) AS ubicacion_usuario
     FROM guia_nota_venta g
     LEFT JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal
     LEFT JOIN usuario u ON g.id_fkusuario_guia = u.id_usuario
-    LEFT JOIN destino du ON u.id_fkdestino_usuario = du.id_destino
     WHERE g.id_guia = $id_guia
     LIMIT 1";
 
