@@ -47,3 +47,16 @@ export const getSistemaModo = async (forceRefresh = false) => {
 export const setSistemaModoCache = (modo) => {
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ modo, timestamp: Date.now() }));
 };
+
+/**
+ * Obtiene el plan de borrado del cambio a Producción (tablas, existencia y filas).
+ * @returns {Promise<object|null>} null si no se pudo obtener
+ */
+export const getSistemaModoPlan = async () => {
+  try {
+    const res = await api.get('/sistema/modo/plan');
+    return res.data?.success ? res.data.data : null;
+  } catch {
+    return null;
+  }
+};

@@ -4,7 +4,7 @@ import { api, clienteApi } from '../../config/axios';
 import { useAuth } from '../../hooks/useAuth';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
-import { getSistemaModo, setSistemaModoCache } from '../../services/sistema.service';
+import { getSistemaModo, getSistemaModoPlan, setSistemaModoCache } from '../../services/sistema.service';
 import { APARIENCIA_DEFAULT, aplicarApariencia, construirPaleta, normalizarColor } from '../../services/apariencia.service';
 import { WhatsAppTestForm } from './components/WhatsAppTestForm';
 import { CONFIG } from '../../config/env';
@@ -199,14 +199,15 @@ export const ConfiguracionPage = () => {
   const handleModoChange = async (nuevoModo) => {
     if (nuevoModo === sistemaModo || esProduccion) return;
 
-    const result = await Swal.fire({
-      title: '¿Cambiar a Producción?',
-      html: `
-        <div style="text-align: left; font-size: 13px;">
-          <p style="margin-bottom: 12px; font-weight: 600; color: #dc2626;">
-            ⚠️ Esta acción eliminará TODOS los datos transaccionales:
-          </p>
-          <ul style="list-style: none; padding: 0; margin: 0 0 12px 0; line-height: 1.8;">
+    const plan = await getSistemaModoPlan();
+    const fmt = (n) => Number(n || 0).toLocaleString('es-EC');
+
+    const gruposHtml = plan?.grupos
+      ? plan.grupos.map((g) => {
+        const filas = g.tablas.reduce((acc, t) => acc + (t.filas || 0), 0);
+        return `<li>• ${g.nombre} <span style="color:#94a3b8;">(${g.tablas.length} tablas${filas ? `, ${fmt(filas)} reg.` : ''})</span></li>`;
+      }).join('')
+      : `
             <li>• Guías, detalle de guías, guías entregadas</li>
             <li>• Boletos, detalle de boletos, reservas</li>
             <li>• Facturas y detalle de facturas</li>
@@ -216,8 +217,33 @@ export const ConfiguracionPage = () => {
             <li>• Despachos</li>
             <li>• Cobros, seguimientos</li>
             <li>• Inventario y movimientos</li>
+          `;
+
+    const totalHtml = plan
+      ? `<p style="margin: 8px 0 0 0; font-weight: 600; color: #991b1b;">
+           ${plan.totalTablas} tablas — ${fmt(plan.totalFilas)} registros serán eliminados.
+         </p>`
+      : '';
+
+    const backupHtml = plan?.backupActivo
+      ? `<p style="margin-top: 8px; color: #0369a1; font-size: 12px;">
+           <i>Se creará un respaldo (bk_prod_*) de las tablas con datos antes de borrar.</i>
+         </p>`
+      : '';
+
+    const result = await Swal.fire({
+      title: '¿Cambiar a Producción?',
+      html: `
+        <div style="text-align: left; font-size: 13px;">
+          <p style="margin-bottom: 12px; font-weight: 600; color: #dc2626;">
+            ⚠️ Esta acción eliminará TODOS los datos transaccionales:
+          </p>
+          <ul style="list-style: none; padding: 0; margin: 0 0 12px 0; line-height: 1.8; max-height: 240px; overflow-y: auto;">
+            ${gruposHtml}
           </ul>
+          ${totalHtml}
           <p style="color: #991b1b; font-weight: 600;">Los datos maestros (usuarios, buses, rutas, clientes, etc.) NO se eliminarán.</p>
+          ${backupHtml}
           <p style="margin-top: 12px; color: #64748b;">Esta operación no se puede deshacer.</p>
         </div>
       `,
@@ -251,9 +277,35 @@ export const ConfiguracionPage = () => {
     try {
       const res = await api.post('/sistema/modo', { modo: nuevoModo });
       if (res.data?.success) {
+        const data = res.data.data || {};
         setSistemaModo(nuevoModo);
         setSistemaModoCache(nuevoModo);
-        toast.success(res.data.message || 'Modo actualizado correctamente');
+
+        const avisos = [];
+        if (data.tablasError > 0) {
+          const detalle = (data.errores || [])
+            .map((e) => `${e.tabla}${e.codigo ? ` (${e.codigo})` : ''}`)
+            .join(', ');
+          avisos.push(`No se pudieron vaciar ${data.tablasError} tabla(s): ${detalle}`);
+        }
+        if (data.tablasFaltantes?.length) {
+          avisos.push(`Tablas inexistentes en esta base: ${data.tablasFaltantes.join(', ')}`);
+        }
+
+        if (avisos.length) {
+          toast(res.data.message || 'Modo actualizado con advertencias', { icon: '⚠️', duration: 8000 });
+          Swal.fire({
+            title: 'Modo actualizado con advertencias',
+            html: `<div style="text-align:left;font-size:13px;line-height:1.7">
+                     ${avisos.map((a) => `<p>• ${a}</p>`).join('')}
+                     <p style="margin-top:8px;color:#64748b">Revisa la tabla <b>sistema_modo_auditoria</b> para el detalle.</p>
+                   </div>`,
+            icon: 'warning',
+            confirmButtonText: 'Entendido'
+          });
+        } else {
+          toast.success(res.data.message || 'Modo actualizado correctamente');
+        }
       } else {
         toast.error(res.data?.message || 'Error al cambiar el modo');
       }
