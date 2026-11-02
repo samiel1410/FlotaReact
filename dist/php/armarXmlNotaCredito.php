@@ -41,10 +41,23 @@ class metodoXmlNotaCredito
             $rucCliente = $datosNC[0]['identificacion_boleto'];
             $nombreCliente = str_replace("&", "&amp;", $datosNC[0]['nombres_boleto']);
 
-            // Valores monetarios
-            $totalFactura = number_format($datosNC[0]['total_boleto'], 2, '.', '');
-            $subtotal0 = number_format($datosNC[0]['subtotal_boleto'], 2, '.', '');
-            $iva = number_format($datosNC[0]['iva_boleto'], 2, '.', '');
+            // Valores monetarios. Igual que en la factura del boleto: la base se
+            // calcula con los detalles porque boleto.subtotal_boleto se guarda en 0
+            // (con 0 el SRI rechaza por totalSinImpuestos distinto del valor real).
+            $sumaTotalDetalles = 0.0;
+            foreach ($detallesBoleto as $d) {
+                $sumaTotalDetalles += (float)($d['total_boleto_detalle'] ?? 0);
+            }
+            $ivaNum = (float)($datosNC[0]['iva_boleto'] ?? 0);
+            $totalFactura = number_format((float)($datosNC[0]['total_boleto'] ?? 0), 2, '.', '');
+            $baseImponibleNum = (float)($datosNC[0]['subtotal_boleto'] ?? 0);
+            if ($baseImponibleNum <= 0) {
+                $baseImponibleNum = $sumaTotalDetalles > 0
+                    ? $sumaTotalDetalles
+                    : max(0, (float)$totalFactura - $ivaNum);
+            }
+            $subtotal0 = number_format($baseImponibleNum, 2, '.', '');
+            $iva = number_format($ivaNum, 2, '.', '');
 
             // 2. Crear XML Nota de Crédito
             $xml = new SimpleXMLElement('<?xml version="1.0" encoding="UTF-8"?><notaCredito id="comprobante" version="1.1.0"></notaCredito>');
@@ -69,8 +82,11 @@ class metodoXmlNotaCredito
             $infoNotaCredito->addChild('razonSocialComprador', $nombreCliente);
             $infoNotaCredito->addChild('identificacionComprador', $rucCliente);
             // Orden exigido por el XSD de nota de crédito 1.1.0: contribuyenteEspecial va antes de obligadoContabilidad
-            if (!empty($datosEmpresa[0]['contribuyente_especial'])) {
-                $infoNotaCredito->addChild('contribuyenteEspecial', $datosEmpresa[0]['contribuyente_especial']);
+            // El XSD exige el N° de resolución (3 a 5 dígitos). Un valor tipo "SI"
+            // (bandera de configuración) hace que el SRI rechace el comprobante.
+            $contribEspecial = trim((string)($datosEmpresa[0]['contribuyente_especial'] ?? ''));
+            if (preg_match('/^\d{3,5}$/', $contribEspecial)) {
+                $infoNotaCredito->addChild('contribuyenteEspecial', $contribEspecial);
             }
             $infoNotaCredito->addChild('obligadoContabilidad', $datosEmpresa[0]['obligado_contabilidad']);
             $infoNotaCredito->addChild('codDocModificado', '01');
@@ -96,9 +112,19 @@ class metodoXmlNotaCredito
                 $detalle->addChild('codigoInterno', 'BOL-NC');
                 $detalle->addChild('descripcion', 'ANULACIÓN TICKET ASIENTO ' . $detalleBoleto['asiento_boleto_detalle']);
                 $detalle->addChild('cantidad', 1);
-                $detalle->addChild('precioUnitario', number_format($detalleBoleto['precio_boleto_detalle'], 2, '.', ''));
-                $detalle->addChild('descuento', number_format($detalleBoleto['descuento_boleto_detalle'], 2, '.', ''));
-                $detalle->addChild('precioTotalSinImpuesto', number_format($detalleBoleto['total_boleto_detalle'], 2, '.', ''));
+
+                // Igual que en la factura: precioUnitario con la tarifa completa
+                // para que precioUnitario - descuento = precioTotalSinImpuesto.
+                $precioDet = (float)$detalleBoleto['precio_boleto_detalle'];
+                $descuentoDet = (float)$detalleBoleto['descuento_boleto_detalle'];
+                $totalDet = (float)$detalleBoleto['total_boleto_detalle'];
+                if ($descuentoDet > 0) {
+                    $precioDet = $totalDet + $descuentoDet;
+                }
+
+                $detalle->addChild('precioUnitario', number_format($precioDet, 2, '.', ''));
+                $detalle->addChild('descuento', number_format($descuentoDet, 2, '.', ''));
+                $detalle->addChild('precioTotalSinImpuesto', number_format($totalDet, 2, '.', ''));
 
                 $impuestos = $detalle->addChild('impuestos');
                 $impuesto = $impuestos->addChild('impuesto');

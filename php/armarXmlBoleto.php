@@ -52,17 +52,35 @@ class metodoXmlBoleto
                 $tipoIdentificacion = '06'; // Pasaporte / Identificación Exterior
             }
 
-            // Valores monetarios
-            $totalFactura = number_format($datosBoleto[0]['total_boleto'], 2, '.', '');
-            $ivaFactura = number_format($datosBoleto[0]['iva_boleto'], 2, '.', '');
-            $descuentoFactura = number_format($datosBoleto[0]['descuento_boleto'], 2, '.', '');
+            // Valores monetarios. La base imponible se obtiene de los detalles:
+            // la venta guarda boleto.subtotal_boleto en 0, así que usarlo dejaba
+            // totalSinImpuestos = 0.00 con un importeTotal mayor y el SRI rechaza.
+            $sumaTotalDetalles = 0.0;
+            $sumaDescuentosDetalles = 0.0;
+            foreach ($detallesBoleto as $d) {
+                $sumaTotalDetalles += (float)($d['total_boleto_detalle'] ?? 0);
+                $sumaDescuentosDetalles += (float)($d['descuento_boleto_detalle'] ?? 0);
+            }
 
-            if ($ivaFactura > 0) {
-                $subtotal15Factura = number_format($datosBoleto[0]['subtotal_boleto'], 2, '.', '');
+            $ivaNum = (float)($datosBoleto[0]['iva_boleto'] ?? 0);
+            $totalFactura = number_format((float)($datosBoleto[0]['total_boleto'] ?? 0), 2, '.', '');
+            $ivaFactura = number_format($ivaNum, 2, '.', '');
+            // totalDescuento del comprobante = suma de los descuentos de los detalles.
+            $descuentoFactura = number_format($sumaDescuentosDetalles, 2, '.', '');
+
+            $baseImponibleNum = (float)($datosBoleto[0]['subtotal_boleto'] ?? 0);
+            if ($baseImponibleNum <= 0) {
+                $baseImponibleNum = $sumaTotalDetalles > 0
+                    ? $sumaTotalDetalles
+                    : max(0, (float)$totalFactura - $ivaNum);
+            }
+
+            if ($ivaNum > 0) {
+                $subtotal15Factura = number_format($baseImponibleNum, 2, '.', '');
                 $subtotal0Factura = number_format(0, 2, '.', '');
                 $iva15Factura = $ivaFactura;
             } else {
-                $subtotal0Factura = number_format($datosBoleto[0]['subtotal_boleto'], 2, '.', '');
+                $subtotal0Factura = number_format($baseImponibleNum, 2, '.', '');
                 $subtotal15Factura = number_format(0, 2, '.', '');
                 $iva15Factura = number_format(0, 2, '.', '');
             }
@@ -102,8 +120,11 @@ class metodoXmlBoleto
             $infoFactura->addChild('fechaEmision', $fechaEmision);
             $infoFactura->addChild('dirEstablecimiento', $direccionEmisor);
             // Orden exigido por el XSD de factura 1.1.0: contribuyenteEspecial va antes de obligadoContabilidad
-            if (!empty($datosEmpresa[0]['contribuyente_especial'])) {
-                $infoFactura->addChild('contribuyenteEspecial', $datosEmpresa[0]['contribuyente_especial']);
+            // El XSD exige el N° de resolución (3 a 5 dígitos). Un valor tipo "SI"
+            // (bandera de configuración) hace que el SRI rechace el comprobante.
+            $contribEspecial = trim((string)($datosEmpresa[0]['contribuyente_especial'] ?? ''));
+            if (preg_match('/^\d{3,5}$/', $contribEspecial)) {
+                $infoFactura->addChild('contribuyenteEspecial', $contribEspecial);
             }
             $infoFactura->addChild('obligadoContabilidad', $datosEmpresa[0]['obligado_contabilidad']);
             $infoFactura->addChild('tipoIdentificacionComprador', $tipoIdentificacion);
@@ -176,9 +197,20 @@ class metodoXmlBoleto
                 $detalle->addChild('codigoAuxiliar', 'BOL.' . $ruta['codigo_rutas']);
                 $detalle->addChild('descripcion', str_replace("&", "&amp;", $descripcion));
                 $detalle->addChild('cantidad', 1);
-                $detalle->addChild('precioUnitario', number_format($detalleBoleto['precio_boleto_detalle'], 2, '.', ''));
-                $detalle->addChild('descuento', number_format($detalleBoleto['descuento_boleto_detalle'], 2, '.', ''));
-                $detalle->addChild('precioTotalSinImpuesto', number_format($detalleBoleto['total_boleto_detalle'], 2, '.', ''));
+
+                // El total del detalle ya viene con el descuento aplicado, por eso
+                // el precio unitario se declara con la tarifa completa: el SRI
+                // exige que precioUnitario - descuento = precioTotalSinImpuesto.
+                $precioDet = (float)$detalleBoleto['precio_boleto_detalle'];
+                $descuentoDet = (float)$detalleBoleto['descuento_boleto_detalle'];
+                $totalDet = (float)$detalleBoleto['total_boleto_detalle'];
+                if ($descuentoDet > 0) {
+                    $precioDet = $totalDet + $descuentoDet;
+                }
+
+                $detalle->addChild('precioUnitario', number_format($precioDet, 2, '.', ''));
+                $detalle->addChild('descuento', number_format($descuentoDet, 2, '.', ''));
+                $detalle->addChild('precioTotalSinImpuesto', number_format($totalDet, 2, '.', ''));
 
                 $impuestos = $detalle->addChild('impuestos');
                 $impuesto = $impuestos->addChild('impuesto');
@@ -194,7 +226,7 @@ class metodoXmlBoleto
                     $impuesto->addChild('tarifa', '0.00');
                 }
                 
-                $impuesto->addChild('baseImponible', number_format($detalleBoleto['precio_boleto_detalle'] - $detalleBoleto['descuento_boleto_detalle'], 2, '.', ''));
+                $impuesto->addChild('baseImponible', number_format($totalDet, 2, '.', ''));
                 $impuesto->addChild('valor', $iva_detalle);
             }
 

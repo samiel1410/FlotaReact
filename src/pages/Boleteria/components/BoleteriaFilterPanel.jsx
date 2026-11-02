@@ -55,9 +55,9 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // Máscara automática: 001-001-000000000
+  // Máscara automática: 001-001-000000001 (estab 3 + ptoEmi 3 + secuencial 9)
   const handleNumeroBoleto = (e) => {
-    const digits = e.target.value.replace(/\D/g, '').slice(0, 12);
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 15);
     let formatted = '';
     for (let i = 0; i < digits.length; i++) {
       if (i === 3 || i === 6) formatted += '-';
@@ -148,7 +148,7 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
               onChange={handleNumeroBoleto}
               onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onSearch(formData); } }}
               placeholder="001-001-000000000"
-              maxLength="14"
+              maxLength="17"
               style={{ fontFamily: 'monospace', letterSpacing: '0.5px' }}
             />
           </div>
