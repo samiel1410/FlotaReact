@@ -17,6 +17,8 @@ date_default_timezone_set('America/Guayaquil');
 //(<20ms): sirve el PDF recién generado sin tocar DB ni cargar TCPDF.
 // TTL corto (60s): ventana pequeña de posible stale si la guía se cobra justo después de imprimir.
 define('GUIAIMP_FAST_TTL', 60);
+// Cambiar la versión invalida los PDFs cacheados cuando cambia el diseño del ticket.
+define('GUIAIMP_LAYOUT_VERSION', 'destino-grande-v1');
 
 try {
     $t0 = microtime(true);
@@ -321,7 +323,7 @@ try {
         $id_guia, $numero_guia, $total_guia, $estado_factura,
         $numero_factura, $detalles_forma_pago, $total_cobrado,
         count($items_detalle), (string)$reimpreso_por, $imprimir_boucher_guia,
-        $ubicacion_usuario
+        $ubicacion_usuario, GUIAIMP_LAYOUT_VERSION
     ]));
     $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
     if (!is_dir($pdfCacheDir)) @mkdir($pdfCacheDir, 0777, true);
@@ -410,8 +412,21 @@ try {
     $drawLine();
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
     $pdf->Cell($lw, 4.2, 'DESTINO', 0, 1, 'C');
+
+    // Nombre del destino en letras grandes (se reduce si no cabe en el ancho del ticket)
+    if ($destino_guia !== '') {
+        $fontDestino = max(round($metricas['font_tcpdf_bold'] * 1.9, 1), 12.0);
+        $textoDestino = strtoupper($destino_guia);
+        $pdf->SetFont('helvetica', 'B', $fontDestino);
+        while ($fontDestino > 6 && $pdf->GetStringWidth($textoDestino) > $lw) {
+            $fontDestino = round($fontDestino - 0.5, 1);
+            $pdf->SetFont('helvetica', 'B', $fontDestino);
+        }
+        $pdf->MultiCell($lw, round($fontDestino * 0.42, 1), $textoDestino, 0, 'C', false, 1);
+    }
+
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-    $txtDest = 'UBICACIÓN: ' . $destino_guia . "\n" . 'CI: ' . $cedula_cliente_receptor . "\n" . 'RECIBE: ' . $nombre_cliente_receptor . "\n" . 'TELÉFONO: ' . $telefono_cliente_receptor;
+    $txtDest = 'CI: ' . $cedula_cliente_receptor . "\n" . 'RECIBE: ' . $nombre_cliente_receptor . "\n" . 'TELÉFONO: ' . $telefono_cliente_receptor;
     foreach ($lista_contenido as $cnt) {
         $txtDest .= "\n" . 'CONTENIDO: ' . $cnt;
     }
