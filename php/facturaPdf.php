@@ -85,7 +85,7 @@ try {
     $punto_emision_factura = !empty($vals["punto_emision_factura"]) ? $vals["punto_emision_factura"] : '001';
     $numero_factura = $punto_emision_sucursal . '-' . $punto_emision_factura . '-' . $resultado;
 
-    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa, obligado_contabilidad FROM empresa LIMIT 1";
+    $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa, obligado_contabilidad FROM empresa LIMIT 1";
         $rec_emp = mysqli_query($conn, $query_empresa);
         $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
 
@@ -93,7 +93,6 @@ try {
     $direccion_empresa = $vals_empresa['direccion_empresa'] ?? '';
     $ruc_empresa = $vals_empresa['ruc_empresa'] ?? '';
     $obligado_contabilidad = !empty($vals_empresa['obligado_contabilidad']) ? strtoupper(trim($vals_empresa['obligado_contabilidad'])) : 'NO';
-    $rutaLogo = obtenerRutaLogoEmpresa($conn, $vals_empresa['imagen_empresa'] ?? null);
 
     // VALOR DECLARADO DESDE GUIA
     $id_fkguia = (int)($vals['id_fkguia_factura'] ?? 0);
@@ -202,24 +201,7 @@ try {
     // ─── RECUADRO SUPERIOR IZQUIERDO: EMPRESA ─────────────────────────────────
     $pdf->Rect(10, 10, 92, 92, 'D');
 
-    $hLogo = 0;
-    if ($rutaLogo && esImagenValidaParaTcpdf($rutaLogo)) {
-        $infoImg = @getimagesize($rutaLogo);
-        $wI = ($infoImg && !empty($infoImg[0])) ? (float)$infoImg[0] : 100.0;
-        $hI = ($infoImg && !empty($infoImg[1])) ? (float)$infoImg[1] : 100.0;
-        $wTarget = 34.0;
-        $hTarget = ($hI / $wI) * $wTarget;
-        if ($hTarget > 22.0) {
-            $hTarget = 22.0;
-            $wTarget = ($wI / $hI) * $hTarget;
-        }
-        $xLogo = 10 + (92 - $wTarget) / 2.0;
-        $pdf->Image($rutaLogo, $xLogo, 12, $wTarget, $hTarget, '', '', 'T', false, 300, 'C');
-        $hLogo = $hTarget;
-        $pdf->SetXY(12, 12 + $hTarget + 2.0);
-    } else {
-        $pdf->SetXY(12, 14);
-    }
+    $pdf->SetXY(12, 14);
 
     $pdf->SetFont('helvetica', 'B', 10.5);
     $pdf->MultiCell(88, 4.2, strtoupper($nombre_empresa), 0, 'C', false, 1);
@@ -423,28 +405,15 @@ try {
 
     // ─── FOOTER FIJO SISTEMA ──────────────────────────────────────────────────
     require_once __DIR__ . '/branding.php';
-    $pathsIcono = brand_logo_icon_paths();
-    $rutaIcono = '';
-    foreach ($pathsIcono as $pathCandidate) {
-        if (file_exists($pathCandidate)) {
-            $rutaIcono = $pathCandidate;
-            break;
-        }
-    }
 
     $pdf->SetY(280);
     $pdf->SetDrawColor(209, 213, 219);
     $pdf->Line(10, 280, 200, 280);
 
-    if ($rutaIcono) {
-        $pdf->Image($rutaIcono, 78, 282, 4, 4, '', '', 'T', false, 300, 'L');
-        $pdf->SetXY(84, 282);
-    } else {
-        $pdf->SetXY(10, 282);
-    }
+    $pdf->SetXY(10, 282);
     $pdf->SetFont('helvetica', 'B', 8);
     $pdf->SetTextColor(71, 85, 105);
-    $pdf->Cell(110, 4, brand_name() . ' - ' . brand_tagline(), 0, 1, $rutaIcono ? 'L' : 'C');
+    $pdf->Cell(110, 4, brand_name() . ' - ' . brand_tagline(), 0, 1, 'C');
     $pdf->SetTextColor(0, 0, 0);
 
     // ─── SALIDA DIRECTA DEL PDF (SIN CACHÉ) ───────────────────────────────────

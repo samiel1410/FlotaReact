@@ -763,6 +763,16 @@ export const PAGES_CONFIG = {
     columns: [
       { key: 'nombre_alimentos', label: 'Nombre' },
       { key: 'precio_alimentos', label: 'Costo', render: v => `$ ${parseFloat(v || 0).toFixed(2)}` },
+      {
+        key: 'alimento_por_asiento', label: 'Por asiento',
+        render: v => (Number(v) === 1
+          ? <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">Sí</span>
+          : <span className="text-slate-400 text-xs">No</span>)
+      },
+      {
+        key: 'costo_socio_alimentos', label: 'Costo socio',
+        render: v => (Number(v) > 0 ? `$ ${parseFloat(v).toFixed(2)}` : '-')
+      },
       { key: 'estado_alimentos', label: 'Estado', renderType: 'status' },
     ],
     filters: [

@@ -86,10 +86,11 @@ export const BoleteriaService = {
    * @param {number} [idOrigen] - Lugar/cantón de venta (punto del tramo)
    * @param {number} [idDestino] - id_sub_rutas del destino a vender (solape exacto)
    */
-  getAsientosBusViaje: async (idViaje, idOrigen, idDestino) => {
+  getAsientosBusViaje: async (idViaje, idOrigen, idDestino, idSucursal) => {
     const params = { id_viaje: idViaje };
     if (idOrigen) params.id_origen = idOrigen;
     if (idDestino) params.id_destino = idDestino;
+    if (idSucursal) params.id_sucursal = idSucursal;
     const response = await api.post('/viajes/asientosBusViaje', params);
     return response.data;
   },

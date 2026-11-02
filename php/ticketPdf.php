@@ -23,16 +23,9 @@ try {
 
   $conn = conexion();
 
-  // ─── 1. EMPRESA Y LOGO (Caché Nivel 1) ──────────────────────────────────────
-  $logosDir = __DIR__ . '/tmp/logos/';
-  if (!is_dir($logosDir)) {
-      @mkdir($logosDir, 0777, true);
-  }
-
+  // ─── 1. EMPRESA (sin logo en las impresiones) ───────────────────────────────
   $vals_empresa = null;
-  $rutaLogo = null;
 
-  
       $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
       $rec_empresa = mysqli_query($conn, $query_empresa);
       $vals_empresa = $rec_empresa ? mysqli_fetch_assoc($rec_empresa) : [];
@@ -42,34 +35,6 @@ try {
               'ruc_empresa' => '9999999999001'
           ];
       }
-
-      $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
-      $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
-      if (esImagenValidaParaTcpdf($cachedLogoPng)) {
-          $rutaLogo = $cachedLogoPng;
-      } else if (esImagenValidaParaTcpdf($cachedLogoJpg)) {
-          $rutaLogo = $cachedLogoJpg;
-      } else {
-          $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
-          $res_img = mysqli_query($conn, $query_img);
-          if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
-              $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
-              if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
-                  $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
-                  $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
-                  if ($rawLogo !== $targetLogo) {
-                      @copy($rawLogo, $targetLogo);
-                  }
-                  $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
-              }
-          }
-      }
-
-      
-
-  if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
-      $rutaLogo = obtenerRutaLogoEmpresa($conn);
-  }
 
   $razon_social = !empty($vals_empresa["razon_social_empresa"]) ? strtoupper($vals_empresa["razon_social_empresa"]) : 'GRUPO TRAMACO';
 
@@ -169,12 +134,7 @@ try {
   ]);
 
   // ─── CABECERA ─────────────────────────────────────────────────────────────
-  //  Logo (si existe) — columna izquierda, y=3, h=14mm
   $xCursor = 4;
-  if ($rutaLogo) {
-    $pdf->Image($rutaLogo, $xCursor, 3, 0, 14, '', '', '', false);
-    $xCursor = 4 + 18; // logo + gap
-  }
 
   // Nombre empresa (bold grande)
   $pdf->SetFont('helvetica', 'B', 13);

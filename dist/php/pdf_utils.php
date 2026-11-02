@@ -70,15 +70,27 @@ function obtenerRutaLogoEmpresa($conn, $imageData = null)
  */
 function procesarLogoParaTcpdf($imageData, $cacheHint = '')
 {
-    // Se deshabilita la renderización del logo empresarial en los documentos PDF.
+    // Los logos de empresa están deshabilitados en los PDFs.
     return null;
+}
+
+/**
+ * Procesa cualquier imagen (vouchers, adjuntos de comprobantes) y devuelve la
+ * ruta a un PNG válido en tmp/imagenes/ para que TCPDF pueda leerla.
+ *
+ * @param mixed $imageData
+ * @param string $cacheHint
+ * @return string|null
+ */
+function procesarImagenParaTcpdf($imageData, $cacheHint = '')
+{
 
     if (empty($imageData)) {
         return null;
     }
 
-    // Directorio temporal para logos PNG que TCPDF puede leer
-    $tempDir = __DIR__ . '/tmp/logos/';
+    // Directorio temporal para imágenes PNG que TCPDF puede leer
+    $tempDir = __DIR__ . '/tmp/imagenes/';
     if (!is_dir($tempDir)) {
         @mkdir($tempDir, 0777, true);
     }

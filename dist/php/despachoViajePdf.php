@@ -33,7 +33,7 @@ try {
     }
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    // ─── CACHÉ NIVEL 1: EMPRESA Y LOGO ────────────────────────────────────────
+    // ─── CACHÉ NIVEL 1: EMPRESA ────────────────────────────────────────
     $vals_empresa = null;
 
     

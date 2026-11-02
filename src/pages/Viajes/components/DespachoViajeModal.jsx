@@ -107,7 +107,9 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
       } else {
         toast.error(res.data?.message || 'Error al despachar');
       }
-    } catch (e) { toast.error('Error al despachar viaje'); }
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Error al despachar viaje');
+    }
     finally { setLoading(false); }
   };
 

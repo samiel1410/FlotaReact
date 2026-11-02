@@ -29,7 +29,7 @@ try {
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
     // Consulta directa de Empresa y Configuración (sin caché)
-    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+    $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
     $rec_emp = mysqli_query($conn, $query_empresa);
     $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
 
@@ -38,7 +38,6 @@ try {
     $vals_configuracion = $rec_cfg ? mysqli_fetch_assoc($rec_cfg) : [];
 
     $id_empresa = $vals_empresa["id_empresa"] ?? 0;
-    $imagen_empresa = $vals_empresa["imagen_empresa"] ?? null;
     $telefono_empresa = $vals_empresa["telefono_empresa"] ?? '';
     $correo_empresa = $vals_empresa["correo_empresa"] ?? '';
     $ruc_empresa = $vals_empresa["ruc_empresa"] ?? '';
@@ -52,7 +51,6 @@ try {
     $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 110, $formato_impresion_db);
     $metricas = obtenerMetricasImpresion($ancho_impresion, 110);
     $leyenda = $leyenda_nota_venta;
-    $rutaLogo = obtenerRutaLogoEmpresa($conn, $imagen_empresa);
 
     // ─── CONSULTA PRINCIPAL DE GUIA NOTA VENTA ───────────────────────────────
     $query_guia = "SELECT 
@@ -251,9 +249,6 @@ try {
 
     // ─── PÁGINA 1: TICKET NOTA DE VENTA ──────────────────────────────────────
     $pdf->SetY(4);
-    if ($rutaLogo) {
-        imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $ancho_impresion, $metricas['margen_mm'], 30, 24, 2.0);
-    }
 
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
     $pdf->MultiCell($lw, 5.0, strtoupper($razon_social_empresa), 0, 'C', false, 1);
@@ -389,9 +384,6 @@ try {
             $pdf->SetAutoPageBreak(false, 0);
 
             $pdf->SetY(4);
-            if ($rutaLogo) {
-                imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $ancho_impresion, $metricas['margen_mm'], 24, 18, 1.5);
-            }
 
             $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
             $pdf->Cell($lw, 5, strtoupper($razon_social_empresa), 0, 1, 'C');

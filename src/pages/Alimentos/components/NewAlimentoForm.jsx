@@ -10,6 +10,8 @@ const NewAlimentoForm = ({ initialData, onSubmit, onCancel }) => {
       nombre_alimentos: '',
       descripcion_alimentos: '',
       precio_alimentos: '',
+      alimento_por_asiento: false,
+      costo_socio_alimentos: '',
       estado_alimentos: true
     }
   });
@@ -21,6 +23,8 @@ const NewAlimentoForm = ({ initialData, onSubmit, onCancel }) => {
         nombre_alimentos: initialData.ali_nombre || initialData.nombre_alimentos || '',
         descripcion_alimentos: initialData.ali_descripcion || initialData.descripcion_alimentos || '',
         precio_alimentos: initialData.ali_valor || initialData.precio_alimentos || '',
+        alimento_por_asiento: Number(initialData.alimento_por_asiento || 0) === 1,
+        costo_socio_alimentos: initialData.costo_socio_alimentos ?? '',
         estado_alimentos: (initialData.ali_estado !== undefined ? String(initialData.ali_estado) : String(initialData.estado_alimentos || '1')) === '1',
       });
     } else {
@@ -29,6 +33,8 @@ const NewAlimentoForm = ({ initialData, onSubmit, onCancel }) => {
         nombre_alimentos: '',
         descripcion_alimentos: '',
         precio_alimentos: '',
+        alimento_por_asiento: false,
+        costo_socio_alimentos: '',
         estado_alimentos: true
       });
     }
@@ -43,6 +49,8 @@ const NewAlimentoForm = ({ initialData, onSubmit, onCancel }) => {
       descripcion_alimentos: (data.descripcion_alimentos || '').trim(),
       precio_alimentos: parseFloat(data.precio_alimentos) || 0,
       // El switch entrega booleano; el backend guarda 1/0.
+      alimento_por_asiento: data.alimento_por_asiento ? 1 : 0,
+      costo_socio_alimentos: parseFloat(data.costo_socio_alimentos) || 0,
       estado_alimentos: data.estado_alimentos ? 1 : 0,
     };
 
@@ -113,6 +121,49 @@ const NewAlimentoForm = ({ initialData, onSubmit, onCancel }) => {
               />
             </div>
             {errors.precio_alimentos && <p className="mt-1 text-xs text-rose-500 font-medium">{errors.precio_alimentos.message}</p>}
+          </div>
+
+          {/* Entrega por asiento (ej. AGUA) */}
+          <div className="flex flex-col justify-center">
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+              Entrega por asiento
+            </label>
+            <label className="relative inline-flex items-center cursor-pointer mt-1">
+              <input
+                type="checkbox"
+                className="sr-only peer"
+                {...register('alimento_por_asiento')}
+              />
+              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+              <span className="ml-3 text-sm font-semibold text-slate-700">Una unidad por pasajero</span>
+            </label>
+          </div>
+
+          {/* Costo al socio por asiento */}
+          <div>
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">
+              Costo al socio por asiento ($)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <i className="fas fa-hand-holding-usd text-slate-400"></i>
+              </div>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                {...register('costo_socio_alimentos', {
+                  min: { value: 0, message: 'No puede ser negativo' }
+                })}
+                className={`w-full pl-10 pr-4 py-2 bg-slate-50 border rounded-lg text-sm focus:ring-2 focus:outline-none transition-all ${
+                  errors.costo_socio_alimentos ? 'border-rose-300 focus:ring-rose-200' : 'border-slate-200 focus:ring-blue-100 focus:border-blue-400'
+                }`}
+                placeholder="0.00"
+              />
+            </div>
+            <p className="mt-1 text-xs text-slate-500">
+              Se descuenta al socio en el despacho por cada asiento con este producto.
+            </p>
           </div>
 
           {/* Estado (Switch) */}

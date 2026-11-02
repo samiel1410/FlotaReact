@@ -26,15 +26,13 @@ try {
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    // ─── EMPRESA Y LOGO ──────────────────────────────────────────────────────
-    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+    // ─── EMPRESA ──────────────────────────────────────────────────────
+    $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
     $rec_empresa = mysqli_query($conn, $query_empresa);
     $vals_empresa = $rec_empresa ? mysqli_fetch_assoc($rec_empresa) : [];
     
-    $imagen_empresa       = $vals_empresa["imagen_empresa"] ?? null;
     $razon_social_empresa = $vals_empresa["razon_social_empresa"] ?? "SISTEMA FLOTA";
     $ruc_empresa          = $vals_empresa["ruc_empresa"] ?? "";
-    $rutaLogo             = obtenerRutaLogoEmpresa($conn, $imagen_empresa);
 
     // ─── QUERY DESPACHO MAESTRO ──────────────────────────────────────────────
     $query = "SELECT 
@@ -145,11 +143,8 @@ try {
     $pdf->SetAutoPageBreak(true, 4);
     $pdf->AddPage();
 
-    // ─── 1. LOGO Y CABECERA ──────────────────────────────────────────────────
+    // ─── 1. CABECERA ──────────────────────────────────────────────────
     $pdf->SetY(4);
-    if ($rutaLogo && file_exists($rutaLogo)) {
-        imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoPapel, $margen, 28, 22, 1.5);
-    }
 
     $pdf->SetFont('helvetica', 'B', 10);
     $pdf->Cell($anchoUtil, 4.5, strtoupper($razon_social_empresa), 0, 1, 'C');

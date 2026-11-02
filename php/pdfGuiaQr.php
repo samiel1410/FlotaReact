@@ -13,12 +13,11 @@ try {
 $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(500,200) , true, 'UTF-8', false);
 
 $conn = conexion();
-$query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+$query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
 $recuperar_empresa = mysqli_query($conn,$query_empresa) or die(mysqli_error($conn));
 $vals_empresa = mysqli_fetch_assoc($recuperar_empresa);
 
 $id_empresa = isset($vals_empresa["id_empresa"]) ? $vals_empresa["id_empresa"] : 0;
-$imagen_empresa = isset($vals_empresa["imagen_empresa"]) ? $vals_empresa["imagen_empresa"] : null;
 $telefono_empresa = isset($vals_empresa["telefono_empresa"]) ? $vals_empresa["telefono_empresa"] : '';
 $correo_empresa = isset($vals_empresa["correo_empresa"]) ? $vals_empresa["correo_empresa"] : '';
 $ruc_empresa = isset($vals_empresa["ruc_empresa"]) ? $vals_empresa["ruc_empresa"] : '';
@@ -211,8 +210,6 @@ $mensajeleyenda_configuracion = $vals_configuracion["mensajeleyenda_configuracio
 $validar_leyenda = $mensajeleyenda_configuracion;
 $mensaje = $leyendamensaje_configuracion;
 $leyenda = $mensaje;
-$img = file_get_contents($imagen_empresa);
-$pdf->Image('@' . $img);
 
 $html='
 <!DOCTYPE html>
@@ -277,7 +274,6 @@ body{
 	
 
         <p class="center">
-		   <img width="64px"   class=" center" src="data:image/*;base64,'.$imagen_empresa.'"/><br>
 		 <span class="titulo_inicio">'.$razon_social_empresa.'</span> <br>
         <span class="titulo_inicio">RUC:'.$ruc_empresa.'</span> <br>
         <span class="titulo_inicio">GUÍA DE DESPACHO ELECTRÓNICA</span> <br>

@@ -28,14 +28,9 @@ try {
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    // ─── CACHÉ NIVEL 1: EMPRESA Y LOGO ────────────────────────────────────────
-    $logosDir = __DIR__ . '/tmp/logos/';
-    if (!is_dir($logosDir)) {
-        @mkdir($logosDir, 0777, true);
-    }
+    // ─── CACHÉ NIVEL 1: EMPRESA ────────────────────────────────────────
 
     $vals_empresa = null;
-    $rutaLogo = null;
     $vals_config = null;
 
     
@@ -54,34 +49,6 @@ try {
         $query_config = "SELECT formato_impresion FROM configuracion LIMIT 1";
         $rec_cfg = mysqli_query($conn, $query_config);
         $vals_config = $rec_cfg ? mysqli_fetch_assoc($rec_cfg) : [];
-
-        $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
-        $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
-        if (esImagenValidaParaTcpdf($cachedLogoPng)) {
-            $rutaLogo = $cachedLogoPng;
-        } else if (esImagenValidaParaTcpdf($cachedLogoJpg)) {
-            $rutaLogo = $cachedLogoJpg;
-        } else {
-            $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
-            $res_img = mysqli_query($conn, $query_img);
-            if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
-                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
-                if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
-                    $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
-                    $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
-                    if ($rawLogo !== $targetLogo) {
-                        @copy($rawLogo, $targetLogo);
-                    }
-                    $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
-                }
-            }
-        }
-
-        
-
-    if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
-        $rutaLogo = obtenerRutaLogoEmpresa($conn);
-    }
 
     $empresa = $vals_empresa;
 
@@ -164,9 +131,6 @@ try {
 
     // ─── 1. CABECERA ─────────────────────────────────────────────────────────
     $pdf->SetY(4);
-    if ($rutaLogo && file_exists($rutaLogo)) {
-        imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoPapel, $margen, 28, 22, 1.5);
-    }
 
     $pdf->SetFont('helvetica', 'B', 10);
     $pdf->Cell($anchoUtil, 4.2, strtoupper($empresa['razon_social_empresa'] ?? 'SISTEMA FLOTA'), 0, 1, 'C');

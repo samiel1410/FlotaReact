@@ -30,7 +30,7 @@ try {
     if ($conn->connect_error) throw new Exception('Error de conexión: ' . $conn->connect_error);
 
     // Obtener datos de la empresa
-    $query3 = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa, nombre_comercial_empresa, imagen_empresa FROM empresa WHERE 1 LIMIT 1";
+    $query3 = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa, nombre_comercial_empresa FROM empresa WHERE 1 LIMIT 1";
     $res_empresa = $conn->query($query3);
     if ($res_empresa === false) throw new Exception('Error consulta empresa: ' . $conn->error);
     $empresa = $res_empresa->fetch_assoc();
@@ -41,7 +41,6 @@ try {
             'telefono_empresa' => '',
             'razon_social_empresa' => 'SISTEMA FLOTA',
             'nombre_comercial_empresa' => '',
-            'imagen_empresa' => ''
         ];
     }
 
@@ -150,11 +149,6 @@ try {
     }
     $tipo_licencia = $tipo_licencia_map[$p['tipo_licencia']] ?? '-';
 
-    // Obtener logo de empresa optimizado para TCPDF
-    $logoEmpresa = null;
-    if (function_exists('obtenerRutaLogoEmpresa')) {
-        $logoEmpresa = obtenerRutaLogoEmpresa($conn, $empresa['imagen_empresa'] ?? null);
-    }
     $conn->close();
 
     // ─── RESOLVER FOTO DEL PERSONAL (DIRECTO A ARCHIVO EN DISCO) ───────────────
@@ -262,15 +256,10 @@ try {
     $pdf->SetAutoPageBreak(true, 10);
     $pdf->AddPage();
 
-    // ─── 1. HEADER NATIVO (LOGO + INFORMACIÓN + FOTO DEL SOCIO) ────────────────
+    // ─── 1. HEADER NATIVO (INFORMACIÓN + FOTO DEL SOCIO) ────────────────
     $startX = 12;
     $startY = 10;
     $usableW = 186;
-
-    // Logo empresa a la izquierda
-    if (!empty($logoEmpresa) && @file_exists($logoEmpresa)) {
-        $pdf->Image($logoEmpresa, $startX, $startY, 26, 26, '', '', 'T', false, 300, '', false, false, 0, false, false, false);
-    }
 
     // Foto del socio a la derecha (tamaño carnet visible 26 x 32 mm)
     $fotoX = 172;
@@ -515,4 +504,4 @@ try {
     header('Content-Type: text/plain; charset=utf-8');
     echo 'Error: ' . $e->getMessage();
     exit;
-}
+}

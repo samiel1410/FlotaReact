@@ -184,6 +184,10 @@ export const DespachoViajesPage = () => {
   // ── Despachar viaje ──────────────────────────────────────────
   const handleDespachar = async () => {
     const tripId = selectedTrip?.id_viajes || selectedTrip?.id_viaje;
+    if (detailData?.despachado_en_mi_sucursal) {
+      toast.error('Este viaje ya está despachado por su oficina. Reviértalo si necesita corregirlo.');
+      return;
+    }
     const confirm = await Swal.fire({
       title: '¿Confirmar despacho de viaje?',
       html: `¿Está seguro de despachar el viaje <b>N° ${tripId}</b> hacia <b>${selectedTrip?.destino || ''}</b>?`,

@@ -21,12 +21,11 @@ try {
     $format      = strtolower(trim($_GET['format'] ?? 'a4')); // 'a4' o '80mm'
 
     // ─── EMPRESA ─────────────────────────────────────────────────────────────
-    $rsEmp = mysqli_query($conn, "SELECT id_empresa, ruc_empresa, razon_social_empresa, direccion_empresa, telefono_empresa, correo_empresa, imagen_empresa, nombre_comercial_empresa FROM empresa LIMIT 1");
+    $rsEmp = mysqli_query($conn, "SELECT id_empresa, ruc_empresa, razon_social_empresa, direccion_empresa, telefono_empresa, correo_empresa, nombre_comercial_empresa FROM empresa LIMIT 1");
     $emp = $rsEmp ? mysqli_fetch_array($rsEmp) : [];
     $razon_social = $emp['nombre_comercial_empresa'] ?? $emp['razon_social_empresa'] ?? '';
     $ruc_empresa   = $emp['ruc_empresa'] ?? '';
     $direccion     = $emp['direccion_empresa'] ?? '';
-    $logo          = obtenerRutaLogoEmpresa($conn, $emp['imagen_empresa'] ?? null);
 
     // ─── AGENCIA / SUCURSAL ──────────────────────────────────────────────────
     $nombre_sucursal = $_SESSION['nombre_sucursal'] ?? $_SESSION['sucursal'] ?? '';
@@ -315,11 +314,11 @@ try {
             .bold { font-weight: bold; }
         </style></head><body>';
 
-        // Header: Logo y recuadro REPORTE VENTAS DIARIAS AGENCIA
+        // Header: recuadro REPORTE VENTAS DIARIAS AGENCIA
         $html80 .= '<table style="width:100%; border-collapse:collapse;">
             <tr>
                 <td style="width:38%; text-align:left; vertical-align:middle;">
-                    ' . ($logo ? '<img src="' . $logo . '" height="28"/>' : ($razon_social ? '<b style="font-size:10pt;">' . htmlspecialchars($razon_social) . '</b>' : '')) . '
+                    ' . ($razon_social ? '<b style="font-size:10pt;">' . htmlspecialchars($razon_social) . '</b>' : '') . '
                 </td>
                 <td style="width:62%; vertical-align:middle;">
                     <div class="box-title">REPORTE VENTAS<br/>POR SOCIO</div>
@@ -403,21 +402,10 @@ try {
             </div>';
         }
 
-        // Icono y nombre de marca (branding.php)
-        require_once __DIR__ . '/branding.php';
-        $pathsIcono = brand_logo_icon_paths();
-        $rutaIcono = '';
-        foreach ($pathsIcono as $pathCandidate) {
-          if (file_exists($pathCandidate)) {
-            $rutaIcono = $pathCandidate;
-            break;
-          }
-        }
-
         // Pie de ticket
         $html80 .= '<div style="font-size:7pt; line-height:1.3; border-top:1px dashed #000; padding-top:4px; text-align:center;">
             Impreso por ' . htmlspecialchars($usuario_impresion) . ' | ' . date('j/n/Y H:i:s') . '<br/>
-            ' . (!empty($rutaIcono) ? '<img src="' . $rutaIcono . '" width="10" height="10"> ' : '') . '<b>' . htmlspecialchars(brand_name()) . '</b> - ' . htmlspecialchars(brand_tagline()) . '
+            <b>' . htmlspecialchars(brand_name()) . '</b> - ' . htmlspecialchars(brand_tagline()) . '
         </div></body></html>';
 
         // ─── PDF TCPDF 80MM (CÁLCULO DINÁMICO DE ALTURA) ─────────────────────
@@ -466,7 +454,7 @@ try {
     // Encabezado
     $html .= '<table cellpadding="0" cellspacing="0" class="header-table">
         <tr>
-            <td width="10%">' . ($logo ? '<img src="' . $logo . '" height="32"/>' : '') . '</td>
+            <td width="10%"></td>
             <td width="90%" class="text-left">
                 <div class="title">' . htmlspecialchars($razon_social) . '</div>
                 <div class="subtitle">REPORTE DETALLADO DE VENTAS Y DESCUENTOS POR SOCIO</div>
@@ -556,22 +544,10 @@ try {
 
     $html .= '</tbody></table></body></html>';
 
-    // Rutas del Icono y nombre de marca (branding.php)
-    require_once __DIR__ . '/branding.php';
-    $pathsIcono = brand_logo_icon_paths();
-    $rutaIcono = '';
-    foreach ($pathsIcono as $pathCandidate) {
-      if (file_exists($pathCandidate)) {
-        $rutaIcono = $pathCandidate;
-        break;
-      }
-    }
-
     // ─── CLASE PERSONALIZADA PARA PIE DE PÁGINA NATIVO ─────────────────────────
     if (!class_exists('ReporteBuserosPDF')) {
         class ReporteBuserosPDF extends TCPDF {
             public $usuario_impresion = '';
-            public $rutaIcono = '';
 
             public function Footer() {
                 $this->SetY(-8);
@@ -582,7 +558,6 @@ try {
                       Impreso por: <b>' . htmlspecialchars($this->usuario_impresion) . '</b>
                     </td>
                     <td width="35%" style="text-align:center;">
-                      ' . (!empty($this->rutaIcono) ? '<img src="' . $this->rutaIcono . '" width="10" height="10"> ' : '') . '
                       <b>' . htmlspecialchars(brand_name()) . '</b> - ' . htmlspecialchars(brand_tagline()) . '
                     </td>
                     <td width="30%" style="text-align:right;">
@@ -598,7 +573,6 @@ try {
     // ─── CREAR PDF CON TCPDF (A4 HORIZONTAL / LANDSCAPE) ───────────────────────
     $pdf = new ReporteBuserosPDF('L', 'mm', 'A4', true, 'UTF-8', false);
     $pdf->usuario_impresion = $usuario_impresion;
-    $pdf->rutaIcono = $rutaIcono;
     $pdf->SetCreator('SistemaFlota');
     $pdf->SetAuthor($razon_social ?: 'SistemaFlota');
     $pdf->SetTitle('Reporte_Ventas_Buseros_Landscape');

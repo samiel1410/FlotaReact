@@ -61,8 +61,6 @@ try {
     $cacheCfgDir = __DIR__ . '/tmp/cache/';
     if (!is_dir($cacheCfgDir)) @mkdir($cacheCfgDir, 0777, true);
     $cacheCfgFile = $cacheCfgDir . 'empresa_cfg_' . $dbKey . '.json';
-    $logosDir = __DIR__ . '/tmp/logos/';
-    if (!is_dir($logosDir)) @mkdir($logosDir, 0777, true);
 
     $vals_empresa = [];
     $vals_configuracion = [];
@@ -75,36 +73,6 @@ try {
     if ($empresaCfgCached) {
         $vals_empresa       = $empresaCfgCached;
         $vals_configuracion = $empresaCfgCached;
-        $rutaLogo = $empresaCfgCached['logo_path'] ?? null;
-        // Si el archivo físico del logo fue eliminado o es inválido, regenerar solo el logo
-        // (si logo_path es null, se respeta el caché hasta TTL: evita query BLOB en cada hit)
-        if (!empty($rutaLogo) && !esImagenValidaParaTcpdf($rutaLogo)) {
-            $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
-            $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
-            if (esImagenValidaParaTcpdf($cachedLogoPng)) {
-                $rutaLogo = $cachedLogoPng;
-            } elseif (esImagenValidaParaTcpdf($cachedLogoJpg)) {
-                $rutaLogo = $cachedLogoJpg;
-            } else {
-                $rec_img = mysqli_query($conn, "SELECT imagen_empresa FROM empresa LIMIT 1");
-                $row_img = $rec_img ? mysqli_fetch_assoc($rec_img) : [];
-                if (!empty($row_img['imagen_empresa'])) {
-                    $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
-                    if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
-                        $ext = strtolower(pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png');
-                        $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
-                        if ($rawLogo !== $targetLogo) @copy($rawLogo, $targetLogo);
-                        $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
-                    } else {
-                        $rutaLogo = null;
-                    }
-                } else {
-                    $rutaLogo = null;
-                }
-            }
-            $empresaCfgCached['logo_path'] = $rutaLogo;
-            @file_put_contents($cacheCfgFile, json_encode($empresaCfgCached));
-        }
     } else {
         // 1 solo roundtrip: empresa + configuracion (sin BLOB) vía LEFT JOIN ON 1=1
         // (CROSS JOIN devolvería 0 filas si configuracion está vacía)
@@ -112,38 +80,9 @@ try {
         $row_emp = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
         $vals_empresa = $row_emp ?: [];
         $vals_configuracion = $row_emp ?: [];
-        // Logo: archivo por tenant; query separada del BLOB solo al expirar el caché
-        $rutaLogo = null;
-        $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
-        $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
-        if (esImagenValidaParaTcpdf($cachedLogoPng)) {
-            $rutaLogo = $cachedLogoPng;
-        } elseif (esImagenValidaParaTcpdf($cachedLogoJpg)) {
-            $rutaLogo = $cachedLogoJpg;
-        } else {
-            $rec_img = mysqli_query($conn, "SELECT imagen_empresa FROM empresa LIMIT 1");
-            $row_img = $rec_img ? mysqli_fetch_assoc($rec_img) : [];
-            if (!empty($row_img['imagen_empresa'])) {
-                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
-                if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
-                    $ext = strtolower(pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png');
-                    $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
-                    if ($rawLogo !== $targetLogo) @copy($rawLogo, $targetLogo);
-                    $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
-                }
-            }
-            if (empty($rutaLogo)) {
-                $rutaLogo = obtenerRutaLogoEmpresa($conn, null);
-            }
-        }
-        $toCache = array_merge($vals_empresa, $vals_configuracion, ['logo_path' => $rutaLogo]);
-        @file_put_contents($cacheCfgFile, json_encode($toCache));
+        @file_put_contents($cacheCfgFile, json_encode($vals_empresa));
     }
     $tCfg = microtime(true);
-
-    // Logo gigante (ej. 5909px/3MB) ralentiza TCPDF->Image() varios segundos por página.
-    // Reducir una vez a max 500px y reutilizar el *_small.png
-    $rutaLogo = reducirLogoGigante($rutaLogo ?? null, 500);
 
     $id_empresa           = $vals_empresa["id_empresa"] ?? 0;
     $telefono_empresa     = $vals_empresa["telefono_empresa"] ?? '';
@@ -420,9 +359,6 @@ try {
 
     // ─── PÁGINA 1: TICKET GUÍA DE DESPACHO ────────────────────────────────────
     $pdf->SetY(4);
-    if ($rutaLogo) {
-        imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $ancho_impresion, $metricas['margen_mm'], 30, 24, 2.0);
-    }
 
     // 2. Encabezado Empresa y Guía
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
@@ -582,11 +518,7 @@ try {
             $pdf->SetMargins($metricas['margen_mm'], 5, $metricas['margen_mm'], true);
             $pdf->SetAutoPageBreak(false, 0);
 
-            // LOGO
             $pdf->SetY(4);
-            if ($rutaLogo) {
-                imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $ancho_impresion, $metricas['margen_mm'], 24, 18, 1.5);
-            }
 
             // EMPRESA
             $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
@@ -695,7 +627,6 @@ try {
     header('X-PDF-T-cfg: ' . round(($tCfg - $tConn) * 1000) . 'ms');
     header('X-PDF-T-data: ' . round(($tData - $tCfg) * 1000) . 'ms');
     header('X-PDF-T-tcpdf: ' . round((microtime(true) - $tTcpdfStart) * 1000) . 'ms');
-    header('X-PDF-Logo: ' . basename($rutaLogo ?? 'none'));
     header('X-PDF-Memory-Peak: ' . round(memory_get_peak_usage() / 1024 / 1024, 2) . 'MB');
     echo $pdfContent;
     exit;

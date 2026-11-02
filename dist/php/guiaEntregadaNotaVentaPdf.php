@@ -28,7 +28,7 @@ try {
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+    $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
         $rec_emp = mysqli_query($conn, $query_empresa);
         $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
         if (!$vals_empresa) {
@@ -37,7 +37,6 @@ try {
 
     $razon_social_empresa = $vals_empresa["razon_social_empresa"] ?? 'SISTEMA FLOTA';
     $ruc_empresa = $vals_empresa["ruc_empresa"] ?? '';
-    $rutaLogo = obtenerRutaLogoEmpresa($conn, $vals_empresa["imagen_empresa"] ?? null);
 
     // ─── CONSULTAS ───────────────────────────────────────────────────────────
     $sql_verificar = "SELECT 
@@ -136,11 +135,7 @@ try {
     $pdf->SetAutoPageBreak(false, 0);
     $pdf->AddPage();
 
-    // Logo
     $pdf->SetY(4);
-    if ($rutaLogo) {
-        imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoTicket, $margen, 24, 18, 1.5);
-    }
 
     // Empresa
     $pdf->SetFont('helvetica', 'B', 9);

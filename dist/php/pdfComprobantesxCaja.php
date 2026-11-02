@@ -14,14 +14,13 @@ try {
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    $rsEmp = mysqli_query($conn, "SELECT id_empresa, ruc_empresa, razon_social_empresa, direccion_empresa, telefono_empresa, correo_empresa, imagen_empresa, nombre_comercial_empresa FROM empresa LIMIT 1") or die(mysqli_error($conn));
+    $rsEmp = mysqli_query($conn, "SELECT id_empresa, ruc_empresa, razon_social_empresa, direccion_empresa, telefono_empresa, correo_empresa, nombre_comercial_empresa FROM empresa LIMIT 1") or die(mysqli_error($conn));
     $emp = mysqli_fetch_array($rsEmp);
     $razon_social = !empty($emp['razon_social_empresa']) ? $emp['razon_social_empresa'] : (!empty($emp['nombre_comercial_empresa']) ? $emp['nombre_comercial_empresa'] : '');
     $ruc_empresa   = $emp['ruc_empresa'] ?? '';
     $direccion     = $emp['direccion_empresa'] ?? '';
     $telefono      = $emp['telefono_empresa'] ?? '';
     $correo        = $emp['correo_empresa'] ?? '';
-    $logo = obtenerRutaLogoEmpresa($conn, $emp['imagen_empresa'] ?? null);
 
     // ─── CAJA ─────────────────────────────────────────────────────────────────
     $rsCaja = mysqli_query($conn, "
@@ -224,22 +223,6 @@ try {
         .empresa{font-size:16px;font-weight:bold;text-align:center;}
     </style></head><body>';
 
-    // Logo + Empresa
-    if ($logo) {
-        $imgInfo = @getimagesize($logo);
-        if ($imgInfo && $imgInfo[0] > 0 && $imgInfo[1] > 0) {
-            $srcW = $imgInfo[0];
-            $srcH = $imgInfo[1];
-            $maxW = 80;
-            $maxH = 80;
-            $ratio = min($maxW / $srcW, $maxH / $srcH, 1);
-            $w = max(1, round($srcW * $ratio));
-            $h = max(1, round($srcH * $ratio));
-            $html .= '<div class="center"><img src="'.$logo.'" width="'.$w.'px" height="'.$h.'px" /></div>';
-        } else {
-            $html .= '<div class="center"><img src="'.$logo.'" style="max-width:80px;max-height:80px;" /></div>';
-        }
-    }
     $html .= '<div class="empresa">'.$razon_social.'</div>';
     $html .= '<table style="margin:4px 0;"><tr>
         <td width="15%"><b>RUC:</b></td><td width="85%">'.$ruc_empresa.'</td>

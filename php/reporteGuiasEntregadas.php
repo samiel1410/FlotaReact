@@ -60,7 +60,7 @@ $vals = mysqli_fetch_array($recuperar);
 
 
 //EMPRESA
-$query_empresa= "SELECT  id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa";
+$query_empresa= "SELECT  id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa";
 $recuperar_empresa= mysqli_query($conn,$query_empresa) or  die(mysqli_error($conn));
 $vals_empresa = mysqli_fetch_array($recuperar_empresa);
 $nombre_empresa=$vals_empresa['razon_social_empresa'];

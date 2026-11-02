@@ -27,7 +27,7 @@ try {
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+    $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
     $rec_emp = mysqli_query($conn, $query_empresa);
     $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
     if (!$vals_empresa) {
@@ -37,8 +37,6 @@ try {
     $nombre_empresa = $vals_empresa['razon_social_empresa'] ?? '';
     $direccion_empresa = $vals_empresa['direccion_empresa'] ?? '';
     $ruc_empresa = $vals_empresa['ruc_empresa'] ?? '';
-    $imagen_empresa = $vals_empresa['imagen_empresa'] ?? null;
-    $rutaLogo = obtenerRutaLogoEmpresa($conn, $imagen_empresa);
 
     // ─── CONSULTA GUÍA ───────────────────────────────────────────────────────
     $query = "SELECT
@@ -125,12 +123,7 @@ try {
 
     $anchoUtil = 180; // 210 - 30
 
-    // Logo & Header
-    $dimLogo = ['w' => 0, 'h' => 0];
-    if ($rutaLogo) {
-        $dimLogo = imprimirLogoTcpdfA4($pdf, $rutaLogo, 15, 12, 32, 22);
-    }
-    $xEmp = ($dimLogo['w'] > 0) ? (15 + $dimLogo['w'] + 4) : 15;
+    $xEmp = 15;
     $wEmp = 133 - $xEmp;
 
     $pdf->SetXY($xEmp, 13);

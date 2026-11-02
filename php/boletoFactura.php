@@ -123,6 +123,28 @@ function existe_columna_boleto($conn, $tabla, $columna)
 }
 
 /**
+ * Texto de los productos que el pasajero debe retirar.
+ * Recibe [['nombre' => 'Agua', 'cantidad' => 2]] y devuelve "2 AGUAS".
+ */
+function texto_retirar_productos($productos)
+{
+    $partes = [];
+    foreach ($productos as $producto) {
+        $cantidad = (int)($producto['cantidad'] ?? 0);
+        $nombre = trim(mb_strtoupper((string)($producto['nombre'] ?? ''), 'UTF-8'));
+        if ($cantidad <= 0 || $nombre === '') {
+            continue;
+        }
+        // Plural simple: AGUA -> AGUAS, ALMUERZO -> ALMUERZOS.
+        if ($cantidad > 1 && substr($nombre, -1) !== 'S') {
+            $nombre .= 'S';
+        }
+        $partes[] = $cantidad . ' ' . $nombre;
+    }
+    return implode(' + ', $partes);
+}
+
+/**
  * Texto del punto final a imprimir: destino real vendido cuando la agencia
  * vende más allá de la última parada de la ruta (ej. ruta Ambato - Coca
  * vendida hasta Aguagrio, o Coca - Guayaquil continuando en Ambato).
@@ -160,6 +182,7 @@ b.nombre_origen, b.nombre_destino, b.origen_boleto, b.destino_boleto, b.id_fksub
         ? "b.punto_final_boleto,"
         : "NULL AS punto_final_boleto,") . "
 b.clave_acceso_boletos, b.fecha_creacion_boleto,
+b.id_sucursal_venta, b.id_fksucursal_boleto,
 s.nombre_sucursal, u.nombre_usuario, bu.disco_buses, bu.placa_buses,
 r.nombre_rutas, r.andes_rutas, r.piso_rutas, r.id_fkdestino_rutas, b.celular_boleto, b.tipo_boleto, b.estado_boleto,
 sr.nombre_sub_rutas, sr.anden_sub_rutas, sr.piso_sub_rutas, sr.fecha_salida, sr.hora_salida, sr.id_fkdestino_sub_rutas,
@@ -199,6 +222,12 @@ bd.nombre_cliente_boleto_detalle,
 bd.identificacion_boleto_detalle,
 bd.incluye_alimento_boleto_detalle,
 bd.precio_alimento_boleto_detalle,
+" . (existe_columna_boleto($conn, 'boleto_detalle', 'id_fkalimento_boleto_detalle')
+        ? "bd.id_fkalimento_boleto_detalle,"
+        : "NULL AS id_fkalimento_boleto_detalle,") . "
+" . (existe_columna_boleto($conn, 'boleto_detalle', 'costo_socio_alimento_boleto_detalle')
+        ? "bd.costo_socio_alimento_boleto_detalle,"
+        : "0 AS costo_socio_alimento_boleto_detalle,") . "
 bd.id_destino_boleto,
 " . (existe_columna_boleto($conn, 'boleto_detalle', 'punto_final_boleto_detalle')
         ? "bd.punto_final_boleto_detalle,"
@@ -236,6 +265,8 @@ ORDER BY bd.id_boleto_detalle ASC";
             'identificacion_boleto_detalle' => $boleto['identificacion_boleto'] ?? '',
             'incluye_alimento_boleto_detalle' => 0,
             'precio_alimento_boleto_detalle' => 0,
+            'id_fkalimento_boleto_detalle' => null,
+            'costo_socio_alimento_boleto_detalle' => 0,
             'id_destino_boleto' => $boleto['destino_boleto'] ?? 0,
             'subruta_detalle_nombre' => $boleto['nombre_sub_rutas'] ?? '',
             'destino_det_sr_nombre' => $boleto['destino_sr_nombre'] ?? '',
@@ -282,13 +313,8 @@ try {
     $cacheCfgDir = __DIR__ . '/tmp/cache/';
     if (!is_dir($cacheCfgDir)) @mkdir($cacheCfgDir, 0777, true);
     $cacheCfgFile = $cacheCfgDir . 'empresa_cfg_' . $dbKey . '.json';
-    $logosDir = __DIR__ . '/tmp/logos/';
-    if (!is_dir($logosDir)) {
-        @mkdir($logosDir, 0777, true);
-    }
     $vals_empresa = null;
     $vals_config = null;
-    $rutaLogo = null;
     $empresaCfgCached = null;
     if (file_exists($cacheCfgFile) && (time() - filemtime($cacheCfgFile)) < 300) {
         $empresaCfgCached = json_decode(@file_get_contents($cacheCfgFile), true);
@@ -297,38 +323,7 @@ try {
     if ($empresaCfgCached) {
         $vals_empresa = $empresaCfgCached;
         $vals_config  = $empresaCfgCached;
-        $rutaLogo     = $empresaCfgCached['logo_path'] ?? null;
-        // Solo si el archivo físico del logo desapareció se re-resuelve (evita el BLOB en cada hit)
-        if (!empty($rutaLogo) && !esImagenValidaParaTcpdf($rutaLogo)) {
-            $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
-            $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
-            if (esImagenValidaParaTcpdf($cachedLogoPng)) {
-                $rutaLogo = $cachedLogoPng;
-            } elseif (esImagenValidaParaTcpdf($cachedLogoJpg)) {
-                $rutaLogo = $cachedLogoJpg;
-            } else {
-                $res_img = mysqli_query($conn, "SELECT imagen_empresa FROM empresa LIMIT 1");
-                $row_img = $res_img ? mysqli_fetch_assoc($res_img) : [];
-                if (!empty($row_img['imagen_empresa'])) {
-                    $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
-                    if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
-                        $ext = strtolower(pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png');
-                        $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
-                        if ($rawLogo !== $targetLogo) @copy($rawLogo, $targetLogo);
-                        $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
-                    } else {
-                        $rutaLogo = null;
-                    }
-                } else {
-                    $rutaLogo = null;
-                }
-            }
-            $empresaCfgCached['logo_path'] = $rutaLogo;
-            @file_put_contents($cacheCfgFile, json_encode($empresaCfgCached));
-        }
     } else {
-
-    
         // Query liviana sin transferir el BLOB pesado de imagen_empresa
         $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
         $recuperar_empresa = mysqli_query($conn, $query_empresa);
@@ -346,45 +341,13 @@ try {
         $recuperar_config = mysqli_query($conn, $query_config);
         $vals_config = $recuperar_config ? mysqli_fetch_assoc($recuperar_config) : [];
 
-        // Obtener y cachear el logo en disco si aún no existe
-        $cachedLogoPng = $logosDir . 'logo_tenant_' . $dbKey . '.png';
-        $cachedLogoJpg = $logosDir . 'logo_tenant_' . $dbKey . '.jpg';
-        if (esImagenValidaParaTcpdf($cachedLogoPng)) {
-            $rutaLogo = $cachedLogoPng;
-        } else if (esImagenValidaParaTcpdf($cachedLogoJpg)) {
-            $rutaLogo = $cachedLogoJpg;
-        } else {
-            $query_img = "SELECT imagen_empresa FROM empresa LIMIT 1";
-            $res_img = mysqli_query($conn, $query_img);
-            if ($res_img && $row_img = mysqli_fetch_assoc($res_img)) {
-                // Pasamos $dbKey como cacheHint: evita md5() sobre megabytes de binario
-                $rawLogo = procesarLogoParaTcpdf($row_img['imagen_empresa'], $dbKey);
-                if ($rawLogo && esImagenValidaParaTcpdf($rawLogo)) {
-                    $ext = pathinfo($rawLogo, PATHINFO_EXTENSION) ?: 'png';
-                    $targetLogo = $logosDir . 'logo_tenant_' . $dbKey . '.' . $ext;
-                    if ($rawLogo !== $targetLogo) {
-                        @copy($rawLogo, $targetLogo);
-                    }
-                    $rutaLogo = esImagenValidaParaTcpdf($targetLogo) ? $targetLogo : $rawLogo;
-                }
-            }
-            if (empty($rutaLogo)) {
-                $rutaLogo = obtenerRutaLogoEmpresa($conn, null);
-            }
-        }
-
-        
-
         // Persistir config de empresa+configuración (evita 2 queries por request)
-        $toCache = array_merge($vals_empresa ?: [], $vals_config ?: [], ['logo_path' => $rutaLogo]);
+        $toCache = array_merge($vals_empresa ?: [], $vals_config ?: []);
         @file_put_contents($cacheCfgFile, json_encode($toCache));
     }
 
     $t1 = microtime(true);
     header('X-PDF-Time-CfgCache: ' . round(($t1 - $t0) * 1000) . 'ms');
-
-    // Logo gigante (ej. 3MB) ralentiza TCPDF->Image() varios segundos: reducir a 500px
-    $rutaLogo = reducirLogoGigante($rutaLogo ?? null, 500);
 
     $leyenda_viaje = ($vals_config && ($vals_config['mostrar_leyenda_boleteria'] ?? 0) == 1) ? ($vals_config['leyenda_boleteria'] ?? '') :
         'GRACIAS POR SU PREFERENCIA';
@@ -473,13 +436,6 @@ try {
     $fO = $metricas['font_boleto_total_pt'];
     $lh = round($fB * 0.42, 1); // line height en mm (~1pt = 0.353mm)
 
-    // ── LOGO ─────────────────────────────────────────────────────────────────
-    if (!empty($rutaLogo) && file_exists($rutaLogo)) {
-        $logoW = max(10, round(11 * $metricas['factor'])); // ~11mm ≈ 30pt como en el HTML original
-        $x = $metricas['margen_mm'] + ($w - $logoW) / 2;
-        $pdf->Image($rutaLogo, $x, $pdf->GetY(), $logoW, 0, '', '', '', true, 96);
-        $pdf->Ln($logoW + 1); // Avanzar el alto del logo + 1mm de margen
-    }
 
     // ── EMPRESA ───────────────────────────────────────────────────────────────
     $pdf->SetFont('helvetica', 'B', $fT);
@@ -556,6 +512,91 @@ try {
     // Punto final escrito por la agencia (venta más allá de la última parada).
     $puntoFinalBoleto = trim((string)($boleto['punto_final_boleto'] ?? ''));
 
+    // ── PRODUCTOS A RETIRAR (entrega por asiento: AGUA) ───────────────────────
+    // Se cuenta un producto por cada asiento marcado con alimento. El producto
+    // se guardó al vender; en ventas antiguas se busca el marcado para entrega
+    // por asiento en la oficina que vendió.
+    $asientosConAlimento = 0;
+    $conteoProductos = [];
+    foreach ($detalles as $detalle) {
+        if ((int)($detalle['incluye_alimento_boleto_detalle'] ?? 0) !== 1) {
+            continue;
+        }
+        $asientosConAlimento++;
+        $idProducto = (int)($detalle['id_fkalimento_boleto_detalle'] ?? 0);
+        $conteoProductos[$idProducto] = ($conteoProductos[$idProducto] ?? 0) + 1;
+    }
+
+    $productosRetirar = [];
+    if ($asientosConAlimento > 0) {
+        $idSucursalVenta = (int)($boleto['id_sucursal_venta'] ?? $boleto['id_fksucursal_boleto'] ?? 0);
+
+        // Si la venta no guardó el producto, se usa el que la oficina entrega
+        // por asiento (marca `alimento_por_asiento`).
+        $resMarcado = @mysqli_query(
+            $conn,
+            "SELECT a.id_alimentos, a.nombre_alimentos
+               FROM inventario_sucursal i
+               JOIN alimentos a ON a.id_alimentos = i.id_fkalimento
+              WHERE i.id_fksucursal = {$idSucursalVenta}
+                AND a.alimento_por_asiento = 1
+              ORDER BY a.id_alimentos ASC"
+        );
+        if ($resMarcado) {
+            while ($marcado = mysqli_fetch_assoc($resMarcado)) {
+                $idMarcado = (int)$marcado['id_alimentos'];
+                if (!isset($conteoProductos[$idMarcado])) {
+                    $conteoProductos[$idMarcado] = $asientosConAlimento;
+                }
+            }
+        }
+
+        $idsProductos = array_values(array_filter(array_keys($conteoProductos), fn($id) => (int)$id > 0));
+        $nombresProducto = [];
+        if (!empty($idsProductos)) {
+            $resNombres = @mysqli_query(
+                $conn,
+                "SELECT id_alimentos, nombre_alimentos FROM alimentos
+                  WHERE id_alimentos IN (" . implode(',', array_map('intval', $idsProductos)) . ")"
+            );
+            if ($resNombres) {
+                while ($fila = mysqli_fetch_assoc($resNombres)) {
+                    $nombresProducto[(int)$fila['id_alimentos']] = $fila['nombre_alimentos'];
+                }
+            }
+        }
+
+        foreach ($conteoProductos as $idProducto => $cantidad) {
+            $nombreProducto = $nombresProducto[(int)$idProducto] ?? '';
+            if ($nombreProducto === '') {
+                continue;
+            }
+            // Un mismo producto puede venir del viaje y de la oficina: no se
+            // duplica en la lista.
+            $yaListado = false;
+            foreach ($productosRetirar as &$existente) {
+                if (mb_strtoupper($existente['nombre'], 'UTF-8') === mb_strtoupper($nombreProducto, 'UTF-8')) {
+                    $existente['cantidad'] += $cantidad;
+                    $yaListado = true;
+                    break;
+                }
+            }
+            unset($existente);
+            if (!$yaListado) {
+                $productosRetirar[] = ['nombre' => $nombreProducto, 'cantidad' => $cantidad];
+            }
+        }
+
+        // Último respaldo: nombre del producto asignado al viaje.
+        if (empty($productosRetirar) && !empty($boleto['nombres_alimentos'])) {
+            $productosRetirar[] = [
+                'nombre' => $boleto['nombres_alimentos'],
+                'cantidad' => $asientosConAlimento,
+            ];
+        }
+    }
+    $textoRetirar = texto_retirar_productos($productosRetirar);
+
     // ── DETALLES DE PASAJEROS ─────────────────────────────────────────────────
     foreach ($detalles as $detalle) {
         $nombrePasajero = strtoupper($detalle['nombre_cliente_boleto_detalle'] ?? ($boleto['nombres_boleto'] ?? 'PASAJERO'));
@@ -595,6 +636,15 @@ try {
         $pdf->SetFont('helvetica', '', round($fB * 0.9, 1));
         $pdf->Cell($w, $lh, 'Tarifa: ' . $tarifaDetalle, 0, 1, 'L');
         $pdf->Ln(0.5);
+    }
+
+    // ── PRODUCTOS A RETIRAR ───────────────────────────────────────────────────
+    if ($textoRetirar !== '') {
+        $pdf->Ln(1);
+        $pdf->SetLineWidth(0.4);
+        $pdf->SetFont('helvetica', 'B', round($fT * 1.25, 1));
+        $pdf->MultiCell($w, $lh * 1.6, '*** RETIRAR ' . $textoRetirar . ' ***', 1, 'C', false, 1);
+        $pdf->SetLineWidth(0.2);
     }
 
     // ── TOTAL ─────────────────────────────────────────────────────────────────

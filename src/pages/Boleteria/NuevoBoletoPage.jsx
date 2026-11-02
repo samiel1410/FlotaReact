@@ -575,7 +575,7 @@ export const NuevoBoletoPage = () => {
         const destinoTramo = destinoConsulta || undefined;
 
         const promises = [
-          BoleteriaService.getAsientosBusViaje(formData.idViaje, origenTramo, destinoTramo).catch(e => {
+          BoleteriaService.getAsientosBusViaje(formData.idViaje, origenTramo, destinoTramo, sucursalId).catch(e => {
             console.error('[cargarAsientos] Error en getAsientosBusViaje:', e);
             return { success: false };
           })
@@ -609,6 +609,7 @@ export const NuevoBoletoPage = () => {
           const horaDelViaje = selectedViaje?.hora_salida_parada || selectedViaje?.hora_origen_salida || selectedViaje?.hora_salida_rutas || selectedViaje?.hora || selectedViaje?.hora_salida || busData.hora_viaje || formData.viajeTexto?.split(' - ')[0] || '';
           setHoraViaje(horaDelViaje);
           if (busData.incluye_alimentos) setAlimentoInfo(busData);
+          else setAlimentoInfo(null);
 
           const ocupados = [];
           if (asientosRes.asiento) {

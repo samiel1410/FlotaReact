@@ -28,7 +28,7 @@ try {
     $conn = conexion();
     mysqli_query($conn, "SET SESSION sql_mode = ''");
 
-    $query_empresa = "SELECT id_empresa, imagen_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
+    $query_empresa = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa LIMIT 1";
         $rec_emp = mysqli_query($conn, $query_empresa);
         $vals_empresa = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
         if (!$vals_empresa) {
@@ -36,7 +36,6 @@ try {
         }
 
     $empresa = $vals_empresa;
-    $rutaLogo = obtenerRutaLogoEmpresa($conn, $empresa["imagen_empresa"] ?? null);
 
     // Datos del usuario (si viene por GET)
     $nombre_usuario = '';
@@ -112,11 +111,7 @@ try {
     $pdf->SetAutoPageBreak(false, 0);
     $pdf->AddPage();
 
-    // 1. Logo
     $pdf->SetY(4);
-    if ($rutaLogo) {
-        imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoPapel, $margen, 28, 22, 1.5);
-    }
 
     // 2. Cabecera
     $pdf->SetFont('helvetica', 'B', 9.5);
