@@ -179,18 +179,26 @@ class metodoXmlBoleto
                 // Manejar asiento opcional para la descripción
                 $asientoDisplay = ($detalleBoleto['asiento_boleto_detalle'] == '0' || empty($detalleBoleto['asiento_boleto_detalle'])) ? 'S/N' : $detalleBoleto['asiento_boleto_detalle'];
 
-                // Armar descripción según formato solicitado
-                $descripcion = sprintf(
-                    "BOL.%s %s VIAJE %s-%s %s %s ASIENTO %s PASAJERO %s",
+                // Armar descripción según formato solicitado.
+                // El SRI limita <detalle><descripcion> a 300 caracteres
+                // (cvc-maxLength-valid). Las rutas con muchos ramales superan ese
+                // límite, por eso se recorta el encabezado de la ruta conservando
+                // siempre fecha, hora, asiento y pasajero.
+                $descripcionRuta = sprintf(
+                    "BOL.%s %s VIAJE %s-%s",
                     $ruta['codigo_rutas'],
                     strtoupper($ruta['nombre_rutas']),
                     strtoupper($ruta['nombre_rutas']),
-                    strtoupper($ruta['descripcion_rutas']),
+                    strtoupper($ruta['descripcion_rutas'])
+                );
+                $descripcionDatos = sprintf(
+                    "%s %s ASIENTO %s PASAJERO %s",
                     $fecha_viaje,
                     $hora_salida,
                     $asientoDisplay,
                     strtoupper($detalleBoleto['nombre_cliente_boleto_detalle'])
                 );
+                $descripcion = $this->limitarDescripcionSri($descripcionRuta, $descripcionDatos, 300);
 
                 $detalle = $detalles->addChild('detalle');
                 $detalle->addChild('codigoPrincipal', 'BOL.' . $ruta['codigo_rutas']);
@@ -452,6 +460,26 @@ class metodoXmlBoleto
             '/Ñ/' => 'N'
         );
         return preg_replace(array_keys($utf8), array_values($utf8), $text);
+    }
+
+    /**
+     * Recorta la descripción del detalle al máximo permitido por el SRI (300),
+     * conservando intacta la parte final (fecha, hora, asiento y pasajero).
+     */
+    private function limitarDescripcionSri($encabezado, $datos, $maximo = 300)
+    {
+        $descripcion = trim($encabezado . ' ' . $datos);
+        if (mb_strlen($descripcion, 'UTF-8') <= $maximo) {
+            return $descripcion;
+        }
+
+        $disponible = $maximo - mb_strlen($datos, 'UTF-8') - 1;
+        if ($disponible <= 0) {
+            return mb_substr($descripcion, 0, $maximo, 'UTF-8');
+        }
+
+        $encabezadoRecortado = rtrim(mb_substr($encabezado, 0, $disponible, 'UTF-8'));
+        return $encabezadoRecortado . ' ' . $datos;
     }
 
     public function seleccionarViaje($id_viaje)

@@ -150,7 +150,6 @@ export const NuevoBoletoPage = () => {
   const [showCambiarAgenciaModal, setShowCambiarAgenciaModal] = useState(false);
   const [asientoOcupado, setAsientoOcupado] = useState(null);
   const [showListadoPasajeros, setShowListadoPasajeros] = useState(false);
-  const [autoAutorizarBoleto, setAutoAutorizarBoleto] = useState(false);
   const [descuentoGlobalBoleto, setDescuentoGlobalBoleto] = useState(false);
   const [omitirConfirmacionBoleto, setOmitirConfirmacionBoleto] = useState(false);
   const [permitirConsumidorFinal, setPermitirConsumidorFinal] = useState(true);
@@ -347,9 +346,6 @@ export const NuevoBoletoPage = () => {
         if (viajesRes.success && viajesRes.data) setViajesDisponibles(viajesRes.data);
         if (configRes.data?.success && configRes.data?.data?.length > 0) {
           const cfg = configRes.data.data[0];
-          if (cfg.autorizar_boleto_sri === 1 || cfg.autorizar_boleto_sri === true) {
-            setAutoAutorizarBoleto(true);
-          }
           if (cfg.descuento_global_boleto === 1 || cfg.descuento_global_boleto === true) {
             setDescuentoGlobalBoleto(true);
           }
@@ -1113,14 +1109,6 @@ export const NuevoBoletoPage = () => {
     }
   };
 
-  const autorizarBoleto = async (id_boleto) => {
-    try {
-      await BoleteriaService.autorizarBoleto(id_boleto);
-    } catch (e) {
-      console.error('Error autorizando boleto:', e);
-    }
-  };
-
   const limpiarFormulario = () => {
     deseleccionarAsientosActuales();
     setFormData(prev => ({
@@ -1403,9 +1391,9 @@ export const NuevoBoletoPage = () => {
         const idBoleto = response.id_boleto;
         toast.success(esReserva ? 'Boleto(s) reservado(s) correctamente' : 'Boleto(s) generado(s) correctamente');
         if (idBoleto) {
-          if (autoAutorizarBoleto) {
-            autorizarBoleto(idBoleto);
-          }
+          // El envío al SRI lo realiza el backend (services/sriJobService) al
+          // insertar el boleto. Aquí no se debe marcar como AUTORIZADO sin la
+          // respuesta real del SRI.
           await imprimirBoleto(idBoleto);
 
           // Envío por WhatsApp si aplica

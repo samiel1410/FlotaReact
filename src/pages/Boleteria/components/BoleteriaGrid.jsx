@@ -41,17 +41,21 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
     };
   };
 
-  // Estado SRI (solo tres): AUTORIZADO, EN PROCESO y ANULADO.
+  // Estado SRI: AUTORIZADO, EN PROCESO, RECHAZADO y ANULADO.
+  // RECHAZADO/DEVUELTA NO es una anulación: el SRI devolvió el comprobante por
+  // un error de estructura y debe corregirse y reenviarse.
   const formatSri = (estado) => {
     const e = String(estado || '').toUpperCase();
     if (e === 'AUTORIZADO' || e === 'AUTORIZADA') {
       return { label: 'AUTORIZADO', color: 'green', icon: 'fa-check-circle' };
     }
-    if (e === 'PENDIENTE' || e === 'RECIBIDA' || e === '') {
-      return { label: 'EN PROCESO', color: '#f39c12', icon: 'fa-clock' };
+    if (e === 'ANULADO' || e === 'ANULADA') {
+      return { label: 'ANULADO', color: '#c0392b', icon: 'fa-ban' };
     }
-    // RECHAZADO / DEVUELTA / nota de crédito => documento no válido.
-    return { label: 'ANULADO', color: '#c0392b', icon: 'fa-exclamation-circle' };
+    if (e === 'RECHAZADO' || e === 'DEVUELTA' || e === 'NO AUTORIZADO') {
+      return { label: 'RECHAZADO', color: '#c0392b', icon: 'fa-exclamation-circle' };
+    }
+    return { label: 'EN PROCESO', color: '#f39c12', icon: 'fa-clock' };
   };
 
   if (loading) {
@@ -163,7 +167,7 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                     <div style={{color: sri.color, fontWeight: 'bold'}}>
                       <i className={`fas ${sri.icon}`} style={{marginRight: '4px'}}></i>
                       {sri.label}
-                      {item.mensaje_sri && sri.label === 'ANULADO' && (
+                      {item.mensaje_sri && (sri.label === 'RECHAZADO' || sri.label === 'ANULADO') && (
                         <div style={{fontSize: '9px', color: '#e74c3c', marginTop: '2px', maxWidth: '140px', margin: '2px auto 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}} title={item.mensaje_sri}>
                           {item.mensaje_sri}
                         </div>
