@@ -477,10 +477,41 @@ function ride_pie($pdf, $generadoPor)
     $pdf->Cell(RIDE_ANCHO, 3.4, 'Consulte la validez y autorización de este comprobante en el portal del SRI (www.sri.gob.ec).', 0, 1, 'C');
 
     $pdf->SetX(RIDE_MARGEN);
-    $pdf->SetFont('helvetica', '', 6.6);
+    $tamano = 6.6;
+    $pdf->SetFont('helvetica', '', $tamano);
+    while ($tamano > 5.0 && $pdf->GetStringWidth($generadoPor) > (RIDE_ANCHO - 4)) {
+        $tamano -= 0.2;
+        $pdf->SetFont('helvetica', '', $tamano);
+    }
     $pdf->Cell(RIDE_ANCHO, 3.4, $generadoPor, 0, 1, 'C');
 
     $pdf->SetY($y - 1);
+}
+
+/**
+ * Pie con los datos de la empresa emisora en lugar de la marca del sistema.
+ */
+function ride_pie_empresa($pdf, $empresa, $prefijo = '')
+{
+    $partes = [];
+
+    if ($prefijo !== '') {
+        $partes[] = $prefijo;
+    }
+
+    $razonSocial = mb_strtoupper(trim((string)($empresa['razon_social_empresa'] ?? '')), 'UTF-8');
+    if ($razonSocial !== '') {
+        $partes[] = $razonSocial;
+    }
+    if (!empty($empresa['ruc_empresa'])) {
+        $partes[] = 'RUC: ' . $empresa['ruc_empresa'];
+    }
+    if (!empty($empresa['telefono_empresa'])) {
+        $partes[] = 'Tel: ' . $empresa['telefono_empresa'];
+    }
+    $partes[] = 'Fecha: ' . date('d/m/Y, g:i:s A');
+
+    ride_pie($pdf, implode('  |  ', $partes));
 }
 
 /**

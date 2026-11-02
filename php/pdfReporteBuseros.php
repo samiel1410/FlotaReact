@@ -2,6 +2,7 @@
 require_once 'library/tcpdf.php';
 require_once "db.php";
 require_once "pdf_utils.php";
+require_once __DIR__ . '/branding.php';
 date_default_timezone_set('America/Guayaquil');
 
 try {
@@ -587,6 +588,6 @@ try {
 
     $pdf->Output('Reporte_Ventas_Buseros.pdf', 'I');
 
-} catch (Exception $e) {
+} catch (Throwable $e) {
     echo '<html><body><h3>Error al generar PDF: ' . htmlspecialchars($e->getMessage()) . '</h3></body></html>';
 }

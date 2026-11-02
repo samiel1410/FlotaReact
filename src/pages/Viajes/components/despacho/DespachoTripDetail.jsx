@@ -673,7 +673,7 @@ export const DespachoTripDetail = ({
                 <button
                   type="button"
                   onClick={onDespachar}
-                  disabled={despachando || noCumpliendo}
+                  disabled={despachando || noCumpliendo || !hayVentasPendientes}
                   className="flex-1 h-13 text-sm font-extrabold rounded-xl text-white tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:transform-none"
                   style={{
                     background: despachando
@@ -718,6 +718,11 @@ export const DespachoTripDetail = ({
               <p className="text-[11px] text-slate-400 font-medium text-center">
                 Al despachar se emitirá la hoja de ruta en SRI. Si el bus no salió, presione <strong>No Cumple</strong> para anular el viaje y sus deudas.
               </p>
+              {!hayVentasPendientes && (
+                <p className="text-[11px] font-semibold text-amber-700 text-center">
+                  Su oficina no tiene ventas pendientes de despacho en este viaje.
+                </p>
+              )}
             </>
           )}
         </div>

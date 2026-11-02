@@ -30,6 +30,13 @@ function copyDir(from, to) {
 copyDir(src, dst);
 console.log('✅ php/ copiado a dist/php/ exitosamente.');
 
+// branding.json lo lee php/branding.php desde el directorio padre (dist/).
+const brandingSrc = join(root, 'branding.json');
+if (existsSync(brandingSrc)) {
+    copyFileSync(brandingSrc, join(root, 'dist', 'branding.json'));
+    console.log('✅ branding.json copiado a dist/ exitosamente.');
+}
+
 const publicSrc = join(root, 'public');
 const publicDst = join(root, 'dist');
 if (existsSync(publicSrc)) {

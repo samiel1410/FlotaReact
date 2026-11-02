@@ -214,9 +214,6 @@ function render_guia_a4($pdf, $guia, $items, $empresa, $opciones = [])
     $pdf->SetY($yBloque + $altoBloque);
 
     // ── PIE ───────────────────────────────────────────────────────────────────
-    $generado = 'Generado por SistemaFlota  |  Fecha: ' . date('d/m/Y, g:i:s A');
-    if ($reimpresoPor !== '') {
-        $generado = 'Reimpreso por: ' . $reimpresoPor . '  |  ' . $generado;
-    }
-    ride_pie($pdf, $generado);
+    $prefijo = $reimpresoPor !== '' ? 'Reimpreso por: ' . $reimpresoPor : '';
+    ride_pie_empresa($pdf, $empresa, $prefijo);
 }

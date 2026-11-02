@@ -260,5 +260,5 @@ function render_boleto_a4($pdf, $boleto, $detalles, $empresa, $opciones = [])
     $pdf->SetY($yBloque + $altoBloque);
 
     // ── PIE ───────────────────────────────────────────────────────────────────
-    ride_pie($pdf, 'Generado por SistemaFlota  |  Fecha: ' . date('d/m/Y, g:i:s A'));
+    ride_pie_empresa($pdf, $empresa);
 }
