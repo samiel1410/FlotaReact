@@ -2,7 +2,17 @@
 require_once 'library/tcpdf.php';
 require_once "db.php";
 require_once "pdf_utils.php";
-require_once __DIR__ . '/branding.php';
+
+$brandingFile = __DIR__ . '/branding.php';
+if (is_file($brandingFile)) {
+    require_once $brandingFile;
+}
+if (!function_exists('brand_name')) {
+    function brand_name(): string { return 'Easysplus'; }
+}
+if (!function_exists('brand_tagline')) {
+    function brand_tagline(): string { return 'Sistema de facturación electrónica'; }
+}
 date_default_timezone_set('America/Guayaquil');
 
 try {

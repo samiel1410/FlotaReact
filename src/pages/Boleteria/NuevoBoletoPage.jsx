@@ -1443,6 +1443,22 @@ export const NuevoBoletoPage = () => {
               console.error('Error preparando PDF boleto para WhatsApp', e);
             }
           }
+
+          // Envío automático al correo del cliente (PDF A4 factura + boleto y XML del SRI)
+          const correoDestino = (formData.correo || '').trim();
+          if (correoDestino && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correoDestino)) {
+            try {
+              const envio = await BoleteriaService.enviarCorreoBoleto(idBoleto, { correo: correoDestino });
+              if (envio?.success) {
+                toast.success(`Comprobante enviado a ${correoDestino}`);
+              } else if (envio?.message) {
+                toast.error(envio.message);
+              }
+            } catch (e) {
+              console.error('Error enviando comprobante por correo:', e?.response?.data || e);
+              toast.error('No se pudo enviar el comprobante por correo');
+            }
+          }
         }
         const viajeVendido = formData.idViaje;
         limpiarParaSiguienteVenta();

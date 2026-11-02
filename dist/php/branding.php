@@ -25,8 +25,8 @@ if (!function_exists('brand_config')) {
         }
 
         $defaults = [
-            'name' => 'Nexusplus',
-            'legalName' => 'Nexusplus Solutions',
+            'name' => 'Easysplus',
+            'legalName' => 'Easysplus Solutions',
             'productTitle' => 'Sistema de Gestión',
             'tagline' => 'Sistema de facturación electrónica',
             'logo' => '/images/transpaeasy.png',
