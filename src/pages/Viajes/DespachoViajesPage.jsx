@@ -184,13 +184,22 @@ export const DespachoViajesPage = () => {
   // ── Despachar viaje ──────────────────────────────────────────
   const handleDespachar = async () => {
     const tripId = selectedTrip?.id_viajes || selectedTrip?.id_viaje;
-    if (detailData?.despachado_en_mi_sucursal) {
-      toast.error('Este viaje ya está despachado por su oficina. Reviértalo si necesita corregirlo.');
+    const pendiente = detailData?.despacho_pendiente;
+    // Despacho por turno: la oficina puede despachar varias veces el mismo
+    // viaje; lo que no se puede es despachar sin ventas nuevas.
+    const hayVentasPendientes = pendiente
+      ? Boolean(pendiente.hay_pendientes)
+      : !detailData?.despachado_en_mi_sucursal;
+    if (!hayVentasPendientes) {
+      toast.error('No hay ventas nuevas por despachar en este viaje para su oficina.');
       return;
     }
     const confirm = await Swal.fire({
       title: '¿Confirmar despacho de viaje?',
-      html: `¿Está seguro de despachar el viaje <b>N° ${tripId}</b> hacia <b>${selectedTrip?.destino || ''}</b>?`,
+      html: `¿Está seguro de despachar el viaje <b>N° ${tripId}</b> hacia <b>${selectedTrip?.destino || ''}</b>?` +
+        (pendiente?.hay_pendientes
+          ? `<br><br><span style="font-size:12px;color:#475569">Se entregarán <b>${pendiente.cantidad_boletos} boleto(s)</b> por <b>$${pendiente.entrega}</b> vendidos después del despacho #${pendiente.desde_despacho_id || ''}.</span>`
+          : ''),
       icon: 'question',
       showCancelButton: true,
       confirmButtonColor: '#059669',

@@ -197,6 +197,44 @@ try {
         $sello_despacho = '9999-12-31 23:59:59';
     }
 
+    // ─── CORTE DEL TURNO ANTERIOR ────────────────────────────────────────────
+    // El despacho es por turno: si la oficina ya despachó este viaje antes, esta
+    // hoja solo debe incluir la venta posterior a ese corte. Sin el límite
+    // inferior, la segunda hoja reimprime los pasajeros/dinero ya entregados y
+    // el "RECIBE" se duplica.
+    $sello_anterior = '';
+    if ($id_despacho_num > 0) {
+        try {
+            $query_prev = "SELECT MAX(dv_p.fecha_creacion_despacho_viaje) AS sello_anterior
+                             FROM despacho_viaje dv_p
+                             JOIN usuario u_p ON u_p.id_usuario = dv_p.id_fkusuario_aprueba
+                             LEFT JOIN sucursal2 s_p ON (s_p.id_sucursal = u_p.id_fksucursal_usuario OR s_p.suc_codigo_sucursal = u_p.id_fksucursal_usuario)
+                            WHERE dv_p.id_fkviaje_despacho_viaje = ?
+                              AND dv_p.id_despacho_viaje <> ?
+                              AND dv_p.fecha_creacion_despacho_viaje < ?
+                              AND (
+                                   (? = 0 AND ? = '')
+                                   OR s_p.id_sucursal = ?
+                                   OR s_p.suc_codigo_sucursal = ?
+                              )";
+            $stmt_prev = $conn->prepare($query_prev);
+            $stmt_prev->bind_param(
+                "iisisii",
+                $id_despacho_viaje,
+                $id_despacho_num,
+                $sello_despacho,
+                $id_sucursal_despacho, $codigo_sucursal_despacho,
+                $id_sucursal_despacho, $id_sucursal_despacho
+            );
+            $stmt_prev->execute();
+            $row_prev = $stmt_prev->get_result()->fetch_assoc();
+            $stmt_prev->close();
+            $sello_anterior = !empty($row_prev['sello_anterior']) ? (string)$row_prev['sello_anterior'] : '';
+        } catch (Throwable $ePrev) {
+            $sello_anterior = '';
+        }
+    }
+
     $nombre_chofer = trim($despacho['nombre_completo_chofer'] ?? '');
     if (empty($nombre_chofer) && !empty($despacho['chofer_viajes'])) {
         $nombre_chofer = trim($despacho['chofer_viajes']);
@@ -228,6 +266,7 @@ try {
          WHERE b.id_fkviaje_boleto = ?
            AND (b.estado_boleto IS NULL OR b.estado_boleto != 3)
            AND (b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= ?)
+           AND (? = '' OR (b.fecha_creacion_boleto IS NOT NULL AND b.fecha_creacion_boleto > ?))
            AND (
                (? = 0 AND ? = '')
                OR EXISTS (
@@ -243,9 +282,10 @@ try {
       ) t";
 
     $stmt_tot = $conn->prepare($query_totales);
-    $stmt_tot->bind_param("isiiss",
+    $stmt_tot->bind_param("isssisss",
         $id_despacho_viaje,
         $sello_despacho,
+        $sello_anterior, $sello_anterior,
         $id_sucursal_despacho, $codigo_sucursal_despacho,
         $id_sucursal_despacho, $codigo_sucursal_despacho
     );
@@ -371,15 +411,17 @@ try {
             )
         )
         AND (b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= ?)
+        AND (? = '' OR (b.fecha_creacion_boleto IS NOT NULL AND b.fecha_creacion_boleto > ?))
       GROUP BY origen
       ORDER BY origen ASC";
 
     $stmt_origen = $conn->prepare($query_origen);
-    $stmt_origen->bind_param("iisiss", 
+    $stmt_origen->bind_param("iisissss", 
         $id_despacho_viaje, 
         $id_sucursal_despacho, $codigo_sucursal_despacho,
         $id_sucursal_despacho, $codigo_sucursal_despacho,
-        $sello_despacho
+        $sello_despacho,
+        $sello_anterior, $sello_anterior
     );
     $stmt_origen->execute();
     $result_origen = $stmt_origen->get_result();

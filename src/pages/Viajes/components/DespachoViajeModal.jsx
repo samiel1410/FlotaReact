@@ -51,7 +51,7 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
               bus_disco: detailRes.data?.unidad?.id || '',
               nombre_chofer: detailRes.data?.conductor?.id || '',
               nombre_auxiliar: detailRes.data?.auxiliar?.id || '',
-              tarifa: detailRes.data?.valores?.entrega || '',
+              tarifa: detailRes.data?.valores?.sucursal_usuario?.entrega ?? detailRes.data?.valores?.entrega ?? '',
             }));
           }
         }
@@ -208,24 +208,51 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
             </div>
           </div>
 
-          {/* Resumen de valores (desde detalle) */}
+          {/* Resumen de valores (desde detalle). Se usa la sucursal del usuario:
+              el despacho entrega solo la venta de MI oficina posterior a su
+              último corte (turno), no la venta completa del viaje. */}
           {detalle && (
-            <div className="grid grid-cols-3 gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
-              <div className="text-center">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Boletos</span>
-                <p className="text-lg font-black text-emerald-700">${parseFloat(detalle.valores?.boletos || 0).toFixed(2)}</p>
-                <span className="text-[10px] text-slate-500">{detalle.cantidad_boletos || 0} pasajeros</span>
-              </div>
-              <div className="text-center">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Retención</span>
-                <p className="text-lg font-black text-amber-600">${parseFloat(detalle.valores?.retencion || 0).toFixed(2)}</p>
-                <span className="text-[10px] text-slate-500">CxC + % sucursal</span>
-              </div>
-              <div className="text-center">
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">A Entregar</span>
-                <p className="text-lg font-black text-blue-700">${parseFloat(detalle.valores?.entrega || 0).toFixed(2)}</p>
-                <span className="text-[10px] text-slate-500">Neto conductor</span>
-              </div>
+            (() => {
+              const misValores = detalle.valores?.sucursal_usuario || {};
+              const boletos = parseFloat(misValores.boletos ?? detalle.valores?.boletos ?? 0);
+              const retencion = parseFloat(misValores.retencion_aplicada ?? misValores.retencion ?? detalle.valores?.retencion ?? 0);
+              const entrega = parseFloat(misValores.entrega ?? detalle.valores?.entrega ?? 0);
+              const pasajeros = detalle.despacho_pendiente?.pasajeros?.length
+                ?? misValores.cantidad_boletos
+                ?? detalle.cantidad_boletos
+                ?? 0;
+              return (
+                <div className="grid grid-cols-3 gap-3 p-3 bg-emerald-50 rounded-xl border border-emerald-100">
+                  <div className="text-center">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Boletos</span>
+                    <p className="text-lg font-black text-emerald-700">${boletos.toFixed(2)}</p>
+                    <span className="text-[10px] text-slate-500">{pasajeros} pasajeros</span>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Retención</span>
+                    <p className="text-lg font-black text-amber-600">${retencion.toFixed(2)}</p>
+                    <span className="text-[10px] text-slate-500">CxC + % sucursal</span>
+                  </div>
+                  <div className="text-center">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">A Entregar</span>
+                    <p className="text-lg font-black text-blue-700">${entrega.toFixed(2)}</p>
+                    <span className="text-[10px] text-slate-500">Neto conductor</span>
+                  </div>
+                </div>
+              );
+            })()
+          )}
+
+          {/* Aviso de despacho por turno: ya existe una entrega previa de mi
+              oficina y este despacho cubre solo las ventas nuevas. */}
+          {detalle?.despachado_en_mi_sucursal && detalle?.despacho_pendiente?.hay_pendientes && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] font-semibold text-amber-900 flex items-start gap-2">
+              <i className="fas fa-layer-group text-amber-600 mt-0.5" />
+              <span>
+                Su oficina ya tiene el despacho #{detalle.despacho_pendiente.desde_despacho_id || ''}.
+                Este despacho entregará solo las <b>{detalle.despacho_pendiente.cantidad_boletos} venta(s) nueva(s)</b>
+                {' '}por <b>${detalle.despacho_pendiente.entrega}</b>.
+              </span>
             </div>
           )}
 
@@ -262,22 +289,29 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
               className={inputCls} />
           </div>
 
-          {/* Asientos del viaje */}
-          {detalle?.asientos && detalle.asientos.length > 0 && (
-            <div>
-              <label className={labelCls}>Pasajeros ({detalle.asientos.length})</label>
-              <div className="max-h-32 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
-                {detalle.asientos.map((a, i) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-1.5 text-[10px]">
-                    <span className="font-bold text-slate-600 w-8">#{a.numero}</span>
-                    <span className="font-semibold text-slate-700 flex-1">{a.pasajero?.nombre || '—'}</span>
-                    <span className="text-slate-400 w-20">{a.pasajero?.destino || ''}</span>
-                    <span className="font-bold text-emerald-600 w-16 text-right">${parseFloat(a.pasajero?.precio || 0).toFixed(2)}</span>
-                  </div>
-                ))}
+          {/* Pasajeros que cubre ESTE despacho: si la oficina ya despachó un
+              turno, solo se listan las ventas posteriores a ese corte. */}
+          {(() => {
+            const pasajerosLista = detalle?.despacho_pendiente?.hay_pendientes
+              ? detalle.despacho_pendiente.pasajeros
+              : (detalle?.asientos || []);
+            if (!pasajerosLista || pasajerosLista.length === 0) return null;
+            return (
+              <div>
+                <label className={labelCls}>Pasajeros ({pasajerosLista.length})</label>
+                <div className="max-h-32 overflow-y-auto border border-slate-200 rounded-lg divide-y divide-slate-100">
+                  {pasajerosLista.map((a, i) => (
+                    <div key={i} className="flex items-center justify-between px-3 py-1.5 text-[10px]">
+                      <span className="font-bold text-slate-600 w-8">#{a.numero}</span>
+                      <span className="font-semibold text-slate-700 flex-1">{a.pasajero?.nombre || '—'}</span>
+                      <span className="text-slate-400 w-20">{a.pasajero?.destino || ''}</span>
+                      <span className="font-bold text-emerald-600 w-16 text-right">${parseFloat(a.pasajero?.precio || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
 
         {/* Footer */}

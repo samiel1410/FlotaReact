@@ -138,10 +138,8 @@ export const ListaViajes = () => {
   // ─── ACCIONES ──────────────────────────────────────────────────────────
   const handleDespachar = (trip) => {
     setMenuAbierto(null);
-    if (tieneDespacho(trip)) {
-      toast.error('Este viaje ya está despachado por su oficina. Reviértalo si necesita corregirlo.');
-      return;
-    }
+    // Despacho por turno: el backend valida si quedan ventas nuevas por
+    // entregar, así que no se bloquea aquí por tener un despacho previo.
     setModalDespacho(trip);
   };
 
@@ -487,7 +485,7 @@ export const ListaViajes = () => {
                           <div className="fixed inset-0 z-10" onClick={() => setMenuAbierto(null)} />
                           <div className={`absolute right-10 ${idx >= trips.length - 2 && trips.length > 3 ? 'bottom-0 mb-1' : 'top-0 mt-1'} z-[9999] w-56 bg-white rounded-xl shadow-xl border border-slate-200 py-1 overflow-hidden`}>
                             {[
-                              { icon: 'fa-eye', label: 'Despachar Viaje', action: () => handleDespachar(t), color: 'text-emerald-600', show: t.estado_viajes == 1 && !tieneDespacho(t) },
+                              { icon: 'fa-eye', label: 'Despachar Viaje', action: () => handleDespachar(t), color: 'text-emerald-600', show: t.estado_viajes == 1 },
                               { icon: 'fa-undo', label: 'Reversar Despacho', action: () => handleReversarDespacho(t), color: 'text-rose-600', show: tieneDespacho(t) && isAdmin },
                               { icon: 'fa-clock', label: 'Habilitar Tiempo Extra', action: () => handleTiempoExtra(t), color: 'text-blue-600', show: t.estado_viajes != 0 },
                               { icon: 'fa-file-pdf', label: 'PDF Despacho', action: () => handlePdfDespacho(t), color: 'text-rose-600', show: tieneDespacho(t) },

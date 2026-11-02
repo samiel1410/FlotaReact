@@ -99,15 +99,17 @@ export const BoleteriaPage = () => {
     );
   };
 
-  const openPdfViewer = (id_boleto) => {
+  const openPdfViewer = (id_boleto, generador = 'boletoFactura') => {
     if (!id_boleto) return;
-    const urlGenerador = buildPdfUrl(`/php/boletoFactura.php?id_boleto=${id_boleto}`);
+    const urlGenerador = buildPdfUrl(`/php/${generador}.php?id_boleto=${id_boleto}`);
     setPdfUrl(urlGenerador);
     setPdfModalOpen(true);
   };
 
-  const handleVisualizarPdf = (item) => openPdfViewer(item?.id_boleto);
-  const handleImprimir = (item) => openPdfViewer(item?.id_boleto);
+  // Vista previa en hoja A4 (formato RIDE) para revisar el comprobante.
+  const handleVisualizarPdf = (item) => openPdfViewer(item?.id_boleto, 'boletoFacturaA4');
+  // La impresión sigue usando el ticket térmico de boletería (80 mm).
+  const handleImprimir = (item) => openPdfViewer(item?.id_boleto, 'boletoFactura');
 
   const handleAnular = async (item) => {
     if (!item?.id_boleto) return;
@@ -256,6 +258,90 @@ export const BoleteriaPage = () => {
     }
   };
 
+  const escaparHtml = (valor) => String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+  const handleEnviarCorreo = async (item) => {
+    if (!item?.id_boleto) return;
+
+    const numero = [
+      item.sucursal_emision_boleto || '001',
+      item.punto_emision_boleto || '001',
+      String(item.numero_boleto ?? '').padStart(9, '0')
+    ].join('-');
+    const correoBoleto = item.correo_boleto || '';
+
+    const { value: datos, isConfirmed } = await Swal.fire({
+      title: 'Enviar comprobante por correo',
+      html: `
+        <div style="text-align:left;font-size:13px;line-height:1.5;">
+          <p style="margin:0 0 12px;color:#475569;">
+            Boleto <b>${escaparHtml(numero)}</b> — ${escaparHtml(item.nombres_boleto || '')}
+          </p>
+          <label style="display:block;font-weight:600;margin-bottom:4px;">Correo destinatario *</label>
+          <input id="swal-correo" class="swal2-input" type="email" style="margin:0 0 10px;width:100%;"
+                 placeholder="usuario@correo.com" value="${escaparHtml(correoBoleto)}">
+          <label style="display:block;font-weight:600;margin-bottom:4px;">Copia (opcional)</label>
+          <input id="swal-copia" class="swal2-input" type="email" style="margin:0 0 10px;width:100%;"
+                 placeholder="copia@correo.com">
+          <label style="display:block;font-weight:600;margin-bottom:4px;">Mensaje (opcional)</label>
+          <textarea id="swal-mensaje" class="swal2-textarea" style="margin:0;width:100%;height:70px;"
+                    placeholder="Mensaje adicional para el pasajero"></textarea>
+          <p style="margin:12px 0 0;font-size:11.5px;color:#64748b;">
+            Se adjuntarán el <b>PDF A4</b> (factura + boleto) y el <b>XML</b> del comprobante electrónico.
+          </p>
+        </div>`,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: '<i class="fas fa-paper-plane"></i> Enviar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#16a085',
+      cancelButtonColor: '#95a5a6',
+      reverseButtons: true,
+      preConfirm: () => {
+        const correo = (document.getElementById('swal-correo')?.value || '').trim();
+        const copia = (document.getElementById('swal-copia')?.value || '').trim();
+        const mensaje = (document.getElementById('swal-mensaje')?.value || '').trim();
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        if (!correo) {
+          Swal.showValidationMessage('Ingrese el correo del destinatario');
+          return false;
+        }
+        if (!emailRegex.test(correo)) {
+          Swal.showValidationMessage('El correo del destinatario no es válido');
+          return false;
+        }
+        if (copia && !emailRegex.test(copia)) {
+          Swal.showValidationMessage('El correo en copia no es válido');
+          return false;
+        }
+        return { correo, copia, mensaje };
+      }
+    });
+
+    if (!isConfirmed || !datos) return;
+
+    try {
+      const res = await toast.promise(
+        BoleteriaService.enviarCorreoBoleto(item.id_boleto, datos),
+        {
+          loading: 'Generando PDF y XML, enviando correo...',
+          success: (r) => r?.message || `Comprobante enviado a ${datos.correo}`,
+          error: (err) => err?.response?.data?.message || 'No se pudo enviar el correo'
+        }
+      );
+      if (res?.advertencia) {
+        toast(`Se envió el correo sin el XML: ${res.advertencia}`, { icon: '⚠️', duration: 7000 });
+      }
+    } catch (error) {
+      console.error('[Enviar correo boleto] Error:', error?.response?.data || error);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full gap-2 p-0 bg-slate-100/50">
       {/* ── CABECERA INTEGRADA ────────────────────────────────────────────────── */}
@@ -302,6 +388,7 @@ export const BoleteriaPage = () => {
             onImprimir={handleImprimir}
             onAnular={handleAnular}
             onReenviarSri={handleReenviarSri}
+            onEnviarCorreo={handleEnviarCorreo}
             onCambiarFecha={handleCambiarFecha}
             currentUserId={currentUser.id_usuario}
             reenviandoId={reenviandoId}
@@ -323,6 +410,7 @@ export const BoleteriaPage = () => {
         onClose={() => { setPdfModalOpen(false); setPdfUrl(null); }}
         url={pdfUrl}
         title="Boleto de Viaje"
+        showPrintButton
       />
     </div>
   );

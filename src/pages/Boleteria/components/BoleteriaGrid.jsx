@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import '../../Guias/components/GuiasGrid.css';
 
-export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange, onReload, onVisualizarPdf, onImprimir, onAnular, onReenviarSri, onCambiarFecha, currentUserId, reenviandoId }) => {
+export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange, onReload, onVisualizarPdf, onImprimir, onAnular, onReenviarSri, onEnviarCorreo, onCambiarFecha, currentUserId, reenviandoId }) => {
   const [activeMenu, setActiveMenu] = useState(null);
 
   const toggleMenu = (id) => {
@@ -190,6 +190,7 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                           <button onClick={() => { setActiveMenu(null); onImprimir?.(item); }}><i className="fas fa-print" style={{color: 'gray'}}></i> Imprimir</button>
                           <button onClick={() => { setActiveMenu(null); onAnular?.(item); }}><i className="fas fa-ban" style={{color: 'red'}}></i> Anular</button>
                           <button onClick={() => { setActiveMenu(null); onReenviarSri?.(item); }}><i className="fas fa-cloud-upload-alt" style={{color: '#3498db'}}></i> Reenviar SRI</button>
+                          <button onClick={() => { setActiveMenu(null); onEnviarCorreo?.(item); }}><i className="fas fa-envelope" style={{color: '#16a085'}}></i> Enviar correo</button>
                           {/* Cambiar Fecha: solo visible si el usuario actual es quien vendió el boleto y no está anulado */}
                           {Number(item.id_fkusuario_boleto) === Number(currentUserId) && Number(item.estado_boleto) !== 3 && (
                             <button onClick={() => { setActiveMenu(null); onCambiarFecha?.(item); }} style={{color: '#e67e22'}}>

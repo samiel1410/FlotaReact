@@ -161,5 +161,29 @@ export const BoleteriaService = {
   autorizarBoleto: async (idBoleto, estado = 'AUTORIZADO', mensaje = '') => {
     const response = await api.post('/boleto/registrarAutorizacion', { id_boleto: idBoleto, estado, mensaje });
     return response.data;
+  },
+
+  // ============ ENVÍO POR CORREO ============
+
+  /**
+   * Envía el comprobante del boleto por correo: PDF A4 (factura + boleto) y XML del SRI.
+   * @param {number} idBoleto
+   * @param {Object} [opciones]
+   * @param {string} [opciones.correo] - Destinatario (por defecto el correo del boleto)
+   * @param {string} [opciones.copia] - Correo en copia
+   * @param {string} [opciones.asunto] - Asunto personalizado
+   * @param {string} [opciones.mensaje] - Mensaje adicional
+   * @param {boolean} [opciones.incluirXml=true] - Adjuntar el XML del SRI
+   */
+  enviarCorreoBoleto: async (idBoleto, opciones = {}) => {
+    const response = await api.post('/boleto/enviarCorreo', {
+      id_boleto: idBoleto,
+      correo: opciones.correo,
+      copia: opciones.copia,
+      asunto: opciones.asunto,
+      mensaje: opciones.mensaje,
+      incluir_xml: opciones.incluirXml !== false
+    });
+    return response.data;
   }
 };

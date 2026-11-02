@@ -28,6 +28,12 @@ export const DespachoTripDetail = ({
   const isDespachado = detailData?.despachado_en_mi_sucursal !== undefined
     ? detailData.despachado_en_mi_sucursal
     : Number(selectedTrip?.estado || selectedTrip?.estado_viajes || 0) === 2;
+  // Despacho por turno: aunque la oficina ya haya despachado, si se vendieron
+  // más boletos después de ese corte se debe poder despachar el nuevo turno.
+  const pendienteDespacho = detailData?.despacho_pendiente || null;
+  const hayVentasPendientes = pendienteDespacho
+    ? Boolean(pendienteDespacho.hay_pendientes)
+    : !isDespachado;
   const despachosDelViaje = detailData?.despachos_viaje || [];
   const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
 
@@ -602,6 +608,47 @@ export const DespachoTripDetail = ({
                 <i className="fas fa-print text-blue-600" />
                 <span>Reimprimir Hoja de Despacho ({detailData?.sucursal_actual?.nombre_sucursal || 'PDF'})</span>
               </button>
+
+              {hayVentasPendientes && (
+                <>
+                  <div className="bg-amber-50 border border-amber-200 text-amber-900 px-3.5 py-2.5 rounded-xl text-[11px] font-semibold flex flex-col gap-1 shadow-sm">
+                    <span className="flex items-center gap-1.5 font-black uppercase tracking-wider text-[10px] text-amber-800">
+                      <i className="fas fa-layer-group text-amber-600" />
+                      Ventas nuevas de este turno
+                    </span>
+                    <span>
+                      {pendienteDespacho?.cantidad_boletos || 0} boleto(s) por ${pendienteDespacho?.boletos || '0.00'} ·
+                      retención ${pendienteDespacho?.retencion || '0.00'} ·
+                      a entregar <b>${pendienteDespacho?.entrega || '0.00'}</b>
+                    </span>
+                    <span className="text-[10px] font-medium text-amber-700">
+                      Se despachan aparte de las ya entregadas en el despacho #{pendienteDespacho?.desde_despacho_id || ''}.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onDespachar}
+                    disabled={despachando || noCumpliendo}
+                    className="w-full h-12 text-xs font-extrabold rounded-xl text-white tracking-wider shadow-lg flex items-center justify-center gap-2 transition-all transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:transform-none"
+                    style={{
+                      background: despachando ? '#64748b' : 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                      boxShadow: '0 8px 20px -4px rgba(16, 185, 129, 0.35)'
+                    }}
+                  >
+                    {despachando ? (
+                      <>
+                        <i className="fas fa-spinner fa-spin text-base" />
+                        <span>Despachando SRI...</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-check-circle text-base" />
+                        <span>DESPACHAR TURNO N° {tripId}</span>
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           ) : (
             <>
