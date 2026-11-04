@@ -2,8 +2,8 @@ import { useState, useRef, useCallback } from 'react';
 import { api } from '../../config/axios';
 import { dialog } from '../../components/common/dialog/dialog';
 import Modal from '../../components/common/Modal';
+import { PagoDeudaModal } from '../../components/common/PagoDeudaModal';
 import { DateRangePicker } from '../../components/common/DateRangePicker';
-import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 const formatCurrency = (v) => `$${parseFloat(v || 0).toFixed(2)}`;
 const formatFecha = (f) => {
@@ -14,107 +14,6 @@ const formatFecha = (f) => {
   } catch {
     return String(f);
   }
-};
-
-const PagarDeudaModal = ({ deuda, onClose, onSuccess }) => {
-  const [monto, setMonto] = useState(deuda?.saldo_pendiente || 0);
-  const [observacion, setObservacion] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handlePagar = async () => {
-    if (!monto || parseFloat(monto) <= 0) {
-      dialog.fire({ title: 'Validación', text: 'Ingrese un monto válido mayor a 0', icon: 'warning' });
-      return;
-    }
-    if (parseFloat(monto) > parseFloat(deuda?.saldo_pendiente || 0)) {
-      dialog.fire({ title: 'Validación', text: 'El monto no puede superar el saldo pendiente', icon: 'warning' });
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await api.post('/deuda/pagar', { id_deuda: deuda.id_deuda, monto, observacion, fuente: deuda.fuente || 'deuda' });
-      if (res.data?.success) {
-        const comp = res.data?.data?.comprobante;
-        if (comp?.numero_comprobante) {
-          const r = await dialog.fire({
-            title: 'Pago registrado',
-            html: `Se generó el comprobante <b>N° ${comp.numero_comprobante}</b> por <b>${formatCurrency(res.data.data.monto_pagado)}</b>.`,
-            icon: 'success',
-            showCancelButton: true,
-            confirmButtonText: 'Imprimir comprobante',
-            cancelButtonText: 'Cerrar',
-            confirmButtonColor: '#059669',
-          });
-          if (r.isConfirmed) {
-            window.open(buildPdfUrl(`/php/cobros/imprimirComprobanteCobro.php?numero_comprobante=${comp.numero_comprobante}`), '_blank');
-          }
-        } else {
-          dialog.fire({ title: 'Pago registrado', text: 'El pago se guardó, pero no se pudo generar el comprobante.', icon: 'warning' });
-        }
-        onSuccess();
-      } else {
-        dialog.fire({ title: 'Error', text: res.data?.error || 'Error al procesar el pago', icon: 'error' });
-      }
-    } catch (err) {
-      dialog.fire({ title: 'Error', text: err.response?.data?.error || err.message, icon: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal isOpen={true} onClose={onClose} title={`Pagar - ${deuda?.concepto || 'Cobro'}`} width="max-w-md">
-      <div className="space-y-4">
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-1.5 text-xs text-slate-700">
-          <p><span className="font-bold text-slate-500">Concepto:</span> <span className="font-semibold">{deuda?.concepto}</span></p>
-          <p><span className="font-bold text-slate-500">Valor Original:</span> <span className="font-semibold">{formatCurrency(deuda?.valor_original)}</span></p>
-          <p><span className="font-bold text-slate-500">Valor Pagado:</span> <span className="text-emerald-600 font-bold">{formatCurrency(deuda?.valor_pagado)}</span></p>
-          <p><span className="font-bold text-slate-500">Saldo Pendiente:</span> <span className="text-amber-600 font-extrabold">{formatCurrency(deuda?.saldo_pendiente)}</span></p>
-        </div>
-
-        <div>
-          <label className="block text-[11px] font-bold text-slate-600 mb-1">Monto a pagar ($)</label>
-          <input
-            type="number"
-            step="0.01"
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-          />
-        </div>
-
-        <div>
-          <label className="block text-[11px] font-bold text-slate-600 mb-1">Observación</label>
-          <textarea
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-xs text-slate-700 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none"
-            rows={3}
-            placeholder="Detalle o número de comprobante..."
-            value={observacion}
-            onChange={(e) => setObservacion(e.target.value)}
-          />
-        </div>
-
-        <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="px-4 py-2 text-xs font-bold text-slate-600 border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={handlePagar}
-            disabled={loading}
-            className="px-4 py-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg disabled:opacity-50 flex items-center gap-1.5 transition-all shadow-sm"
-          >
-            {loading ? <><i className="fas fa-spinner fa-spin"></i> Pagando...</> : <><i className="fas fa-check"></i> Registrar Pago</>}
-          </button>
-        </div>
-      </div>
-    </Modal>
-  );
 };
 
 const AnularCobroModal = ({ cobro, onClose, onSuccess }) => {
@@ -571,8 +470,9 @@ export const CarteraSocioPage = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {pagarDeuda && (
-        <PagarDeudaModal
-          deuda={pagarDeuda}
+        <PagoDeudaModal
+          item={pagarDeuda}
+          titulo={`Pagar - ${pagarDeuda?.concepto || 'Cobro'}`}
           onClose={() => setPagarDeuda(null)}
           onSuccess={() => {
             setPagarDeuda(null);

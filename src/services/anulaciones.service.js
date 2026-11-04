@@ -42,6 +42,7 @@ export const anularGuiasTodas = async (motivo) => {
   const user = getCurrentUser();
   const res = await api.post('/guia/anularguiastodas', {
     motivo_anulacion: motivo,
+    motivoAnulacion: motivo,
     id_usuario_anulacion: user?.id_usuario || user?.id || '',
   });
   return res.data;
@@ -52,6 +53,7 @@ export const anularGuiasSeleccionadas = async (ids, motivo) => {
   const res = await api.post('/guia/anularguiasseleccionadas', {
     id_guia: ids.join(', '),
     motivo_anulacion: motivo,
+    motivoAnulacion: motivo,
     id_usuario_anulacion: user?.id_usuario || user?.id || '',
   });
   return res.data;
@@ -61,6 +63,7 @@ export const cancelarAnulacionGuia = async (idGuia, motivo) => {
   const res = await api.post('/guia/cancelarAnulacion', {
     id_guia: idGuia,
     motivo: motivo,
+    motivoAnulacion: motivo,
   });
   return res.data;
 };

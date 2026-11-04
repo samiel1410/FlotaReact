@@ -43,13 +43,13 @@ export const AnulacionBoleteriaPage = () => {
 
   const handleAnular = async (row) => {
     const { value: motivo } = await Swal.fire({
-      title: 'Motivo de Anulación',
-      text: `¿Anular factura ${row.secuencial_factura || row.numero_factura || ''}?`,
+      title: 'Solicitar Anulación',
+      text: `¿Solicitar la anulación de la factura ${row.secuencial_factura || row.numero_factura || ''}?`,
       input: 'textarea',
       inputPlaceholder: 'Ingrese el motivo de la anulación...',
       showCancelButton: true,
-      confirmButtonText: 'ANULAR',
-      confirmButtonColor: '#e11d48',
+      confirmButtonText: 'ENVIAR SOLICITUD',
+      confirmButtonColor: '#d97706',
       cancelButtonText: 'Cancelar',
       inputValidator: (v) => !v?.trim() && 'Debe ingresar un motivo',
     });
@@ -65,10 +65,10 @@ export const AnulacionBoleteriaPage = () => {
         motivoAnulacion: motivo,
       });
       if (res.data?.success || res.data === true) {
-        Swal.fire('Éxito', 'Factura anulada correctamente', 'success');
+        Swal.fire('Solicitud registrada', res.data?.message || 'La anulación quedó pendiente de aprobación por un administrador.', 'success');
         handleClear();
       } else {
-        Swal.fire('Error', res.data?.message || res.data?.msg || 'No se pudo anular la factura', 'error');
+        Swal.fire('Error', res.data?.message || res.data?.msg || 'No se pudo registrar la solicitud', 'error');
       }
     } catch (err) {
       Swal.fire('Error', 'Error al anular la factura', 'error');

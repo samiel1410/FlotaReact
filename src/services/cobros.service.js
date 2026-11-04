@@ -34,7 +34,12 @@ class CobrosService {
       const res = await api.post('/deuda/pagar', data);
       return { success: res.data?.success, data: res.data?.data, message: res.data?.message };
     } catch (error) {
-      return { success: false, message: error.response?.data?.error || 'Error al pagar' };
+      const payload = error.response?.data || {};
+      return {
+        success: false,
+        message: payload.error || payload.message || 'Error al pagar',
+        requiere_caja: payload.requiere_caja === true
+      };
     }
   }
 

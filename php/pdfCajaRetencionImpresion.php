@@ -128,6 +128,42 @@ try {
         ];
     }
 
+    // ─── PAGOS DE DEUDAS / CUOTAS REGISTRADOS EN ESTA CAJA ───────────────────
+    // Las cuotas administrativas, multas y cartera del socio se guardan como
+    // comprobantes ligados a la caja. Se listan aquí para que el total de la
+    // caja coincida con el efectivo esperado del arqueo.
+    $tieneColDeuda = false;
+    $chkColDeuda = mysqli_query($conn, "SHOW COLUMNS FROM comprobante_cobro_retenciones LIKE 'id_fkdeuda_comprobante_cobro'");
+    if ($chkColDeuda && mysqli_num_rows($chkColDeuda) > 0) {
+        $tieneColDeuda = true;
+    }
+    $condDeuda = $tieneColDeuda
+        ? "(ccr.id_fkdeuda_comprobante_cobro IS NOT NULL AND ccr.id_fkdeuda_comprobante_cobro > 0)"
+        : "ccr.id_fkcobro_comprobante_cobro = 0";
+
+    $queryDeudas = "SELECT ccr.concepto_detalle_comprobante_cobro AS concepto,
+                           ccr.monto_comprobante_cobro AS monto,
+                           COALESCE(fp.nombre_forma_pago, 'EFECTIVO') AS forma_pago
+                    FROM comprobante_cobro_retenciones ccr
+                    LEFT JOIN forma_pago fp ON ccr.id_fkforma_pago = fp.id_forma_pago
+                    WHERE ccr.id_fkcaja_comprobante_cobro = $id_caja
+                      AND ccr.estado_comprobante_cobro = 'COBRADA'
+                      AND $condDeuda
+                    ORDER BY ccr.id_comprobante_cobro_retenciones";
+    $recuperar_deudas = mysqli_query($conn, $queryDeudas);
+    if ($recuperar_deudas) {
+        while ($vals_deuda = mysqli_fetch_assoc($recuperar_deudas)) {
+            $monto_deuda = (float)$vals_deuda['monto'];
+            $total_final += $monto_deuda;
+            $cobrosList[] = [
+                'nombre' => $vals_deuda['concepto'] . ' (' . $vals_deuda['forma_pago'] . ')',
+                'pagado' => $monto_deuda,
+                'monto' => $monto_deuda
+            ];
+        }
+        mysqli_free_result($recuperar_deudas);
+    }
+
     // ─── EGRESOS / INGRESOS ──────────────────────────────────────────────────
     $query_egresos_ingresos = "SELECT tipo_caja_detalle, SUM(monto_caja_detalle) as total 
     FROM caja_detalle_retenciones 

@@ -1930,20 +1930,20 @@ export const PAGES_CONFIG = {
         },
         {
           id: 'anular', icon: 'fas fa-ban',
-          tooltip: 'Anular reserva',
+          tooltip: 'Solicitar anulación de reserva',
           color: 'text-rose-600 hover:bg-rose-50 border-rose-200',
           showIf: (row) => row.estado_reserva == 1 || row.estado_reserva === '1',
           handler: async (row) => {
             const { value: motivo } = await Swal.fire({
-              title: 'Anular reserva',
-              text: `¿Anular la reserva #${row.id_boleto}?`,
+              title: 'Solicitar anulación de reserva',
+              text: `La reserva #${row.id_boleto} quedará pendiente de aprobación por un administrador.`,
               icon: 'warning',
               input: 'textarea',
               inputPlaceholder: 'Motivo de anulación...',
               inputAttributes: { required: 'required' },
               showCancelButton: true,
-              confirmButtonText: 'Sí, anular',
-              confirmButtonColor: '#e11d48',
+              confirmButtonText: 'Enviar solicitud',
+              confirmButtonColor: '#d97706',
               cancelButtonText: 'Cancelar',
               inputValidator: (v) => !v && 'Debe ingresar un motivo'
             });
@@ -1952,10 +1952,14 @@ export const PAGES_CONFIG = {
             try {
               const res = await api.post('/boleto/anularReserva', { id_boleto: row.id_boleto, motivo_anulacion: motivo });
               if (res.data?.success) {
-                Swal.fire('Anulada', 'Reserva anulada correctamente', 'success');
+                Swal.fire(
+                  res.data?.pendiente ? 'Solicitud enviada' : 'Anulada',
+                  res.data?.message || 'Solicitud de anulación registrada. Pendiente de aprobación.',
+                  'success'
+                );
                 window.dispatchEvent(new CustomEvent('refresh-list'));
               } else {
-                Swal.fire('Error', res.data?.message || 'No se pudo anular', 'error');
+                Swal.fire('Error', res.data?.message || 'No se pudo solicitar la anulación', 'error');
               }
             } catch (e) {
               Swal.fire('Error', e.response?.data?.message || 'Error de conexión', 'error');

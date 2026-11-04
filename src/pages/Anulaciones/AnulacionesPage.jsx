@@ -474,7 +474,8 @@ const TABS = [
         },
       },
     ],
-    canSelect: (row) => row.estado_anular_boleteria == 0,
+    canSelect: (row) => row.estado_anular_boleteria == 0
+      && (row.id_fkboleto_anular_boleteria || row.clave_acceso_anular_boleteria),
     rowClass: (row) => {
       if (row.estado_anular_boleteria == 1) return 'bg-red-50';
       if (row.estado_anular_boleteria == 0) return 'bg-amber-50';
@@ -569,13 +570,13 @@ const TabContent = ({ tab, puedeAprobar }) => {
     try {
       const ok = await tab.anularTodas(result.value);
       if (ok) {
-        Swal.fire('Éxito', `${tab.label} anulados correctamente`, 'success');
+        Swal.fire('Éxito', `${tab.label} procesados correctamente`, 'success');
         handleClear();
       } else {
-        Swal.fire('Error', 'No se pudieron anular', 'error');
+        Swal.fire('Error', 'No se pudieron procesar', 'error');
       }
     } catch {
-      Swal.fire('Error', 'Error al anular', 'error');
+      Swal.fire('Error', 'Error al procesar', 'error');
     }
   };
 
@@ -597,13 +598,13 @@ const TabContent = ({ tab, puedeAprobar }) => {
     try {
       const ok = await tab.anularSeleccionadas(seleccionados, result.value);
       if (ok) {
-        Swal.fire('Éxito', `${tab.label} anulados correctamente`, 'success');
+        Swal.fire('Éxito', `${tab.label} procesados correctamente`, 'success');
         handleClear();
       } else {
-        Swal.fire('Error', 'No se pudieron anular', 'error');
+        Swal.fire('Error', 'No se pudieron procesar', 'error');
       }
     } catch {
-      Swal.fire('Error', 'Error al anular', 'error');
+      Swal.fire('Error', 'Error al procesar', 'error');
     }
   };
 
@@ -812,7 +813,7 @@ export const AnulacionesPage = () => {
         </div>
         <div>
           <h1 className="text-lg font-black text-slate-800">Anulaciones</h1>
-          <p className="text-[11px] text-slate-500">Anulación de facturas, guías, comprobantes, egresos/ingresos y boletos</p>
+          <p className="text-[11px] text-slate-500">Aprobación de anulaciones de facturas, guías, comprobantes, egresos/ingresos y boletos</p>
         </div>
       </div>
 

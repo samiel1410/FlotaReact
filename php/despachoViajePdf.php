@@ -211,6 +211,7 @@ try {
     // mostrar la hora en que el bus pasa por Naranjito. Se usa el itinerario
     // guardado del viaje y, si no existe, los minutos configurados en la ruta.
     $hora_parada_oficina = '';
+    $dias_offset_parada = 0;
     if ($id_sucursal_despacho > 0) {
         try {
             $stmt_parada = $conn->prepare(
@@ -225,8 +226,15 @@ try {
             $stmt_parada->execute();
             $row_parada = $stmt_parada->get_result()->fetch_assoc();
             $stmt_parada->close();
-            if (!empty($row_parada['hora_salida'])) {
+            if (!empty($row_parada['hora_salida']) && $row_parada['hora_salida'] !== '00:00:00') {
                 $hora_parada_oficina = (string)$row_parada['hora_salida'];
+                // Viajes que cruzan medianoche: la parada cae al día siguiente.
+                $min_origen_it = (int)substr((string)($despacho['hora_origen_salida'] ?? '0:0'), 0, 2) * 60
+                    + (int)substr((string)($despacho['hora_origen_salida'] ?? '0:0'), 3, 2);
+                $min_parada_it = (int)substr($hora_parada_oficina, 0, 2) * 60 + (int)substr($hora_parada_oficina, 3, 2);
+                if ($min_parada_it < $min_origen_it) {
+                    $dias_offset_parada = 1;
+                }
             }
         } catch (Throwable $eParada) {
             $hora_parada_oficina = '';
@@ -248,6 +256,9 @@ try {
         if ($minutos_parada !== null && $minutos_parada > 0 && $hora_base_parada !== '') {
             $partes_hora = array_pad(array_map('intval', explode(':', $hora_base_parada)), 3, 0);
             $minutos_totales = ($partes_hora[0] * 60) + $partes_hora[1] + $minutos_parada;
+            if ($minutos_totales >= 1440) {
+                $dias_offset_parada = 1;
+            }
             $hora_parada_oficina = sprintf(
                 '%02d:%02d:%02d',
                 intdiv($minutos_totales, 60) % 24,
@@ -258,10 +269,20 @@ try {
     }
 
     if ($hora_parada_oficina === '') {
-        $hora_parada_oficina = (string)(
-            $despacho['hora_origen_salida']
-            ?: ($despacho['hora_salida_estimado'] ?: ($despacho['hora_salida_despacho_viaje'] ?? ''))
-        );
+        // Se ignora "00:00:00" (valor por defecto de viajes sin hora cargada)
+        // para no imprimir una salida a medianoche cuando sí hay hora de origen.
+        $hora_fallback = [
+            $despacho['hora_origen_salida'] ?? '',
+            $despacho['hora_salida_estimado'] ?? '',
+            $despacho['hora_salida_despacho_viaje'] ?? '',
+        ];
+        foreach ($hora_fallback as $hora_candidata) {
+            $hora_candidata = trim((string)$hora_candidata);
+            if ($hora_candidata !== '' && $hora_candidata !== '00:00:00') {
+                $hora_parada_oficina = $hora_candidata;
+                break;
+            }
+        }
     }
 
     // ─── CORTE TEMPORAL DEL DESPACHO ─────────────────────────────────────────
@@ -444,7 +465,7 @@ try {
     $total_entrega = max(0, $total_boletos - $totalRetenciones);
 
     $raw_fecha = !empty($despacho['fecha_viaje']) ? $despacho['fecha_viaje'] : (!empty($despacho['dia_viajes']) ? $despacho['dia_viajes'] : $despacho['fecha_salida_despacho_viaje']);
-    $fecha_salida = $raw_fecha ? date('d/m/Y', strtotime($raw_fecha)) : date('d/m/Y');
+    $fecha_salida = $raw_fecha ? date('d/m/Y', strtotime($raw_fecha . ' +' . intval($dias_offset_parada) . ' days')) : date('d/m/Y');
 
     $hora_salida = $hora_parada_oficina !== '' ? $hora_parada_oficina : (
         !empty($despacho['hora_origen_salida'])

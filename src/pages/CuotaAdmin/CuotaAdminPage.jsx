@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { dialog } from '../../components/common/dialog/dialog';
 import toast from 'react-hot-toast';
 import { cobrosService } from '../../services/cobros.service';
+import { PagoDeudaModal } from '../../components/common/PagoDeudaModal';
 import { DateRangePicker } from '../../components/common/DateRangePicker';
-import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 const MESES = [
   { value: '01', label: 'Enero' },
@@ -50,11 +50,7 @@ export const CuotaAdminPage = () => {
 
   // ── Modales ──────────────────────────────────────────────────
   const [showGenerarModal, setShowGenerarModal] = useState(false);
-  const [showPagarModal, setShowPagarModal] = useState(false);
   const [cuotaSeleccionada, setCuotaSeleccionada] = useState(null);
-  const [montoPagar, setMontoPagar] = useState('');
-  const [observacionPago, setObservacionPago] = useState('');
-  const [procesandoPago, setProcesandoPago] = useState(false);
 
   // ── Formulario Generación Masiva ─────────────────────────────
   const now = useMemo(() => new Date(), []);
@@ -247,53 +243,6 @@ export const CuotaAdminPage = () => {
   // ── Registrar Pago Manual ────────────────────────────────────
   const handleAbrirPago = (item) => {
     setCuotaSeleccionada(item);
-    setMontoPagar(String(item.saldo_pendiente || item.valor_original));
-    setObservacionPago('');
-    setShowPagarModal(true);
-  };
-
-  const handleProcesarPago = async (e) => {
-    e.preventDefault();
-    if (!montoPagar || parseFloat(montoPagar) <= 0) {
-      toast.error('Ingrese un monto válido a pagar');
-      return;
-    }
-    setProcesandoPago(true);
-    try {
-      const res = await cobrosService.pagarDeuda({
-        id_deuda: cuotaSeleccionada.id_deuda,
-        monto: parseFloat(montoPagar),
-        observacion: observacionPago.trim(),
-        fuente: cuotaSeleccionada.fuente || 'deuda',
-      });
-      if (res.success) {
-        setShowPagarModal(false);
-        const comp = res.data?.comprobante;
-        if (comp?.numero_comprobante) {
-          const r = await dialog.fire({
-            title: 'Pago registrado',
-            html: `Se generó el comprobante <b>N° ${comp.numero_comprobante}</b> por <b>${formatCurrency(res.data.monto_pagado)}</b>.`,
-            icon: 'success',
-            showCancelButton: true,
-            confirmButtonText: 'Imprimir comprobante',
-            cancelButtonText: 'Cerrar',
-            confirmButtonColor: '#059669',
-          });
-          if (r.isConfirmed) {
-            window.open(buildPdfUrl(`/php/cobros/imprimirComprobanteCobro.php?numero_comprobante=${comp.numero_comprobante}`), '_blank');
-          }
-        } else {
-          toast.success('Pago registrado correctamente');
-        }
-        loadData();
-      } else {
-        toast.error(res.message || 'Error al registrar pago');
-      }
-    } catch {
-      toast.error('Error al procesar el pago');
-    } finally {
-      setProcesandoPago(false);
-    }
   };
 
   const getEstadoBadge = (estado) => {
@@ -502,7 +451,7 @@ export const CuotaAdminPage = () => {
                   <th className="px-4 py-3 text-right w-24">Valor Pagado</th>
                   <th className="px-4 py-3 text-right w-28">Saldo Pendiente</th>
                   <th className="px-4 py-3 text-center w-28">Estado</th>
-                  <th className="px-4 py-3 text-center w-28">Acciones</th>
+                  <th className="px-4 py-3 text-center w-40">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -573,10 +522,11 @@ export const CuotaAdminPage = () => {
                               <button
                                 type="button"
                                 onClick={() => handleAbrirPago(item)}
-                                className="w-7 h-7 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg flex items-center justify-center transition-all shadow-xs"
-                                title="Registrar Pago Manual"
+                                className="h-7 px-2.5 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg flex items-center justify-center gap-1 transition-all shadow-xs"
+                                title="Registrar pago en caja"
                               >
                                 <i className="fas fa-hand-holding-usd text-[10px]" />
+                                <span>Pagar</span>
                               </button>
 
                               <button
@@ -760,92 +710,18 @@ export const CuotaAdminPage = () => {
       )}
 
       {/* ═══════════════════════════════════════════════════════════
-          MODAL: REGISTRAR PAGO MANUAL
+          MODAL: REGISTRAR PAGO DE CUOTA
       ═══════════════════════════════════════════════════════════ */}
-      {showPagarModal && cuotaSeleccionada && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-in fade-in duration-150"
-          onClick={() => setShowPagarModal(false)}
-        >
-          <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-150"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="bg-slate-50 px-6 py-4 flex items-center justify-between border-b border-slate-200">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center shadow-xs">
-                  <i className="fas fa-hand-holding-usd text-sm" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-800">Registrar Pago de Cuota</h3>
-                  <p className="text-[11px] text-slate-500 font-medium">Abono o cancelación de cuota administrativa</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowPagarModal(false)}
-                className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 flex items-center justify-center transition-colors"
-              >
-                <i className="fas fa-times text-xs" />
-              </button>
-            </div>
-
-            <form onSubmit={handleProcesarPago} className="p-6 space-y-4">
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1 text-xs">
-                <p className="text-slate-500">Socio: <b className="text-slate-800">{cuotaSeleccionada.socio_nombre}</b></p>
-                <p className="text-slate-500">Bus: <b className="text-slate-800">Bus {cuotaSeleccionada.disco_buses}</b></p>
-                <p className="text-slate-500">Saldo Pendiente: <b className="text-rose-600 font-mono font-black">{formatCurrency(cuotaSeleccionada.saldo_pendiente)}</b></p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Monto a Pagar ($) <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  max={cuotaSeleccionada.saldo_pendiente}
-                  value={montoPagar}
-                  onChange={(e) => setMontoPagar(e.target.value)}
-                  required
-                  className="w-full h-10 px-3 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 font-black font-mono text-emerald-700"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Observación o Comprobante
-                </label>
-                <textarea
-                  rows={2}
-                  value={observacionPago}
-                  onChange={(e) => setObservacionPago(e.target.value)}
-                  placeholder="Ej: Pago en ventanilla / Transferencia..."
-                  className="w-full p-2.5 text-xs bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-slate-700"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowPagarModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={procesandoPago || !montoPagar}
-                  className="px-5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl disabled:opacity-50 transition-all shadow-sm flex items-center gap-1.5"
-                >
-                  {procesandoPago ? <i className="fas fa-spinner fa-spin" /> : <i className="fas fa-check" />}
-                  <span>{procesandoPago ? 'Procesando...' : 'Confirmar Pago'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {cuotaSeleccionada && (
+        <PagoDeudaModal
+          item={cuotaSeleccionada}
+          titulo="Registrar pago de cuota"
+          onClose={() => setCuotaSeleccionada(null)}
+          onSuccess={() => {
+            setCuotaSeleccionada(null);
+            loadData();
+          }}
+        />
       )}
     </div>
   );
