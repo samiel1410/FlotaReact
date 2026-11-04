@@ -113,23 +113,35 @@ export const BoleteriaPage = () => {
 
   const handleAnular = async (item) => {
     if (!item?.id_boleto) return;
-    const result = await Swal.fire({
-      title: '¿Anular boleto?',
-      text: `#${item.id_boleto} - ${item.nombres_boleto}`,
-      icon: 'warning',
+    if (Number(item.estado_solicitud_anulacion) === 0) {
+      toast('Este boleto ya tiene una solicitud de anulación pendiente de aprobación.', { icon: 'ℹ️' });
+      return;
+    }
+    if (Number(item.estado_boleto) === 3) {
+      toast('Este boleto ya está anulado.', { icon: 'ℹ️' });
+      return;
+    }
+
+    const { value: motivo } = await Swal.fire({
+      title: 'Solicitar anulación',
+      html: `Boleto <b>#${item.id_boleto}</b> - ${item.nombres_boleto || ''}<br/><span style="font-size:12px;color:#64748b">La anulación será revisada y aprobada por un administrador.</span>`,
+      input: 'textarea',
+      inputPlaceholder: 'Ingrese el motivo de la anulación...',
       showCancelButton: true,
-      confirmButtonText: 'Sí, anular',
+      confirmButtonText: 'Enviar solicitud',
       cancelButtonText: 'Cancelar',
-      confirmButtonColor: '#c0392b'
+      confirmButtonColor: '#d97706',
+      inputValidator: (v) => !v?.trim() && 'Debe ingresar un motivo',
     });
-    if (!result.isConfirmed) return;
+    if (!motivo) return;
+
     try {
-      const res = await BoleteriaService.anularBoleto(item.id_boleto);
+      const res = await BoleteriaService.anularBoleto(item.id_boleto, motivo);
       if (res.success) {
-        toast.success('Boleto anulado correctamente');
+        toast.success(res.message || 'Solicitud enviada. Pendiente de aprobación.');
         loadBoletos(filtros, page);
       } else {
-        toast.error(res.message || 'Error al anular');
+        toast.error(res.message || 'Error al solicitar la anulación');
       }
     } catch {
       toast.error('Error al conectar con el servidor');

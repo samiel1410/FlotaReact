@@ -85,13 +85,13 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
           </button>
         )}
         {onAnularSeleccionadas && (
-          <button onClick={onAnularSeleccionadas} className="px-3 py-1.5 text-sm font-medium text-white bg-red-500 rounded hover:bg-red-600 flex items-center gap-2">
-            <i className="fas fa-ban"></i> Anular Seleccionadas
+          <button onClick={onAnularSeleccionadas} className="px-3 py-1.5 text-sm font-medium text-white bg-emerald-600 rounded hover:bg-emerald-700 flex items-center gap-2">
+            <i className="fas fa-check-double"></i> Aprobar Pendientes
           </button>
         )}
         {onAnularPendientes && (
-          <button onClick={onAnularPendientes} className="px-3 py-1.5 text-sm font-medium text-white bg-orange-500 rounded hover:bg-orange-600 flex items-center gap-2">
-            <i className="fas fa-exclamation-triangle"></i> Anular Guías Pendientes
+          <button onClick={onAnularPendientes} className="px-3 py-1.5 text-sm font-medium text-white bg-emerald-500 rounded hover:bg-emerald-600 flex items-center gap-2">
+            <i className="fas fa-check-circle"></i> Aprobar Todas las Pendientes
           </button>
         )}
       </div>
@@ -176,7 +176,12 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
                           {onCharge && item.estado_cobro_guia !== 'COBRADA' && parseFloat(item.por_cobrar) > 0 && <button onClick={() => { setActiveMenu(null); onCharge(item); }}><i className="fas fa-hand-holding-usd" style={{color: 'green'}}></i> Cobrar</button>}
                           {onCharges && <button onClick={() => { setActiveMenu(null); onCharges(item); }}><i className="fas fa-money-bill-wave" style={{color: 'blue'}}></i> Cobros Realizados</button>}
                           {onTrack && <button onClick={() => { setActiveMenu(null); onTrack(item); }}><i className="fas fa-eye" style={{color: '#333'}}></i> Seguimiento</button>}
-                          {onAnular && <button onClick={() => { setActiveMenu(null); onAnular(item); }}><i className="fas fa-ban" style={{color: 'red'}}></i> Anular</button>}
+                          {onAnular && (
+                            <button onClick={() => { setActiveMenu(null); onAnular(item); }}>
+                              <i className={`fas ${Number(item.estado_guia) === 3 ? 'fa-check-circle' : 'fa-ban'}`} style={{ color: Number(item.estado_guia) === 3 ? '#059669' : 'red' }}></i>
+                              {Number(item.estado_guia) === 3 ? ' Aprobar anulación' : ' Solicitar anulación'}
+                            </button>
+                          )}
                           {onFacturar && <button onClick={() => { setActiveMenu(null); onFacturar(item); }}><i className="fas fa-file-invoice-dollar" style={{color: '#2c3e50'}}></i> Facturar</button>}
                         </div>
                       </>

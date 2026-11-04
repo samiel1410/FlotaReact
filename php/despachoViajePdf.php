@@ -82,6 +82,11 @@ try {
             v.chofer_viajes,
             v.cedula_viajes,
             r.nombre_rutas,
+            r.tiempos_paradas_rutas,
+            (SELECT sr.nombre_sub_rutas FROM sub_rutas sr
+              WHERE sr.id_fkruta_sub_rutas = v.id_fkruta_viajes
+                AND sr.estado_sub_rutas = 1
+              ORDER BY sr.orden_sub_rutas DESC LIMIT 1) AS destino_sub_ruta,
             b.disco_buses,
             b.placa_buses,
             CONCAT(IFNULL(chofer.per_nombres_persona, ''), ' ', IFNULL(chofer.per_apellidos_personal, '')) as nombre_completo_chofer,
@@ -128,6 +133,11 @@ try {
             v.chofer_viajes,
             v.cedula_viajes,
             r.nombre_rutas,
+            r.tiempos_paradas_rutas,
+            (SELECT sr.nombre_sub_rutas FROM sub_rutas sr
+              WHERE sr.id_fkruta_sub_rutas = v.id_fkruta_viajes
+                AND sr.estado_sub_rutas = 1
+              ORDER BY sr.orden_sub_rutas DESC LIMIT 1) AS destino_sub_ruta,
             b.disco_buses,
             b.placa_buses,
             CONCAT(IFNULL(chofer.per_nombres_persona, ''), ' ', IFNULL(chofer.per_apellidos_personal, '')) as nombre_completo_chofer,
@@ -172,6 +182,87 @@ try {
     $id_sucursal_despacho = intval($despacho['id_sucursal_despacho_resuelta'] ?? 0)
         ?: intval($despacho['id_fksucursal_usuario'] ?? $id_sucursal_param);
     $codigo_sucursal_despacho = trim((string)($despacho['codigo_sucursal_despacho'] ?? ''));
+
+    // ─── DESTINO DEL VIAJE ───────────────────────────────────────────────────
+    // Se imprime el último punto de la ruta (sub_ruta activa de mayor orden) y,
+    // si no está configurado, el final del nombre de la ruta. Antes la hoja solo
+    // mostraba "RUTA" y el oficinista no veía el destino como en el sistema anterior.
+    $extraerDestino = static function ($texto) {
+        $texto = trim((string)$texto);
+        if ($texto === '') {
+            return '';
+        }
+        $partes = preg_split('/\s*[-\x{2013}\x{2014}]\s*/u', $texto);
+        $ultimo = trim((string)end($partes));
+        return $ultimo !== '' ? $ultimo : $texto;
+    };
+
+    $destino_viaje = $extraerDestino($despacho['destino_sub_ruta'] ?? '');
+    if ($destino_viaje === '') {
+        $destino_viaje = $extraerDestino($despacho['nombre_rutas'] ?? '');
+    }
+    if ($destino_viaje === '') {
+        $destino_viaje = 'N/A';
+    }
+
+    // ─── HORA DE LA PARADA EN LA OFICINA ─────────────────────────────────────
+    // La hora que se imprime es la de la parada de la oficina que despacha, no
+    // la de salida del origen: un despacho de Naranjito (origen + 50 min) debe
+    // mostrar la hora en que el bus pasa por Naranjito. Se usa el itinerario
+    // guardado del viaje y, si no existe, los minutos configurados en la ruta.
+    $hora_parada_oficina = '';
+    if ($id_sucursal_despacho > 0) {
+        try {
+            $stmt_parada = $conn->prepare(
+                "SELECT vi.hora_salida
+                   FROM viajes_itinerario vi
+                  WHERE vi.id_fkviaje = ?
+                    AND vi.id_fksucursal = ?
+                  ORDER BY vi.orden ASC
+                  LIMIT 1"
+            );
+            $stmt_parada->bind_param("ii", $id_despacho_viaje, $id_sucursal_despacho);
+            $stmt_parada->execute();
+            $row_parada = $stmt_parada->get_result()->fetch_assoc();
+            $stmt_parada->close();
+            if (!empty($row_parada['hora_salida'])) {
+                $hora_parada_oficina = (string)$row_parada['hora_salida'];
+            }
+        } catch (Throwable $eParada) {
+            $hora_parada_oficina = '';
+        }
+    }
+
+    if ($hora_parada_oficina === '' && !empty($despacho['tiempos_paradas_rutas'])) {
+        $paradas_ruta = json_decode((string)$despacho['tiempos_paradas_rutas'], true);
+        $minutos_parada = null;
+        if (is_array($paradas_ruta)) {
+            foreach ($paradas_ruta as $parada) {
+                if (intval($parada['id_sucursal'] ?? 0) === $id_sucursal_despacho) {
+                    $minutos_parada = intval($parada['minutos_desde_origen'] ?? 0);
+                    break;
+                }
+            }
+        }
+        $hora_base_parada = (string)($despacho['hora_origen_salida'] ?? '');
+        if ($minutos_parada !== null && $minutos_parada > 0 && $hora_base_parada !== '') {
+            $partes_hora = array_pad(array_map('intval', explode(':', $hora_base_parada)), 3, 0);
+            $minutos_totales = ($partes_hora[0] * 60) + $partes_hora[1] + $minutos_parada;
+            $hora_parada_oficina = sprintf(
+                '%02d:%02d:%02d',
+                intdiv($minutos_totales, 60) % 24,
+                $minutos_totales % 60,
+                $partes_hora[2]
+            );
+        }
+    }
+
+    if ($hora_parada_oficina === '') {
+        $hora_parada_oficina = (string)(
+            $despacho['hora_origen_salida']
+            ?: ($despacho['hora_salida_estimado'] ?: ($despacho['hora_salida_despacho_viaje'] ?? ''))
+        );
+    }
 
     // ─── CORTE TEMPORAL DEL DESPACHO ─────────────────────────────────────────
     // La hoja de despacho debe reflejar EXACTAMENTE lo que existía cuando se
@@ -355,11 +446,13 @@ try {
     $raw_fecha = !empty($despacho['fecha_viaje']) ? $despacho['fecha_viaje'] : (!empty($despacho['dia_viajes']) ? $despacho['dia_viajes'] : $despacho['fecha_salida_despacho_viaje']);
     $fecha_salida = $raw_fecha ? date('d/m/Y', strtotime($raw_fecha)) : date('d/m/Y');
 
-    $hora_salida = !empty($despacho['hora_origen_salida']) 
-        ? $despacho['hora_origen_salida'] 
-        : (!empty($despacho['hora_salida_estimado']) 
-            ? $despacho['hora_salida_estimado'] 
-            : (!empty($despacho['hora_salida_despacho_viaje']) ? $despacho['hora_salida_despacho_viaje'] : ''));
+    $hora_salida = $hora_parada_oficina !== '' ? $hora_parada_oficina : (
+        !empty($despacho['hora_origen_salida'])
+            ? $despacho['hora_origen_salida']
+            : (!empty($despacho['hora_salida_estimado'])
+                ? $despacho['hora_salida_estimado']
+                : (!empty($despacho['hora_salida_despacho_viaje']) ? $despacho['hora_salida_despacho_viaje'] : ''))
+    );
 
     // Fecha y hora REALES del despacho. Se graban una sola vez al crear el
     // despacho (despacho_viaje.fecha_creacion_despacho_viaje) y no se modifican
@@ -452,48 +545,55 @@ try {
     $pdf->AddPage();
 
     // ─── 1. CABECERA EMPRESA ─────────────────────────────────────────────────
-    $pdf->SetFont('helvetica', 'B', 10);
-    $pdf->Cell($anchoUtil, 4.5, strtoupper($razon_social), 0, 1, 'C');
+    // MultiCell: la razón social se parte en dos líneas en vez de recortarse
+    // fuera del papel de 80 mm.
+    $pdf->SetFont('helvetica', 'B', 9.8);
+    $pdf->MultiCell($anchoUtil, 4.2, strtoupper($razon_social), 0, 'C', false, 1);
 
     if (!empty($ruc_empresa)) {
-        $pdf->SetFont('helvetica', '', 7.5);
-        $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
+        $pdf->SetFont('helvetica', 'B', 7.6);
+        $pdf->Cell($anchoUtil, 3.6, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
     }
 
     // Oficina que despacha (en lugar de la dirección de la empresa)
     $nombreOficinaDespacho = trim($despacho['nombre_sucursal'] ?? '');
     if (!empty($nombreOficinaDespacho)) {
-        $pdf->SetFont('helvetica', 'B', 8);
-        $pdf->Cell($anchoUtil, 4, strtoupper($nombreOficinaDespacho), 0, 1, 'C');
+        $pdf->SetFont('helvetica', 'B', 8.6);
+        $pdf->MultiCell($anchoUtil, 4, strtoupper($nombreOficinaDespacho), 0, 'C', false, 1);
     }
 
-    $pdf->SetFont('helvetica', 'B', 9.5);
-    $pdf->Cell($anchoUtil, 4.5, 'DESPACHO N° ' . $id_despacho_num, 0, 1, 'C');
+    $pdf->SetFont('helvetica', 'B', 10);
+    $pdf->Cell($anchoUtil, 5, 'DESPACHO N° ' . $id_despacho_num, 0, 1, 'C');
 
     $pdf->SetLineWidth(0.3);
     $pdf->Line($margen, $pdf->GetY() + 0.5, $margen + $anchoUtil, $pdf->GetY() + 0.5);
     $pdf->Ln(1.5);
 
     // ─── 2. DATOS DEL VIAJE ──────────────────────────────────────────────────
-    $wKey = 20;
+    $wKey = 21;
     $wVal = $anchoUtil - $wKey;
-    $hRow = 3.8;
+    $hRow = 3.9;
 
+    // Todo el bloque va en negrita para que la letra salga más gruesa en la
+    // impresora térmica; el destino y la hora de salida llevan un punto más.
     $infoRows = [
-        ['N° VIAJE:', (string)$id_despacho_viaje, true],
-        ['DISCO:', (string)($despacho['disco_buses'] ?? ''), false],
-        ['RUTA:', (string)($despacho['nombre_rutas'] ?? ''), false],
-        ['SALIDA:', $fecha_salida . ' ' . $hora_salida, false],
-        ['DESPACHADO:', $fecha_despacho_real !== '' ? $fecha_despacho_real : 'NO REGISTRADO', true],
-        ['PLACA:', (string)($despacho['placa_buses'] ?? ''), false],
-        ['CHOFER:', strtoupper($nombre_chofer), false],
+        ['N° VIAJE:', (string)$id_despacho_viaje, 7.9],
+        ['DESTINO:', strtoupper($destino_viaje), 8.6],
+        ['RUTA:', (string)($despacho['nombre_rutas'] ?? ''), 7.9],
+        ['SALIDA:', $fecha_salida . ' ' . $hora_salida, 8.3],
+        ['DESPACHADO:', $fecha_despacho_real !== '' ? $fecha_despacho_real : 'NO REGISTRADO', 7.9],
+        ['DISCO:', (string)($despacho['disco_buses'] ?? ''), 7.9],
+        ['PLACA:', (string)($despacho['placa_buses'] ?? ''), 7.9],
+        ['CHOFER:', strtoupper($nombre_chofer), 7.9],
     ];
 
     foreach ($infoRows as $ir) {
-        $pdf->SetFont('helvetica', 'B', 7.5);
+        $yFila = $pdf->GetY();
+        $pdf->SetFont('helvetica', 'B', 7.6);
         $pdf->Cell($wKey, $hRow, $ir[0], 0, 0, 'L');
-        $pdf->SetFont('helvetica', $ir[2] ? 'B' : '', 7.5);
-        $pdf->Cell($wVal, $hRow, $ir[1], 0, 1, 'L');
+        $pdf->SetXY($margen + $wKey, $yFila);
+        $pdf->SetFont('helvetica', 'B', $ir[2]);
+        $pdf->MultiCell($wVal, $hRow, $ir[1], 0, 'L', false, 1);
     }
 
     $pdf->Ln(1);
@@ -503,31 +603,50 @@ try {
     $pdf->Ln(1.5);
 
     // OFICINISTA
-    $pdf->SetFont('helvetica', 'B', 7.5);
-    $pdf->Cell(20, $hRow, 'OFICINISTA:', 0, 0, 'L');
-    $pdf->SetFont('helvetica', '', 7.5);
-    $pdf->Cell($anchoUtil - 20, $hRow, strtoupper($nombre_oficinista), 0, 1, 'L');
+    $yOficinista = $pdf->GetY();
+    $pdf->SetFont('helvetica', 'B', 7.6);
+    $pdf->Cell(21, $hRow, 'OFICINISTA:', 0, 0, 'L');
+    $pdf->SetXY($margen + 21, $yOficinista);
+    $pdf->SetFont('helvetica', 'B', 7.6);
+    $pdf->MultiCell($anchoUtil - 21, $hRow, strtoupper($nombre_oficinista), 0, 'L', false, 1);
+
+    // Recorta un texto con "..." si no entra en el ancho disponible, para que
+    // los conceptos largos no se monten sobre la columna de valores en 80 mm.
+    $recortar = static function ($pdf, $texto, $ancho, $estilo = 'B', $size = 7.2) {
+        $texto = trim((string)$texto);
+        if ($texto === '') {
+            return '';
+        }
+        if ($pdf->GetStringWidth($texto, 'helvetica', $estilo, $size) <= $ancho) {
+            return $texto;
+        }
+        while ($texto !== '' && $pdf->GetStringWidth($texto . '...', 'helvetica', $estilo, $size) > $ancho) {
+            $texto = mb_substr($texto, 0, mb_strlen($texto, 'UTF-8') - 1, 'UTF-8');
+        }
+        return rtrim($texto) . '...';
+    };
 
     // ─── 3. VENTAS POR PUNTO ─────────────────────────────────────────────────
     if (count($ventasPuntos) > 0) {
         $pdf->Ln(1);
-        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->SetFont('helvetica', 'B', 7.8);
         $pdf->Cell($anchoUtil, 4, 'VENTAS POR PUNTO:', 'B', 1, 'L');
 
         $wPunto = 38;
         $wCant = 14;
         $wTot = 20;
 
-        $pdf->SetFont('helvetica', 'B', 7);
+        $pdf->SetFont('helvetica', 'B', 7.2);
         $pdf->Cell($wPunto, 3.8, 'Punto', 0, 0, 'L');
         $pdf->Cell($wCant, 3.8, 'Cant.', 0, 0, 'C');
         $pdf->Cell($wTot, 3.8, 'Total', 0, 1, 'R');
 
-        $pdf->SetFont('helvetica', '', 7);
+        $pdf->SetFont('helvetica', 'B', 7.2);
         foreach ($ventasPuntos as $vp) {
-            $pdf->Cell($wPunto, 3.6, strtoupper($vp['origen']), 0, 0, 'L');
-            $pdf->Cell($wCant, 3.6, (string)$vp['cantidad'], 0, 0, 'C');
-            $pdf->Cell($wTot, 3.6, '$' . number_format($vp['total'], 2), 0, 1, 'R');
+            $punto = $recortar($pdf, strtoupper($vp['origen']), $wPunto - 1);
+            $pdf->Cell($wPunto, 3.7, $punto, 0, 0, 'L');
+            $pdf->Cell($wCant, 3.7, (string)$vp['cantidad'], 0, 0, 'C');
+            $pdf->Cell($wTot, 3.7, '$' . number_format($vp['total'], 2), 0, 1, 'R');
         }
     }
 
@@ -539,26 +658,27 @@ try {
     $wConc = 48;
     $wValC = 24;
 
-    $pdf->SetFont('helvetica', 'B', 7);
+    $pdf->SetFont('helvetica', 'B', 7.2);
     $pdf->Cell($wConc, 3.8, 'Concepto', 'B', 0, 'L');
     $pdf->Cell($wValC, 3.8, 'Valor', 'B', 1, 'R');
 
-    $pdf->SetFont('helvetica', '', 7);
+    $pdf->SetFont('helvetica', 'B', 7.2);
     if (count($cobros) === 0 && $tarifaDespacho > 0) {
         $label = 'RETENCIÓN ' . strtoupper($nombreSucursal);
         if ($porcentajeRetencion > 0) {
             $label .= ' (' . $porcentajeRetencion . '%)';
         }
-        $pdf->Cell($wConc, 3.6, $label, 0, 0, 'L');
-        $pdf->Cell($wValC, 3.6, '$' . number_format($tarifaDespacho, 2), 0, 1, 'R');
+        $pdf->Cell($wConc, 3.7, $recortar($pdf, $label, $wConc - 1), 0, 0, 'L');
+        $pdf->Cell($wValC, 3.7, '$' . number_format($tarifaDespacho, 2), 0, 1, 'R');
     }
 
     foreach ($cobros as $cobro) {
-        $pdf->Cell($wConc, 3.6, $cobro['tipo_cobro'], 0, 0, 'L');
-        $pdf->Cell($wValC, 3.6, '$' . number_format($cobro['monto_cobros'], 2), 0, 1, 'R');
+        $concepto = $recortar($pdf, (string)$cobro['tipo_cobro'], $wConc - 1);
+        $pdf->Cell($wConc, 3.7, $concepto, 0, 0, 'L');
+        $pdf->Cell($wValC, 3.7, '$' . number_format($cobro['monto_cobros'], 2), 0, 1, 'R');
     }
 
-    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->SetFont('helvetica', 'B', 7.8);
     $pdf->Cell($wConc, 4, 'TOTAL RETENCIONES:', 'T', 0, 'L');
     $pdf->Cell($wValC, 4, '$' . number_format($totalRetenciones, 2), 'T', 1, 'R');
 
@@ -567,12 +687,12 @@ try {
     $wResKey = 48;
     $wResVal = 24;
 
-    $pdf->SetFont('helvetica', 'B', 7.5);
-    $pdf->Cell($wResKey, 3.8, '(+) VENTA BOLETOS:', 0, 0, 'L');
-    $pdf->Cell($wResVal, 3.8, '$' . number_format($total_boletos, 2), 0, 1, 'R');
+    $pdf->SetFont('helvetica', 'B', 7.8);
+    $pdf->Cell($wResKey, 3.9, '(+) VENTA BOLETOS:', 0, 0, 'L');
+    $pdf->Cell($wResVal, 3.9, '$' . number_format($total_boletos, 2), 0, 1, 'R');
 
-    $pdf->Cell($wResKey, 3.8, '(-) RETENCIONES:', 0, 0, 'L');
-    $pdf->Cell($wResVal, 3.8, '$' . number_format($totalRetenciones, 2), 0, 1, 'R');
+    $pdf->Cell($wResKey, 3.9, '(-) RETENCIONES:', 0, 0, 'L');
+    $pdf->Cell($wResVal, 3.9, '$' . number_format($totalRetenciones, 2), 0, 1, 'R');
 
     // ─── 6. TOTAL A RECIBIR (Cuadro Destacado) ────────────────────────────────
     $pdf->Ln(1.5);
@@ -587,10 +707,10 @@ try {
 
     // ─── 7. PIE DE PÁGINA ────────────────────────────────────────────────────
     $pdf->Ln(3);
-    $pdf->SetFont('helvetica', '', 7);
+    $pdf->SetFont('helvetica', 'B', 6.8);
     $pdf->Cell($anchoUtil, 3.2, 'F. Impresión: ' . date('d/m/Y H:i:s'), 0, 1, 'C');
     $pdf->Cell($anchoUtil, 3.2, 'N° Viaje: ' . $id_despacho_viaje, 0, 1, 'C');
-    $pdf->Cell($anchoUtil, 3.2, 'Despachado por: ' . strtoupper($nombre_oficinista), 0, 1, 'C');
+    $pdf->MultiCell($anchoUtil, 3.2, 'Despachado por: ' . strtoupper($nombre_oficinista), 0, 'C', false, 1);
 
     // ─── SALIDA DIRECTA DEL PDF (SIN CACHÉ) ───────────────────────────────────
     $fileName = 'despacho_pos_' . $id_despacho_num . '.pdf';

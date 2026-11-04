@@ -467,7 +467,9 @@ export const DespachoRetencionesModal = ({
                                   ? 'este cobro no aplica a la sucursal de este despacho'
                                   : motivoNoAplica === 'YA_COBRADO_HOY'
                                     ? 'ya se cobró hoy en otro despacho del bus'
-                                    : 'no aplica en este despacho'}
+                                    : motivoNoAplica === 'YA_COBRADO_VIAJE'
+                                      ? 'ya se cobró en otro despacho de este mismo viaje'
+                                      : 'no aplica en este despacho'}
                               </span>
                             )}
                             {aplica && !omitido && pendiente > 0 && aplicado > 0 && (

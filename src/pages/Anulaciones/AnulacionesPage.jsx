@@ -3,6 +3,7 @@ import Swal from 'sweetalert2';
 import { useListado } from '../../hooks/useListado';
 
 import { api } from '../../config/axios';
+import { useAuth } from '../../context/AuthContext';
 import {
   anularFacturasTodas,
   anularFacturasSeleccionadas,
@@ -158,6 +159,7 @@ const TABS = [
     idField: 'id_guia',
     icon: 'fa-truck',
     color: 'border-l-emerald-500',
+    requiereAprobador: true,
     customParams: (page, size, f) => ({
       rucremitente: f.cedula_remitente || '',
       rucreceptor: f.cedula_destinatario || '',
@@ -228,6 +230,7 @@ const TABS = [
           );
         },
       },
+      { k: 'usuario_solicita_anulacion', l: 'SOLICITADO POR', w: 'w-24', r: (v) => v || <span className="text-slate-300">—</span> },
       { k: 'motivo_anulacion_guia', l: 'MOTIVO', w: 'w-24', r: (v) => v || <span className="text-slate-300">—</span> },
       { k: 'total_guia', l: 'TOTAL', w: 'w-20 text-right', r: (v) => `$${parseFloat(v||0).toFixed(2)}` },
       { k: 'cobrado', l: 'COBRADO', w: 'w-20 text-right', r: (v) => `$${parseFloat(v||0).toFixed(2)}` },
@@ -422,6 +425,7 @@ const TABS = [
     idField: 'id_anular_bolteria',
     icon: 'fa-ticket-alt',
     color: 'border-l-rose-500',
+    requiereAprobador: true,
     customParams: (page, size, f) => ({
       factura: f.factura_busqueda || '',
       ruc: f.ruc_busqueda || '',
@@ -429,6 +433,7 @@ const TABS = [
       anio: f.comboAnio || '',
       desde: f.desde || '',
       hasta: f.hasta || '',
+      estado: 0,
       page: page + 1,
       limit: size,
     }),
@@ -442,6 +447,7 @@ const TABS = [
     ],
     columns: [
       { k: 'numero_anulacion_bolteria', l: '#FACTURA', w: 'w-20' },
+      { k: 'id_fkboleto_anular_boleteria', l: 'BOLETO', w: 'w-16', r: (v) => v || <span className="text-slate-300">—</span> },
       { k: 'fecha_factura_anulacion_boleteria', l: 'FECHA', w: 'w-24', r: (v) => v ? v.split(' ')[0] : '-' },
       {
         k: 'cliente', l: 'CLIENTE', flex: true,
@@ -457,7 +463,16 @@ const TABS = [
         },
       },
       { k: 'total_anular_boleteria', l: 'TOTAL', w: 'w-20 text-right', r: (v) => `$${parseFloat(v||0).toFixed(2)}` },
+      { k: 'usuario_solicita', l: 'SOLICITADO POR', w: 'w-24', r: (v) => v || <span className="text-slate-300">—</span> },
       { k: 'motivo_anulacion_boleteria', l: 'MOTIVO', flex: true, r: (v) => v || <span className="text-slate-300">—</span> },
+      {
+        k: 'estado_anular_boleteria', l: 'ESTADO', w: 'w-20',
+        r: (v) => {
+          const estados = { 0: 'PENDIENTE', 1: 'APROBADA', 2: 'CANCELADA' };
+          const colores = { 0: 'text-amber-700', 1: 'text-emerald-700', 2: 'text-rose-700' };
+          return <span className={`font-bold text-[10px] ${colores[v] || 'text-slate-500'}`}>{estados[v] || '—'}</span>;
+        },
+      },
     ],
     canSelect: (row) => row.estado_anular_boleteria == 0,
     rowClass: (row) => {
@@ -467,29 +482,26 @@ const TABS = [
       return '';
     },
     anularTodas: async (motivo) => {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
       const res = await api.post('/boleteria/anularboletostodas', {
-        motivo_anulacion: motivo,
-        id_usuario_anulacion: user?.id_usuario || user?.id || '',
+        motivoAnulacion: motivo,
       });
       return res.data?.success;
     },
     anularSeleccionadas: async (seleccionados, motivo) => {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const claves = seleccionados.map(s => `'${s.clave_acceso_anular_boleteria}'`).join(', ');
+      const claves = seleccionados
+        .map((s) => s.clave_acceso_anular_boleteria)
+        .filter(Boolean)
+        .join(', ');
       const res = await api.post('/boleteria/anularboletosseleccionados', {
-        clave_acceso: claves,
-        motivo: motivo,
-        id_usuario_anulacion: user?.id_usuario || user?.id || '',
+        claves,
+        motivoAnulacion: motivo,
       });
       return res.data?.success;
     },
     cancelarAnulacion: async (row, motivo) => {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
       const res = await api.post('/boleteria/cancelarAnulacion', {
-        id_boleto: row.id_anular_bolteria,
-        motivo: motivo,
-        id_usuario_anulacion: user?.id_usuario || user?.id || '',
+        id_anular_bolteria: row.id_anular_bolteria,
+        motivoAnulacion: motivo,
       });
       return res.data?.success;
     },
@@ -497,7 +509,7 @@ const TABS = [
 ];
 
 // ─────────────── Componente Tab interno ───────────────
-const TabContent = ({ tab }) => {
+const TabContent = ({ tab, puedeAprobar }) => {
   const [filters, setFilters] = useState({});
   const [selected, setSelected] = useState(new Set());
   const [currentPage, setCurrentPage] = useState(1);
@@ -545,6 +557,10 @@ const TabContent = ({ tab }) => {
 
   // ── Anular Todas ──
   const handleAnularTodas = async () => {
+    if (tab.requiereAprobador && !puedeAprobar) {
+      Swal.fire('Sin permisos', 'Solo un administrador puede aprobar anulaciones.', 'warning');
+      return;
+    }
     const result = await mostrarMotivoModal(
       'Anular Todos',
       `¿Seguro que desea anular todos los ${tab.label.toLowerCase()} pendientes?`
@@ -565,6 +581,10 @@ const TabContent = ({ tab }) => {
 
   // ── Anular Seleccionadas ──
   const handleAnularSeleccionadas = async () => {
+    if (tab.requiereAprobador && !puedeAprobar) {
+      Swal.fire('Sin permisos', 'Solo un administrador puede aprobar anulaciones.', 'warning');
+      return;
+    }
     if (seleccionados.length === 0) {
       Swal.fire('Info', 'No ha seleccionado ningún registro', 'info');
       return;
@@ -665,13 +685,22 @@ const TabContent = ({ tab }) => {
       </div>
 
       {/* ─── Botones de acción ─── */}
-      <div className="flex flex-wrap gap-2">
-        <button onClick={handleAnularTodas} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
-          <i className="fas fa-circle text-[8px]"></i> Anular Todas
-        </button>
-        <button onClick={handleAnularSeleccionadas} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
-          <i className="fas fa-list text-[10px]"></i> Anular Seleccionadas ({seleccionados.length})
-        </button>
+      <div className="flex flex-wrap items-center gap-2">
+        {tab.requiereAprobador && !puedeAprobar ? (
+          <span className="text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5">
+            <i className="fas fa-lock mr-1.5"></i>
+            Solo un administrador puede aprobar o rechazar estas solicitudes.
+          </span>
+        ) : (
+          <>
+            <button onClick={handleAnularTodas} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
+              <i className="fas fa-check-double text-[10px]"></i> Aprobar Todas
+            </button>
+            <button onClick={handleAnularSeleccionadas} className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-[10px] font-bold rounded-lg hover:bg-emerald-700 transition-colors shadow-sm">
+              <i className="fas fa-list text-[10px]"></i> Aprobar Seleccionadas ({seleccionados.length})
+            </button>
+          </>
+        )}
       </div>
 
       {/* ─── Grid ─── */}
@@ -700,7 +729,8 @@ const TabContent = ({ tab }) => {
                 ) : (
                   (data || []).map((row, idx) => {
                     const rowId = getRowId(row, idx);
-                    const canSelect = tab.canSelect ? tab.canSelect(row) : true;
+                    const canSelect = (tab.canSelect ? tab.canSelect(row) : true)
+                      && (!tab.requiereAprobador || puedeAprobar);
                     const isSelected = selected.has(rowId);
                     return (
                       <tr key={rowId} className={`border-b border-slate-100 hover:bg-slate-50 transition-colors ${tab.rowClass ? tab.rowClass(row) : ''} ${isSelected ? 'bg-blue-50' : ''}`}>
@@ -769,6 +799,9 @@ const TabContent = ({ tab }) => {
 // ─────────────── Page principal ───────────────
 export const AnulacionesPage = () => {
   const [activeTab, setActiveTab] = useState(0);
+  const { user } = useAuth();
+  const rol = Number(user?.rol_usuario || user?.id_fkrol_usuario || 0);
+  const puedeAprobar = rol === 1 || rol === 5;
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -803,7 +836,7 @@ export const AnulacionesPage = () => {
 
       {/* Tab Content */}
       <div className="animate-fadeIn">
-        <TabContent key={activeTab} tab={TABS[activeTab]} />
+        <TabContent key={activeTab} tab={TABS[activeTab]} puedeAprobar={puedeAprobar} />
       </div>
     </div>
   );

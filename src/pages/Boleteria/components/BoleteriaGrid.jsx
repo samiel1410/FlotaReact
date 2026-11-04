@@ -24,11 +24,13 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
     return `#${item.id_boleto}`;
   };
 
-  const formatEstado = (estado) => {
+  const formatEstado = (item) => {
     // Solo dos estados visibles: EMITIDO (no anulado) y ANULADO.
-    return Number(estado) === 3
-      ? { label: 'ANULADO', color: '#c0392b' }
-      : { label: 'EMITIDO', color: 'green' };
+    if (Number(item.estado_boleto) === 3) return { label: 'ANULADO', color: '#c0392b' };
+    if (Number(item.estado_solicitud_anulacion) === 0) {
+      return { label: 'PENDIENTE ANULACIÓN', color: '#d97706' };
+    }
+    return { label: 'EMITIDO', color: 'green' };
   };
 
   // Estado de cobro del boleto (estado_cobro_boleto): 1 = cobrado.
@@ -86,7 +88,7 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
           </thead>
           <tbody>
             {data.map(item => {
-              const est = formatEstado(item.estado_boleto);
+              const est = formatEstado(item);
               const cobro = formatCobro(item);
               const sri = formatSri(item.estado_autorizacion);
               const asientosStr = item.detalles && item.detalles.length > 0
@@ -192,7 +194,13 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                         <div className="action-menu">
                           <button onClick={() => { setActiveMenu(null); onVisualizarPdf?.(item); }}><i className="far fa-file-pdf" style={{color: 'red'}}></i> Visualizar Pdf</button>
                           <button onClick={() => { setActiveMenu(null); onImprimir?.(item); }}><i className="fas fa-print" style={{color: 'gray'}}></i> Imprimir</button>
-                          <button onClick={() => { setActiveMenu(null); onAnular?.(item); }}><i className="fas fa-ban" style={{color: 'red'}}></i> Anular</button>
+                          <button
+                            disabled={Number(item.estado_boleto) === 3 || Number(item.estado_solicitud_anulacion) === 0}
+                            onClick={() => { setActiveMenu(null); onAnular?.(item); }}
+                            style={{ opacity: (Number(item.estado_boleto) === 3 || Number(item.estado_solicitud_anulacion) === 0) ? 0.45 : 1 }}
+                          >
+                            <i className="fas fa-ban" style={{color: 'red'}}></i> Anular
+                          </button>
                           <button onClick={() => { setActiveMenu(null); onReenviarSri?.(item); }}><i className="fas fa-cloud-upload-alt" style={{color: '#3498db'}}></i> Reenviar SRI</button>
                           <button onClick={() => { setActiveMenu(null); onEnviarCorreo?.(item); }}><i className="fas fa-envelope" style={{color: '#16a085'}}></i> Enviar correo</button>
                           {/* Cambiar Fecha: solo visible si el usuario actual es quien vendió el boleto y no está anulado */}

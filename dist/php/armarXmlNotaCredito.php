@@ -29,12 +29,17 @@ class metodoXmlNotaCredito
             $claveAccesoNC = $datosNC[0]['clave_acceso_nota_credito'] ?? '';
             $claveAccesoNC = asegurarClaveAccesoHoy($claveAccesoNC, 'boletos', 'clave_acceso_nota_credito', 'id_boleto', $id_boleto, $conn);
             $numNC = sprintf("%09s", $datosNC[0]['numero_nota_credito']);
-            $sucursal = $datosNC[0]['sucursal_emision_boleto'];
-            $puntoEmision = $datosNC[0]['punto_emision_boleto'];
+            $sucursal = str_pad(trim((string)$datosNC[0]['sucursal_emision_boleto']), 3, '0', STR_PAD_LEFT);
+            $puntoEmision = str_pad(trim((string)$datosNC[0]['punto_emision_boleto']), 3, '0', STR_PAD_LEFT);
+            if (strlen($claveAccesoNC) === 49 && ctype_digit($claveAccesoNC)) {
+                $sucursal = substr($claveAccesoNC, 24, 3);
+                $puntoEmision = substr($claveAccesoNC, 27, 3);
+                $numNC = substr($claveAccesoNC, 30, 9);
+            }
 
             // Datos de la Factura Modificada (Original)
             $fechaOriginal = date('d/m/Y', strtotime($datosNC[0]['fecha_boleto']));
-            $numFacturaOriginal = $datosNC[0]['sucursal_emision_boleto'] . '-' . $datosNC[0]['punto_emision_boleto'] . '-' . sprintf("%09s", $datosNC[0]['numero_boleto']);
+            $numFacturaOriginal = $sucursal . '-' . $puntoEmision . '-' . sprintf("%09s", $datosNC[0]['numero_boleto']);
 
             // Datos del cliente
             $tipoIdentificacion = $datosNC[0]['tipo_identificacion_boleto'];

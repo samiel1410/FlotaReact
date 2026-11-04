@@ -23,6 +23,8 @@ class metodoXmlBoleto
             $ambiente = $datosEmpresa[0]['ambiente_sri'];
             $direccionEmisor = !empty(trim($datosEmpresa[0]['dir_establecimiento'] ?? '')) ? trim($datosEmpresa[0]['dir_establecimiento']) : $direccionEmpresa;
             $regimen_fiscal = $datosEmpresa[0]['regimen_fiscal'] ?? '1';
+            $agenteRetencion = trim((string)($datosEmpresa[0]['agente_retencion'] ?? '0'));
+            $resolucionRetencion = trim((string)($datosEmpresa[0]['resolucion_agente_retencion'] ?? ''));
 
             // Datos del boleto (factura) con fecha de emisión HOY y clave actualizada
             $fechaEmision = date('d/m/Y');
@@ -30,14 +32,29 @@ class metodoXmlBoleto
             $conn = conexion();
             $claveAcceso = asegurarClaveAccesoHoy($claveAccesoOriginal, 'boletos', 'clave_acceso_boletos', 'id_boleto', $id_boleto, $conn);
 
-            $numFactura = sprintf("%09s", $datosBoleto[0]['numero_boleto']);
-            $sucursal = $datosBoleto[0]['sucursal_emision_boleto'];
-            $puntoEmision = $datosBoleto[0]['punto_emision_boleto'];
+            // Estab, P.E. y secuencial deben ser exactamente los de la clave de
+            // acceso; si se toman de las columnas sin rellenar con ceros, el
+            // comprobante no coincide con la clave y el SRI lo rechaza.
+            [$sucursal, $puntoEmision, $numFactura] = $this->datosEmisionDesdeClave(
+                $claveAcceso,
+                $datosBoleto[0]['sucursal_emision_boleto'] ?? '',
+                $datosBoleto[0]['punto_emision_boleto'] ?? '',
+                $datosBoleto[0]['numero_boleto'] ?? ''
+            );
+
+            // La dirección del establecimiento es la de la oficina que vende el
+            // boleto (sucursal del vendedor), no la dirección matriz.
+            $direccionEstablecimiento = $this->obtenerDireccionSucursal(
+                (int)($datosBoleto[0]['id_fksucursal_boleto'] ?? 0),
+                $sucursal
+            );
+            if ($direccionEstablecimiento === '') {
+                $direccionEstablecimiento = $direccionEmisor;
+            }
 
             // Datos del cliente principal y mapeo del Tipo de Identificación SRI (formato 2 dígitos [0][4-8])
             $rucCliente = trim($datosBoleto[0]['identificacion_boleto'] ?? '');
             $nombreCliente = str_replace("&", "&amp;", $datosBoleto[0]['nombres_boleto'] ?? '');
-            $direccionCliente = !empty(trim($datosBoleto[0]['origen_boleto'] ?? '')) ? ($datosBoleto[0]['origen_boleto'] . ' - ' . $datosBoleto[0]['destino_boleto']) : 'S/N';
 
             $rawTipoId = str_pad(trim($datosBoleto[0]['tipo_identificacion_boleto'] ?? ''), 2, '0', STR_PAD_LEFT);
             if (in_array($rawTipoId, ['04', '05', '06', '07', '08'])) {
@@ -103,6 +120,9 @@ class metodoXmlBoleto
             $infoTributaria->addChild('ptoEmi', $puntoEmision);
             $infoTributaria->addChild('secuencial', $numFactura);
             $infoTributaria->addChild('dirMatriz', $direccionEmpresa);
+            if ($agenteRetencion !== '' && $agenteRetencion !== '0' && $resolucionRetencion !== '') {
+                $infoTributaria->addChild('agenteRetencion', $resolucionRetencion);
+            }
             // Régimen fiscal SRI: 1=General, 2=RIMPE Emprendedor, 3=RIMPE Popular,
             // 4=Microempresa, 5=RISE, 6=Agropecuario
             $regimenInt = (int)$regimen_fiscal;
@@ -118,7 +138,7 @@ class metodoXmlBoleto
 
             $infoFactura = $xml->addChild('infoFactura');
             $infoFactura->addChild('fechaEmision', $fechaEmision);
-            $infoFactura->addChild('dirEstablecimiento', $direccionEmisor);
+            $infoFactura->addChild('dirEstablecimiento', $direccionEstablecimiento);
             // Orden exigido por el XSD de factura 1.1.0: contribuyenteEspecial va antes de obligadoContabilidad
             // El XSD exige el N° de resolución (3 a 5 dígitos). Un valor tipo "SI"
             // (bandera de configuración) hace que el SRI rechace el comprobante.
@@ -130,7 +150,6 @@ class metodoXmlBoleto
             $infoFactura->addChild('tipoIdentificacionComprador', $tipoIdentificacion);
             $infoFactura->addChild('razonSocialComprador', $nombreCliente);
             $infoFactura->addChild('identificacionComprador', $rucCliente);
-            $infoFactura->addChild('direccionComprador', $direccionCliente);
             $infoFactura->addChild('totalSinImpuestos', $totalSinImpuestosFactura);
             $infoFactura->addChild('totalDescuento', $descuentoFactura);
 
@@ -172,8 +191,16 @@ class metodoXmlBoleto
                 $id_ruta = $viaje['id_fkruta_viajes'];
                 $ruta = $this->seleccionarRuta($id_ruta);
 
-                // Formatear fecha y hora del viaje
-                $fecha_viaje = date('dM.Y', strtotime($viaje['dia_viajes']));
+                // Fecha real de salida del viaje: fecha_cierre guarda la fecha
+                // (dia_viajes solo guarda el día de la semana).
+                $fechaSalidaViaje = !empty($viaje['fecha_cierre'])
+                    ? $viaje['fecha_cierre']
+                    : ($datosBoleto[0]['fecha_boleto'] ?? '');
+                $tsSalidaViaje = strtotime((string)$fechaSalidaViaje);
+                if ($tsSalidaViaje === false) {
+                    $tsSalidaViaje = time();
+                }
+                $fecha_viaje = date('dMY', $tsSalidaViaje);
                 $hora_salida = date('H i', strtotime($viaje['hora_salida_estimado']));
 
                 // Manejar asiento opcional para la descripción
@@ -185,24 +212,26 @@ class metodoXmlBoleto
                 // límite, por eso se recorta el encabezado de la ruta conservando
                 // siempre fecha, hora, asiento y pasajero.
                 $descripcionRuta = sprintf(
-                    "BOL.%s %s VIAJE %s-%s",
-                    $ruta['codigo_rutas'],
-                    strtoupper($ruta['nombre_rutas']),
-                    strtoupper($ruta['nombre_rutas']),
-                    strtoupper($ruta['descripcion_rutas'])
+                    "BOL.%s VIAJE %s",
+                    mb_strtoupper(trim((string)$ruta['nombre_rutas']), 'UTF-8'),
+                    mb_strtoupper(trim((string)$ruta['descripcion_rutas']), 'UTF-8')
                 );
                 $descripcionDatos = sprintf(
-                    "%s %s ASIENTO %s PASAJERO %s",
-                    $fecha_viaje,
+                    "%s %s  ASIENTO  %s PASAJERO %s",
+                    strtoupper($fecha_viaje),
                     $hora_salida,
                     $asientoDisplay,
-                    strtoupper($detalleBoleto['nombre_cliente_boleto_detalle'])
+                    mb_strtoupper(trim((string)$detalleBoleto['nombre_cliente_boleto_detalle']), 'UTF-8')
                 );
                 $descripcion = $this->limitarDescripcionSri($descripcionRuta, $descripcionDatos, 300);
 
+                $codigoRuta = trim((string)($ruta['codigo_rutas'] ?? ''));
+                if ($codigoRuta === '') {
+                    $codigoRuta = str_pad((string)($ruta['id_rutas'] ?? ''), 2, '0', STR_PAD_LEFT);
+                }
                 $detalle = $detalles->addChild('detalle');
-                $detalle->addChild('codigoPrincipal', 'BOL.' . $ruta['codigo_rutas']);
-                $detalle->addChild('codigoAuxiliar', 'BOL.' . $ruta['codigo_rutas']);
+                $detalle->addChild('codigoPrincipal', 'BOL.' . $codigoRuta);
+                $detalle->addChild('codigoAuxiliar', 'H49200');
                 $detalle->addChild('descripcion', str_replace("&", "&amp;", $descripcion));
                 $detalle->addChild('cantidad', 1);
 
@@ -258,6 +287,77 @@ class metodoXmlBoleto
             );
             echo json_encode($array);
         }
+    }
+
+    /**
+     * Devuelve [estab, ptoEmi, secuencial] tal como están dentro de la clave de
+     * acceso. Si la clave no es válida, usa las columnas del boleto rellenando
+     * con ceros a la izquierda.
+     */
+    private function datosEmisionDesdeClave($claveAcceso, $estabBd, $ptoEmiBd, $secuencialBd)
+    {
+        $clave = trim((string)$claveAcceso);
+        if (strlen($clave) === 49 && ctype_digit($clave)) {
+            return [substr($clave, 24, 3), substr($clave, 27, 3), substr($clave, 30, 9)];
+        }
+
+        $estab = preg_replace('/\D/', '', (string)$estabBd);
+        $ptoEmi = preg_replace('/\D/', '', (string)$ptoEmiBd);
+        $secuencial = preg_replace('/\D/', '', (string)$secuencialBd);
+
+        return [
+            str_pad($estab !== '' ? (string)(int)$estab : '001', 3, '0', STR_PAD_LEFT),
+            str_pad($ptoEmi !== '' ? (string)(int)$ptoEmi : '001', 3, '0', STR_PAD_LEFT),
+            str_pad($secuencial !== '' ? (string)(int)$secuencial : '1', 9, '0', STR_PAD_LEFT),
+        ];
+    }
+
+    /**
+     * Dirección de la oficina que emite el comprobante. El boleto guarda el
+     * código de la sucursal del vendedor (suc_codigo_sucursal), pero también se
+     * acepta la PK o el P.E. de boletería como respaldo.
+     */
+    private function obtenerDireccionSucursal($idSucursal, $estab = '')
+    {
+        $conn = conexion();
+        $idSucursal = (int)$idSucursal;
+        $estab = trim((string)$estab);
+        $direccion = '';
+
+        if ($idSucursal > 0) {
+            $stmt = $conn->prepare(
+                "SELECT direccion_sucursal FROM sucursal2
+                 WHERE suc_codigo_sucursal = ? OR id_sucursal = ?
+                 ORDER BY (suc_codigo_sucursal = ?) DESC
+                 LIMIT 1"
+            );
+            if ($stmt) {
+                $stmt->bind_param('iii', $idSucursal, $idSucursal, $idSucursal);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                $row = $res ? $res->fetch_assoc() : null;
+                $stmt->close();
+                $direccion = trim((string)($row['direccion_sucursal'] ?? ''));
+            }
+        }
+
+        if ($direccion === '' && $estab !== '') {
+            $stmt = $conn->prepare(
+                "SELECT direccion_sucursal FROM sucursal2
+                 WHERE punto_emision_boleteria_sucursal = ?
+                 LIMIT 1"
+            );
+            if ($stmt) {
+                $stmt->bind_param('s', $estab);
+                $stmt->execute();
+                $res = $stmt->get_result();
+                $row = $res ? $res->fetch_assoc() : null;
+                $stmt->close();
+                $direccion = trim((string)($row['direccion_sucursal'] ?? ''));
+            }
+        }
+
+        return $direccion;
     }
 
     // Consulta principal de la factura de boletos
@@ -356,7 +456,9 @@ class metodoXmlBoleto
             COALESCE(ambiente_sri, 1) as ambiente_sri,
             COALESCE(obligado_contabilidad, 'SI') as obligado_contabilidad,
             contribuyente_especial,
-            COALESCE(regimen_fiscal, '1') as regimen_fiscal
+            COALESCE(regimen_fiscal, '1') as regimen_fiscal,
+            COALESCE(agente_retencion, 0) as agente_retencion,
+            COALESCE(resolucion_agente_retencion, '') as resolucion_agente_retencion
             FROM empresa";
         $result = mysqli_query($conn, $query) or die(mysqli_error($conn));
         $data = array();
@@ -371,6 +473,8 @@ class metodoXmlBoleto
             $data[0]['obligado_contabilidad'] = $vals['obligado_contabilidad'];
             $data[0]['contribuyente_especial'] = $vals['contribuyente_especial'];
             $data[0]['regimen_fiscal'] = $vals['regimen_fiscal'];
+            $data[0]['agente_retencion'] = $vals['agente_retencion'];
+            $data[0]['resolucion_agente_retencion'] = $vals['resolucion_agente_retencion'];
         }
         return ($data);
     }

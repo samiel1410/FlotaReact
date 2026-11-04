@@ -129,8 +129,11 @@ export const BoleteriaService = {
 
   // ============ ANULACIONES ============
 
-  anularBoleto: async (idBoleto) => {
-    const response = await api.post('/boleteria/insertarBoletosAnulacion', { id_boleto: idBoleto });
+  anularBoleto: async (idBoleto, motivo) => {
+    const response = await api.post('/boleteria/insertarBoletosAnulacion', {
+      id_boleto: idBoleto,
+      motivoAnulacion: motivo,
+    });
     return response.data;
   },
 

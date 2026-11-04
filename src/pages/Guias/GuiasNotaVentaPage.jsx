@@ -19,6 +19,8 @@ import Swal from 'sweetalert2';
 
 export const GuiasNotaVentaPage = () => {
   const { user, userRole } = useAuth();
+  const rolUsuario = Number(user?.rol_usuario || user?.id_fkrol_usuario || userRole || 0);
+  const puedeAprobar = rolUsuario === 1 || rolUsuario === 5;
   const [guias, setGuias] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -218,11 +220,19 @@ export const GuiasNotaVentaPage = () => {
       }
 
       if (codeState === 1 || codeState === 3) {
+        if (codeState === 3 && !puedeAprobar) {
+          toast(verif?.message || 'La guía está pendiente de aprobación por un administrador.', { icon: 'ℹ️' });
+          return;
+        }
+
         setAnularModalData({
           item,
           codeState,
-          title: codeState === 3 ? 'Anular Guía Pendiente' : 'Motivo de Anulación',
-          subtitle: `Ingrese el motivo de anulación para la guía ${codeState === 3 ? 'pendiente ' : ''}${item.numero_guia_final || item.id_guia}:`
+          title: codeState === 3 ? 'Aprobar Anulación de Guía' : 'Solicitar Anulación de Guía',
+          subtitle: codeState === 3
+            ? `Aprobar la anulación de la guía ${item.numero_guia_final || item.id_guia}. Los comprobantes asociados también serán anulados.`
+            : `Ingrese el motivo de anulación para la guía ${item.numero_guia_final || item.id_guia}:`,
+          confirmText: codeState === 3 ? 'Sí, aprobar' : 'Enviar solicitud'
         });
         setAnularModalOpen(true);
       } else {
@@ -238,21 +248,28 @@ export const GuiasNotaVentaPage = () => {
     if (!anularModalData) return;
     const { item, codeState } = anularModalData;
     const idUsuario = user?.id_usuario || user?.id || user?.id_user || 0;
-    const rol = Number(userRole || user?.id_rol || user?.rol || 1);
 
     try {
       let r;
-      if (codeState === 3 || rol === 1 || rol === 5) {
+      if (codeState === 3) {
+        if (!puedeAprobar) {
+          toast.error('Solo un administrador puede aprobar la anulación.');
+          return;
+        }
         r = await GuiaService.anularAdministrador(item.id_guia, idUsuario, motivo);
       } else {
         r = await GuiaService.anularGuia(item.id_guia, idUsuario, motivo);
       }
 
       if (r && r.success) {
-        toast.success(codeState === 3 ? 'Guía pendiente anulada correctamente' : 'Guía anulada correctamente');
+        toast.success(
+          codeState === 3
+            ? (r.message || 'Anulación aprobada correctamente.')
+            : (r.message || 'Solicitud de anulación enviada. Pendiente de aprobación.')
+        );
         loadGuias(filtros, page);
       } else {
-        toast.error(r?.message || 'No se pudo anular la guía');
+        toast.error(r?.message || 'No se pudo procesar la anulación');
       }
     } catch (err) {
       console.error(err);
@@ -310,18 +327,23 @@ export const GuiasNotaVentaPage = () => {
   };
 
   const handleAnularSeleccionadas = async () => {
-    // ExtJS: onAnularSeleccionadas → abre modal AnulacionSeleccionadas
-    const { value: motivoSeleccionadas } = await Swal.fire({ title: 'Motivo de anulación', input: 'text', inputLabel: 'Ingrese el motivo de anulación para las guías seleccionadas:', showCancelButton: true, confirmButtonText: 'Siguiente', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
+    if (!puedeAprobar) {
+      toast.error('Solo un administrador puede aprobar anulaciones.');
+      return;
+    }
+
+    const ids = guias.filter(g => Number(g.estado_guia) === 3).map(g => g.id_guia);
+    if (ids.length === 0) {
+      toast.error('No hay guías pendientes de aprobación');
+      return;
+    }
+
+    const { value: motivoSeleccionadas } = await Swal.fire({ title: 'Motivo de aprobación', input: 'text', inputLabel: 'Ingrese el motivo de aprobación de las guías pendientes:', showCancelButton: true, confirmButtonText: 'Siguiente', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
     if (!motivoSeleccionadas) return;
-    const confirmAnularSel = await Swal.fire({ title: '¿Anular guías seleccionadas?', text: '¿Seguro que desea anular las guías seleccionadas?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar' });
+    const confirmAnularSel = await Swal.fire({ title: '¿Aprobar anulación de guías pendientes?', text: `Se aprobarán ${ids.length} solicitud(es) de anulación.`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, aprobar', cancelButtonText: 'Cancelar' });
     if (!confirmAnularSel.isConfirmed) return;
     const motivo = motivoSeleccionadas;
     try {
-      const ids = guias.filter(g => g.estado_guia !== 2).map(g => g.id_guia);
-      if (ids.length === 0) {
-        toast.error('No hay guías activas para anular');
-        return;
-      }
       let successCount = 0;
       const idUsuario = user?.id_usuario || 0;
       for (const id of ids) {
@@ -330,33 +352,37 @@ export const GuiasNotaVentaPage = () => {
           if (r && r.success) successCount++;
         } catch (e) { /* skip individual failures */ }
       }
-      toast.success(`${successCount} guías anuladas`);
+      toast.success(`${successCount} solicitud(es) aprobada(s)`);
       loadGuias(filtros, page);
     } catch (err) {
       console.error(err);
-      toast.error('Error al anular guías seleccionadas');
+      toast.error('Error al aprobar las anulaciones');
     }
   };
 
   const handleAnularPendientes = async () => {
-    // ExtJS: onAnularGuiasPendientesPantalla → onbtnAnularTodasGuias
-    const { value: motivoPendientes } = await Swal.fire({ title: 'Motivo de anulación', input: 'text', inputLabel: 'Motivo de anulación para todas las guías pendientes:', showCancelButton: true, confirmButtonText: 'Siguiente', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
+    if (!puedeAprobar) {
+      toast.error('Solo un administrador puede aprobar anulaciones.');
+      return;
+    }
+
+    const { value: motivoPendientes } = await Swal.fire({ title: 'Motivo de aprobación', input: 'text', inputLabel: 'Motivo de aprobación para todas las guías pendientes:', showCancelButton: true, confirmButtonText: 'Siguiente', cancelButtonText: 'Cancelar', inputValidator: (value) => { if (!value) return 'Debe ingresar un motivo'; } });
     if (!motivoPendientes) return;
-    const confirmAnularPend = await Swal.fire({ title: '¿Anular todas las guías pendientes?', text: '¿Seguro que desea anular todas las guías pendientes?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, anular', cancelButtonText: 'Cancelar' });
+    const confirmAnularPend = await Swal.fire({ title: '¿Aprobar todas las guías pendientes?', text: '¿Seguro que desea aprobar la anulación de todas las guías pendientes?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, aprobar', cancelButtonText: 'Cancelar' });
     if (!confirmAnularPend.isConfirmed) return;
     const motivo = motivoPendientes;
     try {
       const idUsuario = user?.id_usuario || 0;
       const r = await GuiaService.anularGuiasTodas(idUsuario, motivo);
       if (r && r.success) {
-        toast.success('Guías pendientes anuladas correctamente');
+        toast.success(r.message || 'Guías pendientes aprobadas correctamente');
         loadGuias(filtros, page);
       } else {
-        toast.error(r?.message || 'No se pudieron anular');
+        toast.error(r?.message || 'No se pudieron aprobar');
       }
     } catch (err) {
       console.error(err);
-      toast.error('Error al anular guías pendientes');
+      toast.error('Error al aprobar guías pendientes');
     }
   };
 
@@ -421,8 +447,8 @@ export const GuiasNotaVentaPage = () => {
             onCharges={handleCharges}
             onTrack={handleTrack}
             onNuevaGuia={handleNuevaGuia}
-            onAnularSeleccionadas={handleAnularSeleccionadas}
-            onAnularPendientes={handleAnularPendientes}
+            onAnularSeleccionadas={puedeAprobar ? handleAnularSeleccionadas : undefined}
+            onAnularPendientes={puedeAprobar ? handleAnularPendientes : undefined}
           />
         </div>
       </div>
@@ -485,7 +511,7 @@ export const GuiasNotaVentaPage = () => {
           onConfirm={ejecutarAnulacionGuia}
           title={anularModalData?.title || 'Motivo de Anulación'}
           subtitle={anularModalData?.subtitle}
-          confirmText="Anular Guía"
+          confirmText={anularModalData?.confirmText || 'Enviar solicitud'}
         />
       )}
     </div>
