@@ -4,7 +4,9 @@ import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/cobrosHelpers';
 import { ProcesarCobroRapidoModal } from '../modals/ProcesarCobroRapidoModal';
 
-export const CobroRapidoTab = () => {
+export const CobroRapidoTab = ({ caja, recargarCaja }) => {
+  const cajaAbierta = Boolean(caja?.id_caja_retenciones);
+
   const [cedula, setCedula] = useState('');
   const [numeroBus, setNumeroBus] = useState('');
   const [loading, setLoading] = useState(false);
@@ -37,6 +39,14 @@ export const CobroRapidoTab = () => {
     }
   };
 
+  const abrirConfirmacion = () => {
+    if (!cajaAbierta) {
+      toast.error('No tiene una caja de cobros abierta. Aperture una caja antes de cobrar.');
+      return;
+    }
+    setModalConfirmOpen(true);
+  };
+
   const ejecutarProcesarCobro = async () => {
     if (!resultados || !resultados.data?.length) return;
     setProcesando(true);
@@ -50,7 +60,8 @@ export const CobroRapidoTab = () => {
         idformapago: 1,
         fecha_comprobante: new Date().toISOString().split('T')[0],
         concepto: 'Cobro rápido',
-        id_bus: resultados.data[0]?.id_fkbus_cobros
+        id_bus: resultados.data[0]?.id_fkbus_cobros,
+        id_caja: caja?.id_caja_retenciones || undefined
       });
       if (res.data?.success) {
         toast.success(`Cobro procesado correctamente. ${res.data.mensaje || ''}`);
@@ -62,7 +73,9 @@ export const CobroRapidoTab = () => {
         toast.error(res.data?.error || 'Error al procesar el cobro');
       }
     } catch (err) {
-      toast.error(err.message || 'Error de conexión');
+      const data = err.response?.data;
+      if (data?.requiere_caja) recargarCaja?.();
+      toast.error(data?.error || err.message || 'Error de conexión');
     } finally {
       setProcesando(false);
     }
@@ -103,7 +116,7 @@ export const CobroRapidoTab = () => {
             className="px-5 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 shadow-sm transition">
             {loading ? <><i className="fas fa-spinner fa-spin"></i> Buscando...</> : <><i className="fas fa-search"></i> Buscar</>}
           </button>
-          <button onClick={() => setModalConfirmOpen(true)} disabled={!resultados || !resultados.data?.length}
+          <button onClick={abrirConfirmacion} disabled={!resultados || !resultados.data?.length}
             className="px-5 py-2 bg-emerald-600 text-white text-sm font-bold rounded-lg hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 shadow-sm transition">
             <i className="fas fa-hand-holding-usd"></i> Procesar Cobro
           </button>

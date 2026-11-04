@@ -28,17 +28,20 @@ export const CajaGrid = ({ data, loading, pagination, setPagination, totalRecord
       id: 'monto_a_tener',
       cell: ({ row }) => {
         const r = row.original;
-        const val = r.monto_a_tener ?? (r.cierre_total_caja && parseFloat(r.cierre_total_caja) > 0 ? r.cierre_total_caja : r.apertura_total_caja);
+        const val = r.monto_a_tener ?? r.apertura_total_caja;
         return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
       }
     },
     { header: 'CUADRE', accessorKey: 'cuadre_caja', cell: info => {
-      const v = info.getValue()?.toString() || '';
+      const r = info.row.original;
+      const v = (r.estado_arqueo_caja || info.getValue() || '').toString().toUpperCase();
+      const diferencia = Math.abs(Number(r.total_estado_arqueo ?? 0));
+      const detalle = diferencia > 0 && (v === 'FALTANTE' || v === 'SOBRANTE') ? ` $${diferencia.toFixed(2)}` : '';
       let cls = 'text-slate-600';
-      if (v === 'CUADRADO') cls = 'text-emerald-600 font-bold';
-      else if (v?.includes('FALTANTE')) cls = 'text-red-600 font-bold';
-      else if (v?.includes('SOBRANTE')) cls = 'text-amber-600 font-bold';
-      return <span className={`${cls} text-sm font-mono`}>{v || '-'}</span>;
+      if (v === 'CUADRADO' || v === 'CUADRADA') cls = 'text-emerald-600 font-bold';
+      else if (v.includes('FALTANTE')) cls = 'text-red-600 font-bold';
+      else if (v.includes('SOBRANTE')) cls = 'text-amber-600 font-bold';
+      return <span className={`${cls} text-sm font-mono`}>{v ? v + detalle : '-'}</span>;
     }},
     { header: 'USUARIO', accessorKey: 'usuario', cell: info => <span className="text-slate-600 text-sm font-medium">{info.getValue() ?? '-'}</span> },
     {

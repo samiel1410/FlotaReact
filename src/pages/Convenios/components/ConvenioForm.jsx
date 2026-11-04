@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { api, clienteApi } from '../../../config/axios';
 import toast from 'react-hot-toast';
 
@@ -7,8 +7,10 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
   const [loading, setLoading] = useState(false);
   const [buscandoCliente, setBuscandoCliente] = useState(false);
+  const [companias, setCompanias] = useState([]);
+  const [vinculadas, setVinculadas] = useState([]);
 
-  const { register, handleSubmit, formState: { errors }, reset, setValue, getValues } = useForm({
+  const { register, handleSubmit, formState: { errors }, reset, setValue, getValues, control } = useForm({
     defaultValues: {
       nombre: '',
       ruc: '',
@@ -22,6 +24,56 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
       es_propia: false,
     }
   });
+
+  const esPropia = useWatch({ control, name: 'es_propia' });
+  const idCompaniaActual = initialData?.id_compania_asociada || null;
+
+  // Convenios disponibles para vincular a "mi cooperativa"
+  useEffect(() => {
+    const cargarCompanias = async () => {
+      try {
+        const res = await api.get('/companiaasociada/companiaasociadaSeleccionPaginadoCombo');
+        if (res.data?.success) {
+          setCompanias(Array.isArray(res.data.data) ? res.data.data : []);
+        }
+      } catch (err) {
+        console.error('Error cargando convenios:', err);
+      }
+    };
+    cargarCompanias();
+  }, []);
+
+  // Convenios ya vinculados a la compañía que se está editando
+  useEffect(() => {
+    let cancelado = false;
+
+    const cargarVinculadas = async () => {
+      if (!idCompaniaActual) {
+        if (!cancelado) setVinculadas([]);
+        return;
+      }
+
+      try {
+        const res = await api.get('/companiaasociada/companiaasociadaVinculadas', {
+          params: { id_compania_asociada: idCompaniaActual }
+        });
+        if (cancelado) return;
+        const lista = Array.isArray(res.data?.data) ? res.data.data : [];
+        setVinculadas(lista.map(v => String(v.id_compania_vinculada)));
+      } catch (err) {
+        console.error('Error cargando convenios vinculados:', err);
+        if (!cancelado) setVinculadas([]);
+      }
+    };
+
+    cargarVinculadas();
+    return () => { cancelado = true; };
+  }, [idCompaniaActual]);
+
+  const toggleVinculada = (idCompania) => {
+    const valor = String(idCompania);
+    setVinculadas(prev => prev.includes(valor) ? prev.filter(v => v !== valor) : [...prev, valor]);
+  };
 
   useEffect(() => {
     if (initialData) {
@@ -119,23 +171,43 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
         observacion: data.observacion ? data.observacion.trim() : '',
       };
 
+      let idComp = isEditing ? initialData.id_compania_asociada : null;
+
       if (isEditing) {
         await api.post('/companiaasociada/companiaasociadainsertarActualizar', { ...payload, id: initialData.id_compania_asociada });
       } else {
         const resSave = await api.post('/companiaasociada/companiaasociadainsertarActualizar', payload);
-        var idNueva = resSave?.data?.id || null;
+        idComp = resSave?.data?.id || null;
       }
-      // Si se marcó como propia, registrar la marca (solo puede haber una)
-      const idComp = isEditing ? initialData.id_compania_asociada : (typeof idNueva !== 'undefined' ? idNueva : null);
-      if (data.es_propia && idComp) {
+
+      // Marcar / desmarcar "mi cooperativa" (solo puede haber una)
+      const eraPropia = isEditing && Number(initialData.es_propia) === 1;
+      if (idComp && (data.es_propia || eraPropia)) {
         try {
-          await api.post('/companiaasociada/marcarPropia', { id_compania_asociada: idComp });
-          toast.success('Compañía marcada como mi cooperativa');
+          await api.post('/companiaasociada/marcarPropia', {
+            id_compania_asociada: idComp,
+            es_propia: data.es_propia ? '1' : '0',
+          });
+          toast.success(data.es_propia ? 'Compañía marcada como mi cooperativa' : 'Compañía desmarcada como mi cooperativa');
         } catch (e) {
           console.error('Error marcando propia:', e);
-          toast.error('Se guardó, pero no se pudo marcar como propia');
+          toast.error('Se guardó, pero no se pudo actualizar la marca de mi cooperativa');
         }
       }
+
+      // Guardar los convenios cuyos destinos estarán disponibles en Guías de Compañía
+      if (idComp && (data.es_propia || eraPropia)) {
+        try {
+          await api.post('/companiaasociada/guardarCompaniasVinculadas', {
+            id_compania_asociada: idComp,
+            vinculadas: data.es_propia ? vinculadas.join(',') : '',
+          });
+        } catch (e) {
+          console.error('Error guardando convenios vinculados:', e);
+          toast.error('Se guardó el convenio, pero no se pudieron guardar los convenios vinculados');
+        }
+      }
+
       toast.success(isEditing ? 'Convenio actualizado correctamente' : 'Convenio creado correctamente');
       onSubmit(data);
     } catch (err) {
@@ -149,6 +221,9 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
   const inputClass = "w-full h-9 px-3 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all bg-white text-slate-800";
   const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5";
   const errorClass = "text-rose-500 text-xs mt-1 flex items-center gap-1";
+  const companiasVinculables = companias.filter(
+    c => String(c.id_compania_asociada) !== String(idCompaniaActual || '')
+  );
 
   return (
     <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-5">
@@ -324,6 +399,37 @@ const ConvenioForm = ({ initialData, onSubmit, onCancel }) => {
           </label>
           <p className="text-[11px] text-slate-400 mt-1">Solo una compañía puede ser la propia. Sus destinos se usan en Guías de Compañía.</p>
         </div>
+
+        {/* Convenios vinculados (solo para mi cooperativa) */}
+        {esPropia && (
+          <div className="md:col-span-2">
+            <label className={labelClass}>Convenios que comparten destinos</label>
+            <div className="border border-slate-200 rounded-lg bg-white max-h-44 overflow-y-auto divide-y divide-slate-100">
+              {companiasVinculables.length === 0 ? (
+                <p className="px-3 py-3 text-xs text-slate-400">No hay otros convenios disponibles para vincular.</p>
+              ) : (
+                companiasVinculables.map(c => (
+                  <label
+                    key={c.id_compania_asociada}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-slate-700 cursor-pointer hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                      checked={vinculadas.includes(String(c.id_compania_asociada))}
+                      onChange={() => toggleVinculada(c.id_compania_asociada)}
+                    />
+                    <span className="truncate">{c.nombre_compania_asociada}</span>
+                    {c.porcentaje_comision !== null && c.porcentaje_comision !== undefined && (
+                      <span className="ml-auto text-[11px] font-semibold text-slate-400">{parseFloat(c.porcentaje_comision) || 0}%</span>
+                    )}
+                  </label>
+                ))
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 mt-1">Los destinos de estos convenios también se podrán escoger en Guías de Compañía.</p>
+          </div>
+        )}
 
         {/* Observación */}
         <div className="md:col-span-2">

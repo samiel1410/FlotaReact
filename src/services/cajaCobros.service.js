@@ -45,6 +45,25 @@ class CajaCobrosService {
     }
   }
 
+  async buscarCajaAperturada() {
+    try {
+      const response = await api.post('/cajaretenciones/buscarCajaAperturada');
+      const d = response.data || {};
+      const fila = Array.isArray(d.data) ? d.data[0] : d.data;
+      if (!fila) return { success: true, data: null };
+      return {
+        success: true,
+        data: {
+          ...fila,
+          id_caja_retenciones: fila.id_caja_retenciones,
+          fecha_apertura: fila.fecha_caja,
+        }
+      };
+    } catch (error) {
+      return { success: false, data: null };
+    }
+  }
+
   async guardarInfoComprobante(data) {
     try {
       const response = await api.post('/cajaretenciones/guardarInfoComprobante', data);

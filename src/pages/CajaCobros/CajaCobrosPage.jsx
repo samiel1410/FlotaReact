@@ -49,11 +49,17 @@ export const CajaCobrosPage = () => {
   }, [pagination, filters]);
 
   useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => { cajaCobrosService.validarCaja().then(r=>{if(r.success)setOpenCaja(r.data);else setOpenCaja(null);}).catch(()=>setOpenCaja(null)); }, []);
+  const recargarCaja = useCallback(() => {
+    cajaCobrosService.buscarCajaAperturada()
+      .then(r => setOpenCaja(r.success && r.data?.id_caja_retenciones ? r.data : null))
+      .catch(() => setOpenCaja(null));
+  }, []);
+
+  useEffect(() => { recargarCaja(); }, [recargarCaja]);
 
   const handleAperturaSuccess = () => {
     setShowApertura(false);
-    cajaCobrosService.validarCaja().then(r => { if (r.success) setOpenCaja(r.data); else setOpenCaja(null); });
+    recargarCaja();
     loadData();
   };
 

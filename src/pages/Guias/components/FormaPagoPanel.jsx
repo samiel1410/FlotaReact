@@ -131,7 +131,9 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
       onPagosChange?.(newPagos);
       autoDeletedRef.current = false;
     }
-  }, [detalles.length, totalGeneral, pagadoPor]);
+    // Depende también de defaultFormaPagoId/formasPago: si la configuración
+    // llega después de agregar los bultos, antes no se creaba el pago automático.
+  }, [detalles.length, totalGeneral, pagadoPor, defaultFormaPagoId, formasPago.length]);
 
   const totalPagado = pagos.reduce((sum, p) => sum + (parseFloat(p.monto) || 0), 0);
   const diferencia = totalPagado - totalGeneral;

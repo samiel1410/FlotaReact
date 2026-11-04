@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { ListadoCobrosTab } from './components/tabs/ListadoCobrosTab';
 import { CobroRapidoTab } from './components/tabs/CobroRapidoTab';
 import { ComprobantesPagoTab } from './components/tabs/ComprobantesPagoTab';
+import { AvisoCajaCobros } from '../../components/common/AvisoCajaCobros';
+import { useCajaCobros } from '../../hooks/useCajaCobros';
 
 // ============================================================
 // PÁGINA PRINCIPAL: GESTIÓN DE COBROS (MODULARIZADA)
 // ============================================================
 export const CobrosPage = () => {
   const [activeTab, setActiveTab] = useState(0);
+  const { caja, loading, recargar } = useCajaCobros();
 
   const tabs = [
     { id: 'listado', label: 'Listado de Cobros', icon: 'fas fa-list', component: ListadoCobrosTab },
@@ -23,6 +26,9 @@ export const CobrosPage = () => {
         <i className="fas fa-dollar-sign text-emerald-600"></i>
         Listado de Cobros
       </h1>
+
+      {/* Estado de la caja del usuario que cobra */}
+      <AvisoCajaCobros caja={caja} loading={loading} recargar={recargar} />
 
       {/* Navegación por Pestañas */}
       <div className="flex border-b border-slate-200 gap-0">
@@ -44,10 +50,11 @@ export const CobrosPage = () => {
 
       {/* Contenido del Tab Activo */}
       <div className="min-h-[400px]">
-        <ActiveComponent />
+        <ActiveComponent caja={caja} recargarCaja={recargar} />
       </div>
     </div>
   );
 };
 
 export default CobrosPage;
+

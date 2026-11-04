@@ -12,7 +12,7 @@ import { CobrarMasivoModal } from '../modals/CobrarMasivoModal';
 import { RetencionesMasivasModal } from '../modals/RetencionesMasivasModal';
 import { EntregarCobroModal } from '../modals/EntregarCobroModal';
 
-export const ListadoCobrosTab = () => {
+export const ListadoCobrosTab = ({ caja, recargarCaja }) => {
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -78,19 +78,20 @@ export const ListadoCobrosTab = () => {
   const totalPages = Math.ceil(total / pageSize);
 
   // ─── ACCIONES ────────────────────────────────────────────
+  const cajaAbierta = Boolean(caja?.id_caja_retenciones);
+
+  const exigirCaja = () => {
+    if (cajaAbierta) return true;
+    toast.error('No tiene una caja de cobros abierta. Aperture una caja antes de cobrar.');
+    return false;
+  };
+
   const handleCobrar = async (row) => {
     if (row.estado_cobros == 1) {
       toast('El cobro ya está pagado', { icon: 'ℹ️' });
       return;
     }
-    // Validar caja aperturada
-    try {
-      const cajaRes = await api.post('/cajaretenciones/validarcaja');
-      if (cajaRes.data?.message != 1) {
-        toast.error('No hay una caja aperturada. Abra una caja primero.');
-        return;
-      }
-    } catch { /* si no existe el endpoint, continuar */ }
+    if (!exigirCaja()) return;
 
     setCobrarRow(row);
   };
@@ -140,8 +141,10 @@ export const ListadoCobrosTab = () => {
       {cobrarRow && (
         <CobrarModal
           cobro={cobrarRow}
+          caja={caja}
           onClose={() => setCobrarRow(null)}
           onSuccess={loadData}
+          onRequiereCaja={recargarCaja}
         />
       )}
 
@@ -158,7 +161,9 @@ export const ListadoCobrosTab = () => {
       {cobrarMasivoOpen && (
         <CobrarMasivoModal
           seleccionados={data.filter(d => selectedRows.includes(d.id_cobros))}
+          caja={caja}
           onClose={() => setCobrarMasivoOpen(false)}
+          onRequiereCaja={recargarCaja}
           onSuccess={() => {
             setSelectedRows([]);
             loadData();
@@ -198,6 +203,7 @@ export const ListadoCobrosTab = () => {
                 toast.error('Seleccione al menos un cobro');
                 return;
               }
+              if (!exigirCaja()) return;
               setCobrarMasivoOpen(true);
             }}
             disabled={selectedRows.length === 0}

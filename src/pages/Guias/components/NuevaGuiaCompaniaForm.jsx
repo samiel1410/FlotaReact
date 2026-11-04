@@ -50,21 +50,34 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
   const [clienteBuscando, setClienteBuscando] = useState(false);
   const effectRan = useRef(false);
 
-  const cargarDestinosPropios = async (companiaId) => {
-    const resDestinos = await api.get('/destino/destinoSeleccionCombo', {
-      params: { id_compania: companiaId }
-    });
-    if (!resDestinos.data?.success) {
-      throw new Error(resDestinos.data?.error || resDestinos.data?.data || 'No se pudieron cargar los destinos propios');
+  // Destinos de "mi cooperativa" + de los convenios vinculados a ella
+  const cargarDestinosConvenios = async (companiaPropia) => {
+    const idPropia = companiaPropia.id_compania_asociada;
+    let idsConvenios = [idPropia];
+
+    try {
+      const resVinculadas = await api.get('/companiaasociada/companiaasociadaVinculadas', {
+        params: { id_compania_asociada: idPropia }
+      });
+      const vinculadas = Array.isArray(resVinculadas.data?.data) ? resVinculadas.data.data : [];
+      idsConvenios = [...new Set([idPropia, ...vinculadas.map(v => v.id_compania_vinculada)])];
+    } catch (error) {
+      console.warn('No se pudieron cargar los convenios vinculados:', error?.message || error);
     }
 
-    const destinosCompania = (Array.isArray(resDestinos.data.data) ? resDestinos.data.data : [])
-      .filter(destino => String(destino.idfk_compania_asociada_destino) === String(companiaId));
-    setDestinos(destinosCompania);
-    if (destinosCompania.length === 0) {
-      toast('La compañía propia no tiene destinos registrados', { icon: '⚠️' });
+    const resDestinos = await api.get('/destino/destinoSeleccionCombo', {
+      params: { id_companias: idsConvenios.join(',') }
+    });
+    if (!resDestinos.data?.success) {
+      throw new Error(resDestinos.data?.error || resDestinos.data?.data || 'No se pudieron cargar los destinos de los convenios');
     }
-    return destinosCompania;
+
+    const destinosConvenios = Array.isArray(resDestinos.data.data) ? resDestinos.data.data : [];
+    setDestinos(destinosConvenios);
+    if (destinosConvenios.length === 0) {
+      toast('La compañía propia y sus convenios vinculados no tienen destinos registrados', { icon: '⚠️' });
+    }
+    return destinosConvenios;
   };
 
   const cargarCombos = async () => {
@@ -84,7 +97,7 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
         return;
       }
 
-      await cargarDestinosPropios(companiaPropia.id_compania_asociada);
+      await cargarDestinosConvenios(companiaPropia);
     } catch (error) {
       console.error("Error al cargar combos:", error);
       toast.error(error.message || "Error al cargar datos iniciales");
@@ -225,6 +238,11 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
     }
   };
 
+  // Mostrar el convenio en el combo cuando hay destinos de varios convenios
+  const mostrarCompaniaDestino = new Set(
+    destinos.map(d => String(d.idfk_compania_asociada_destino || ''))
+  ).size > 1;
+
   return (
     <div className="flex flex-col h-full bg-white relative">
       {/* Wizard Header */}
@@ -294,7 +312,9 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
                 >
                   <option value="">Seleccionar destino...</option>
                   {destinos.map(d => (
-                    <option key={d.id_destino} value={d.id_destino}>{d.lugar_destino}</option>
+                    <option key={d.id_destino} value={d.id_destino}>
+                      {d.lugar_destino}{mostrarCompaniaDestino && d.nombre_compania_asociada ? ` — ${d.nombre_compania_asociada}` : ''}
+                    </option>
                   ))}
                 </select>
               </div>

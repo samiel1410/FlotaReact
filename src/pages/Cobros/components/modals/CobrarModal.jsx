@@ -3,7 +3,7 @@ import { api } from '../../../../config/axios';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/cobrosHelpers';
 
-export const CobrarModal = ({ cobro, onClose, onSuccess }) => {
+export const CobrarModal = ({ cobro, caja, onClose, onSuccess, onRequiereCaja }) => {
   const [monto, setMonto] = useState(cobro?.saldo_pendiente || cobro?.monto_cobros || 0);
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [concepto, setConcepto] = useState(`Pago ${cobro?.nombre_tipo_cobros || 'Cobro'}`);
@@ -33,7 +33,8 @@ export const CobrarModal = ({ cobro, onClose, onSuccess }) => {
         fecha,
         concepto,
         observacion,
-        idformapago: 1
+        idformapago: 1,
+        id_caja: caja?.id_caja_retenciones || undefined
       });
       if (res.data?.success) {
         toast.success('Cobro registrado correctamente');
@@ -43,7 +44,9 @@ export const CobrarModal = ({ cobro, onClose, onSuccess }) => {
         toast.error(res.data?.error || 'Error al procesar el cobro');
       }
     } catch (err) {
-      toast.error(err.message || 'Error de conexión');
+      const data = err.response?.data;
+      if (data?.requiere_caja) onRequiereCaja?.();
+      toast.error(data?.error || err.message || 'Error de conexión');
     } finally {
       setGuardando(false);
     }
@@ -69,6 +72,13 @@ export const CobrarModal = ({ cobro, onClose, onSuccess }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5">
+            <i className="fas fa-lock-open" />
+            {caja?.id_caja_retenciones
+              ? <>Caja de cobros <b>#{caja.id_caja_retenciones}</b></>
+              : 'Sin caja de cobros abierta'}
+          </div>
+
           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 grid grid-cols-3 gap-2 text-center text-xs">
             <div><span className="text-slate-500 block">Total</span><strong className="text-slate-800">{formatCurrency(cobro.monto_cobros)}</strong></div>
             <div><span className="text-slate-500 block">Pagado</span><strong className="text-emerald-600">{formatCurrency(cobro.total_pagado)}</strong></div>

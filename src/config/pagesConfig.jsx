@@ -51,6 +51,25 @@ const formatFechaHora = (v, row) => {
   return `${fecha} ${hora.substring(0, 5)}`;
 };
 
+// `cuadre_caja` histórico solo distingue CUADRADO / SIN CUADRAR; el detalle
+// real (SOBRANTE o FALTANTE y su valor) está en estado_arqueo_caja.
+const renderCuadre = (v, row) => {
+  const estado = String(row?.estado_arqueo_caja || v || '').trim().toUpperCase();
+  if (!estado) return '-';
+
+  const diferencia = Math.abs(Number(row?.total_estado_arqueo ?? 0));
+  const muestraDiferencia = diferencia > 0 && (estado === 'SOBRANTE' || estado === 'FALTANTE');
+  const detalle = muestraDiferencia ? ` $${diferencia.toFixed(2)}` : '';
+
+  let color = 'text-slate-600';
+  if (estado === 'CUADRADO' || estado === 'CUADRADA') color = 'text-emerald-600 font-bold';
+  else if (estado === 'FALTANTE') color = 'text-red-600 font-bold';
+  else if (estado === 'SOBRANTE') color = 'text-amber-600 font-bold';
+  else if (estado === 'EN PROCESO') color = 'text-blue-600';
+
+  return <span className={`font-mono ${color}`}>{estado}{detalle}</span>;
+};
+
 export const PAGES_CONFIG = {
 
   // ─── ADMINISTRACIÓN ─────────────────────────────────────────────────────────
@@ -1012,11 +1031,11 @@ export const PAGES_CONFIG = {
       {
         key: 'monto_a_tener', label: '($)Monto a Tener',
         render: (v, row) => {
-          const val = row.monto_a_tener ?? (row.cierre_total_caja && parseFloat(row.cierre_total_caja) > 0 ? row.cierre_total_caja : row.apertura_total_caja);
+          const val = row.monto_a_tener ?? row.apertura_total_caja;
           return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
         }
       },
-      { key: 'cuadre_caja', label: 'Cuadre', render: v => v || '-' },
+      { key: 'cuadre_caja', label: 'Cuadre', render: renderCuadre },
       {
         key: 'estado_caja', label: 'Estado',
         render: v => {
@@ -1220,11 +1239,11 @@ export const PAGES_CONFIG = {
       {
         key: 'monto_a_tener', label: '($)Monto a Tener',
         render: (v, row) => {
-          const val = row.monto_a_tener ?? (row.cierre_total_caja && parseFloat(row.cierre_total_caja) > 0 ? row.cierre_total_caja : row.apertura_total_caja);
+          const val = row.monto_a_tener ?? row.apertura_total_caja;
           return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
         }
       },
-      { key: 'cuadre_caja', label: 'Cuadre', render: v => v || '-' },
+      { key: 'cuadre_caja', label: 'Cuadre', render: renderCuadre },
       {
         key: 'estado_caja', label: 'Estado',
         render: v => {
@@ -1419,11 +1438,11 @@ export const PAGES_CONFIG = {
       {
         key: 'monto_a_tener', label: '($)Monto a Tener',
         render: (v, row) => {
-          const val = row.monto_a_tener ?? (row.cierre_total_caja && parseFloat(row.cierre_total_caja) > 0 ? row.cierre_total_caja : row.apertura_total_caja);
+          const val = row.monto_a_tener ?? row.apertura_total_caja;
           return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
         }
       },
-      { key: 'cuadre_caja', label: 'Cuadre', render: v => v || '-' },
+      { key: 'cuadre_caja', label: 'Cuadre', render: renderCuadre },
       {
         key: 'estado_caja', label: 'Estado',
         render: v => {
@@ -1583,11 +1602,11 @@ export const PAGES_CONFIG = {
       {
         key: 'monto_a_tener', label: '($)Monto a Tener',
         render: (v, row) => {
-          const val = row.monto_a_tener ?? (row.cierre_total_caja && parseFloat(row.cierre_total_caja) > 0 ? row.cierre_total_caja : row.apertura_total_caja);
+          const val = row.monto_a_tener ?? row.apertura_total_caja;
           return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
         }
       },
-      { key: 'cuadre_caja', label: 'Cuadre', render: v => v || '-' },
+      { key: 'cuadre_caja', label: 'Cuadre', render: renderCuadre },
       {
         key: 'estado_caja', label: 'Estado',
         render: v => {

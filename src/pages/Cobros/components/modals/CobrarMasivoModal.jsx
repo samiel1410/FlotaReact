@@ -3,7 +3,7 @@ import { api } from '../../../../config/axios';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '../../utils/cobrosHelpers';
 
-export const CobrarMasivoModal = ({ seleccionados, onClose, onSuccess }) => {
+export const CobrarMasivoModal = ({ seleccionados, caja, onClose, onSuccess, onRequiereCaja }) => {
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0]);
   const [concepto, setConcepto] = useState('Cobro Masivo');
   const [observacion, setObservacion] = useState('');
@@ -28,7 +28,8 @@ export const CobrarMasivoModal = ({ seleccionados, onClose, onSuccess }) => {
         idformapago: formaPago,
         fecha,
         concepto,
-        observacion
+        observacion,
+        id_caja: caja?.id_caja_retenciones || undefined
       });
       if (res.data?.success) {
         toast.success(`Se procesaron ${res.data.comprobantes?.length || seleccionados.length} cobros correctamente`);
@@ -38,7 +39,9 @@ export const CobrarMasivoModal = ({ seleccionados, onClose, onSuccess }) => {
         toast.error(res.data?.error || 'Error al procesar cobro masivo');
       }
     } catch (err) {
-      toast.error(err.message || 'Error de conexión');
+      const data = err.response?.data;
+      if (data?.requiere_caja) onRequiereCaja?.();
+      toast.error(data?.error || err.message || 'Error de conexión');
     } finally {
       setGuardando(false);
     }
@@ -64,6 +67,13 @@ export const CobrarMasivoModal = ({ seleccionados, onClose, onSuccess }) => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-[11px] font-semibold text-emerald-800 flex items-center gap-1.5">
+            <i className="fas fa-lock-open" />
+            {caja?.id_caja_retenciones
+              ? <>Caja de cobros <b>#{caja.id_caja_retenciones}</b></>
+              : 'Sin caja de cobros abierta'}
+          </div>
+
           <div className="border border-slate-200 rounded-lg overflow-hidden max-h-40 overflow-y-auto">
             <table className="w-full text-xs">
               <thead className="bg-slate-50 border-b text-slate-600 font-bold">
