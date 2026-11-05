@@ -43,8 +43,9 @@ const formatFechaHora = (v, row) => {
   if (!anio || anio < 2000) return '-';
 
   if (row && row.fecha_caja) {
-    const apertura = String(row.fecha_caja).replace('T', ' ').slice(0, 10);
-    if (apertura && fecha <= apertura) return '-';
+    const apertura = String(row.fecha_caja).replace('T', ' ').slice(0, 19);
+    const cierre = txt.replace('T', ' ').slice(0, 19);
+    if (apertura && cierre <= apertura) return '-';
   }
 
   if (!hora || hora === '00:00:00') return fecha;
