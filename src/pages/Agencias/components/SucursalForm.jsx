@@ -30,6 +30,7 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
       punto_emision_sucursal: '',
       tiene_encomiendas: false,
       punto_emision_boleteria_sucursal: '',
+      genera_tasa: false,
       estado_sucursales: true,
       ...COLORES_ASIENTOS_DEFAULT,
     }
@@ -120,7 +121,8 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
         punto_emision_boleteria_sucursal: formData.tiene_encomiendas ? formData.punto_emision_boleteria_sucursal : '',
         // Enviar flags de checkbox como '1'/'0' si el servidor lo requiere
         tiene_punto_emision: formData.tiene_punto_emision ? '1' : '0',
-        tiene_encomiendas: formData.tiene_encomiendas ? '1' : '0'
+        tiene_encomiendas: formData.tiene_encomiendas ? '1' : '0',
+        genera_tasa: formData.genera_tasa ? 1 : 0
       };
 
       if (isEditing) payload.id_sucursal = initialData.id_sucursal;
@@ -281,6 +283,23 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
             className={`w-full h-10 px-3 text-xs font-bold border rounded-xl transition-all outline-none ${tieneEncomiendas ? 'bg-white border-slate-200' : 'bg-slate-100 border-transparent text-slate-400'}`}
             placeholder="Ej: 002"
           />
+        </div>
+
+        {/* Tasa de terminal FTTG */}
+        <div className="md:col-span-2 border border-slate-100 p-3 rounded-2xl bg-slate-50/50">
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              {...register('genera_tasa')}
+              className="w-4 h-4 mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <div>
+              <label className="text-[10px] font-black text-slate-600 uppercase">Generar tasa de terminal (FTTG)</label>
+              <p className="text-[9px] font-bold text-slate-400 uppercase">
+                Solo agencias con torniquete. Cada boleto imprime un QR con su código de tasa.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Colores del mapa de asientos */}

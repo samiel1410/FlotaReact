@@ -265,6 +265,37 @@ try {
 
         $pdf->SetFont('helvetica', '', round($fB * 0.9, 1));
         $pdf->Cell($w, $lh, 'Tarifa: ' . $tarifaDetalle, 0, 1, 'L');
+
+        // ── TASA DE TERMINAL (FTTG): QR para el torniquete ────────────────────
+        // El código `tasa` es único por pasajero; la `clave_acceso_tasa` es del
+        // documento completo de la venta y se repite entre boletos.
+        $tasaPasajero = trim((string)($detalle['tasa_boleto'] ?? ''));
+        if ($tasaPasajero !== '') {
+            $qrSize = min(40, max(30, $w - 10));
+            // Evita que un QR quede partido entre dos páginas del ticket.
+            if ($pdf->GetY() + $qrSize + 12 > $pdf->getPageHeight() - 2) {
+                $pdf->AddPage();
+            }
+            $xQr = $metricas['margen_mm'] + ($w - $qrSize) / 2;
+            $yQr = $pdf->GetY() + 1.5;
+
+            $pdf->write2DBarcode($tasaPasajero, 'QRCODE,M', $xQr, $yQr, $qrSize, $qrSize, [
+                'border' => 0,
+                'vpadding' => 0,
+                'hpadding' => 0,
+                'fgcolor' => [0, 0, 0],
+                'bgcolor' => false,
+            ], 'N');
+
+            $pdf->SetY($yQr + $qrSize + 1);
+            $pdf->SetFont('helvetica', 'B', round($fB * 0.95, 1));
+            $pdf->Cell($w, $lh, 'TASA TTG $' . number_format((float)($detalle['tasa_valor_boleto'] ?? 0), 2, ',', '.'), 0, 1, 'C');
+            $pdf->SetFont('helvetica', '', round($fB * 0.8, 1));
+            $pdf->Cell($w, $lh, 'Presente este codigo en el torniquete', 0, 1, 'C');
+            $pdf->SetFont('helvetica', '', round($fB * 0.9, 1));
+            $pdf->Ln(1);
+        }
+
         $pdf->Ln(0.5);
     }
 

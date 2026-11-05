@@ -110,6 +110,21 @@ function existe_columna_boleto($conn, $tabla, $columna)
 }
 
 /**
+ * Verifica que exista una tabla (para bases sin la migración de tasas).
+ */
+function existe_tabla_boleto($conn, $tabla)
+{
+    static $cache = [];
+    if (array_key_exists($tabla, $cache)) {
+        return $cache[$tabla];
+    }
+    $tablaSegura = preg_replace('/[^a-zA-Z0-9_]/', '', $tabla);
+    $res = @mysqli_query($conn, "SHOW TABLES LIKE '{$tablaSegura}'");
+    $cache[$tabla] = ($res && mysqli_num_rows($res) > 0);
+    return $cache[$tabla];
+}
+
+/**
  * Texto de los productos que el pasajero debe retirar.
  * Recibe [['nombre' => 'Agua', 'cantidad' => 2]] y devuelve "2 AGUAS".
  */
@@ -160,6 +175,11 @@ function obtener_datos_factura($id_boleto, $conn)
         throw new Exception("ID de boleto no válido: {$id_boleto}");
     }
 
+    $tieneTasas = existe_tabla_boleto($conn, 'boleto_tasas');
+    $selectGeneraTasa = existe_columna_boleto($conn, 'sucursal2', 'genera_tasa')
+        ? 's.genera_tasa,'
+        : '0 AS genera_tasa,';
+
     $query_boleto = "SELECT
 b.id_boleto, b.identificacion_boleto, b.nombres_boleto, b.observacion_boleto,
 b.fecha_boleto, b.total_boleto, b.numero_boleto,
@@ -170,6 +190,7 @@ b.nombre_origen, b.nombre_destino, b.origen_boleto, b.destino_boleto, b.id_fksub
         : "NULL AS punto_final_boleto,") . "
 b.clave_acceso_boletos, b.fecha_creacion_boleto,
 b.id_sucursal_venta, b.id_fksucursal_boleto,
+$selectGeneraTasa
 s.nombre_sucursal, s.direccion_sucursal, u.nombre_usuario, bu.disco_buses, bu.placa_buses,
 r.nombre_rutas, r.andes_rutas, r.piso_rutas, r.id_fkdestino_rutas, b.celular_boleto, b.tipo_boleto, b.estado_boleto,
 sr.nombre_sub_rutas, sr.anden_sub_rutas, sr.piso_sub_rutas, sr.fecha_salida, sr.hora_salida, sr.id_fkdestino_sub_rutas,
@@ -219,6 +240,12 @@ bd.id_destino_boleto,
 " . (existe_columna_boleto($conn, 'boleto_detalle', 'punto_final_boleto_detalle')
         ? "bd.punto_final_boleto_detalle,"
         : "NULL AS punto_final_boleto_detalle,") . "
+" . ($tieneTasas
+        ? "t.tasa AS tasa_boleto, t.tasa_valor AS tasa_valor_boleto,
+           t.clave_acceso_tasa AS clave_acceso_tasa_boleto,
+           t.numero_documento_tasa AS numero_documento_tasa_boleto,"
+        : "NULL AS tasa_boleto, 0 AS tasa_valor_boleto,
+           NULL AS clave_acceso_tasa_boleto, NULL AS numero_documento_tasa_boleto,") . "
 sr_det.nombre_sub_rutas as subruta_detalle_nombre,
 d_det_sr.nombre_destino as destino_det_sr_nombre,
 d_det_sr.lugar_destino as destino_det_sr_lugar,
@@ -228,6 +255,7 @@ FROM boleto_detalle bd
 LEFT JOIN sub_rutas sr_det ON bd.id_destino_boleto = sr_det.id_sub_rutas
 LEFT JOIN destino d_det_sr ON sr_det.id_fkdestino_sub_rutas = d_det_sr.id_destino
 LEFT JOIN destino d_det ON bd.id_destino_boleto = d_det.id_destino
+" . ($tieneTasas ? "LEFT JOIN boleto_tasas t ON t.id_fkdetalle_boleto_tasa = bd.id_boleto_detalle" : "") . "
 WHERE bd.id_fkboleto_boleto_detalle = $id_boleto_esc
 ORDER BY bd.id_boleto_detalle ASC";
 
@@ -254,6 +282,10 @@ ORDER BY bd.id_boleto_detalle ASC";
             'precio_alimento_boleto_detalle' => 0,
             'id_fkalimento_boleto_detalle' => null,
             'costo_socio_alimento_boleto_detalle' => 0,
+            'tasa_boleto' => null,
+            'tasa_valor_boleto' => 0,
+            'clave_acceso_tasa_boleto' => null,
+            'numero_documento_tasa_boleto' => null,
             'id_destino_boleto' => $boleto['destino_boleto'] ?? 0,
             'subruta_detalle_nombre' => $boleto['nombre_sub_rutas'] ?? '',
             'destino_det_sr_nombre' => $boleto['destino_sr_nombre'] ?? '',
