@@ -171,17 +171,27 @@ try {
     }
 
     // ─── OTRAS GUÍAS (Comprobantes en esta caja para guías de otras cajas) ────
-    $query_comprobantes = "SELECT SUM(monto_comprobante_cobro) as monto_comprobante_cobro,
-        id_guia, punto_emision_sucursal, punto_emision_guia, numero_guia 
-    FROM comprobante_cobro, factura, guia, sucursal2 
-    WHERE comprobante_cobro.id_fkcaja_comprobante_cobro = $id_caja 
-      AND comprobante_cobro.id_fkfactura_comprobante_cobro = factura.id_factura 
-      AND factura.id_fkguia_factura = guia.id_guia 
-      AND factura.id_fkcaja_factura != $id_caja 
-      AND guia.id_fkcaja_guia != $id_caja 
-      AND guia.sucursal_guia = sucursal2.suc_codigo_sucursal 
-      AND estado_guia = 1 
-    GROUP BY id_guia, punto_emision_sucursal, punto_emision_guia, numero_guia";
+    // Mismo criterio de cobro que la sección CAJA (GUÍAS): solo comprobantes
+    // COBRADOS, con monto real y que no sean CRÉDITO (tipo_forma_pago = 4).
+    // Antes se sumaban todos los comprobantes de la caja: los registros con
+    // monto 0 (p. ej. guías de compañías o comprobantes anulados) aparecían en
+    // esta sección como guías con cobrado $0.00.
+    $query_comprobantes = "SELECT SUM(cc.monto_comprobante_cobro) as monto_comprobante_cobro,
+        g.id_guia, s.punto_emision_sucursal, g.punto_emision_guia, g.numero_guia
+    FROM comprobante_cobro cc
+    INNER JOIN factura f ON cc.id_fkfactura_comprobante_cobro = f.id_factura
+    INNER JOIN guia g ON f.id_fkguia_factura = g.id_guia
+    INNER JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal
+    LEFT JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
+    WHERE cc.id_fkcaja_comprobante_cobro = $id_caja
+      AND cc.estado_comprobante_cobro = 'COBRADA'
+      AND COALESCE(cc.monto_comprobante_cobro, 0) > 0
+      AND COALESCE(fp.tipo_forma_pago, 0) <> 4
+      AND f.id_fkcaja_factura != $id_caja
+      AND g.id_fkcaja_guia != $id_caja
+      AND g.estado_guia = 1
+    GROUP BY g.id_guia, s.punto_emision_sucursal, g.punto_emision_guia, g.numero_guia
+    ORDER BY g.id_guia DESC";
 
     $recuperar_comprobantes = mysqli_query($conn, $query_comprobantes) or die(mysqli_error($conn));
     $otrasGuias = [];

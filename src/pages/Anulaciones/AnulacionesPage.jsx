@@ -390,6 +390,12 @@ const TABS = [
     ],
     columns: [
       { k: 'fecha_caja_detalle', l: 'FECHA Y HORA', w: 'w-32', r: (v) => v || '-' },
+      {
+        k: 'motivo_anulacion_detalle_caja', l: 'SOLICITUD', w: 'w-24',
+        r: (v) => v
+          ? <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-100">ANULACIÓN</span>
+          : <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-100">ALTA PENDIENTE</span>,
+      },
       { k: 'tipo_caja_detalle', l: 'TIPO', w: 'w-20' },
       { k: 'monto_caja_detalle', l: 'MONTO', w: 'w-20 text-right', r: (v) => `$${parseFloat(v||0).toFixed(2)}` },
       { k: 'nombre_socio_caja_detalle', l: 'SOCIO', w: 'w-24', r: (v) => v || '-' },
@@ -398,10 +404,12 @@ const TABS = [
       { k: 'motivo_anulacion_detalle_caja', l: 'MOTIVO', flex: true, r: (v) => v || <span className="text-slate-300">—</span> },
       { k: 'observacion_caja_detalle', l: 'OBSERVACIÓN', flex: true, r: (v) => v || <span className="text-slate-300">—</span> },
     ],
-    canSelect: (row) => row.estado_caja_detalle === 'PENDIENTE',
+    // Solo se pueden seleccionar solicitudes de anulación reales; los
+    // movimientos nuevos PENDIENTES se aprueban/rechazan en "Aprobaciones".
+    canSelect: (row) => row.estado_caja_detalle === 'PENDIENTE' && !!row.motivo_anulacion_detalle_caja,
     rowClass: (row) => {
       if (row.estado_caja_detalle === 'ANULADA') return 'bg-red-50';
-      if (row.estado_caja_detalle === 'PENDIENTE') return 'bg-amber-50';
+      if (row.estado_caja_detalle === 'PENDIENTE' && row.motivo_anulacion_detalle_caja) return 'bg-amber-50';
       return '';
     },
     anularTodas: async (motivo) => {

@@ -2086,12 +2086,30 @@ export const PAGES_CONFIG = {
     idField: 'id_caja_detalle',
     columns: [
       { key: 'numero_detalle_caja', label: '#' },
+      {
+        key: 'tipo_caja_detalle', label: 'Tipo',
+        render: v => {
+          const tipo = String(v || '').toUpperCase();
+          return (
+            <span className={`font-black ${tipo === 'INGRESO' ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {tipo || '-'}
+            </span>
+          );
+        }
+      },
+      {
+        key: '__tipo_solicitud', label: 'Solicitud',
+        render: (_, row) => row.motivo_anulacion_detalle_caja
+          ? <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-100">ANULACIÓN</span>
+          : <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-100">ALTA</span>
+      },
       { key: 'usuario', label: 'Usuario' },
       { key: 'nombre_sucursal', label: 'Sucursal' },
       { key: 'fecha_caja_detalle', label: 'Fecha' },
       { key: 'nombre_socio_caja_detalle', label: 'Socio' },
       { key: 'numero_documento_caja_detalle', label: '# Documento' },
       { key: 'observacion_caja_detalle', label: 'Observación', render: v => v || '-' },
+      { key: 'motivo_anulacion_detalle_caja', label: 'Motivo anulación', render: v => v || '-' },
       { key: 'monto_caja_detalle', label: 'Monto', render: v => `$${parseFloat(v || 0).toFixed(2)}` },
     ],
     filters: [
@@ -2105,26 +2123,30 @@ export const PAGES_CONFIG = {
           tooltip: 'Aprobar',
           color: 'text-emerald-600 hover:bg-emerald-50',
           handler: async (row) => {
+            const esAnulacion = !!row.motivo_anulacion_detalle_caja;
             const result = await Swal.fire({
-              title: 'Confirmar Aprobación',
-              text: '¿Está seguro que desea APROBAR este detalle?',
+              title: esAnulacion ? 'Confirmar Anulación' : 'Confirmar Aprobación',
+              text: esAnulacion
+                ? '¿Aprobar la ANULACIÓN de este movimiento? El movimiento dejará de afectar la caja.'
+                : '¿Está seguro que desea APROBAR este movimiento?',
               icon: 'question',
               showCancelButton: true,
-              confirmButtonText: 'Sí, aprobar',
-              confirmButtonColor: '#059669',
+              confirmButtonText: esAnulacion ? 'Sí, anular' : 'Sí, aprobar',
+              confirmButtonColor: esAnulacion ? '#e11d48' : '#059669',
               cancelButtonText: 'Cancelar'
             });
             if (result.isConfirmed) {
               try {
-                const res = await api.post('/caja/aprobarDetalleCaja', { id_caja_detalle: row.id_caja_detalle });
+                const endpoint = esAnulacion ? '/caja/aprobarAnulacionDetalle' : '/caja/aprobarDetalleCaja';
+                const res = await api.post(endpoint, { id_caja_detalle: row.id_caja_detalle });
                 if (res.data?.success) {
-                  Swal.fire('Éxito', 'Detalle aprobado correctamente', 'success');
+                  Swal.fire('Éxito', esAnulacion ? 'Anulación aprobada' : 'Movimiento aprobado', 'success');
                   window.dispatchEvent(new CustomEvent('refresh-list'));
                 } else {
-                  Swal.fire('Error', res.data?.message || res.data?.msg || 'Error al aprobar', 'error');
+                  Swal.fire('Error', res.data?.message || res.data?.mensaje || res.data?.msg || 'Error al aprobar', 'error');
                 }
               } catch (e) {
-                Swal.fire('Error', 'Ocurrió un error al procesar la solicitud', 'error');
+                Swal.fire('Error', e.response?.data?.message || 'Ocurrió un error al procesar la solicitud', 'error');
               }
             }
           }
@@ -2134,31 +2156,39 @@ export const PAGES_CONFIG = {
           tooltip: 'Cancelar',
           color: 'text-rose-600 hover:bg-rose-50',
           handler: async (row) => {
+            const esAnulacion = !!row.motivo_anulacion_detalle_caja;
             const { value: motivo } = await Swal.fire({
-              title: 'Cancelar Detalle',
+              title: esAnulacion ? 'Rechazar anulación' : 'Rechazar movimiento',
               input: 'textarea',
-              inputPlaceholder: 'Ingrese el motivo de cancelación...',
+              inputPlaceholder: esAnulacion
+                ? 'Ingrese el motivo del rechazo de la anulación...'
+                : 'Ingrese el motivo del rechazo del movimiento...',
               inputAttributes: { required: 'required' },
               showCancelButton: true,
-              confirmButtonText: 'CANCELAR DETALLE',
+              confirmButtonText: 'CONFIRMAR RECHAZO',
               confirmButtonColor: '#e11d48',
               cancelButtonText: 'Cerrar',
               inputValidator: (v) => !v && 'Debe ingresar un motivo',
             });
             if (!motivo) return;
             try {
-              const res = await api.post('/caja/cancelarDetalleCaja', {
-                id_caja_detalle: row.id_caja_detalle,
-                motivoAnulacion: motivo
-              });
+              const res = esAnulacion
+                ? await api.post('/caja/cancelarAnulacion', {
+                    id_egreso: row.id_caja_detalle,
+                    motivoAnulacion: motivo
+                  })
+                : await api.post('/caja/cancelarDetalleCaja', {
+                    id_caja_detalle: row.id_caja_detalle,
+                    motivoAnulacion: motivo
+                  });
               if (res.data?.success) {
-                Swal.fire('Éxito', 'Detalle cancelado correctamente', 'success');
+                Swal.fire('Éxito', esAnulacion ? 'Anulación rechazada' : 'Movimiento rechazado', 'success');
                 window.dispatchEvent(new CustomEvent('refresh-list'));
               } else {
-                Swal.fire('Error', res.data?.message || res.data?.msg || 'Error al cancelar', 'error');
+                Swal.fire('Error', res.data?.message || res.data?.mensaje || res.data?.msg || 'Error al procesar', 'error');
               }
             } catch (e) {
-              Swal.fire('Error', 'Ocurrió un error al procesar la solicitud', 'error');
+              Swal.fire('Error', e.response?.data?.message || 'Ocurrió un error al procesar la solicitud', 'error');
             }
           }
         }

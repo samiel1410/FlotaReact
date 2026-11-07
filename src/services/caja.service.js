@@ -116,6 +116,15 @@ class CajaService {
     }
   }
 
+  async aprobarAnulacionDetalle(idCajaDetalle) {
+    try {
+      const response = await api.post('/caja/aprobarAnulacionDetalle', { id_caja_detalle: idCajaDetalle });
+      return { success: response.data?.success, message: response.data?.message || response.data?.mensaje || '' };
+    } catch (error) {
+      return { success: false, message: error.response?.data?.message || 'Error al aprobar la anulación' };
+    }
+  }
+
   async aprobarSolicitud(idCaja) {
     try {
       const response = await api.post('/caja/aprobarSolicitud', { id_caja: idCaja });
