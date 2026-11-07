@@ -31,7 +31,9 @@ export const AsientosFilterPanel = ({ onSearch }) => {
     id_bus_busqueda: '',
     comboMes: new Date().getMonth() + 1,
     comboAnioFactura: new Date().getFullYear(),
-    buscarPorFechaDesde: today
+    buscarPorFechaDesde: today,
+    solo_mi_oficina: false,
+    solo_con_pasajeros: false
   });
 
   useEffect(() => {
@@ -62,6 +64,15 @@ export const AsientosFilterPanel = ({ onSearch }) => {
     onSearch(formData);
   };
 
+  // Estos filtros se aplican al instante: el usuario espera que el listado
+  // cambie en cuanto marca/desmarca la opción.
+  const handleToggle = (e) => {
+    const { name, checked } = e.target;
+    const nextData = { ...formData, [name]: checked };
+    setFormData(nextData);
+    onSearch(nextData);
+  };
+
   const handleClear = () => {
     const resetData = {
       id_personal: '',
@@ -69,7 +80,9 @@ export const AsientosFilterPanel = ({ onSearch }) => {
       id_bus_busqueda: '',
       comboMes: 0,
       comboAnioFactura: 0,
-      buscarPorFechaDesde: ''
+      buscarPorFechaDesde: '',
+      solo_mi_oficina: false,
+      solo_con_pasajeros: false
     };
     setFormData(resetData);
     onSearch(resetData);
@@ -146,15 +159,49 @@ export const AsientosFilterPanel = ({ onSearch }) => {
           </div>
         </div>
 
-        <div className="flex gap-2 mt-3">
-          <button type="submit"
-            className="flex items-center gap-1 px-4 py-1.5 bg-orange-600 text-white text-[10px] font-bold rounded-lg hover:bg-orange-700 transition-colors">
-            <i className="fas fa-search"></i> Buscar Viajes
-          </button>
-          <button type="button" onClick={handleClear}
-            className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-600 text-[10px] font-bold rounded-lg hover:bg-slate-300 transition-colors">
-            <i className="fas fa-eraser"></i> Limpiar
-          </button>
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <label
+              title="Muestra solo los viajes que pasan por la sucursal/oficina del usuario"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-colors ${formData.solo_mi_oficina
+                ? 'bg-orange-50 border-orange-300 text-orange-700'
+                : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'}`}>
+              <input
+                type="checkbox"
+                name="solo_mi_oficina"
+                checked={formData.solo_mi_oficina}
+                onChange={handleToggle}
+                className="w-3.5 h-3.5 accent-orange-600 cursor-pointer"
+              />
+              <i className="fas fa-building text-[10px]"></i> Solo mi oficina
+            </label>
+
+            <label
+              title="Oculta los viajes que no tienen ningún pasajero"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[10px] font-bold cursor-pointer transition-colors ${formData.solo_con_pasajeros
+                ? 'bg-orange-50 border-orange-300 text-orange-700'
+                : 'bg-white border-slate-300 text-slate-500 hover:bg-slate-50'}`}>
+              <input
+                type="checkbox"
+                name="solo_con_pasajeros"
+                checked={formData.solo_con_pasajeros}
+                onChange={handleToggle}
+                className="w-3.5 h-3.5 accent-orange-600 cursor-pointer"
+              />
+              <i className="fas fa-users text-[10px]"></i> Solo con pasajeros
+            </label>
+          </div>
+
+          <div className="flex gap-2">
+            <button type="submit"
+              className="flex items-center gap-1 px-4 py-1.5 bg-orange-600 text-white text-[10px] font-bold rounded-lg hover:bg-orange-700 transition-colors">
+              <i className="fas fa-search"></i> Buscar Viajes
+            </button>
+            <button type="button" onClick={handleClear}
+              className="flex items-center gap-1 px-3 py-1.5 bg-slate-200 text-slate-600 text-[10px] font-bold rounded-lg hover:bg-slate-300 transition-colors">
+              <i className="fas fa-eraser"></i> Limpiar
+            </button>
+          </div>
         </div>
       </form>
     </div>

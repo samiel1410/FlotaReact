@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import cajaService from '../../services/caja.service';
@@ -28,6 +29,7 @@ export const CajaPage = () => {
   const [detalleLoading, setDetalleLoading] = useState(false);
   const [detalleCajaId, setDetalleCajaId] = useState(null);
   const [detalleCajaNum, setDetalleCajaNum] = useState('');
+  const [cajaInfo, setCajaInfo] = useState(null);
 
   // Modales de Acción (Info Comprobante, Aprobar Solicitud, Ingreso/Egreso)
   const [infoCompModalOpen, setInfoCompModalOpen] = useState(false);
@@ -125,8 +127,11 @@ export const CajaPage = () => {
       if (infoRes.success && infoRes.data?.[0]) {
         setDetalleCajaId(infoRes.data[0].id_caja);
         setDetalleCajaNum(infoRes.data[0].numero_caja || '');
+        setCajaInfo(infoRes.data[0]);
+      } else {
+        setCajaInfo(null);
       }
-    } catch { setDetalleData([]); }
+    } catch { setDetalleData([]); setCajaInfo(null); }
     finally { setDetalleLoading(false); }
   };
 
@@ -191,11 +196,37 @@ export const CajaPage = () => {
       ...formData
     });
     if (res.success) {
-      toast.success('Movimiento registrado');
+      toast.success(res.message || 'Movimiento registrado y enviado a aprobación');
+      await loadData();
       if (showDetalle) await loadDetalle(cajaIdForMovimiento);
     } else toast.error(res.message || 'Error');
     setIngresoEgresoModalOpen(false);
     setCajaIdForMovimiento(null);
+  };
+
+  const handleSolicitarAnulacion = async (detalle) => {
+    const { value: motivo } = await Swal.fire({
+      title: 'Solicitar anulación',
+      text: 'La solicitud deberá ser aprobada por un administrador.',
+      input: 'textarea',
+      inputPlaceholder: 'Motivo de la anulación...',
+      showCancelButton: true,
+      confirmButtonText: 'Enviar solicitud',
+      confirmButtonColor: '#e11d48',
+      cancelButtonText: 'Cancelar',
+      inputValidator: (v) => !v?.trim() && 'Debe ingresar un motivo',
+    });
+    if (!motivo) return;
+    const res = await cajaService.solicitudAnulacion({
+      id_egreso: detalle.id_caja_detalle,
+      motivoAnulacion: motivo,
+    });
+    if (res.success) {
+      toast.success('Solicitud de anulación enviada');
+      await loadDetalle(detalleCajaId);
+    } else {
+      toast.error(res.message || 'No se pudo enviar la solicitud');
+    }
   };
 
   return (
@@ -335,27 +366,42 @@ export const CajaPage = () => {
 
       {/* ─── MODAL EDITAR/VER DETALLE (con apertura/cierre + grid) ─── */}
       <Modal isOpen={showDetalle || showEditar}
-        onClose={() => { setShowDetalle(false); setShowEditar(false); }}
+        onClose={() => { setShowDetalle(false); setShowEditar(false); setCajaInfo(null); }}
         title={showEditar ? `Editar Caja #${detalleCajaNum}` : `Detalle Caja #${detalleCajaNum}`}
         size="lg">
         <div className="p-4 space-y-4">
           {/* Resumen cards */}
           <div className="grid grid-cols-4 gap-3">
             <div className="bg-emerald-50 p-3 rounded-lg"><span className="block text-xs text-emerald-600 font-bold uppercase">Apertura</span>
-              <span className="text-lg font-bold text-emerald-700">${/* Usar informacionCaja via props */'$0.00'}</span></div>
+              <span className="text-lg font-bold text-emerald-700">${parseFloat(cajaInfo?.apertura_total_caja || 0).toFixed(2)}</span></div>
             <div className="bg-blue-50 p-3 rounded-lg"><span className="block text-xs text-blue-600 font-bold uppercase">Cierre</span>
-              <span className="text-lg font-bold text-blue-700">$0.00</span></div>
+              <span className="text-lg font-bold text-blue-700">{cajaInfo?.cierre_total_caja != null ? `$${parseFloat(cajaInfo.cierre_total_caja).toFixed(2)}` : '-'}</span></div>
             <div className="bg-amber-50 p-3 rounded-lg"><span className="block text-xs text-amber-600 font-bold uppercase">Total Mov.</span>
               <span className="text-lg font-bold text-amber-700">${detalleData.reduce((s, d) => s + parseFloat(d.monto_caja_detalle || 0), 0).toFixed(2)}</span></div>
             <div className="bg-purple-50 p-3 rounded-lg"><span className="block text-xs text-purple-600 font-bold uppercase">Registros</span>
               <span className="text-lg font-bold text-purple-700">{detalleData.length}</span></div>
           </div>
 
-          {/* Botón Agregar Ingreso/Egreso */}
-          <button onClick={() => openModalIngresoEgreso(detalleCajaId)}
-            className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-2">
-            <i className="fas fa-plus-circle"></i> Agregar Ingreso/Egreso
-          </button>
+          {/* Botón Agregar Ingreso/Egreso: una caja cerrada solo admite
+              movimientos con solicitud de edición aprobada. */}
+          {(() => {
+            const cerrada = String(cajaInfo?.estado_caja || '').toUpperCase() === 'CERRADA';
+            const solicitudAprobada = Number(cajaInfo?.estado_solicitud) === 2;
+            const puedeAgregar = !cerrada || solicitudAprobada;
+            return (
+              <div className="flex items-center gap-3">
+                <button onClick={() => openModalIngresoEgreso(detalleCajaId)}
+                  disabled={!puedeAgregar}
+                  title={puedeAgregar ? 'Registrar movimiento' : 'Caja cerrada: requiere solicitud de edición aprobada'}
+                  className={`px-3 py-2 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-2 ${puedeAgregar ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-300 cursor-not-allowed'}`}>
+                  <i className="fas fa-plus-circle"></i> Agregar Ingreso/Egreso
+                </button>
+                <span className="text-[10px] text-slate-500">
+                  Todo movimiento queda <b>PENDIENTE</b> hasta que un administrador lo apruebe.
+                </span>
+              </div>
+            );
+          })()}
 
           {/* Grid Detalle */}
           <div className="overflow-auto max-h-96 border rounded-lg">
@@ -386,9 +432,9 @@ export const CajaPage = () => {
                     <td className="p-2">{d.numero_documento_caja_detalle || '-'}</td>
                     <td className="p-2">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                        d.estado_caja_detalle === 'EMITIDO' ? 'bg-emerald-100 text-emerald-700' :
+                        d.estado_caja_detalle === 'EMITIDA' || d.estado_caja_detalle === 'EMITIDO' ? 'bg-emerald-100 text-emerald-700' :
                         d.estado_caja_detalle === 'PENDIENTE' ? 'bg-amber-100 text-amber-700' :
-                        d.estado_caja_detalle === 'ANULADO' || d.estado_caja_detalle === 'CANCELADO' ? 'bg-red-100 text-red-700' :
+                        d.estado_caja_detalle === 'ANULADA' || d.estado_caja_detalle === 'ANULADO' || d.estado_caja_detalle === 'CANCELADO' ? 'bg-red-100 text-red-700' :
                         'bg-slate-100 text-slate-600'
                       }`}>{d.estado_caja_detalle || '-'}</span>
                     </td>
@@ -399,6 +445,12 @@ export const CajaPage = () => {
                           className="w-6 h-6 rounded text-red-500 hover:bg-red-50 flex items-center justify-center" title="PDF">
                           <i className="fas fa-file-pdf text-[10px]"></i>
                         </button>
+                        {(d.estado_caja_detalle === 'EMITIDA' || d.estado_caja_detalle === 'EMITIDO') && (
+                          <button onClick={() => handleSolicitarAnulacion(d)}
+                            className="w-6 h-6 rounded text-rose-600 hover:bg-rose-50 flex items-center justify-center" title="Solicitar anulación">
+                            <i className="fas fa-ban text-[10px]"></i>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

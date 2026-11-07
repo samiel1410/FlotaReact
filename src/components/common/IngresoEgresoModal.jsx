@@ -46,7 +46,7 @@ export default function IngresoEgresoModal({ isOpen, onClose, onConfirm }) {
             <input
               type="number"
               step="0.01"
-              min="0"
+              min="0.01"
               className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm text-right font-mono font-bold focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
               value={monto}
               onChange={(e) => setMonto(e.target.value)}
@@ -80,6 +80,9 @@ export default function IngresoEgresoModal({ isOpen, onClose, onConfirm }) {
               onChange={(e) => setObservacion(e.target.value)}
             />
           </div>
+          <p className="text-[10px] text-amber-600 font-semibold bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+            El movimiento quedará <b>PENDIENTE</b> hasta que un administrador lo apruebe.
+          </p>
           <div className="flex justify-end gap-3 pt-3">
             <button
               type="button"
