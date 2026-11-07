@@ -1184,7 +1184,7 @@ export const PAGES_CONFIG = {
         {
           id: 'solicitud', icon: 'fas fa-share-square', tooltip: 'Solicitar Edición',
           color: 'text-sky-600 hover:bg-sky-50',
-          showIf: (row) => row.estado_caja === 'CERRADA' && row.estado_solicitud != 1,
+          showIf: (row) => row.estado_caja === 'CERRADA' && (row.estado_solicitud || 0) == 0,
           handler: async (row, ctx) => {
             try {
               const res = await api.get('/caja/enviarSolicituEdicion', { params: { id_caja: row.id_caja } });
