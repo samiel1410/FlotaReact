@@ -1004,7 +1004,8 @@ export const NuevoBoletoPage = () => {
             valor,
             descuento,
             tarifa: tarifaTexto,
-            id_destino: subrutaSeleccionada
+            id_destino: subrutaSeleccionada,
+            precioManual: false
           }].sort((a, b) => a.asiento - b.asiento)
         };
       });
@@ -1049,18 +1050,24 @@ export const NuevoBoletoPage = () => {
 
   const handlePrecioChange = (val) => {
     setPrecioUnitario(val);
-    // Recalcular el valor de TODOS los asientos con el nuevo precio unitario,
-    // respetando la tarifa (%) de cada pasajero.
+    // El precio unitario aplica a los pasajeros del destino seleccionado que
+    // todavía usan el precio de catálogo. Cada pasajero puede tener su propio
+    // valor: los que se editaron a mano (o viajan a otro destino) se respetan.
     setFormData(prev => {
       if (!prev.pasajeros || prev.pasajeros.length === 0) return prev;
+      let huboCambios = false;
       const nuevosPasajeros = prev.pasajeros.map(p => {
+        if (p.precioManual) return p;
+        if (String(p.id_destino ?? '') !== String(subrutaSeleccionada ?? '')) return p;
         const tarifaTexto = p.tarifa || 'Normal';
+        huboCambios = true;
         return {
           ...p,
           valor: calcularValorConTarifa(val, tarifaTexto),
           descuento: calcularDescuento(val, tarifaTexto),
         };
       });
+      if (!huboCambios) return prev;
       const nuevoTotal = nuevosPasajeros.reduce(
         (sum, p) => sum + parseFloat(p.valor || 0),
         0
@@ -1253,7 +1260,13 @@ export const NuevoBoletoPage = () => {
   const confirmarGuardar = async () => {
     const errores = [];
     if (!formData.idViaje) errores.push('• Seleccionar un viaje');
-    if (!subrutaSeleccionada) errores.push('• Seleccionar un destino/tarifa');
+    // Cada pasajero puede tener su propio destino; el combo solo es el valor
+    // por defecto de los asientos nuevos.
+    if (formData.pasajeros.length === 0
+      ? !subrutaSeleccionada
+      : formData.pasajeros.some(p => !p.id_destino && !subrutaSeleccionada)) {
+      errores.push('• Seleccionar un destino/tarifa');
+    }
     if (!formData.identificacion) errores.push('• Ingresar identificación del pasajero');
     if (!formData.nombres) errores.push('• Ingresar nombre del pasajero');
     if (formData.celular && !/^[0-9]{10}$/.test(formData.celular)) {
@@ -1305,13 +1318,25 @@ export const NuevoBoletoPage = () => {
       return;
     }
 
+    const nombreDestino = (id) => destinosViaje.find(
+      d => String(d.id_sub_rutas) === String(id)
+    )?.nombre_sub_rutas || '';
+    const destinosVenta = [...new Set(
+      formData.pasajeros
+        .map(p => nombreDestino(p.id_destino || subrutaSeleccionada))
+        .filter(Boolean)
+    )];
+    const destinoTexto = destinosVenta.length > 0
+      ? destinosVenta.join(' / ')
+      : (nombreDestino(subrutaSeleccionada) || '---');
+
     const result = await Swal.fire({
       title: 'Confirmar Venta',
       html: `
         <div style="text-align:center">
           <p style="font-size:16px;font-weight:bold;color:#0a365d">${formData.pasajeros.length} asiento(s)</p>
           <p style="font-size:13px;color:#64748b">Pasajero: ${formData.nombres || '---'}</p>
-          <p style="font-size:13px;color:#64748b">Destino: <strong>${(destinosViaje.find(d => String(d.id_sub_rutas) === String(subrutaSeleccionada))?.nombre_sub_rutas || '---')}${(formData.puntoFinal || '').trim() ? ' / ' + (formData.puntoFinal || '').trim().toUpperCase() : ''}</strong></p>
+          <p style="font-size:13px;color:#64748b">Destino: <strong>${destinoTexto}${(formData.puntoFinal || '').trim() ? ' / ' + (formData.puntoFinal || '').trim().toUpperCase() : ''}</strong></p>
           <p style="font-size:13px;color:#64748b">Total: <strong>$${totalVenta.toFixed(2)}</strong></p>
         </div>
       `,
@@ -1336,7 +1361,8 @@ export const NuevoBoletoPage = () => {
       const subrutaGeneralObj = destinosViaje.find(d => String(d.id_sub_rutas) === String(subrutaSeleccionada));
 
       const detalles = formData.pasajeros.map(p => {
-        const valorFinal = p.valor !== undefined && p.valor !== null && p.valor !== '' ? parseFloat(p.valor) : precioPorAsiento;
+        const valorParseado = parseFloat(p.valor);
+        const valorFinal = Number.isFinite(valorParseado) ? valorParseado : precioPorAsiento;
         const pasajeroDestino = p.id_destino || subrutaSeleccionada;
         const subrutaPasajero = destinosViaje.find(d => String(d.id_sub_rutas) === String(pasajeroDestino));
         return {
@@ -1661,17 +1687,25 @@ export const NuevoBoletoPage = () => {
                 setPrecioUnitario(precio);
 
                 setFormData(prev => {
+                  // El combo "Destino" define el destino por defecto para los
+                  // asientos nuevos. Los pasajeros que ya tienen un destino
+                  // asignado conservan el suyo (pueden viajar a otro tramo).
+                  if (!id) return { ...prev, destino: id };
+                  let huboCambios = false;
                   const nuevosPasajeros = prev.pasajeros.map(p => {
+                    if (p.id_destino) return p;
                     const tarifaTexto = p.tarifa || 'Normal';
-                    const valor = calcularValorConTarifa(precio, tarifaTexto);
-                    const descuento = calcularDescuento(precio, tarifaTexto);
+                    huboCambios = true;
                     return {
                       ...p,
                       id_destino: id,
-                      valor,
-                      descuento
+                      valor: p.precioManual ? p.valor : calcularValorConTarifa(precio, tarifaTexto),
+                      descuento: p.precioManual ? p.descuento : calcularDescuento(precio, tarifaTexto)
                     };
                   });
+                  if (!huboCambios) {
+                    return { ...prev, destino: id };
+                  }
                   const nuevoTotal = nuevosPasajeros.reduce((sum, p) => sum + parseFloat(p.valor || 0), 0);
                   setTotalVenta(nuevoTotal);
                   return {
@@ -1757,7 +1791,7 @@ export const NuevoBoletoPage = () => {
                       const base = destino ? parseFloat(destino.valor_sub_rutas || 0) : precioUnitario;
                       const val = calcularValorConTarifa(base, tarifaTexto);
                       const dcto = calcularDescuento(base, tarifaTexto);
-                      return { ...p, tarifa: tarifaTexto, valor: val, descuento: dcto };
+                      return { ...p, tarifa: tarifaTexto, valor: val, descuento: dcto, precioManual: false };
                     });
                     const nuevoTotal = nuevosPasajeros.reduce((sum, p) => sum + parseFloat(p.valor || 0), 0);
                     setTotalVenta(nuevoTotal);

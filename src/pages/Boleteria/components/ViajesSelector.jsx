@@ -95,12 +95,12 @@ export const ViajesSelector = ({
 
       {/* DYNAMIC BUTTONS AREA (viajes disponibles) */}
       <div style={{
-        background: '#ececec', borderRadius: 4, padding: '4px',
-        marginBottom: 5, minHeight: 36,
-        display: 'flex', gap: 4, overflowX: 'auto', flexWrap: 'nowrap'
+        background: '#ececec', borderRadius: 6, padding: '6px',
+        marginBottom: 5, minHeight: 54,
+        display: 'flex', gap: 8, overflowX: 'auto', flexWrap: 'nowrap'
       }}>
         {viajesDisponibles.length === 0 ? (
-          <div style={{ padding: '8px', color: '#94a3b8', fontSize: 13, width: '100%', textAlign: 'center' }}>
+          <div style={{ padding: '12px', color: '#94a3b8', fontSize: 14, width: '100%', textAlign: 'center' }}>
             <i className="fas fa-bus"></i> Seleccione fecha y busque viajes disponibles
           </div>
         ) : (
@@ -111,51 +111,51 @@ export const ViajesSelector = ({
               onMouseEnter={(e) => handleMouseEnter(v, e)}
               onMouseLeave={handleMouseLeave}
               style={{
-                flex: '0 0 auto', padding: '4px 10px', border: 'none', borderRadius: 3,
-                cursor: 'pointer', fontWeight: 'bold', fontSize: 13, whiteSpace: 'nowrap',
+                flex: '0 0 auto', padding: '10px 16px', border: 'none', borderRadius: 6,
+                cursor: 'pointer', fontWeight: 'bold', fontSize: 15, whiteSpace: 'nowrap',
                 background: String(idViajeSeleccionado) === String(v.id_viajes)
                   ? (v.es_viaje_extra === 1 ? '#d97706' : '#0a365d')
                   : (v.es_viaje_extra === 1 ? '#fef3c7' : 'white'),
                 color: String(idViajeSeleccionado) === String(v.id_viajes)
                   ? 'white'
                   : (v.es_viaje_extra === 1 ? '#92400e' : '#475569'),
-                boxShadow: '0 1px 2px rgba(0,0,0,0.08)',
-                borderLeft: v.es_viaje_extra === 1 ? '3px solid #f59e0b' : '3px solid transparent',
-                display: 'inline-flex', alignItems: 'center', gap: 4,
+                boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
+                borderLeft: v.es_viaje_extra === 1 ? '4px solid #f59e0b' : '4px solid transparent',
+                display: 'inline-flex', alignItems: 'center', gap: 7,
                 transition: 'all 0.15s ease'
               }}
             >
               {v.es_viaje_extra === 1 && (
                 <span title="Viaje Extra" style={{ marginRight: 2 }}>
-                  <i className="fas fa-star" style={{ fontSize: 9, color: String(idViajeSeleccionado) === String(v.id_viajes) ? '#fde68a' : '#f59e0b' }}></i>
+                  <i className="fas fa-star" style={{ fontSize: 12, color: String(idViajeSeleccionado) === String(v.id_viajes) ? '#fde68a' : '#f59e0b' }}></i>
                 </span>
               )}
               {v.es_despachado_origen && (
                 <span
                   style={{
-                    padding: '1px 5px',
-                    borderRadius: 3,
+                    padding: '2px 8px',
+                    borderRadius: 4,
                     background: String(idViajeSeleccionado) === String(v.id_viajes) ? '#22c55e' : '#16a34a',
                     color: 'white',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 'bold',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 2
+                    gap: 3
                   }}
                 >
-                  <i className="fas fa-paper-plane" style={{ fontSize: 8 }}></i>
+                  <i className="fas fa-paper-plane" style={{ fontSize: 10 }}></i>
                   {v.es_despachado_mi_oficina ? 'Despachado' : 'En ruta'}
                 </span>
               )}
-              <i className="fas fa-clock" style={{ fontSize: 12 }}></i>
+              <i className="fas fa-clock" style={{ fontSize: 14 }}></i>
               <span>
                 {v.hora_salida_parada ? v.hora_salida_parada.substring(0, 5) : (v.hora_origen_salida ? v.hora_origen_salida.substring(0, 5) : (v.hora || v.hora_salida || ''))}
               </span>
               {v.es_despachado_origen && v.minutos_aplicados > 0 && (
                 <span
                   style={{
-                    fontSize: 10,
+                    fontSize: 12,
                     opacity: 0.85,
                     color: String(idViajeSeleccionado) === String(v.id_viajes) ? '#a7f3d0' : '#059669',
                     fontWeight: 600
@@ -171,9 +171,9 @@ export const ViajesSelector = ({
                 {v.bus_disco || v.bus_codigo}
               </span>
               <span style={{
-                padding: '1px 5px', borderRadius: 2,
+                padding: '3px 8px', borderRadius: 3,
                 background: String(idViajeSeleccionado) === String(v.id_viajes) ? 'rgba(255,255,255,0.2)' : '#e2e8f0',
-                fontSize: 11
+                fontSize: 12
               }}>
                 {v.asientos_libres || 0} libres
               </span>

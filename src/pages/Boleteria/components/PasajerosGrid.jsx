@@ -69,7 +69,49 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, onTotalesCha
         descuento = 0;
     }
 
-    return { ...pasajero, valor: valorFinal, descuento };
+    // Al recalcular desde el destino/tarifa el valor deja de ser manual.
+    return { ...pasajero, valor: valorFinal, descuento, precioManual: false };
+  };
+
+  /** Precio de catálogo del destino del pasajero (base para su descuento). */
+  const precioBasePasajero = (pasajero) => {
+    const destino = destinosViaje?.find(
+      d => String(d.id_sub_rutas) === String(pasajero.id_destino)
+    );
+    if (destino) return parseFloat(destino.valor_sub_rutas || 0);
+    return parseFloat(pasajero.valor || 0) + parseFloat(pasajero.descuento || 0);
+  };
+
+  // El valor es editable por pasajero: solo se modifica la fila afectada.
+  // Se guarda como texto mientras escribe para no perder "12." o "12,5".
+  const handleValorChange = (asiento, texto) => {
+    let limpio = String(texto ?? '').replace(',', '.').replace(/[^0-9.]/g, '');
+    const primerPunto = limpio.indexOf('.');
+    if (primerPunto !== -1) {
+      limpio = limpio.slice(0, primerPunto + 1) + limpio.slice(primerPunto + 1).replace(/\./g, '');
+    }
+    const nuevos = pasajeros.map(p =>
+      p.asiento === asiento ? { ...p, valor: limpio, precioManual: true } : p
+    );
+    recalcularTotal(nuevos);
+    onChange(nuevos);
+  };
+
+  const handleValorBlur = (asiento) => {
+    const nuevos = pasajeros.map(p => {
+      if (p.asiento !== asiento) return p;
+      const base = precioBasePasajero(p);
+      const automatico = recalcularValor(p, base);
+      const valor = parseFloat(p.valor);
+      // Sin número válido (o igual al de catálogo) se restaura el automático.
+      if (!Number.isFinite(valor) || Math.abs(valor - automatico.valor) < 1e-9) {
+        return automatico;
+      }
+      const descuento = Math.max(0, Math.round((base - valor) * 100) / 100);
+      return { ...p, valor, descuento, precioManual: true };
+    });
+    recalcularTotal(nuevos);
+    onChange(nuevos);
   };
 
   const recalcularTotal = (lista) => {
@@ -202,8 +244,26 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, onTotalesCha
                     style={{ width: '100%', padding: '4px 6px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '11px' }}
                   />
                 </td>
-                <td className="text-right font-mono" style={{ fontWeight: 600, color: '#059669' }}>
-                  ${parseFloat(p.valor || 0).toFixed(2)}
+                <td className="text-right" style={{ width: '10%', minWidth: '70px' }}>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={p.valor ?? ''}
+                    onChange={e => handleValorChange(p.asiento, e.target.value)}
+                    onBlur={() => handleValorBlur(p.asiento)}
+                    title="Valor del boleto para este pasajero"
+                    style={{
+                      width: '100%',
+                      padding: '4px 6px',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      textAlign: 'right',
+                      fontWeight: 600,
+                      color: '#059669',
+                      fontFamily: 'monospace'
+                    }}
+                  />
                 </td>
                 <td className="text-right font-mono" style={{ fontWeight: 600, color: '#dc2626' }}>
                   {parseFloat(p.descuento || 0) > 0 ? `-$${parseFloat(p.descuento).toFixed(2)}` : '-'}
