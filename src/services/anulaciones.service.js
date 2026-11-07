@@ -100,20 +100,16 @@ export const cancelarAnulacionComprobante = async (idComprobante, motivo) => {
 // ─── EGRESOS / INGRESOS ────────────────────────────────────────────────────
 
 export const anularEgresosTodas = async (motivo) => {
-  const user = getCurrentUser();
   const res = await api.post('/caja/anularegresostodas', {
-    motivo_anulacion: motivo,
-    id_usuario_anulacion: user?.id_usuario || user?.id || '',
+    motivoAnulacion: motivo,
   });
   return res.data;
 };
 
 export const anularEgresosSeleccionadas = async (ids, motivo) => {
-  const user = getCurrentUser();
   const res = await api.post('/caja/anularegresosseleccionadas', {
     id_egreso: ids.join(', '),
-    motivo_anulacion: motivo,
-    id_usuario_anulacion: user?.id_usuario || user?.id || '',
+    motivoAnulacion: motivo,
   });
   return res.data;
 };
@@ -121,7 +117,7 @@ export const anularEgresosSeleccionadas = async (ids, motivo) => {
 export const cancelarAnulacionEgreso = async (idEgreso, motivo) => {
   const res = await api.post('/caja/cancelarAnulacion', {
     id_egreso: idEgreso,
-    motivo: motivo,
+    motivoAnulacion: motivo,
   });
   return res.data;
 };

@@ -3,6 +3,7 @@ import { GuiaService } from '../../../services/guia.service';
 import { clienteApi } from '../../../config/axios';
 import Modal from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
+import { validarIdentificacion, validarIdentificacionGuia } from '../../../utils/identificacionUtils';
 
 export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioFound, onDestinatarioAutoFill, error, resetSignal = 0 }) => {
   const [busqueda, setBusqueda] = useState('');
@@ -59,9 +60,9 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       toast.error('Ingrese al menos 3 caracteres para buscar');
       return;
     }
-    // Validar solo dígitos para cédula/RUC
-    if (!/^\d+$/.test(busqueda.trim())) {
-      toast.error('La identificación debe contener solo números');
+    // Validar cédula (10 dígitos) o RUC (13 dígitos)
+    if (!validarIdentificacionGuia(busqueda.trim()).valido) {
+      toast.error(validarIdentificacionGuia(busqueda.trim()).mensaje);
       return;
     }
     setLoading(true);
@@ -134,6 +135,14 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       toast.error('La identificación debe contener solo números');
       return;
     }
+    const validacionIdentificacion = validarIdentificacion(
+      newCliente.identificacion_cliente,
+      newCliente.tipo_identificacion_cliente
+    );
+    if (!validacionIdentificacion.valido) {
+      toast.error(validacionIdentificacion.mensaje);
+      return;
+    }
     if (newCliente.correo_cliente && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCliente.correo_cliente)) {
       toast.error('Formato de correo inválido');
       return;
@@ -181,6 +190,14 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     }
     if (!editFormData.correo_cliente) {
       toast.error('El correo es obligatorio');
+      return;
+    }
+    const validacionIdentificacion = validarIdentificacion(
+      editFormData.identificacion_cliente,
+      editFormData.tipo_identificacion_cliente
+    );
+    if (!validacionIdentificacion.valido) {
+      toast.error(validacionIdentificacion.mensaje);
       return;
     }
     setEditLoading(true);

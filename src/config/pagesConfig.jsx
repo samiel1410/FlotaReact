@@ -1202,7 +1202,17 @@ export const PAGES_CONFIG = {
         {
           id: 'aprobar_solicitud', icon: 'fas fa-check-circle', tooltip: 'Aprobar Solicitud',
           color: 'text-emerald-600 hover:bg-emerald-50',
-          showIf: (row) => row.estado_solicitud == 1 || row.estado_solicitud === 'PENDIENTE',
+          showIf: (row) => {
+            const pendiente = row.estado_solicitud == 1 || row.estado_solicitud === 'PENDIENTE';
+            if (!pendiente) return false;
+            try {
+              const u = JSON.parse(sessionStorage.getItem('user_data') || '{}');
+              const rol = parseInt(u.rol_usuario || u.rol || 0, 10);
+              return rol === 1 || rol === 5;
+            } catch {
+              return false;
+            }
+          },
           handler: async (row, ctx) => {
             try {
               const res = await api.post('/caja/aprobarSolicitud', { id_caja: row.id_caja });
