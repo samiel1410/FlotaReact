@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 export function InfoComprobanteForm({ onConfirm, onClose, onCancel, initialNumero = '', initialBanco = '' }) {
   const [numeroComprobante, setNumeroComprobante] = useState(initialNumero);
   const [banco, setBanco] = useState(initialBanco);
+  const [enviando, setEnviando] = useState(false);
   const handleClose = onClose || onCancel || (() => {});
 
   useEffect(() => {
@@ -14,9 +15,16 @@ export function InfoComprobanteForm({ onConfirm, onClose, onCancel, initialNumer
     setBanco(initialBanco);
   }, [initialNumero, initialBanco]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (onConfirm) onConfirm({ numero_comprobante: numeroComprobante, banco });
+    if (enviando) return;
+    if (!onConfirm) return;
+    setEnviando(true);
+    try {
+      await onConfirm({ numero_comprobante: numeroComprobante, banco });
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -46,15 +54,18 @@ export function InfoComprobanteForm({ onConfirm, onClose, onCancel, initialNumer
         <button
           type="button"
           onClick={handleClose}
-          className="px-4 py-2 text-xs font-bold border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
+          disabled={enviando}
+          className="px-4 py-2 text-xs font-bold border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
+          disabled={enviando}
+          className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center gap-2"
         >
-          Guardar
+          {enviando && <i className="fas fa-spinner fa-spin"></i>}
+          {enviando ? 'Guardando...' : 'Guardar'}
         </button>
       </div>
     </form>
@@ -68,19 +79,27 @@ export function InfoComprobanteForm({ onConfirm, onClose, onCancel, initialNumer
 export default function InfoComprobanteModal({ isOpen, onClose, onConfirm, initialNumero = '', initialBanco = '' }) {
   const [numeroComprobante, setNumeroComprobante] = useState(initialNumero);
   const [banco, setBanco] = useState(initialBanco);
+  const [enviando, setEnviando] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setNumeroComprobante(initialNumero);
       setBanco(initialBanco);
+      setEnviando(false);
     }
   }, [isOpen, initialNumero, initialBanco]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onConfirm({ numero_comprobante: numeroComprobante, banco });
+    if (enviando) return;
+    setEnviando(true);
+    try {
+      await onConfirm({ numero_comprobante: numeroComprobante, banco });
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -112,15 +131,18 @@ export default function InfoComprobanteModal({ isOpen, onClose, onConfirm, initi
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
+              disabled={enviando}
+              className="px-4 py-2 text-xs font-bold border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm"
+              disabled={enviando}
+              className="px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              Guardar
+              {enviando && <i className="fas fa-spinner fa-spin"></i>}
+              {enviando ? 'Guardando...' : 'Guardar'}
             </button>
           </div>
         </form>

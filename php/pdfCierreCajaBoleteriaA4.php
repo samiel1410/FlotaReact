@@ -168,7 +168,8 @@ try {
     $egresos_ingresos = [];
     $recEI = mysqli_query($conn, "SELECT tipo_caja_detalle, SUM(monto_caja_detalle) AS total
                                   FROM caja_detalle_boleteria
-                                  WHERE id_fkcaja_boleteria = $id_caja AND estado_caja_detalle != 'ANULADO'
+                                  WHERE id_fkcaja_boleteria = $id_caja
+                                    AND UPPER(TRIM(IFNULL(estado_caja_detalle, ''))) NOT IN ('ANULADO', 'ANULADA', 'CANCELADO')
                                   GROUP BY tipo_caja_detalle");
     if ($recEI) {
         while ($ei = mysqli_fetch_assoc($recEI)) {

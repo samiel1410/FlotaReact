@@ -125,7 +125,8 @@ export const GenericForm = ({
         <button
           type="button"
           onClick={onCancel}
-          className="h-9 px-5 text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all"
+          disabled={submitting}
+          className="h-9 px-5 text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           CANCELAR
         </button>

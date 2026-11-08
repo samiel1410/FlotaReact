@@ -38,21 +38,29 @@ $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, 'A4', true, 'UTF-8', false);
 $conn = conexion();
 $query = "SELECT tipo_caja_detalle, monto_caja_detalle,id_caja ,usuario.nombre_usuario, caja_detalle.estado_caja_detalle,caja_detalle.fecha_caja_detalle, caja_detalle.nombre_socio_caja_detalle,caja_detalle.numero_detalle_caja,caja_detalle.numero_documento_caja_detalle,caja_detalle.observacion_caja_detalle, caja.fecha_caja , caja.fecha_hora_cierre FROM caja_detalle,usuario,caja WHERE caja_detalle.id_fkcaja = caja.id_caja AND caja.id_fkusuario_caja = usuario.id_usuario  ";
 
-if ($estado != "") {
+$estado_seguro = mysqli_real_escape_string($conn, (string)$estado);
+$desde_seguro  = mysqli_real_escape_string($conn, (string)$desde);
+$hasta_seguro  = mysqli_real_escape_string($conn, (string)$hasta);
 
-    $query .= " AND estado_caja_detalle LIKE '$estado'";
-};
+if ($estado_seguro != "") {
 
-if($desde!="" || $hasta!= ""){
-    $query .=" AND date(fecha_caja_detalle) BETWEEN '$desde' AND '$hasta'";
+    $query .= " AND estado_caja_detalle LIKE '$estado_seguro'";
+} else {
+    // Por defecto el reporte solo muestra movimientos vigentes: los anulados
+    // descuadraban los totales. Para verlos, filtrar por estado = ANULADA.
+    $query .= " AND UPPER(TRIM(IFNULL(estado_caja_detalle, ''))) NOT IN ('ANULADO', 'ANULADA', 'CANCELADO')";
+}
+
+if($desde_seguro != "" || $hasta_seguro != ""){
+    $query .=" AND date(fecha_caja_detalle) BETWEEN '$desde_seguro' AND '$hasta_seguro'";
 
 }else{
 
-    if($mes !="" ){
-        $query .=" AND EXTRACT(MONTH FROM fecha_caja_detalle) ='$mes' ";
+    if($mes != "" ){
+        $query .=" AND EXTRACT(MONTH FROM fecha_caja_detalle) = " . (int)$mes . " ";
 
-    }if($anio !=""){
-        $query .=" AND EXTRACT(YEAR FROM fecha_caja_detalle) = '$anio' ";
+    }if($anio != ""){
+        $query .=" AND EXTRACT(YEAR FROM fecha_caja_detalle) = " . (int)$anio . " ";
     }
 
 

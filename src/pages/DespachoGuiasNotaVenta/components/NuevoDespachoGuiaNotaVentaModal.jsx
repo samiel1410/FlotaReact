@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { api } from '../../../config/axios';
 import { useAuth } from '../../../context/AuthContext';
 import { despachoNotaVentaService } from '../../../services/despachoNotaVenta.service';
+import { toLocalDateTime } from '../../../utils/dateUtils';
 import toast from 'react-hot-toast';
 
 export const NuevoDespachoGuiaNotaVentaModal = memo(({ onClose, onSuccess }) => {
@@ -23,7 +24,7 @@ export const NuevoDespachoGuiaNotaVentaModal = memo(({ onClose, onSuccess }) => 
     id_fkbus_despacho_maestro: '',
     nombre_bus_raw: '',
     id_personal: '',
-    fecha_despacho_maestro: new Date().toISOString().slice(0, 16).replace('T', ' '),
+    fecha_despacho_maestro: toLocalDateTime(),
     oficina_usuario: '',
     destino: '',
     estado_despacho_maestro: '1'
@@ -169,13 +170,16 @@ export const NuevoDespachoGuiaNotaVentaModal = memo(({ onClose, onSuccess }) => 
       // Extraer raw values (display text) como lo hace ExtJS con getRawValue()
       const nombreOficinista = oficinistaSel?.nombre_usuario || 
         (oficinistaSel ? `${oficinistaSel.nombre_usuario || ''} ${oficinistaSel.apellido_usuario || ''}`.trim() : '');
-      const nombreBus = busSel?.codigo_buses || busSel?.placa_buses || busSel?.bus_placa || '';
+      const discoBus = busSel?.bus_disco ?? busSel?.disco_buses ?? formData.id_fkbus_despacho_maestro;
+      const placaBus = busSel?.placa_buses || busSel?.bus_placa || '';
+      const nombreBus = busSel ? `Bus ${discoBus}${placaBus ? ` (${placaBus})` : ''}` : `Bus ${formData.id_fkbus_despacho_maestro}`;
       // Busero se obtiene del combo personal seleccionado
       const personalSel = combos.personal.find(
         p => String(p.per_codigo_personal || p.id_personal) === String(formData.id_personal)
       );
-      const nombreBusero = personalSel?.per_nombres_persona || 
-        `${personalSel?.per_nombre || ''} ${personalSel?.per_apellido || ''}`.trim() || '';
+      const nombreBusero = personalSel
+        ? `${personalSel.per_nombres_persona || personalSel.per_nombre || ''} ${personalSel.per_apellidos_personal || personalSel.per_apellido || ''}`.trim()
+        : '';
       const nombreDestino = destinoSel?.lugar_destino || '';
 
       const payload = {

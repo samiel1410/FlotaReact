@@ -4,6 +4,7 @@ import { api } from '../../../config/axios';
 import { despachoService } from '../../../services/despacho.service';
 import { vehiculoService } from '../../../services/vehiculo.service';
 import { SearchableSelect } from '../../../components/common/SearchableSelect';
+import { toLocalDateTimeInput } from '../../../utils/dateUtils';
 
 /**
  * Modal simplificado y elegante para crear nuevo despacho
@@ -29,7 +30,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
     // General
     id_fkoficinista_despacho_maestro: '',
     nombre_oficinista: '',
-    fecha_despacho_maestro: new Date().toISOString().slice(0, 16),
+    fecha_despacho_maestro: toLocalDateTimeInput(),
     estado_despacho_maestro: '1',
 
     // BUS

@@ -3,16 +3,23 @@ import toast from 'react-hot-toast';
 
 export default function MotivoModal({ isOpen, onClose, onConfirm, title, subtitle, confirmText = 'Confirmar' }) {
   const [motivo, setMotivo] = useState('');
+  const [enviando, setEnviando] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
+    if (enviando) return;
     if (!motivo.trim()) {
       toast.error('Debe ingresar un motivo');
       return;
     }
-    onConfirm(motivo);
-    setMotivo('');
+    setEnviando(true);
+    try {
+      await onConfirm(motivo);
+      setMotivo('');
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -28,11 +35,20 @@ export default function MotivoModal({ isOpen, onClose, onConfirm, title, subtitl
           onChange={(e) => setMotivo(e.target.value)}
         />
         <div className="flex justify-end gap-3">
-          <button onClick={() => { setMotivo(''); onClose(); }} className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50">
+          <button
+            onClick={() => { setMotivo(''); onClose(); }}
+            disabled={enviando}
+            className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             Cancelar
           </button>
-          <button onClick={handleConfirm} className="px-4 py-2 text-sm text-white rounded-lg bg-red-600 hover:bg-red-700">
-            {confirmText}
+          <button
+            onClick={handleConfirm}
+            disabled={enviando}
+            className="px-4 py-2 text-sm text-white rounded-lg bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {enviando && <i className="fas fa-spinner fa-spin"></i>}
+            {enviando ? 'Procesando...' : confirmText}
           </button>
         </div>
       </div>

@@ -183,6 +183,7 @@ try {
         SELECT tipo_caja_detalle, SUM(monto_caja_detalle) as total
         FROM caja_detalle_nota_venta
         WHERE id_fkcaja_nota_venta = $idcaja
+          AND UPPER(TRIM(IFNULL(estado_caja_detalle, ''))) NOT IN ('ANULADO', 'ANULADA', 'CANCELADO')
         GROUP BY tipo_caja_detalle
     ") or die(mysqli_error($conn));
     $detalle_rows = [];

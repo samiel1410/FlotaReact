@@ -56,6 +56,67 @@ export const calcGuardarIva = (detalles, descuentoTipo, tiposEnvio, cobrarIvaGui
 };
 
 /**
+ * Totales de la guía / nota de venta en un solo lugar.
+ *
+ * Modelo:
+ *  - `desgloseItem` devuelve `subtotal` YA neto del descuento por convenio y
+ *    `descuento` como el valor de ese descuento (informativo).
+ *  - El descuento global (radio 50% / cortesía 100%) se aplica DESPUÉS, sobre
+ *    la base neta, y debe arrastrar también el IVA.
+ *
+ * Antes el IVA se calculaba siempre sobre la base sin descuento global (una
+ * cortesía 100% terminaba cobrando solo el IVA) y el descuento por convenio se
+ * restaba dos veces (el `subtotal` del ítem ya venía neto).
+ *
+ * Garantiza:  subtotalBruto - descuento + IVA + tarifa = total
+ *
+ * @param {object} params
+ * @param {Array}  params.detalles
+ * @param {string} params.descuentoTipo  '0'=Normal/Convenio, '1'=50%, '2'=100%
+ * @param {Array}  params.tiposEnvio
+ * @param {boolean} params.cobrarIvaGuia
+ */
+export const calcularTotalesGuia = ({ detalles = [], descuentoTipo = '0', tiposEnvio = [], cobrarIvaGuia = true }) => {
+  const factorGlobal = descuentoTipo === '2' ? 0 : descuentoTipo === '1' ? 0.5 : 1;
+
+  let baseNeta = 0;       // base después del descuento por convenio
+  let descuentoConvenio = 0;
+  let brutoConIva = 0;    // base antes del convenio, para la línea "subtotal 12%"
+  let brutoSinIva = 0;    // base antes del convenio, para la línea "subtotal 0%"
+
+  detalles.forEach((d) => {
+    const subtotal = Number(d.subtotal) || 0;   // ya neto del convenio
+    const descuento = Number(d.descuento) || 0; // convenio sobre la base
+    const bruto = subtotal + descuento;
+
+    baseNeta += subtotal;
+    descuentoConvenio += descuento;
+
+    const rate = cobrarIvaGuia ? getIvaRate(d.tipoEnvioId, tiposEnvio) : 0;
+    if (rate > 0) brutoConIva += bruto;
+    else brutoSinIva += bruto;
+  });
+
+  const baseBruta = baseNeta + descuentoConvenio;
+  const subtotalConDescuento = baseNeta * factorGlobal;
+  const totalDescuento = baseBruta - subtotalConDescuento;
+  const totalIva = calcGuardarIva(detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia) * factorGlobal;
+  const totalTarifa = detalles.reduce((sum, d) => sum + (Number(d.tarifa) || 0), 0);
+  const totalGeneral = subtotalConDescuento + totalIva + totalTarifa;
+
+  return {
+    totalSubtotal: baseBruta,
+    subtotalConIva: brutoConIva,
+    subtotalSinIva: brutoSinIva,
+    totalDescuento,
+    totalTarifa,
+    subtotalConDescuento,
+    totalIva,
+    totalGeneral,
+  };
+};
+
+/**
  * Calcula el desglose de IVA para un item individual
  * (el precio ingresado YA INCLUYE IVA).
  *

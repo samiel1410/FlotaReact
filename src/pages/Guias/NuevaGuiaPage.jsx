@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { RemitenteDestinatarioForm } from './components/RemitenteDestinatarioForm';
@@ -14,7 +14,7 @@ import { PdfViewerModal } from '../../components/PdfViewerModal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
-import { calcGuardarIva, getIvaRate } from '../../utils/ivaUtils';
+import { calcGuardarIva, getIvaRate, calcularTotalesGuia } from '../../utils/ivaUtils';
 
 
 const getInitialCobrarIvaGuia = () => {
@@ -633,6 +633,15 @@ export const NuevaGuiaPage = () => {
   const bandera = parseInt(facturarA) || 1; // 1=Remitente, 2=Destinatario, 3=Otros
   const canceladopor = pagadoPor === '1' ? 0 : 1; // 0=Remitente, 1=Destinatario
 
+  // Totales de la guía en un solo lugar: los usan el resumen, el panel de
+  // forma de pago (auto-pago / "A Pagar") y el guardado. Antes el panel de
+  // pagos ignoraba el descuento global (50%/100%) y el cobro automático
+  // quedaba mayor que el total de la factura.
+  const totalesGuia = useMemo(
+    () => calcularTotalesGuia({ detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia }),
+    [detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia]
+  );
+
   // ── Handler Guardar ──────────────────────────────────
   const handleGuardar = async () => {
     // ── Validaciones completas con errores en rojo ANTES de confirmación ──
@@ -733,25 +742,9 @@ export const NuevaGuiaPage = () => {
         ? (destinatario?.id_cliente || 0)
         : 0;
 
-    const totalSubtotal = detalles.reduce((sum, d) => sum + (d.subtotal || 0), 0);
-    let subtotalConIva = 0;
-    let subtotalSinIva = 0;
-    detalles.forEach(d => {
-      const rate = cobrarIvaGuia ? getIvaRate(d.tipoEnvioId, tiposEnvio) : 0;
-      if (rate > 0) {
-        subtotalConIva += (d.subtotal || 0);
-      } else {
-        subtotalSinIva += (d.subtotal || 0);
-      }
-    });
-
-    const totalDescuento = descuentoTipo === '2' ? totalSubtotal
-      : descuentoTipo === '1' ? totalSubtotal * 0.5
-        : detalles.reduce((sum, d) => sum + (d.descuento || 0), 0);
-    const totalTarifa = detalles.reduce((sum, d) => sum + (d.tarifa || 0), 0);
-    const subtotalConDescuento = totalSubtotal - totalDescuento;
-    const totalIva = calcGuardarIva(detalles, descuentoTipo, tiposEnvio, cobrarIvaGuia);
-    const totalGeneral = subtotalConDescuento + totalIva + totalTarifa;
+    const {
+      totalSubtotal, subtotalConIva, subtotalSinIva, totalDescuento, totalTarifa, totalIva, totalGeneral,
+    } = totalesGuia;
 
     const parametros = {
       // Cabecera (coincide con ExtJS form field names)
@@ -1590,6 +1583,7 @@ export const NuevaGuiaPage = () => {
                 onPagadoPorChange={setPagadoPor}
                 defaultFormaPagoId={defaultFormaPagoId}
                 configTipoTarifa={configTipoTarifa}
+                totalAPagar={totalesGuia.totalGeneral}
                 resetSignal={formResetKey}
               />
             ) : (
@@ -1601,6 +1595,7 @@ export const NuevaGuiaPage = () => {
                 onPagadoPorChange={setPagadoPor}
                 defaultFormaPagoId={defaultFormaPagoId}
                 configTipoTarifa={configTipoTarifa}
+                totalAPagar={totalesGuia.totalGeneral}
                 initialPagos={comprobantesIni}
                 isEditing={true}
                 readOnly={true}
@@ -1694,17 +1689,7 @@ export const NuevaGuiaPage = () => {
             <div style={{ display: 'flex', flexDirection: 'column', padding: '4px 12px', background: '#f0fdf4', borderRadius: '8px', minWidth: '100px' }}>
               <span style={{ fontSize: '9px', fontWeight: 700, color: '#059669', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total a Pagar</span>
               <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 900, color: '#059669' }}>
-                ${(() => {
-                  const base = detalles.reduce((s, d) => s + (d.subtotal || 0), 0);
-                  let desc;
-                  if (descuentoTipo === '2') desc = base;
-                  else if (descuentoTipo === '1') desc = base * 0.50;
-                  else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
-                  const baseConDesc = base - desc;
-                  const tarifa = detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
-                  const ivaTotal = cobrarIvaGuia ? detalles.reduce((s, d) => s + (d.iva || 0), 0) : 0;
-                  return (baseConDesc + ivaTotal + tarifa).toFixed(2);
-                })()}
+                ${totalesGuia.totalGeneral.toFixed(2)}
               </span>
             </div>
 
@@ -1715,14 +1700,7 @@ export const NuevaGuiaPage = () => {
 
             {/* Estado de cobro */}
             {(() => {
-              const base = detalles.reduce((s, d) => s + (d.subtotal || 0), 0);
-              let desc;
-              if (descuentoTipo === '2') desc = base;
-              else if (descuentoTipo === '1') desc = base * 0.50;
-              else desc = detalles.reduce((s, d) => s + (d.descuento || 0), 0);
-              const baseConDesc = base - desc;
-              const ivaTotal = cobrarIvaGuia ? detalles.reduce((s, d) => s + (d.iva || 0), 0) : 0;
-              const totalG = baseConDesc + ivaTotal + detalles.reduce((s, d) => s + (d.tarifa || 0), 0);
+              const totalG = totalesGuia.totalGeneral;
               const totalPagado = pagos.reduce((s, p) => s + (parseFloat(p.monto) || 0), 0);
               const cobrado = Math.abs(totalPagado - totalG) < 0.01 && totalG > 0;
               return (

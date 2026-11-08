@@ -18,7 +18,7 @@ import { GuiaService } from '../../../services/guia.service';
  *   un pago en la grilla con la forma de pago por defecto y el total
  * - El monto del pago automático se actualiza al cambiar el total
  */
-export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPorChange, defaultFormaPagoId, initialPagos = null, isEditing = false, readOnly = false, resetSignal = 0 }) => {
+export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPorChange, defaultFormaPagoId, initialPagos = null, isEditing = false, readOnly = false, resetSignal = 0, totalAPagar = null }) => {
   const [formasPago, setFormasPago] = useState([]);
   const [pagos, setPagos] = useState([]);
   const autoDeletedRef = useRef(false);
@@ -78,8 +78,10 @@ export const FormaPagoPanel = ({ detalles, onPagosChange, pagadoPor, onPagadoPor
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, initialPagos]);
 
-  // Calcular totales
-  const totalGeneral = detalles.reduce((sum, d) => {
+  // Total a pagar: el padre lo calcula con el descuento global (50%/100%) y el
+  // IVA configurado. Si no lo envía, se estima desde el detalle.
+  const tieneTotalPadre = totalAPagar !== null && totalAPagar !== undefined && Number.isFinite(Number(totalAPagar));
+  const totalGeneral = tieneTotalPadre ? Number(totalAPagar) : detalles.reduce((sum, d) => {
     const sub = d.subtotal || d.sub_total || 0;
     const desc = d.descuento || 0;
     const tar = d.tarifa || 0;
