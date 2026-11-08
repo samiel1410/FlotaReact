@@ -14,7 +14,7 @@ import { PdfViewerModal } from '../../components/PdfViewerModal';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
-import { calcGuardarIva, getIvaRate, calcularTotalesGuia } from '../../utils/ivaUtils';
+import { getIvaRate, calcularTotalesGuia } from '../../utils/ivaUtils';
 
 const getInitialCobrarIvaGuia = () => {
   try {
