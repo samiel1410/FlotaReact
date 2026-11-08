@@ -74,9 +74,8 @@ const DetalleRow = memo(({ detalle, onQuitarGuia }) => (
 
 export const DespachoGuiasNotaVentaPage = () => {
   const { user } = useAuth();
-  // El despacho guarda la sucursal de destino como suc_codigo_sucursal,
-  // por eso se prioriza la sucursal del usuario (no id_fkdestino_usuario).
-  const usuarioSucursalId = user?.id_fksucursal_usuario || user?.sucursal_usuario || user?.id_fksucursal || user?.id_oficina || user?.id_sucursal || user?.id_fkdestino_usuario;
+  // En notas de venta el despacho guarda id_destino, no el código de sucursal.
+  const usuarioDestinoId = user?.id_fkdestino_usuario || '';
 
   // ─── Estado Principal ───
   const [despachos, setDespachos] = useState([]);
@@ -113,7 +112,7 @@ export const DespachoGuiasNotaVentaPage = () => {
         desde: f.fecha_desde || '',
         hasta: f.fecha_hasta || '',
         numero: f.numero || '',
-        id_sucursal: usuarioSucursalId || ''
+        id_destino: usuarioDestinoId || ''
       };
       const res = await despachoNotaVentaService.listar(params);
       if (res.success) {
@@ -129,7 +128,7 @@ export const DespachoGuiasNotaVentaPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [filtros, usuarioSucursalId]);
+  }, [filtros, usuarioDestinoId]);
 
   useEffect(() => {
     cargarDespachos(1);
