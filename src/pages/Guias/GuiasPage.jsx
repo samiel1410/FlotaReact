@@ -366,8 +366,9 @@ export const GuiasPage = () => {
 
   const handleCharge = async (item) => {
     try {
-      // 0. Verificar que la guía no esté ya cobrada
-      if (item.estado_cobro_guia === 'COBRADA') {
+      // 0. Verificar que la guía no esté ya cobrada (se usa el saldo real,
+      //    no la bandera estado_cobro_guia que puede venir desactualizada)
+      if (parseFloat(item.por_cobrar || 0) <= 0) {
         toast.success('La guía ya se encuentra cobrada en su totalidad');
         return;
       }

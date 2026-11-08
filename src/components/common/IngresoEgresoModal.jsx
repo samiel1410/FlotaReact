@@ -6,23 +6,31 @@ export default function IngresoEgresoModal({ isOpen, onClose, onConfirm }) {
   const [socio, setSocio] = useState('');
   const [numeroDocumento, setNumeroDocumento] = useState('');
   const [observacion, setObservacion] = useState('');
+  // Evita el doble envío: un segundo clic mientras se guarda duplicaba el
+  // movimiento en caja_detalle.
+  const [enviando, setEnviando] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onConfirm({
-      tipo_caja_detalle: tipo,
-      monto_caja_detalle: parseFloat(monto) || 0,
-      nombre_socio: socio,
-      numero_documento: numeroDocumento,
-      observacion_caja_detalle: observacion
-    });
-    // Reset
-    setMonto('0');
-    setSocio('');
-    setNumeroDocumento('');
-    setObservacion('');
+    if (enviando) return;
+    setEnviando(true);
+    try {
+      await onConfirm({
+        tipo_caja_detalle: tipo,
+        monto_caja_detalle: parseFloat(monto) || 0,
+        nombre_socio: socio,
+        numero_documento: numeroDocumento,
+        observacion_caja_detalle: observacion
+      });
+      setMonto('0');
+      setSocio('');
+      setNumeroDocumento('');
+      setObservacion('');
+    } finally {
+      setEnviando(false);
+    }
   };
 
   return (
@@ -87,15 +95,18 @@ export default function IngresoEgresoModal({ isOpen, onClose, onConfirm }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50"
+              disabled={enviando}
+              className="px-4 py-2 text-xs font-bold border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm"
+              disabled={enviando}
+              className="px-4 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm disabled:bg-emerald-400 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              Guardar Movimiento
+              {enviando && <i className="fas fa-spinner fa-spin"></i>}
+              {enviando ? 'Guardando...' : 'Guardar Movimiento'}
             </button>
           </div>
         </form>

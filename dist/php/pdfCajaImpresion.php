@@ -210,9 +210,12 @@ try {
     }
 
     // ─── EGRESOS / INGRESOS ──────────────────────────────────────────────────
+    // Solo movimientos vigentes: los ANULADA/CANCELADO ya no afectan el
+    // efectivo, igual que en saldoCaja/cerrar_caja.
     $query_egresos_ingresos = "SELECT tipo_caja_detalle, SUM(monto_caja_detalle) as total 
     FROM caja_detalle 
     WHERE id_fkcaja = $id_caja 
+    AND UPPER(TRIM(IFNULL(estado_caja_detalle, ''))) NOT IN ('ANULADO', 'ANULADA', 'CANCELADO')
     GROUP BY tipo_caja_detalle";
 
     $recuperar_egresos = mysqli_query($conn, $query_egresos_ingresos) or die(mysqli_error($conn));

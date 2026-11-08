@@ -162,10 +162,12 @@ try {
     }
 
     // ─── DETALLE CAJA (EGRESOS/INGRESOS) ─────────────────────────────────────
+    // Solo movimientos vigentes: excluye ANULADA/CANCELADO igual que el cuadre.
     $rsDetalle = mysqli_query($conn, "
         SELECT tipo_caja_detalle, SUM(monto_caja_detalle) as total
         FROM caja_detalle
         WHERE id_fkcaja = $idcaja
+          AND UPPER(TRIM(IFNULL(estado_caja_detalle, ''))) NOT IN ('ANULADO', 'ANULADA', 'CANCELADO')
         GROUP BY tipo_caja_detalle
     ") or die(mysqli_error($conn));
     $detalle_rows = [];

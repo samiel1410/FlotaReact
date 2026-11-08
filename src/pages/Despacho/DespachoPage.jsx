@@ -271,7 +271,8 @@ export const DespachoPage = () => {
               <label className={labelCls}>Bus</label>
               <SearchableSelect
                 options={buses.map(b => ({
-                  value: String(b.id_buses || b.bus_id || b.id_bus),
+                  // despacho_maestro guarda el disco del bus, no el id_buses (PK).
+                  value: String(b.disco_buses ?? b.bus_disco ?? b.id_buses ?? ''),
                   label: `${b.disco_buses || b.codigo_buses || b.numero_bus || ''} ${b.placa_buses ? `(${b.placa_buses})` : ''}`.trim()
                 }))}
                 value={filtros.id_bus}

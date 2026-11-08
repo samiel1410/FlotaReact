@@ -173,7 +173,7 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
                             ? <button onClick={() => { setActiveMenu(null); onEdit(item); }}><i className="fas fa-edit" style={{color: '#f39c12'}}></i> Editar</button>
                             : <button disabled title={getMotivoNoEditable(item)} style={{opacity: 0.45, cursor: 'not-allowed'}}><i className="fas fa-edit" style={{color: '#999'}}></i> Editar ({getMotivoNoEditable(item)})</button>
                           )}
-                          {onCharge && item.estado_cobro_guia !== 'COBRADA' && parseFloat(item.por_cobrar) > 0 && <button onClick={() => { setActiveMenu(null); onCharge(item); }}><i className="fas fa-hand-holding-usd" style={{color: 'green'}}></i> Cobrar</button>}
+                          {onCharge && parseFloat(item.por_cobrar) > 0 && <button onClick={() => { setActiveMenu(null); onCharge(item); }}><i className="fas fa-hand-holding-usd" style={{color: 'green'}}></i> Cobrar</button>}
                           {onCharges && <button onClick={() => { setActiveMenu(null); onCharges(item); }}><i className="fas fa-money-bill-wave" style={{color: 'blue'}}></i> Cobros Realizados</button>}
                           {onTrack && <button onClick={() => { setActiveMenu(null); onTrack(item); }}><i className="fas fa-eye" style={{color: '#333'}}></i> Seguimiento</button>}
                           {onAnular && (

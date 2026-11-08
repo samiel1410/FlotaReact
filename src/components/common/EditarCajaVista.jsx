@@ -62,6 +62,7 @@ export default function EditarCajaVista({
 
   // Formulario nuevo movimiento
   const [showAddMov, setShowAddMov] = useState(false);
+  const [savingMov, setSavingMov] = useState(false);
   const [tipoMov, setTipoMov] = useState('INGRESO');
   const [montoMov, setMontoMov] = useState('');
   const [socioMov, setSocioMov] = useState('');
@@ -172,10 +173,12 @@ export default function EditarCajaVista({
   // Guardar Movimiento
   const handleAddMovimientoSubmit = async (e) => {
     e.preventDefault();
+    if (savingMov) return;
     if (!montoMov || parseFloat(montoMov) <= 0) {
       toast.error('Ingrese un monto válido');
       return;
     }
+    setSavingMov(true);
     try {
       const payload = {
         id_fkcaja: idCaja,
@@ -195,8 +198,10 @@ export default function EditarCajaVista({
       } else {
         toast.error(res.data?.message || 'Error al agregar movimiento');
       }
-    } catch {
-      toast.error('Error al conectar con el servidor');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error al conectar con el servidor');
+    } finally {
+      setSavingMov(false);
     }
   };
 
@@ -472,14 +477,17 @@ export default function EditarCajaVista({
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm flex-1"
+                  disabled={savingMov}
+                  className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-sm flex-1 disabled:bg-emerald-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Guardar
+                  {savingMov && <i className="fas fa-spinner fa-spin"></i>}
+                  {savingMov ? 'Guardando...' : 'Guardar'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAddMov(false)}
-                  className="h-9 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-lg"
+                  disabled={savingMov}
+                  className="h-9 px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-lg disabled:opacity-50"
                 >
                   Cancelar
                 </button>
