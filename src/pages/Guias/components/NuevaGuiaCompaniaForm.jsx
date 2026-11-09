@@ -49,6 +49,8 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
 
   const [clienteBuscando, setClienteBuscando] = useState(false);
   const effectRan = useRef(false);
+  // Candado síncrono contra doble clic / doble Enter al crear la guía.
+  const submittingRef = useRef(false);
 
   // Destinos de "mi cooperativa" + de los convenios vinculados a ella
   const cargarDestinosConvenios = async (companiaPropia) => {
@@ -199,7 +201,7 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
     setStep(2);
   };
 
-  const handleSubmit = async () => {
+  const handleSubmitInterno = async () => {
     setErrorMsg('');
     // Validaciones Paso 2 (el monto puede ser 0 si la comisión es 0%)
     if (formData.monto_cobro === '' || formData.monto_cobro === null || formData.monto_cobro === undefined || !formData.id_forma_pago) {
@@ -235,6 +237,17 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
       mostrarError(error.response?.data?.error || error.response?.data?.msg || "Error de comunicación con el servidor");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Envoltorio con candado: un doble clic / doble Enter ya no crea dos guías.
+  const handleSubmit = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    try {
+      await handleSubmitInterno();
+    } finally {
+      submittingRef.current = false;
     }
   };
 

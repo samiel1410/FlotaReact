@@ -124,7 +124,8 @@ try {
         $cobrosList[] = [
             'nombre' => $nombre_tipo,
             'pagado' => $pagado,
-            'monto' => $monto_c
+            'monto' => $monto_c,
+            'saldo' => $saldo_p
         ];
     }
 
@@ -194,7 +195,6 @@ try {
     }
 
     $total_cobrado = $total_final;
-    $total_final_final = $total_cobrado + $total_ingresos - $total_egresos;
 
     // ─── SALDO CAJA RETENCIONES ──────────────────────────────────────────────
     $sqlSaldoCaja = "CALL saldoCajaRetenciones($id_caja)";
@@ -204,12 +204,16 @@ try {
 
     $esperado_sp = null;
     $contado_sp = null;
+    $efectivo_sp = null;
     while ($vals_saldo = mysqli_fetch_assoc($recuperar_saldo)) {
         $estado_cuadre = $vals_saldo['estado_cuadre'] ?? '';
         $saldo = (float)($vals_saldo['total_diferencia'] ?? 0);
         if (array_key_exists('total_esperado', $vals_saldo)) {
             $esperado_sp = (float)$vals_saldo['total_esperado'];
             $contado_sp = (float)($vals_saldo['total_contado'] ?? 0);
+        }
+        if (array_key_exists('total_cobrado_efectivo', $vals_saldo)) {
+            $efectivo_sp = (float)$vals_saldo['total_cobrado_efectivo'];
         }
     }
     mysqli_free_result($recuperar_saldo);
@@ -218,6 +222,12 @@ try {
         if ($extra) mysqli_free_result($extra);
     }
     $conn->close();
+
+    // Igual que el SP saldoCajaRetenciones: apertura + ingresos - egresos
+    // + efectivo cobrado. Es el valor del bloque ESPERADO de la cabecera.
+    $total_efectivo_caja = $esperado_sp !== null
+        ? $esperado_sp
+        : round($total_apertura + $total_ingresos - $total_egresos + (float)($efectivo_sp ?? 0), 2);
 
     // ─── CONFIGURACIÓN DE PÁGINA TCPDF NATIVA ────────────────────────────────
     $anchoPapel = obtenerAnchoFormatoImpresion(null, 80, $vals_config['formato_impresion'] ?? null);
@@ -282,26 +292,30 @@ try {
     $pdf->SetFont('helvetica', 'B', 8.5);
     $pdf->Cell($anchoUtil, 4.2, 'CAJA (RETENCIONES)', 0, 1, 'C');
 
-    $wNom  = round($anchoUtil * 0.50, 1);
-    $wPag  = round($anchoUtil * 0.25, 1);
-    $wTot  = $anchoUtil - ($wNom + $wPag);
+    $wNom  = round($anchoUtil * 0.42, 1);
+    $wPag  = round($anchoUtil * 0.20, 1);
+    $wTot  = round($anchoUtil * 0.20, 1);
+    $wSal  = $anchoUtil - ($wNom + $wPag + $wTot);
 
-    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->SetFont('helvetica', 'B', 6.5);
     $pdf->Cell($wNom, 4, 'CONCEPTO', 'B', 0, 'L');
     $pdf->Cell($wPag, 4, 'COBRADO', 'B', 0, 'R');
-    $pdf->Cell($wTot, 4, 'MONTO', 'B', 1, 'R');
+    $pdf->Cell($wTot, 4, 'MONTO', 'B', 0, 'R');
+    $pdf->Cell($wSal, 4, 'SALDO', 'B', 1, 'R');
 
-    $pdf->SetFont('courier', '', 7);
+    $pdf->SetFont('courier', '', 6.5);
     foreach ($cobrosList as $c) {
         $pdf->Cell($wNom, 3.6, $c['nombre'], 0, 0, 'L');
         $pdf->Cell($wPag, 3.6, '$' . number_format($c['pagado'], 2), 0, 0, 'R');
-        $pdf->Cell($wTot, 3.6, '$' . number_format($c['monto'], 2), 0, 1, 'R');
+        $pdf->Cell($wTot, 3.6, '$' . number_format($c['monto'], 2), 0, 0, 'R');
+        $pdf->Cell($wSal, 3.6, '$' . number_format($c['saldo'], 2), 0, 1, 'R');
     }
 
-    $pdf->SetFont('helvetica', 'B', 7.5);
+    $pdf->SetFont('helvetica', 'B', 6.8);
     $pdf->Cell($wNom, 4, 'TOTAL:', 'T', 0, 'L');
     $pdf->Cell($wPag, 4, '$' . number_format($total_final, 2), 'T', 0, 'R');
-    $pdf->Cell($wTot, 4, '', 'T', 1, 'R');
+    $pdf->Cell($wTot, 4, '', 'T', 0, 'R');
+    $pdf->Cell($wSal, 4, '$' . number_format($total_por_cobrar, 2), 'T', 1, 'R');
     $pdf->Ln(1.5);
 
     // ─── 4. EGRESOS / INGRESOS ───────────────────────────────────────────────
@@ -330,13 +344,17 @@ try {
     $wV = $anchoUtil - $wK;
     $hTot = 3.6;
 
+    // Cada total mide algo distinto: el POR COBRAR es un saldo pendiente de
+    // clientes, no dinero recibido. El TOTAL GENERAL es lo que debe quedar al
+    // final cuando se cobre todo lo pendiente de esta caja.
     $totalesSummary = [
         ['TOTAL COBRADO:', '$' . number_format($total_cobrado, 2)],
-        ['TOTAL POR COBRAR:', '$' . number_format($total_por_cobrar, 2)],
+        ['COBRADO EN EFECTIVO:', '$' . number_format((float)($efectivo_sp ?? 0), 2)],
         ['TOTAL EGRESOS:', '$' . number_format($total_egresos, 2)],
         ['TOTAL INGRESOS:', '$' . number_format($total_ingresos, 2)],
-        ['TOTAL CAJA:', '$' . number_format($total_final_final, 2)],
-        ['TOTAL GENERAL:', '$' . number_format($total_final_final + $total_por_cobrar, 2)],
+        ['POR COBRAR (esta caja):', '$' . number_format($total_por_cobrar, 2)],
+        ['ESPERADO EN CAJA:', '$' . number_format($total_efectivo_caja, 2)],
+        ['TOTAL GENERAL:', '$' . number_format($total_efectivo_caja + $total_por_cobrar, 2)],
     ];
 
     foreach ($totalesSummary as $idx => $ts) {
@@ -344,6 +362,9 @@ try {
         $pdf->Cell($wK, $hTot, $ts[0], 0, 0, 'L');
         $pdf->Cell($wV, $hTot, $ts[1], 0, 1, 'R');
     }
+
+    $pdf->SetFont('helvetica', 'I', 6.3);
+    $pdf->MultiCell($anchoUtil, 3.2, 'TOTAL GENERAL = esperado en caja + por cobrar de esta caja: es lo que debe quedar al cobrar todo.', 0, 'L', false, 1);
 
     $pdf->Ln(2);
     $pdf->SetFont('helvetica', '', 6.5);

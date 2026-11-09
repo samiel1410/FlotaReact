@@ -24,12 +24,14 @@ export const CajaGrid = ({ data, loading, pagination, setPagination, totalRecord
     { header: '($)APERTURA', accessorKey: 'apertura_total_caja', cell: info => <span className="text-emerald-600 font-bold font-mono">${parseFloat(info.getValue() || 0).toFixed(2)}</span> },
     { header: '($)CIERRE', accessorKey: 'cierre_total_caja', cell: info => <span className="text-blue-600 font-bold font-mono">${parseFloat(info.getValue() || 0).toFixed(2)}</span> },
     {
-      header: '($)MONTO A TENER',
+      header: '($)ESPERADO EN CAJA',
       id: 'monto_a_tener',
       cell: ({ row }) => {
         const r = row.original;
-        const val = r.monto_a_tener ?? r.apertura_total_caja;
-        return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
+        const val = r.monto_a_tener;
+        return val == null
+          ? <span className="text-slate-400">-</span>
+          : <span className="font-mono font-bold text-emerald-600">${parseFloat(val).toFixed(2)}</span>;
       }
     },
     { header: 'CUADRE', accessorKey: 'cuadre_caja', cell: info => {

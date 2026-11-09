@@ -54,6 +54,9 @@ export const NuevaGuiaNotaVentaPage = () => {
   // ── Loading ──────────────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Candado síncrono: evita que un doble clic / doble Enter dispare dos
+  // inserciones antes de que React alcance a deshabilitar el botón.
+  const savingRef = useRef(false);
 
   // ── Field errors (rojo) ──────────────────────────────
   const [fieldErrors, setFieldErrors] = useState({});
@@ -642,7 +645,7 @@ export const NuevaGuiaNotaVentaPage = () => {
   );
 
   // ── Handler Guardar ──────────────────────────────────
-  const handleGuardar = async () => {
+  const handleGuardarInterno = async () => {
     // ── Validaciones completas con errores en rojo ANTES de confirmación ──
     // En edición solo se exigen remitente, destinatario y destino (los valores van bloqueados)
     const errors = {};
@@ -1038,6 +1041,17 @@ export const NuevaGuiaNotaVentaPage = () => {
       toast.error(error?.response?.data?.message || 'Error al guardar la guía');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Envoltorio con candado: un doble clic / doble Enter ya no crea dos guías.
+  const handleGuardar = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
+    try {
+      await handleGuardarInterno();
+    } finally {
+      savingRef.current = false;
     }
   };
 

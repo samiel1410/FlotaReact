@@ -4,9 +4,26 @@ class CajaService {
   async listadoCaja(params = {}) {
     try {
       const response = await api.get('/caja/listadoCaja', { params });
-      return { success: true, data: response.data?.data || [], total: response.data?.total || 0, message: response.data?.message || '' };
+      return { success: response.data?.success === true, data: response.data?.data || [], total: response.data?.total || 0, message: response.data?.message || response.data?.mensaje || '' };
     } catch (error) {
       return { success: false, data: [], total: 0, message: error.response?.data?.message || 'Error al cargar cajas' };
+    }
+  }
+
+  async listadoGuiasPorCobrarCaja(idCaja) {
+    try {
+      const response = await api.get('/caja/guiasPorCobrarCaja', { params: { id_caja: idCaja } });
+      return {
+        success: response.data?.success === true,
+        data: response.data?.data || [],
+        message: response.data?.message || ''
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: [],
+        message: error.response?.data?.message || 'Error al consultar guías por cobrar'
+      };
     }
   }
 

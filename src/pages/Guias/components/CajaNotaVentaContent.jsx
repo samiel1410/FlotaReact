@@ -9,6 +9,7 @@ import { CierreCajaForm } from '../../CajaBoleteria/components/CierreCajaForm';
 import InfoComprobanteModal from '../../../components/common/InfoComprobanteModal';
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
 import { useAuth } from '../../../context/AuthContext';
+import useSubmitLock from '../../../hooks/useSubmitLock';
 
 // Roles con permiso de administración (mismos que valida el backend).
 const ROLES_ADMIN = [1, 5];
@@ -20,6 +21,7 @@ const ROLES_ADMIN = [1, 5];
  */
 export const CajaNotaVentaContent = () => {
   const { user } = useAuth();
+  const runLocked = useSubmitLock();
   const esAdmin = ROLES_ADMIN.includes(Number(user?.rol_usuario || user?.id_fkrol_usuario || 0));
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -79,7 +81,9 @@ export const CajaNotaVentaContent = () => {
   }, []);
 
   // ─── APERTURA DE CAJA ────────────────────────────────────────────────
-  const handleApertura = async (formData) => {
+  const handleApertura = (formData) => runLocked(() => handleAperturaInterno(formData));
+
+  const handleAperturaInterno = async (formData) => {
     const res = await cajaService.insertarAperturaCaja(formData);
     if (res.success) { toast.success('Caja aperturada correctamente'); loadData(); setShowApertura(false); }
     else toast.error(res.message || 'Error al aperturar');

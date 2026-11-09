@@ -13,12 +13,15 @@ import InfoComprobanteModal from '../../components/common/InfoComprobanteModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import IngresoEgresoModal from '../../components/common/IngresoEgresoModal';
 import { useAuth } from '../../context/AuthContext';
+import useSubmitLock from '../../hooks/useSubmitLock';
+import { GuiasPorCobrarCaja } from './components/GuiasPorCobrarCaja';
 
 // Roles con permiso de administración (mismos que valida el backend).
 const ROLES_ADMIN = [1, 5];
 
 export const CajaPage = () => {
   const { user } = useAuth();
+  const runLocked = useSubmitLock();
   const esAdmin = ROLES_ADMIN.includes(Number(user?.rol_usuario || user?.id_fkrol_usuario || 0));
 
   const [data, setData] = useState([]);
@@ -37,6 +40,9 @@ export const CajaPage = () => {
   const [detalleCajaId, setDetalleCajaId] = useState(null);
   const [detalleCajaNum, setDetalleCajaNum] = useState('');
   const [cajaInfo, setCajaInfo] = useState(null);
+  const [guiasPorCobrar, setGuiasPorCobrar] = useState([]);
+  const [guiasPorCobrarLoading, setGuiasPorCobrarLoading] = useState(false);
+  const [guiasPorCobrarError, setGuiasPorCobrarError] = useState('');
 
   // Modales de Acción (Info Comprobante, Aprobar Solicitud, Ingreso/Egreso)
   const [infoCompModalOpen, setInfoCompModalOpen] = useState(false);
@@ -79,20 +85,48 @@ export const CajaPage = () => {
   }, []);
 
   // ─── MODAL APERTURA ────────────────────────────────────────────────────
-  const handleApertura = async (formData) => {
+  const handleApertura = (formData) => runLocked(() => handleAperturaInterno(formData));
+
+  const handleAperturaInterno = async (formData) => {
     const res = await cajaService.insertarAperturaCaja(formData);
     if (res.success) { toast.success('Caja aperturada correctamente'); loadData(); setShowApertura(false); }
     else toast.error(res.message || 'Error al aperturar');
   };
 
   // ─── MODAL CIERRE ──────────────────────────────────────────────────────
-  const openCierreModal = (caja) => {
+  const openCierreModal = async (caja) => {
     if (!caja || caja.estado_caja === 'CERRADA') { toast.error('La caja ya está cerrada'); return; }
-    setCajaParaCierre(caja);
+    const res = await cajaService.listadoCaja({ apertura: 1 });
+    if (!res.success) {
+      toast.error(res.message || 'No se pudo cargar el saldo esperado de la caja');
+      return;
+    }
+    const cajaCompleta = res.data?.find(row => Number(row.id_caja) === Number(caja.id_caja));
+    if (!cajaCompleta) {
+      toast.error('No se encontró el resumen actualizado de la caja abierta');
+      return;
+    }
+    if (cajaCompleta.monto_a_tener == null) {
+      toast.error('No se pudo calcular el efectivo esperado de la caja');
+      return;
+    }
+    setCajaParaCierre(cajaCompleta);
+    setGuiasPorCobrarLoading(true);
+    setGuiasPorCobrarError('');
+    setGuiasPorCobrar([]);
     setShowCierre(true);
+    const resGuias = await cajaService.listadoGuiasPorCobrarCaja(cajaCompleta.id_caja);
+    if (resGuias.success) setGuiasPorCobrar(resGuias.data || []);
+    else {
+      setGuiasPorCobrarError(resGuias.message || 'No se pudieron consultar las guías por cobrar');
+      toast.error(resGuias.message || 'No se pudieron consultar las guías por cobrar');
+    }
+    setGuiasPorCobrarLoading(false);
   };
 
-  const handleCierre = async (formData) => {
+  const handleCierre = (formData) => runLocked(() => handleCierreInterno(formData));
+
+  const handleCierreInterno = async (formData) => {
     const res = await cajaService.cerrarCaja({ ...formData, id_caja: cajaParaCierre.id_caja });
     if (res.success) {
       let msg = 'Caja cerrada correctamente';
@@ -101,12 +135,15 @@ export const CajaPage = () => {
       else if (res.estado_cuadre === 'SOBRANTE') msg += `. Sobrante de $${res.valor_diferencia}`;
       toast.success(msg);
       loadData();
+      setOpenCaja(null);
       setShowCierre(false);
     } else toast.error(res.message || 'Error al cerrar');
   };
 
   // ─── MODAL INFO COMPROBANTE ────────────────────────────────────────────
-  const handleConfirmInfoComprobante = async (formValues) => {
+  const handleConfirmInfoComprobante = (formValues) => runLocked(() => handleConfirmInfoComprobanteInterno(formValues));
+
+  const handleConfirmInfoComprobanteInterno = async (formValues) => {
     if (!selectedRowForInfo) return;
     const res = await cajaService.guardarInfoComprobante({
       id_caja: selectedRowForInfo.id_caja,
@@ -125,21 +162,37 @@ export const CajaPage = () => {
   // ─── MODAL DETALLE / EDITAR ────────────────────────────────────────────
   const loadDetalle = async (idCaja) => {
     setDetalleLoading(true);
+    setGuiasPorCobrarLoading(true);
+    setGuiasPorCobrarError('');
     try {
-      const [detRes, infoRes] = await Promise.all([
+      const [detRes, infoRes, guiasRes] = await Promise.all([
         cajaService.listadoDetalleCaja(idCaja),
-        cajaService.informacionCaja(idCaja)
+        cajaService.informacionCaja(idCaja),
+        cajaService.listadoGuiasPorCobrarCaja(idCaja)
       ]);
       setDetalleData(detRes.data || []);
       if (infoRes.success && infoRes.data?.[0]) {
         setDetalleCajaId(infoRes.data[0].id_caja);
-        setDetalleCajaNum(infoRes.data[0].numero_caja || '');
+        setDetalleCajaNum(infoRes.data[0].numero_caja || infoRes.data[0].id_caja || '');
         setCajaInfo(infoRes.data[0]);
       } else {
         setCajaInfo(null);
       }
-    } catch { setDetalleData([]); setCajaInfo(null); }
-    finally { setDetalleLoading(false); }
+      if (guiasRes.success) setGuiasPorCobrar(guiasRes.data || []);
+      else {
+        setGuiasPorCobrar([]);
+        setGuiasPorCobrarError(guiasRes.message || 'No se pudieron consultar las guías por cobrar');
+      }
+    } catch {
+      setDetalleData([]);
+      setCajaInfo(null);
+      setGuiasPorCobrar([]);
+      setGuiasPorCobrarError('No se pudieron cargar los datos de la caja');
+      toast.error('No se pudieron cargar los datos de la caja');
+    } finally {
+      setDetalleLoading(false);
+      setGuiasPorCobrarLoading(false);
+    }
   };
 
   const openModalDetalle = async (row) => {
@@ -180,7 +233,9 @@ export const CajaPage = () => {
     }
   }, []);
 
-  const handleEjecutarAprobar = async () => {
+  const handleEjecutarAprobar = () => runLocked(handleEjecutarAprobarInterno);
+
+  const handleEjecutarAprobarInterno = async () => {
     if (!selectedRowForAprobar) return;
     const res = await cajaService.aprobarSolicitud(selectedRowForAprobar.id_caja);
     if (res.success) {
@@ -197,7 +252,9 @@ export const CajaPage = () => {
     setIngresoEgresoModalOpen(true);
   };
 
-  const handleConfirmIngresoEgreso = async (formData) => {
+  const handleConfirmIngresoEgreso = (formData) => runLocked(() => handleConfirmIngresoEgresoInterno(formData));
+
+  const handleConfirmIngresoEgresoInterno = async (formData) => {
     if (!cajaIdForMovimiento) return;
     const res = await cajaService.detalleCaja({
       id_fkcaja: cajaIdForMovimiento,
@@ -212,7 +269,9 @@ export const CajaPage = () => {
     setCajaIdForMovimiento(null);
   };
 
-  const handleSolicitarAnulacion = async (detalle) => {
+  const handleSolicitarAnulacion = (detalle) => runLocked(() => handleSolicitarAnulacionInterno(detalle));
+
+  const handleSolicitarAnulacionInterno = async (detalle) => {
     const { value: motivo } = await Swal.fire({
       title: 'Solicitar anulación',
       text: 'La solicitud deberá ser aprobada por un administrador.',
@@ -260,6 +319,16 @@ export const CajaPage = () => {
       toast.error(res.message || 'No se pudo eliminar el movimiento');
     }
   };
+
+  const movimientosVigentes = detalleData.filter((movimiento) =>
+    !['ANULADO', 'ANULADA', 'CANCELADO'].includes(String(movimiento.estado_caja_detalle || '').trim().toUpperCase())
+  );
+  const totalIngresosDetalle = movimientosVigentes
+    .filter((movimiento) => String(movimiento.tipo_caja_detalle || '').trim().toUpperCase() === 'INGRESO')
+    .reduce((total, movimiento) => total + (Number(movimiento.monto_caja_detalle) || 0), 0);
+  const totalEgresosDetalle = movimientosVigentes
+    .filter((movimiento) => String(movimiento.tipo_caja_detalle || '').trim().toUpperCase() === 'EGRESO')
+    .reduce((total, movimiento) => total + (Number(movimiento.monto_caja_detalle) || 0), 0);
 
   return (
     <div className="flex flex-col h-full gap-2 p-0 bg-slate-100/50">
@@ -388,6 +457,10 @@ export const CajaPage = () => {
             <div className="flex-1 overflow-y-auto p-6">
               <CierreCajaForm
                 cajaActual={cajaParaCierre}
+                esCajaGuias
+                guiasPorCobrar={guiasPorCobrar}
+                guiasPorCobrarLoading={guiasPorCobrarLoading}
+                guiasPorCobrarError={guiasPorCobrarError}
                 onSubmit={handleCierre}
                 onCancel={() => setShowCierre(false)}
               />
@@ -403,16 +476,30 @@ export const CajaPage = () => {
         size="lg">
         <div className="p-4 space-y-4">
           {/* Resumen cards */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             <div className="bg-emerald-50 p-3 rounded-lg"><span className="block text-xs text-emerald-600 font-bold uppercase">Apertura</span>
               <span className="text-lg font-bold text-emerald-700">${parseFloat(cajaInfo?.apertura_total_caja || 0).toFixed(2)}</span></div>
             <div className="bg-blue-50 p-3 rounded-lg"><span className="block text-xs text-blue-600 font-bold uppercase">Cierre</span>
               <span className="text-lg font-bold text-blue-700">{cajaInfo?.cierre_total_caja != null ? `$${parseFloat(cajaInfo.cierre_total_caja).toFixed(2)}` : '-'}</span></div>
-            <div className="bg-amber-50 p-3 rounded-lg"><span className="block text-xs text-amber-600 font-bold uppercase">Total Mov.</span>
-              <span className="text-lg font-bold text-amber-700">${detalleData.reduce((s, d) => s + parseFloat(d.monto_caja_detalle || 0), 0).toFixed(2)}</span></div>
+            <div className="bg-indigo-50 p-3 rounded-lg"><span className="block text-xs text-indigo-600 font-bold uppercase">Cobrado en efectivo</span>
+              <span className="text-lg font-bold text-indigo-700">${parseFloat(cajaInfo?.total_cobrado_efectivo || 0).toFixed(2)}</span></div>
+            <div className="bg-emerald-50 p-3 rounded-lg"><span className="block text-xs text-emerald-600 font-bold uppercase">Ingresos vigentes</span>
+              <span className="text-lg font-bold text-emerald-700">${totalIngresosDetalle.toFixed(2)}</span></div>
+            <div className="bg-rose-50 p-3 rounded-lg"><span className="block text-xs text-rose-600 font-bold uppercase">Egresos vigentes</span>
+              <span className="text-lg font-bold text-rose-700">${totalEgresosDetalle.toFixed(2)}</span></div>
+            <div className="bg-amber-50 p-3 rounded-lg"><span className="block text-xs text-amber-600 font-bold uppercase">Neto movimientos</span>
+              <span className="text-lg font-bold text-amber-700">${(totalIngresosDetalle - totalEgresosDetalle).toFixed(2)}</span></div>
+            <div className="bg-cyan-50 p-3 rounded-lg"><span className="block text-xs text-cyan-600 font-bold uppercase">Esperado en caja</span>
+              <span className="text-lg font-bold text-cyan-700">{cajaInfo?.monto_a_tener == null ? '-' : `$${parseFloat(cajaInfo.monto_a_tener).toFixed(2)}`}</span></div>
             <div className="bg-purple-50 p-3 rounded-lg"><span className="block text-xs text-purple-600 font-bold uppercase">Registros</span>
               <span className="text-lg font-bold text-purple-700">{detalleData.length}</span></div>
           </div>
+
+          <GuiasPorCobrarCaja
+            guias={guiasPorCobrar}
+            loading={guiasPorCobrarLoading}
+            error={guiasPorCobrarError}
+          />
 
           {/* Botón Agregar Ingreso/Egreso: una caja cerrada solo admite
               movimientos con solicitud de edición aprobada. */}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { GuiasPorCobrarCaja } from '../../Caja/components/GuiasPorCobrarCaja';
 
 const DENOMINACIONES = [
   { key: 'cierre_100_caja', label: '$100', valor: 100, color: 'blue' },
@@ -18,7 +19,7 @@ const MONEDAS = [
   { key: 'cierre_moneda_1_caja', label: '1¢', valor: 0.01, color: 'slate' },
 ];
 
-export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel }) => {
+export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = false, guiasPorCobrar = [], guiasPorCobrarLoading = false, guiasPorCobrarError = '' }) => {
   const [formData, setFormData] = useState({});
   const [subtotalBilletes, setSubtotalBilletes] = useState(0);
   const [subtotalMonedas, setSubtotalMonedas] = useState(0);
@@ -91,10 +92,17 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel }) => {
   const totalVendido = Number(cajaActual?.total_vendido) || 0;
   const totalRetenido = Number(cajaActual?.total_retenido) || 0;
   const totalEntregado = Number(cajaActual?.total_entregado) || 0;
+  const totalIngresos = Number(cajaActual?.total_ingresos) || 0;
+  const totalEgresos = Number(cajaActual?.total_egresos) || 0;
+  const totalCobradoEfectivo = Number(cajaActual?.total_cobrado_efectivo) || 0;
+  const totalPorCobrar = guiasPorCobrar.reduce((total, guia) => total + (Number(guia.por_cobrar) || 0), 0);
 
-  // Esperado en caja = lo que había al abrir + lo retenido en el período.
-  const esperadoEnCaja = (Number(cajaActual?.apertura_total_caja) || 0) + totalRetenido;
+  // En Caja Guías el backend calcula apertura + ingresos - egresos + cobros en efectivo.
+  const esperadoEnCaja = esCajaGuias
+    ? Number(cajaActual?.monto_a_tener) || 0
+    : (Number(cajaActual?.apertura_total_caja) || 0) + totalRetenido;
   const diferenciaEsperado = totalGeneral - esperadoEnCaja;
+  const totalGeneralCaja = esperadoEnCaja + totalPorCobrar;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -218,24 +226,49 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel }) => {
           ? 'bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200'
           : 'bg-gradient-to-r from-red-50 to-orange-50 border-red-200'
       }`}>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase">Apertura</p>
-            <p className="text-xl font-black text-slate-700">{formatMonto(cajaActual?.apertura_total_caja || 0)}</p>
+        {esCajaGuias ? (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-4">
+              {[
+                { label: 'Apertura', value: cajaActual?.apertura_total_caja, color: 'text-slate-700' },
+                { label: 'Ingresos', value: totalIngresos, color: 'text-emerald-700' },
+                { label: 'Egresos', value: totalEgresos, color: 'text-rose-700' },
+                { label: 'Cobrado en efectivo', value: totalCobradoEfectivo, color: 'text-indigo-700' },
+                { label: 'Esperado en caja', value: esperadoEnCaja, color: 'text-slate-900' },
+                { label: 'Contado', value: totalGeneral, color: 'text-slate-700' },
+              ].map(({ label, value, color }) => (
+                <div key={label}>
+                  <p className="text-xs font-bold text-slate-500 uppercase">{label}</p>
+                  <p className={`text-xl font-black ${color}`}>{formatMonto(value || 0)}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mb-4 text-xs text-slate-600">
+              Esperado = apertura + ingresos - egresos + comprobantes cobrados en efectivo.
+              Los movimientos PENDIENTE y EMITIDA se incluyen; los anulados o rechazados no.
+              El saldo por cobrar no es efectivo recibido, pero sí entra en el total general.
+            </p>
+          </>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase">Apertura</p>
+              <p className="text-xl font-black text-slate-700">{formatMonto(cajaActual?.apertura_total_caja || 0)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-amber-600 uppercase">Retenido</p>
+              <p className="text-xl font-black text-amber-700">{formatMonto(totalRetenido)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase">Esperado en caja</p>
+              <p className="text-xl font-black text-slate-700">{formatMonto(esperadoEnCaja)}</p>
+            </div>
+            <div>
+              <p className="text-xs font-bold text-slate-500 uppercase">Contado</p>
+              <p className="text-xl font-black text-slate-700">{formatMonto(totalGeneral)}</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-bold text-amber-600 uppercase">Retenido</p>
-            <p className="text-xl font-black text-amber-700">{formatMonto(totalRetenido)}</p>
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase">Esperado en caja</p>
-            <p className="text-xl font-black text-slate-700">{formatMonto(esperadoEnCaja)}</p>
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500 uppercase">Contado</p>
-            <p className="text-xl font-black text-slate-700">{formatMonto(totalGeneral)}</p>
-          </div>
-        </div>
+        )}
         <div className="mb-4">
           <p className="text-xs font-bold text-slate-500 uppercase">Diferencia</p>
           <p className={`text-xl font-black ${Math.abs(diferenciaEsperado) < 0.01 ? 'text-emerald-700' : 'text-red-700'}`}>
@@ -245,6 +278,26 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel }) => {
         <p className="text-sm font-bold text-slate-600 uppercase tracking-wider">Total Cierre</p>
         <p className="text-3xl font-black text-slate-800">{formatMonto(totalGeneral)}</p>
       </div>
+
+      {esCajaGuias && (
+        <>
+          <div className="rounded-xl border-2 border-slate-800 bg-slate-50 p-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-xs font-black text-slate-700 uppercase tracking-wide">Total general (si cobra todo)</p>
+              <p className="text-[11px] text-slate-500">
+                Esperado en caja + saldo por cobrar de la caja y guías de esta oficina.
+              </p>
+            </div>
+            <p className="text-2xl font-black text-slate-900 font-mono">{formatMonto(totalGeneralCaja)}</p>
+          </div>
+
+          <GuiasPorCobrarCaja
+            guias={guiasPorCobrar}
+            loading={guiasPorCobrarLoading}
+            error={guiasPorCobrarError}
+          />
+        </>
+      )}
 
       {/* Comprobante y Banco */}
       <div className="grid grid-cols-2 gap-4">

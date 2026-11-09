@@ -13,12 +13,14 @@ import ConfirmationModal from '../../components/common/ConfirmationModal';
 import IngresoEgresoModal from '../../components/common/IngresoEgresoModal';
 import { CierreCajaForm } from '../CajaBoleteria/components/CierreCajaForm';
 import { useAuth } from '../../context/AuthContext';
+import useSubmitLock from '../../hooks/useSubmitLock';
 
 // Roles con permiso de administración (mismos que valida el backend).
 const ROLES_ADMIN = [1, 5];
 
 export const CajaCobrosPage = () => {
   const { user } = useAuth();
+  const runLocked = useSubmitLock();
   const esAdmin = ROLES_ADMIN.includes(Number(user?.rol_usuario || user?.id_fkrol_usuario || 0));
 
   const [data, setData] = useState([]);
@@ -77,7 +79,9 @@ export const CajaCobrosPage = () => {
     setShowCierre(true);
   };
 
-  const handleCierreSubmit = async (formData) => {
+  const handleCierreSubmit = (formData) => runLocked(() => handleCierreSubmitInterno(formData));
+
+  const handleCierreSubmitInterno = async (formData) => {
     if (!cajaParaCierre) return;
     const res = await cajaCobrosService.cerrarCaja({ ...formData, id_caja: cajaParaCierre.id_caja_retenciones || cajaParaCierre.id_caja });
     if (res.success) {
@@ -122,7 +126,9 @@ export const CajaCobrosPage = () => {
     }
   }, []);
 
-  const handleConfirmInfo = async (formValues) => {
+  const handleConfirmInfo = (formValues) => runLocked(() => handleConfirmInfoInterno(formValues));
+
+  const handleConfirmInfoInterno = async (formValues) => {
     if (!selectedRowForInfo) return;
     const r = await cajaCobrosService.guardarInfoComprobante({
       id_caja: selectedRowForInfo.id_caja_retenciones,
@@ -133,7 +139,9 @@ export const CajaCobrosPage = () => {
     setSelectedRowForInfo(null);
   };
 
-  const handleConfirmAprobar = async () => {
+  const handleConfirmAprobar = () => runLocked(handleConfirmAprobarInterno);
+
+  const handleConfirmAprobarInterno = async () => {
     if (!selectedRowForAprobar) return;
     const r = await cajaCobrosService.aprobarSolicitud(selectedRowForAprobar.id_caja_retenciones);
     if (r.success) { toast.success('Aprobada'); loadData(); } else toast.error('Error');
@@ -141,7 +149,9 @@ export const CajaCobrosPage = () => {
     setSelectedRowForAprobar(null);
   };
 
-  const handleConfirmMovimiento = async (formData) => {
+  const handleConfirmMovimiento = (formData) => runLocked(() => handleConfirmMovimientoInterno(formData));
+
+  const handleConfirmMovimientoInterno = async (formData) => {
     if (!cajaIdForMovimiento) return;
     const r = await cajaCobrosService.detalleCaja({
       id_fkcaja: cajaIdForMovimiento,
@@ -161,7 +171,9 @@ export const CajaCobrosPage = () => {
   const fmt = (v) => `$${parseFloat(v||0).toFixed(2)}`;
 
   // Borrado físico de movimientos aún no aprobados: solo administradores.
-  const handleEliminarDetalle = async (detalle) => {
+  const handleEliminarDetalle = (detalle) => runLocked(() => handleEliminarDetalleInterno(detalle));
+
+  const handleEliminarDetalleInterno = async (detalle) => {
     const { isConfirmed } = await Swal.fire({
       title: '¿Eliminar movimiento?',
       html: `Se eliminará el movimiento <b>${detalle.tipo_caja_detalle || ''}</b> por <b>${fmt(detalle.monto_caja_detalle)}</b>.<br/>Esta acción no se puede deshacer.`,

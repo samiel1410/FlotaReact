@@ -9,12 +9,14 @@ import Modal from '../../components/common/Modal';
 import { AperturaCajaForm } from './components/AperturaCajaForm';
 import { CierreCajaForm } from './components/CierreCajaForm';
 import { useAuth } from '../../context/AuthContext';
+import useSubmitLock from '../../hooks/useSubmitLock';
 
 // Roles con permiso de administración (mismos que valida el backend).
 const ROLES_ADMIN = [1, 5];
 
 export const CajaBoleteriaPage = () => {
   const { user } = useAuth();
+  const runLocked = useSubmitLock();
   const esAdmin = ROLES_ADMIN.includes(Number(user?.rol_usuario || user?.id_fkrol_usuario || 0));
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -58,7 +60,9 @@ export const CajaBoleteriaPage = () => {
   }, []);
 
   // ─── MODAL APERTURA ────────────────────────────────────────────────────
-  const handleApertura = async (formData) => {
+  const handleApertura = (formData) => runLocked(() => handleAperturaInterno(formData));
+
+  const handleAperturaInterno = async (formData) => {
     const res = await cajaBoleteriaService.insertarAperturaCaja(formData);
     if (res.success) { toast.success('Caja aperturada'); loadData(); setShowApertura(false); }
     else toast.error(res.message || 'Error');
@@ -71,7 +75,9 @@ export const CajaBoleteriaPage = () => {
     setShowCierre(true);
   };
 
-  const handleCierre = async (formData) => {
+  const handleCierre = (formData) => runLocked(() => handleCierreInterno(formData));
+
+  const handleCierreInterno = async (formData) => {
     const res = await cajaBoleteriaService.cerrarCaja({ ...formData, id_caja: cajaParaCierre.id_caja });
     if (res.success) {
       const estado = res.estado_cuadre;
@@ -141,7 +147,9 @@ export const CajaBoleteriaPage = () => {
   }, [loadData]);
 
   // ─── MODAL INGRESO/EGRESO ─────────────────────────────────────────────
-  const openModalIngresoEgreso = async (idCaja) => {
+  const openModalIngresoEgreso = (idCaja) => runLocked(() => openModalIngresoEgresoInterno(idCaja));
+
+  const openModalIngresoEgresoInterno = async (idCaja) => {
     const { value: form, isDismissed } = await Swal.fire({
       title: 'Agregar Ingreso/Egreso', showCancelButton: true, confirmButtonText: 'Guardar',
       html: `<div style="text-align:left">

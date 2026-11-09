@@ -1070,10 +1070,12 @@ export const PAGES_CONFIG = {
       { key: 'apertura_total_caja', label: '($)Apertura', render: v => `$${parseFloat(v || 0).toFixed(2)}` },
       { key: 'cierre_total_caja', label: '($)Cierre', render: v => v ? `$${parseFloat(v).toFixed(2)}` : '-' },
       {
-        key: 'monto_a_tener', label: '($)Monto a Tener',
+        key: 'monto_a_tener', label: '($)Esperado en Caja',
         render: (v, row) => {
-          const val = row.monto_a_tener ?? row.apertura_total_caja;
-          return <span className="font-mono font-bold text-emerald-600">${parseFloat(val || 0).toFixed(2)}</span>;
+          const val = row.monto_a_tener;
+          return val == null
+            ? <span className="text-slate-400">-</span>
+            : <span className="font-mono font-bold text-emerald-600">${parseFloat(val).toFixed(2)}</span>;
         }
       },
       { key: 'cuadre_caja', label: 'Cuadre', render: renderCuadre },
