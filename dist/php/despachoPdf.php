@@ -84,7 +84,7 @@ try {
     $nombre_bus              = $vals["nombre_bus"];
     // La oficina que emite el despacho es la del oficinista, no un destino
     // del catálogo (`usuario.id_fkdestino_usuario`), que puede ser otro lugar.
-    $lugar_destino           = $vals["oficina_oficinista"] ?: ($vals["nombre_origen"] ?? '');
+    $oficina_emisora         = $vals["oficina_oficinista"] ?: ($vals["nombre_origen"] ?? '');
 
     // ─── DETALLE DE ENCOMIENDAS / GUÍAS (Indexado y Ultra Rápido) ─────────────
     $query2 = "SELECT 
@@ -158,9 +158,9 @@ try {
         $pdf->Cell($anchoUtil, 3.8, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
     }
 
-    if (!empty($lugar_destino)) {
+    if (!empty($oficina_emisora)) {
         $pdf->SetFont('helvetica', 'B', 8.5);
-        $pdf->Cell($anchoUtil, 4, 'OFICINA ' . strtoupper($lugar_destino), 0, 1, 'C');
+        $pdf->Cell($anchoUtil, 4, strtoupper($oficina_emisora), 0, 1, 'C');
     }
 
     $pdf->SetFont('helvetica', 'B', 11);

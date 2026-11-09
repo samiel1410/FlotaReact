@@ -20,7 +20,7 @@ function brandingHtmlPlugin() {
     BRAND_NAME_UPPER: name.toUpperCase(),
     BRAND_LEGAL_NAME: String(branding.legalName || `${name} Solutions`),
     BRAND_TAGLINE: String(branding.tagline || ''),
-    BRAND_LOGO: String(branding.logo || '/images/transpaeasy.png'),
+    BRAND_LOGO: String(branding.logo || '/images/transpaeasy.webp'),
     BRAND_LOGO_ICON: String(branding.logoIcon || '/images/transpaeasy_icon.png'),
   };
   return {

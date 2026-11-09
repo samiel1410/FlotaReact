@@ -6,6 +6,7 @@ import { CONFIG } from '../../config/env';
 import Swal from 'sweetalert2';
 import toast from 'react-hot-toast';
 import { getSistemaModo } from '../../services/sistema.service';
+import { getInitials } from '../../utils/initials';
 
 export const GlobalHeader = ({ onMenuToggle }) => {
   const { user, hasPermission, logout } = useAuth();
@@ -338,11 +339,9 @@ export const GlobalHeader = ({ onMenuToggle }) => {
           className="h-10 w-10 rounded-full overflow-hidden border-2 border-white shadow-sm ring-2 ring-slate-100 hover:ring-blue-300 hover:border-blue-200 transition-all cursor-pointer"
           title="Mi Perfil"
         >
-          <img 
-            src={`https://ui-avatars.com/api/?name=${nombreUsuario}&background=f1f5f9&color=334155&font-size=0.35&bold=true`} 
-            alt="Avatar" 
-            className="w-full h-full object-cover" 
-          />
+          <span className="w-full h-full flex items-center justify-center bg-slate-100 text-slate-700 text-sm font-black select-none" aria-hidden="true">
+            {getInitials(nombreUsuario)}
+          </span>
         </button>
 
         {/* Notificaciones - Campana */}

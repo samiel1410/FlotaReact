@@ -23,7 +23,7 @@ export const BRAND = {
   /** Descripción corta usada en PDFs (ej. "Sistema de facturación electrónica"). */
   tagline: String(branding?.tagline || 'Sistema de facturación electrónica'),
   /** URL pública del logo horizontal. */
-  logo: String(branding?.logo || '/images/transpaeasy.png'),
+  logo: String(branding?.logo || '/images/transpaeasy.webp'),
   /** URL pública del ícono/logo cuadrado. */
   logoIcon: String(branding?.logoIcon || '/images/transpaeasy_icon.png'),
   /** Etiqueta de la app móvil (referencia; se aplica en el proyecto Flutter). */

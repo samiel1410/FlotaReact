@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../../config/axios';
 import { NotificacionModal } from './components/NotificacionModal';
 import { useAuth } from '../../hooks/useAuth';
+import { getInitials } from '../../utils/initials';
 
 export const NotificacionesPage = () => {
   const { hasPermission } = useAuth();
@@ -199,7 +200,9 @@ export const NotificacionesPage = () => {
                       </td>
                       <td className="px-6 py-3 text-xs flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center overflow-hidden">
-                          <img src={`https://ui-avatars.com/api/?name=${item.nombre_usuario}&background=e2e8f0&color=475569`} alt="" />
+                          <span className="text-[9px] font-black text-slate-600 select-none">
+                            {getInitials(item.nombre_usuario, 2)}
+                          </span>
                         </div>
                         {item.nombre_usuario}
                       </td>

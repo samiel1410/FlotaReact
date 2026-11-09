@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { api } from '../../config/axios';
+import { getInitials } from '../../utils/initials';
 
 export const ProfilePage = () => {
   const { user, hasPermission, logout } = useAuth();
@@ -66,12 +67,10 @@ export const ProfilePage = () => {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-6">
         <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-6 py-8">
           <div className="flex items-center gap-5">
-            <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-white/30 shadow-lg shrink-0">
-              <img 
-                src={`https://ui-avatars.com/api/?name=${nombreUsuario}&size=64&background=ffffff&color=1e293b&font-size=0.35&bold=true`}
-                alt="Avatar"
-                className="w-full h-full object-cover"
-              />
+            <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-white/30 shadow-lg shrink-0 bg-white flex items-center justify-center">
+              <span className="text-xl font-black text-slate-800 select-none">
+                {getInitials(nombreUsuario)}
+              </span>
             </div>
             <div className="text-white">
               <h1 className="text-xl font-bold">{nombreUsuario}</h1>

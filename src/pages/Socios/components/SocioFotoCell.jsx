@@ -111,6 +111,10 @@ export const SocioFotoCell = ({ socio }) => {
           <img
             src={photoUrl}
             alt={nombreCompleto}
+            width={32}
+            height={32}
+            loading="lazy"
+            decoding="async"
             className="w-full h-full object-cover"
           />
         ) : loading ? (
@@ -138,6 +142,9 @@ export const SocioFotoCell = ({ socio }) => {
             <img
               src={photoUrl}
               alt={nombreCompleto}
+              width={192}
+              height={192}
+              decoding="async"
               className="w-full h-full object-cover"
             />
           </div>

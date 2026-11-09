@@ -96,16 +96,6 @@ export const useListado = (endpoint, defaultParams = {}, customParamsFn) => {
       setData(rows);
       setTotal(d.total ?? d.count ?? rows.length);
       setPage(pageIndex);
-
-      // Debug temporal - ver qué datos llegan
-      if (rows.length > 0) {
-        console.log(`[useListado] Endpoint: ${endpoint}`, {
-          totalParam: d.total,
-          totalCalc: d.total ?? rows.length,
-          sampleRow: rows[0],
-          keys: Object.keys(rows[0]),
-        });
-      }
     } catch (err) {
       // Ignorar errores de cancelación (navegación rápida)
       if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED' || err.message === 'canceled' || controller.signal.aborted) return;

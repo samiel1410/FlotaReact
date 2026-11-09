@@ -401,7 +401,7 @@ const TabContent = ({ tab }) => {
         title={`Comprobante: ${selectedRow?.numero_comprobante_cierre || 'S/N'}`} width="max-w-xl">
         <div className="flex items-center justify-center">
           {imagenUrl && (
-            <img src={imagenUrl} alt="Comprobante" className="max-w-full max-h-[70vh] rounded-lg object-contain" />
+            <img src={imagenUrl} alt="Comprobante" loading="lazy" decoding="async" className="max-w-full max-h-[70vh] rounded-lg object-contain" />
           )}
         </div>
       </Modal>

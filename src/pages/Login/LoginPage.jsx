@@ -49,7 +49,7 @@ export const LoginPage = () => {
   return (
     <div className="flex w-full h-screen overflow-hidden font-outfit bg-slate-50">
       {/* Lado Izquierdo: Branding Visual (Tailwind) */}
-      <div className="relative hidden lg:flex flex-1 items-center justify-center bg-[url('/images/fondo.jpg')] bg-cover bg-center overflow-hidden">
+      <div className="relative hidden lg:flex flex-1 items-center justify-center bg-[url('/images/fondo.webp')] bg-cover bg-center overflow-hidden">
         {/* Overlay con gradiente */}
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 to-blue-900/60 z-0"></div>
 
@@ -109,7 +109,15 @@ export const LoginPage = () => {
 
           <div className="text-center sm:text-left mb-10">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-slate-50 rounded-2xl shadow-sm border border-slate-100 mb-6">
-              <img src={BRAND.logo} alt={BRAND.name} className="w-14 h-auto object-contain" />
+              <img
+                src={BRAND.logo}
+                alt={BRAND.name}
+                width={56}
+                height={56}
+                fetchPriority="high"
+                decoding="async"
+                className="w-14 h-auto object-contain"
+              />
             </div>
             <h2 className="text-3xl font-bold text-slate-900 mb-2">Bienvenido</h2>
             <p className="text-slate-500">Por favor, ingresa tus credenciales</p>

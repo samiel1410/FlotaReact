@@ -439,7 +439,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                   {!fotoCapturada && clienteFotoUrl && (
                     <div className="flex flex-col items-center gap-2">
                       <span className="text-[10px] text-slate-500">Foto registrada del cliente:</span>
-                      <img src={clienteFotoUrl} alt="Cliente" className="h-24 w-24 object-cover rounded-full border-4 border-white shadow-md" />
+                      <img src={clienteFotoUrl} alt="Cliente" width={96} height={96} loading="lazy" decoding="async" className="h-24 w-24 object-cover rounded-full border-4 border-white shadow-md" />
                       <button
                         onClick={() => setShowCamera(true)}
                         className="flex items-center justify-center gap-2 px-4 py-2 w-full bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 rounded-lg text-sm font-bold transition-colors shadow-sm"

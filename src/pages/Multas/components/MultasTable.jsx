@@ -1,4 +1,6 @@
 import React from 'react';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
 import { formatCurrency, formatFecha } from '../utils/multasConstants';
 
 export const MultasTable = ({
@@ -34,12 +36,20 @@ export const MultasTable = ({
           </thead>
           <tbody className="divide-y divide-slate-100">
             {loading ? (
-              <tr>
-                <td colSpan={10} className="text-center py-12 text-slate-400">
-                  <i className="fas fa-spinner fa-spin text-2xl mb-2 block text-rose-500"></i>
-                  <span className="font-semibold text-xs">Cargando multas...</span>
-                </td>
-              </tr>
+              Array.from({ length: 8 }).map((_, i) => (
+                <tr key={i}>
+                  <td className="px-3.5 py-3"><Skeleton height={12} width="60%" /></td>
+                  <td className="px-3.5 py-3"><Skeleton height={12} width="80%" /></td>
+                  <td className="px-3.5 py-3"><Skeleton height={12} width="50%" /></td>
+                  <td className="px-3.5 py-3"><Skeleton height={12} /></td>
+                  <td className="px-3.5 py-3"><Skeleton height={12} width="70%" /></td>
+                  <td className="px-3.5 py-3"><Skeleton height={12} width="70%" /></td>
+                  <td className="px-3.5 py-3"><Skeleton height={12} width="70%" /></td>
+                  <td className="px-3.5 py-3"><Skeleton height={18} width={60} /></td>
+                  <td className="px-3.5 py-3"><Skeleton height={12} width="80%" /></td>
+                  <td className="px-3.5 py-3"><Skeleton height={20} width={100} /></td>
+                </tr>
+              ))
             ) : data.length === 0 ? (
               <tr>
                 <td colSpan={10} className="text-center py-12 text-slate-400">

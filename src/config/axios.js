@@ -198,6 +198,48 @@ api.interceptors.response.use(
   }
 );
 
+// ─── DEDUPE DE GETs EN VUELO ─────────────────────────────────────────────────
+// Varios componentes pueden pedir el mismo recurso al montar (p. ej. catálogos
+// compartidos). Se comparte la misma promesa mientras la petición está en curso,
+// sin cachear la respuesta: el siguiente ciclo vuelve a consultar el servidor.
+// Las peticiones con AbortSignal (useListado) no se deduplican para no romper
+// la cancelación.
+const inFlightGets = new Map();
+
+const stableParamsKey = (params) => {
+  if (!params || typeof params !== 'object') return '';
+  const normalize = (value) => {
+    if (Array.isArray(value)) return value.map(normalize);
+    if (value && typeof value === 'object') {
+      return Object.keys(value).sort().reduce((acc, k) => {
+        acc[k] = normalize(value[k]);
+        return acc;
+      }, {});
+    }
+    return value;
+  };
+  try {
+    return JSON.stringify(normalize(params));
+  } catch {
+    return String(params);
+  }
+};
+
+const originalGet = api.get.bind(api);
+api.get = (url, config = {}) => {
+  if (!config || config.signal) return originalGet(url, config);
+
+  const key = `${url}|${stableParamsKey(config.params)}`;
+  const pending = inFlightGets.get(key);
+  if (pending) return pending;
+
+  const request = originalGet(url, config).finally(() => {
+    inFlightGets.delete(key);
+  });
+  inFlightGets.set(key, request);
+  return request;
+};
+
 // Instancia separada para auth, ya que va a otro servidor
 export const authApi = axios.create({
   timeout: 10000,

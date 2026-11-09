@@ -292,7 +292,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                 {!fotoPreview && clienteFotoUrl && (
                   <div className="flex flex-col items-center gap-2">
                     <span className="text-[11px] text-slate-500">Foto registrada del cliente:</span>
-                    <img src={clienteFotoUrl} alt="Cliente" className="h-28 w-28 object-cover rounded-full border-4 border-white shadow-md" />
+                    <img src={clienteFotoUrl} alt="Cliente" width={112} height={112} loading="lazy" decoding="async" className="h-28 w-28 object-cover rounded-full border-4 border-white shadow-md" />
                     <button
                       onClick={() => setShowCamera(true)}
                       className="px-4 py-2 bg-white text-slate-700 border border-slate-300 hover:bg-slate-100 rounded-lg text-sm font-bold transition-colors shadow-sm"

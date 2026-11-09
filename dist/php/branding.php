@@ -29,7 +29,7 @@ if (!function_exists('brand_config')) {
             'legalName' => 'Easysplus Solutions',
             'productTitle' => 'Sistema de Gestión',
             'tagline' => 'Sistema de facturación electrónica',
-            'logo' => '/images/transpaeasy.png',
+            'logo' => '/images/transpaeasy.webp',
             'logoIcon' => '/images/transpaeasy_icon.png',
             'logoFile' => 'transpaeasy.png',
             'logoIconFile' => 'transpaeasy_icon.png',
