@@ -2,11 +2,16 @@ import { useState, useEffect, useCallback } from 'react';
 import cajaService from '../../../services/cajaNotaVenta.service';
 import { buildPdfUrl } from '../../../utils/pdfUrlUtils';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import { CajaGrid } from '../../Caja/CajaGrid';
 import { AperturaCajaForm } from '../../CajaBoleteria/components/AperturaCajaForm';
 import { CierreCajaForm } from '../../CajaBoleteria/components/CierreCajaForm';
 import InfoComprobanteModal from '../../../components/common/InfoComprobanteModal';
 import ConfirmationModal from '../../../components/common/ConfirmationModal';
+import { useAuth } from '../../../context/AuthContext';
+
+// Roles con permiso de administración (mismos que valida el backend).
+const ROLES_ADMIN = [1, 5];
 
 /**
  * Módulo de Cajas para Notas de Venta.
@@ -14,6 +19,8 @@ import ConfirmationModal from '../../../components/common/ConfirmationModal';
  * listado, apertura, cierre, comprobante, detalle, editar, arqueo, solicitudes.
  */
 export const CajaNotaVentaContent = () => {
+  const { user } = useAuth();
+  const esAdmin = ROLES_ADMIN.includes(Number(user?.rol_usuario || user?.id_fkrol_usuario || 0));
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -127,6 +134,30 @@ export const CajaNotaVentaContent = () => {
       setDetalleData([]);
     } finally {
       setDetalleLoading(false);
+    }
+  };
+
+  // Borrado físico de movimientos aún no aprobados: solo administradores.
+  const handleEliminarDetalle = async (detalle) => {
+    const { isConfirmed } = await Swal.fire({
+      title: '¿Eliminar movimiento?',
+      html: `Se eliminará el movimiento <b>${detalle.tipo_caja_detalle === 1 || detalle.tipo_caja_detalle === 'INGRESO' ? 'INGRESO' : 'EGRESO'}</b> por <b>$${parseFloat(detalle.monto_caja_detalle || 0).toFixed(2)}</b>.<br/>Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!isConfirmed) return;
+
+    const res = await cajaService.eliminarDetalleCaja(detalle.id_caja_detalle);
+    if (res.success) {
+      toast.success('Movimiento eliminado');
+      const listado = await cajaService.listadoDetalleCaja(detalle.id_fkcaja);
+      setDetalleData(listado.data || []);
+      loadData();
+    } else {
+      toast.error(res.message || 'No se pudo eliminar el movimiento');
     }
   };
 
@@ -369,6 +400,7 @@ export const CajaNotaVentaContent = () => {
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">OBSERVACIÓN</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">SOCIO</th>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">DOCUMENTO</th>
+                        {esAdmin && <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase">ACCIONES</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -390,6 +422,18 @@ export const CajaNotaVentaContent = () => {
                           <td className="px-4 py-3 text-slate-600 text-xs">{d.observacion_caja_detalle || '-'}</td>
                           <td className="px-4 py-3 text-slate-600 text-xs">{d.nombre_socio || '-'}</td>
                           <td className="px-4 py-3 text-slate-600 text-xs">{d.numero_documento || '-'}</td>
+                          {esAdmin && (
+                            <td className="px-4 py-3 text-center">
+                              {(d.estado_caja_detalle === 'PENDIENTE' || d.estado_caja_detalle === 'CANCELADO') ? (
+                                <button onClick={() => handleEliminarDetalle(d)}
+                                  className="w-7 h-7 rounded text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center" title="Eliminar movimiento">
+                                  <i className="fas fa-trash-alt text-[11px]"></i>
+                                </button>
+                              ) : (
+                                <span className="text-slate-300" title="Los movimientos aprobados se anulan, no se eliminan.">—</span>
+                              )}
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>

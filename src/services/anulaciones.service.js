@@ -122,6 +122,18 @@ export const cancelarAnulacionEgreso = async (idEgreso, motivo) => {
   return res.data;
 };
 
+// Borrado físico de un movimiento pendiente (solo administradores).
+export const eliminarEgresoDetalle = async (idCajaDetalle) => {
+  try {
+    const res = await api.post('/caja/eliminarDetalleCaja', {
+      id_caja_detalle: idCajaDetalle,
+    });
+    return { success: res.data?.success, message: res.data?.message || res.data?.data || '' };
+  } catch (error) {
+    return { success: false, message: error.response?.data?.message || 'Error al eliminar' };
+  }
+};
+
 // ─── BOLETOS ───────────────────────────────────────────────────────────────
 
 export const anularBoletosTodas = async (motivo) => {

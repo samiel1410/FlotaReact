@@ -1138,6 +1138,7 @@ export const PAGES_CONFIG = {
                   endpointEditar: '/caja/editarCaja',
                   endpointDetalle: '/caja/detalleCaja',
                   endpointListadoDetalle: '/caja/listadodetallecaja',
+                  endpointEliminarDetalle: '/caja/eliminarDetalleCaja',
                   onSuccess: () => {
                     if (ctx.refreshList) ctx.refreshList();
                   }
@@ -1161,6 +1162,7 @@ export const PAGES_CONFIG = {
                   endpointEditar: '/caja/editarCaja',
                   endpointDetalle: '/caja/detalleCaja',
                   endpointListadoDetalle: '/caja/listadodetallecaja',
+                  endpointEliminarDetalle: '/caja/eliminarDetalleCaja',
                   readOnly: true
                 },
                 null,
@@ -1389,6 +1391,7 @@ export const PAGES_CONFIG = {
                   endpointEditar: '/caja_boleteria/editarCaja',
                   endpointDetalle: '/caja_boleteria/detalleCaja',
                   endpointListadoDetalle: '/caja_boleteria/listadodetallecaja',
+                  endpointEliminarDetalle: '/caja_boleteria/eliminarDetalleCaja',
                   onSuccess: () => {
                     if (ctx.refreshList) ctx.refreshList();
                   }
@@ -1553,6 +1556,7 @@ export const PAGES_CONFIG = {
                   endpointEditar: '/cajaretenciones/editarCaja',
                   endpointDetalle: '/cajaretenciones/detalleCaja',
                   endpointListadoDetalle: '/cajaretenciones/listadodetallecaja',
+                  endpointEliminarDetalle: '/cajaretenciones/eliminarDetalleCaja',
                   onSuccess: () => {
                     if (ctx.refreshList) ctx.refreshList();
                   }
@@ -1717,6 +1721,7 @@ export const PAGES_CONFIG = {
                   endpointEditar: '/caja_nota_venta/editarCaja',
                   endpointDetalle: '/caja_nota_venta/detalleCaja',
                   endpointListadoDetalle: '/caja_nota_venta/listadodetallecaja',
+                  endpointEliminarDetalle: '/caja_nota_venta/eliminarDetalleCaja',
                   onSuccess: () => {
                     if (ctx.refreshList) ctx.refreshList();
                   }
@@ -1740,6 +1745,7 @@ export const PAGES_CONFIG = {
                   endpointEditar: '/caja_nota_venta/editarCaja',
                   endpointDetalle: '/caja_nota_venta/detalleCaja',
                   endpointListadoDetalle: '/caja_nota_venta/listadodetallecaja',
+                  endpointEliminarDetalle: '/caja_nota_venta/eliminarDetalleCaja',
                   readOnly: true
                 },
                 null,

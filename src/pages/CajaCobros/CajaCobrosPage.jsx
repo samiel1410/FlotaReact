@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { cajaCobrosService } from '../../services/cajaCobros.service';
@@ -11,8 +12,15 @@ import InfoComprobanteModal from '../../components/common/InfoComprobanteModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import IngresoEgresoModal from '../../components/common/IngresoEgresoModal';
 import { CierreCajaForm } from '../CajaBoleteria/components/CierreCajaForm';
+import { useAuth } from '../../context/AuthContext';
+
+// Roles con permiso de administración (mismos que valida el backend).
+const ROLES_ADMIN = [1, 5];
 
 export const CajaCobrosPage = () => {
+  const { user } = useAuth();
+  const esAdmin = ROLES_ADMIN.includes(Number(user?.rol_usuario || user?.id_fkrol_usuario || 0));
+
   const [data, setData] = useState([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -92,6 +100,7 @@ export const CajaCobrosPage = () => {
       case 'arqueo': window.open(buildPdfUrl(`/php/pdfCajaRetencionImpresion.php?id_caja=${row.id_caja_retenciones}`), '_blank'); break;
       case 'comprobantes': window.open(`/cajaretenciones/reportecomprobantefacturasxcaja?idcaja=${row.id_caja_retenciones}`, '_blank'); break;
       case 'editar':
+      case 'ver-movimientos':
         setShowDetalle(true);
         setDetalleId(row.id_caja_retenciones);
         try { const d = await cajaCobrosService.listadoDetalleCaja(row.id_caja_retenciones); setDetalleData(d.data || []); }
@@ -150,6 +159,30 @@ export const CajaCobrosPage = () => {
   };
 
   const fmt = (v) => `$${parseFloat(v||0).toFixed(2)}`;
+
+  // Borrado físico de movimientos aún no aprobados: solo administradores.
+  const handleEliminarDetalle = async (detalle) => {
+    const { isConfirmed } = await Swal.fire({
+      title: '¿Eliminar movimiento?',
+      html: `Se eliminará el movimiento <b>${detalle.tipo_caja_detalle || ''}</b> por <b>${fmt(detalle.monto_caja_detalle)}</b>.<br/>Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!isConfirmed) return;
+
+    const r = await cajaCobrosService.eliminarDetalleCaja(detalle.id_caja_detalle);
+    if (r.success) {
+      toast.success('Movimiento eliminado');
+      const d = await cajaCobrosService.listadoDetalleCaja(detalleId);
+      setDetalleData(d.data || []);
+      loadData();
+    } else {
+      toast.error(r.message || 'No se pudo eliminar el movimiento');
+    }
+  };
 
   return (
     <div className="flex flex-col h-full gap-2 p-0 bg-slate-100/50">
@@ -271,7 +304,7 @@ export const CajaCobrosPage = () => {
           <div className="overflow-auto max-h-96 border rounded-lg">
             <table className="w-full text-left border-collapse text-xs">
               <thead className="bg-slate-50 sticky top-0">
-                <tr><th className="p-2 font-bold text-slate-500 uppercase">N°</th><th className="p-2 font-bold text-slate-500 uppercase">Fecha</th><th className="p-2 font-bold text-slate-500 uppercase">Tipo</th><th className="p-2 font-bold text-slate-500 uppercase">Monto</th><th className="p-2 font-bold text-slate-500 uppercase">Socio</th><th className="p-2 font-bold text-slate-500 uppercase">Estado</th></tr>
+                <tr><th className="p-2 font-bold text-slate-500 uppercase">N°</th><th className="p-2 font-bold text-slate-500 uppercase">Fecha</th><th className="p-2 font-bold text-slate-500 uppercase">Tipo</th><th className="p-2 font-bold text-slate-500 uppercase">Monto</th><th className="p-2 font-bold text-slate-500 uppercase">Socio</th><th className="p-2 font-bold text-slate-500 uppercase">Estado</th>{esAdmin && <th className="p-2 font-bold text-slate-500 uppercase text-center">Acciones</th>}</tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {detalleData.length > 0 ? detalleData.map((d,i) => (
@@ -282,8 +315,20 @@ export const CajaCobrosPage = () => {
                     <td className="p-2 font-mono font-bold">{fmt(d.monto_caja_detalle)}</td>
                     <td className="p-2">{d.nombre_socio_caja_detalle||'-'}</td>
                     <td className="p-2"><span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${d.estado_caja_detalle==='EMITIDO'?'bg-emerald-100 text-emerald-700':d.estado_caja_detalle==='PENDIENTE'?'bg-amber-100 text-amber-700':'bg-slate-100 text-slate-600'}`}>{d.estado_caja_detalle||'-'}</span></td>
+                    {esAdmin && (
+                      <td className="p-2 text-center">
+                        {(d.estado_caja_detalle === 'PENDIENTE' || d.estado_caja_detalle === 'CANCELADO') ? (
+                          <button onClick={() => handleEliminarDetalle(d)}
+                            className="w-6 h-6 rounded text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center" title="Eliminar movimiento">
+                            <i className="fas fa-trash-alt text-[10px]"></i>
+                          </button>
+                        ) : (
+                          <span className="text-slate-300" title="Los movimientos aprobados se anulan, no se eliminan.">—</span>
+                        )}
+                      </td>
+                    )}
                   </tr>
-                )) : (<tr><td colSpan={6} className="p-4 text-center text-slate-400">Sin movimientos</td></tr>)}
+                )) : (<tr><td colSpan={esAdmin ? 7 : 6} className="p-4 text-center text-slate-400">Sin movimientos</td></tr>)}
               </tbody>
             </table>
           </div>

@@ -12,8 +12,15 @@ import { CierreCajaForm } from '../CajaBoleteria/components/CierreCajaForm';
 import InfoComprobanteModal from '../../components/common/InfoComprobanteModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import IngresoEgresoModal from '../../components/common/IngresoEgresoModal';
+import { useAuth } from '../../context/AuthContext';
+
+// Roles con permiso de administración (mismos que valida el backend).
+const ROLES_ADMIN = [1, 5];
 
 export const CajaPage = () => {
+  const { user } = useAuth();
+  const esAdmin = ROLES_ADMIN.includes(Number(user?.rol_usuario || user?.id_fkrol_usuario || 0));
+
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -158,6 +165,7 @@ export const CajaPage = () => {
         window.open(`/caja/reportecomprobantefacturasxcaja?idcaja=${row.id_caja}`, '_blank');
         break;
       case 'editar': await openModalDetalle(row); break;
+      case 'ver-movimientos': await openModalDetalle(row); break;
       case 'cerrar': openCierreModal(row); break;
       case 'solicitud':
         if (row.estado_solicitud == 0) { toast('Sin solicitud de edición'); return; }
@@ -226,6 +234,30 @@ export const CajaPage = () => {
       await loadDetalle(detalleCajaId);
     } else {
       toast.error(res.message || 'No se pudo enviar la solicitud');
+    }
+  };
+
+  // Borrado físico de movimientos aún no aprobados: solo administradores.
+  const handleEliminarDetalle = async (detalle) => {
+    const monto = parseFloat(detalle.monto_caja_detalle || 0).toFixed(2);
+    const { isConfirmed } = await Swal.fire({
+      title: '¿Eliminar movimiento?',
+      html: `Se eliminará el movimiento <b>${detalle.tipo_caja_detalle || ''}</b> por <b>$${monto}</b>.<br/>Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!isConfirmed) return;
+
+    const res = await cajaService.eliminarDetalleCaja(detalle.id_caja_detalle);
+    if (res.success) {
+      toast.success('Movimiento eliminado');
+      await loadDetalle(detalleCajaId);
+      loadData();
+    } else {
+      toast.error(res.message || 'No se pudo eliminar el movimiento');
     }
   };
 
@@ -441,6 +473,12 @@ export const CajaPage = () => {
                     <td className="p-2 max-w-[150px] truncate">{d.observacion_caja_detalle || '-'}</td>
                     <td className="p-2">
                       <div className="flex gap-1">
+                        {esAdmin && (d.estado_caja_detalle === 'PENDIENTE' || d.estado_caja_detalle === 'CANCELADO') && (
+                          <button onClick={() => handleEliminarDetalle(d)}
+                            className="w-6 h-6 rounded text-rose-600 hover:bg-rose-50 flex items-center justify-center" title="Eliminar movimiento">
+                            <i className="fas fa-trash-alt text-[10px]"></i>
+                          </button>
+                        )}
                         <button onClick={() => window.open(`/caja/mostarCajaDetallePdf?id_caja_detalle=${d.id_caja_detalle}`, '_blank')}
                           className="w-6 h-6 rounded text-red-500 hover:bg-red-50 flex items-center justify-center" title="PDF">
                           <i className="fas fa-file-pdf text-[10px]"></i>

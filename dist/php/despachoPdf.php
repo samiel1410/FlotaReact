@@ -93,6 +93,7 @@ try {
         g.punto_emision_guia,
         s.punto_emision_sucursal, 
         g.total_guia,
+        g.destino_guia,
         COALESCE((SELECT SUM(dg.cantidad_detalle_guia) FROM detalle_guia dg WHERE dg.id_fkguia_detalle_envio = g.id_guia), 1) AS cant_item
     FROM despacho_detalle dd
     JOIN guia g ON dd.id_fkguia_despacho_detalle = g.id_guia 
@@ -122,6 +123,7 @@ try {
 
         $guias[] = [
             'codigo' => $codigoGuia,
+            'destino' => (string)($vals2['destino_guia'] ?? ''),
             'total' => (float)$vals2['total_guia'],
             'cantidad' => $cantItem
         ];
@@ -220,19 +222,44 @@ try {
     $pdf->Ln(1.5);
 
     // ─── 3. TABLA DE GUÍAS ───────────────────────────────────────────────────
-    $wGuia = 36;
-    $wTotal = 20;
-    $wCant = 16;
+    $wGuia = 28;
+    $wDestino = 22;
+    $wTotal = 14;
+    $wCant = 8;
 
-    $pdf->SetFont('helvetica', 'B', 8);
+    $acortarTexto = function ($texto, $anchoMax, $fuente = 'helvetica', $estilo = '', $tamano = 6.5) use ($pdf) {
+        $texto = trim((string)$texto);
+        if ($texto === '') return '';
+        if ($pdf->GetStringWidth($texto, $fuente, $estilo, $tamano) <= $anchoMax) {
+            return $texto;
+        }
+        $sufijo = '...';
+        $largo = function_exists('mb_strlen') ? mb_strlen($texto, 'UTF-8') : strlen($texto);
+        for ($i = $largo - 1; $i > 0; $i--) {
+            $corte = function_exists('mb_substr')
+                ? mb_substr($texto, 0, $i, 'UTF-8')
+                : substr($texto, 0, $i);
+            $candidato = rtrim($corte) . $sufijo;
+            if ($pdf->GetStringWidth($candidato, $fuente, $estilo, $tamano) <= $anchoMax) {
+                return $candidato;
+            }
+        }
+        return $sufijo;
+    };
+
+    $pdf->SetFont('helvetica', 'B', 7);
     $pdf->Cell($wGuia, 4.5, 'GUIA', 'B', 0, 'L');
+    $pdf->Cell($wDestino, 4.5, 'DESTINO', 'B', 0, 'L');
     $pdf->Cell($wTotal, 4.5, 'TOTAL', 'B', 0, 'R');
     $pdf->Cell($wCant, 4.5, 'CANT.', 'B', 1, 'C');
 
-    $pdf->SetFont('courier', '', 7.5);
     foreach ($guias as $g) {
+        $pdf->SetFont('courier', '', 6.8);
         $pdf->Cell($wGuia, 4, $g['codigo'], 'B', 0, 'L');
-        $pdf->Cell($wTotal, 4, '$' . number_format($g['total'], 2), 'B', 0, 'R');
+        $pdf->SetFont('helvetica', '', 6.5);
+        $pdf->Cell($wDestino, 4, $acortarTexto($g['destino'], $wDestino - 1, 'helvetica', '', 6.5), 'B', 0, 'L');
+        $pdf->SetFont('courier', '', 6.8);
+        $pdf->Cell($wTotal, 4, $acortarTexto('$' . number_format($g['total'], 2), $wTotal - 1, 'courier', '', 6.8), 'B', 0, 'R');
         $pdf->Cell($wCant, 4, (string)$g['cantidad'], 'B', 1, 'C');
     }
 
@@ -240,15 +267,15 @@ try {
 
     // ─── 4. TOTALES ──────────────────────────────────────────────────────────
     $pdf->SetFont('helvetica', 'B', 9);
-    $pdf->Cell($wGuia + $wTotal, 4.5, 'Total:', 0, 0, 'L');
-    $pdf->Cell($wCant, 4.5, '$' . number_format($total_final, 2), 0, 1, 'R');
+    $pdf->Cell($wGuia + $wDestino, 4.5, 'Total:', 0, 0, 'L');
+    $pdf->Cell($wTotal + $wCant, 4.5, '$' . number_format($total_final, 2), 0, 1, 'R');
 
     $pdf->SetFont('helvetica', '', 8.5);
-    $pdf->Cell($wGuia + $wTotal, 4, 'Total Guías:', 0, 0, 'L');
-    $pdf->Cell($wCant, 4, (string)$total_guias, 0, 1, 'R');
+    $pdf->Cell($wGuia + $wDestino, 4, 'Total Guías:', 0, 0, 'L');
+    $pdf->Cell($wTotal + $wCant, 4, (string)$total_guias, 0, 1, 'R');
 
-    $pdf->Cell($wGuia + $wTotal, 4, 'Total Cantidad:', 0, 0, 'L');
-    $pdf->Cell($wCant, 4, (string)$total_cantidad, 0, 1, 'R');
+    $pdf->Cell($wGuia + $wDestino, 4, 'Total Cantidad:', 0, 0, 'L');
+    $pdf->Cell($wTotal + $wCant, 4, (string)$total_cantidad, 0, 1, 'R');
 
     $pdf->Ln(1);
     if (!empty($observacion_general)) {

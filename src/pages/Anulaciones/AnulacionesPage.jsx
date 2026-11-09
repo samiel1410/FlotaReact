@@ -17,6 +17,7 @@ import {
   anularEgresosTodas,
   anularEgresosSeleccionadas,
   cancelarAnulacionEgreso,
+  eliminarEgresoDetalle,
 } from '../../services/anulaciones.service';
 
 const PAGE_SIZE = 25;
@@ -425,6 +426,13 @@ const TABS = [
       const r = await cancelarAnulacionEgreso(row.id_caja_detalle, motivo);
       return r.success;
     },
+    // Solo se puede borrar un alta pendiente; las solicitudes de anulación
+    // (filas con motivo) se aprueban o rechazan, no se eliminan.
+    puedeEliminar: (row) => row.estado_caja_detalle === 'PENDIENTE' && !row.motivo_anulacion_detalle_caja,
+    eliminar: async (row) => {
+      const r = await eliminarEgresoDetalle(row.id_caja_detalle);
+      return r.success;
+    },
   },
   {
     id: 'boletos',
@@ -641,6 +649,36 @@ const TabContent = ({ tab, puedeAprobar }) => {
     return row[idField] || row.id || idx;
   };
 
+  // ── Eliminar movimiento pendiente (solo administradores) ──
+  const handleEliminarRegistro = async (row) => {
+    if (!tab.eliminar) return;
+    if (!puedeAprobar) {
+      Swal.fire('Sin permisos', 'Solo un administrador puede eliminar movimientos.', 'warning');
+      return;
+    }
+    const { isConfirmed } = await Swal.fire({
+      title: '¿Eliminar movimiento?',
+      html: `Se eliminará el movimiento <b>${row.tipo_caja_detalle || ''}</b> por <b>$${parseFloat(row.monto_caja_detalle || 0).toFixed(2)}</b>.<br/>Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!isConfirmed) return;
+    try {
+      const ok = await tab.eliminar(row);
+      if (ok) {
+        Swal.fire('Éxito', 'Movimiento eliminado correctamente', 'success');
+        handleClear();
+      } else {
+        Swal.fire('Error', 'No se pudo eliminar el movimiento', 'error');
+      }
+    } catch {
+      Swal.fire('Error', 'No se pudo eliminar el movimiento', 'error');
+    }
+  };
+
   return (
     <div className="space-y-3">
       {/* ─── Filtros ─── */}
@@ -758,13 +796,24 @@ const TabContent = ({ tab, puedeAprobar }) => {
                           </td>
                         ))}
                         <td className="px-2 py-1.5 text-center">
-                          <button
-                            onClick={() => handleCancelarAnulacion(row)}
-                            title="Cancelar Anulación"
-                            className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1 rounded-lg transition-colors"
-                          >
-                            <i className="fas fa-times-circle text-sm"></i>
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            {tab.eliminar && puedeAprobar && (!tab.puedeEliminar || tab.puedeEliminar(row)) && (
+                              <button
+                                onClick={() => handleEliminarRegistro(row)}
+                                title="Eliminar movimiento"
+                                className="text-rose-600 hover:text-rose-800 hover:bg-rose-50 p-1 rounded-lg transition-colors"
+                              >
+                                <i className="fas fa-trash-alt text-sm"></i>
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleCancelarAnulacion(row)}
+                              title="Cancelar Anulación"
+                              className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-1 rounded-lg transition-colors"
+                            >
+                              <i className="fas fa-times-circle text-sm"></i>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

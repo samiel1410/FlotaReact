@@ -103,7 +103,7 @@ class CajaCobrosService {
   async eliminarDetalleCaja(idDetalle) {
     try {
       const response = await api.post('/cajaretenciones/eliminarDetalleCaja', { id_caja_detalle: idDetalle });
-      return { success: response.data?.success, message: '' };
+      return { success: response.data?.success, message: response.data?.message || response.data?.data || '' };
     } catch (error) {
       return { success: false, message: error.response?.data?.message || 'Error' };
     }

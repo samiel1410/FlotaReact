@@ -8,8 +8,14 @@ import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import Modal from '../../components/common/Modal';
 import { AperturaCajaForm } from './components/AperturaCajaForm';
 import { CierreCajaForm } from './components/CierreCajaForm';
+import { useAuth } from '../../context/AuthContext';
+
+// Roles con permiso de administración (mismos que valida el backend).
+const ROLES_ADMIN = [1, 5];
 
 export const CajaBoleteriaPage = () => {
+  const { user } = useAuth();
+  const esAdmin = ROLES_ADMIN.includes(Number(user?.rol_usuario || user?.id_fkrol_usuario || 0));
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -105,7 +111,8 @@ export const CajaBoleteriaPage = () => {
       case 'comprobantes':
         window.open(`/caja_boleteria/reportecomprobantefacturasxcaja?idcaja=${row.id_caja}`, '_blank');
         break;
-      case 'editar': {
+      case 'editar':
+      case 'ver-movimientos': {
         setShowDetalle(true);
         setDetalleCajaId(row.id_caja);
         try {
@@ -467,12 +474,14 @@ export const CajaBoleteriaPage = () => {
                       <div className="flex gap-1">
                         {d.estado_caja_detalle !== 'ANULADO' && d.estado_caja_detalle !== 'CANCELADO' && (
                           <>
-                            <button onClick={async () => {
-                              const { isConfirmed } = await Swal.fire({title:'Eliminar?',text:'¿Eliminar este detalle?',icon:'question',showCancelButton:true});
-                              if(isConfirmed){const r=await cajaBoleteriaService.eliminarDetalleCaja(d.id_caja_detalle);if(r.success){toast.success('Eliminado');}else toast.error(r.message||'Error');}
-                            }} className="w-6 h-6 rounded text-red-500 hover:bg-red-50 flex items-center justify-center" title="Eliminar">
-                              <i className="fas fa-times-circle text-[10px]"></i>
-                            </button>
+                            {esAdmin && (
+                              <button onClick={async () => {
+                                const { isConfirmed } = await Swal.fire({title:'Eliminar?',text:'¿Eliminar este detalle?',icon:'question',showCancelButton:true});
+                                if(isConfirmed){const r=await cajaBoleteriaService.eliminarDetalleCaja(d.id_caja_detalle);if(r.success){toast.success('Eliminado');}else toast.error(r.message||'Error');}
+                              }} className="w-6 h-6 rounded text-red-500 hover:bg-red-50 flex items-center justify-center" title="Eliminar">
+                                <i className="fas fa-times-circle text-[10px]"></i>
+                              </button>
+                            )}
                             <button onClick={async () => {
                               const {value}=await Swal.fire({title:'Anular?',text:'Motivo',input:'textarea',showCancelButton:true});
                               if(value){const r=await cajaBoleteriaService.solicitudAnulacion(d.id_caja_detalle,value);if(r.success)toast.success('Solicitud enviada');else toast.error(r.message||'Error');}

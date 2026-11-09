@@ -191,6 +191,7 @@ try {
       AND g.id_fkcaja_guia != $id_caja
       AND g.estado_guia = 1
     GROUP BY g.id_guia, s.punto_emision_sucursal, g.punto_emision_guia, g.numero_guia
+    HAVING SUM(cc.monto_comprobante_cobro) > 0
     ORDER BY g.id_guia DESC";
 
     $recuperar_comprobantes = mysqli_query($conn, $query_comprobantes) or die(mysqli_error($conn));
@@ -201,12 +202,86 @@ try {
         $resultado_compro = sprintf("%09s", $vals_comprobantes['numero_guia']);
         $num_compro = $vals_comprobantes['punto_emision_sucursal'] . "-" . $vals_comprobantes['punto_emision_guia'] . "-" . $resultado_compro;
         $monto_c = (float)$vals_comprobantes['monto_comprobante_cobro'];
+        // Nunca listar guías cuyo monto neto quedó en 0 (p. ej. cobros anulados
+        // o suma de pagos y reversos), para que no aparezcan como $0.00.
+        if ($monto_c <= 0) {
+            continue;
+        }
         $total_otras_guias += $monto_c;
 
         $otrasGuias[] = [
             'guia' => $num_compro,
             'monto' => $monto_c
         ];
+    }
+
+    // ─── ENTREGADAS EN OFICINA (POR COBRAR) ──────────────────────────────────
+    // Guías entregadas en esta oficina durante el turno pero creadas/facturadas
+    // en otra caja (p. ej. Ambato → entregada en Guayaquil). Antes quedaban
+    // invisibles en todos los cierres: "CAJA (GUÍAS)" filtra por
+    // guia.id_fkcaja_guia y "OTRAS GUÍAS" solo lista cobros ya registrados, así
+    // que una entrega con saldo pendiente no aparecía en ningún reporte.
+    // No se suma al resumen (TOTAL POR COBRAR / TOTAL GENERAL) para no duplicar
+    // el saldo que ya reporta el cierre de la caja de origen.
+    $entregadasOficina = [];
+    $total_por_cobrar_oficina = 0.0;
+    $idSucursalCaja = (int)($vals_caja['id_fksucursal_caja'] ?? 0);
+    $cierreCajaSql = (string)($vals_caja['fecha_hora_cierre'] ?? '');
+    $finPeriodoCaja = ($cierreCajaSql !== '' && strpos($cierreCajaSql, '0000-00-00') !== 0)
+        ? $cierreCajaSql
+        : $fecha_actual;
+
+    if ($idSucursalCaja > 0) {
+        $fechaIniSql = mysqli_real_escape_string($conn, (string)$fecha_apertura);
+        $fechaFinSql = mysqli_real_escape_string($conn, $finPeriodoCaja);
+
+        $query_entregadas = "SELECT g.id_guia, g.punto_emision_guia, g.numero_guia, g.total_guia,
+            s.punto_emision_sucursal,
+            COALESCE(h.cobrado, 0) AS cobrado,
+            COALESCE(g.total_guia, 0) - COALESCE(h.cobrado, 0) AS por_cobrar,
+            MAX(ge.fecha_hora_entrega) AS fecha_entrega
+        FROM guias_entregadas ge
+        INNER JOIN guia g ON g.id_guia = ge.id_fkguia_guias_entregadas
+        INNER JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal
+        INNER JOIN usuario u ON u.id_usuario = COALESCE(NULLIF(ge.id_fkusuario_llegada, 0), ge.id_usuario_entrego)
+        LEFT JOIN (
+            SELECT fa.id_fkguia_factura, SUM(cc.monto_comprobante_cobro) AS cobrado
+            FROM comprobante_cobro cc
+            JOIN factura fa ON cc.id_fkfactura_comprobante_cobro = fa.id_factura
+            LEFT JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
+            WHERE cc.estado_comprobante_cobro = 'COBRADA'
+            AND COALESCE(fp.tipo_forma_pago, 0) <> 4
+            GROUP BY fa.id_fkguia_factura
+        ) h ON h.id_fkguia_factura = g.id_guia
+        WHERE u.id_fksucursal_usuario = $idSucursalCaja
+          AND ge.estado_guias_entregadas = 2
+          AND ge.fecha_hora_entrega >= '$fechaIniSql'
+          AND ge.fecha_hora_entrega <= '$fechaFinSql'
+          AND g.id_fkcaja_guia <> $id_caja
+          AND g.estado_guia = 1
+        GROUP BY g.id_guia, g.punto_emision_guia, g.numero_guia, g.total_guia, s.punto_emision_sucursal, h.cobrado
+        HAVING por_cobrar > 0.009
+        ORDER BY fecha_entrega ASC, g.id_guia ASC";
+
+        $recuperar_entregadas = mysqli_query($conn, $query_entregadas);
+        if ($recuperar_entregadas) {
+            while ($vals_ent = mysqli_fetch_assoc($recuperar_entregadas)) {
+                $numero_ent = sprintf("%09s", $vals_ent['numero_guia']);
+                $num_ent = $vals_ent['punto_emision_sucursal'] . "-" . $vals_ent['punto_emision_guia'] . "-" . $numero_ent;
+                $porCobrarEnt = (float)$vals_ent['por_cobrar'];
+                if ($porCobrarEnt <= 0) {
+                    continue;
+                }
+                $total_por_cobrar_oficina += $porCobrarEnt;
+                $entregadasOficina[] = [
+                    'guia' => $num_ent,
+                    'total' => (float)$vals_ent['total_guia'],
+                    'por_cobrar' => $porCobrarEnt,
+                ];
+            }
+        } else {
+            error_log('[pdfCajaImpresion] entregadas en oficina: ' . mysqli_error($conn));
+        }
     }
 
     // ─── EGRESOS / INGRESOS ──────────────────────────────────────────────────
@@ -267,9 +342,11 @@ try {
 
     // ─── CACHÉ NIVEL 2: PDF por hash de datos (evita el render TCPDF) ────────
     $datosHash = md5(json_encode([
+        'render-v2',
         $id_caja, $total_apertura, $cierre_total_caja, $fecha_hora_cierre, $estado_cuadre, $saldo,
         $total_cobrado, $total_por_cobrar, $total_egresos, $total_ingresos, $total_cantidad,
-        count($guias), count($otrasGuias), count($egresos_ingresos)
+        $total_por_cobrar_oficina, count($guias), count($otrasGuias), count($entregadasOficina),
+        count($egresos_ingresos)
     ]));
     $cachePdfFile = $pdfCacheDir . 'caja_imp_' . $id_caja . '_' . $datosHash . '.pdf';
 
@@ -295,8 +372,8 @@ try {
     $margen = ($anchoPapel <= 60) ? 2.5 : 4.0;
     $anchoUtil = $anchoPapel - ($margen * 2);
 
-    $totalItems = count($guias) + count($otrasGuias) + count($egresos_ingresos);
-    $altoEstimado = max(240, 180 + ($totalItems * 4.5));
+    $totalItems = count($guias) + count($otrasGuias) + count($entregadasOficina) + count($egresos_ingresos);
+    $altoEstimado = max(248, 188 + ($totalItems * 4.5));
 
     $pdf = new TCPDF('P', 'mm', array($anchoPapel, $altoEstimado), true, 'UTF-8', false);
     $pdf->setFontSubsetting(false);
@@ -327,6 +404,10 @@ try {
 
     $hLine = 3.6;
     $pdf->SetXY($margen + 1, $yBox + 1);
+    $pdf->SetFont('helvetica', 'B', 8);
+    $pdf->Cell($anchoUtil - 2, $hLine, 'Caja N°: ' . $id_caja, 0, 1, 'L');
+    $pdf->SetX($margen + 1);
+    $pdf->SetFont('helvetica', '', 7.5);
     $pdf->Cell($anchoUtil - 2, $hLine, 'Oficinista: ' . $usuario, 0, 1, 'L');
     $pdf->SetX($margen + 1);
     $pdf->Cell($anchoUtil - 2, $hLine, 'Fecha y Hora: ' . $fecha_apertura, 0, 1, 'L');
@@ -347,8 +428,16 @@ try {
         $anchoUtil - 2,
         $hLine,
         'ESPERADO: $' . number_format($esperadoCaja, 2)
-            . ' | CONTADO: $' . number_format($contadoCaja, 2)
-            . ' | DIF: $' . number_format($saldo, 2) . ' ' . $estado_cuadre,
+            . ' | CONTADO: $' . number_format($contadoCaja, 2),
+        0,
+        1,
+        'L'
+    );
+    $pdf->SetX($margen + 1);
+    $pdf->Cell(
+        $anchoUtil - 2,
+        $hLine,
+        'DIF: $' . number_format($saldo, 2) . ' ' . $estado_cuadre,
         0,
         1,
         'L'
@@ -404,6 +493,34 @@ try {
         $pdf->SetFont('helvetica', 'B', 7.5);
         $pdf->Cell($wGuia, 4, 'TOTAL OTRAS:', 'T', 0, 'L');
         $pdf->Cell($wCob + $wCant, 4, '$' . number_format($total_otras_guias, 2), 'T', 1, 'R');
+        $pdf->Ln(1.5);
+    }
+
+    // ─── 4b. ENTREGADAS EN OFICINA (POR COBRAR) ─────────────────────────────
+    if (count($entregadasOficina) > 0) {
+        $pdf->SetFont('helvetica', 'B', 8);
+        $pdf->Cell($anchoUtil, 4, 'ENTREGADAS EN OFICINA (POR COBRAR)', 0, 1, 'C');
+
+        $wGuiaEnt = round($anchoUtil * 0.50, 1);
+        $wTotalEnt = round($anchoUtil * 0.22, 1);
+        $wPorCobrarEnt = $anchoUtil - ($wGuiaEnt + $wTotalEnt);
+
+        $pdf->SetFont('helvetica', 'B', 7);
+        $pdf->Cell($wGuiaEnt, 4, 'GUIA', 'B', 0, 'L');
+        $pdf->Cell($wTotalEnt, 4, 'TOTAL', 'B', 0, 'R');
+        $pdf->Cell($wPorCobrarEnt, 4, 'POR COBRAR', 'B', 1, 'R');
+
+        $pdf->SetFont('courier', '', 7);
+        foreach ($entregadasOficina as $eof) {
+            $pdf->Cell($wGuiaEnt, 3.6, $eof['guia'], 0, 0, 'L');
+            $pdf->Cell($wTotalEnt, 3.6, '$' . number_format($eof['total'], 2), 0, 0, 'R');
+            $pdf->Cell($wPorCobrarEnt, 3.6, '$' . number_format($eof['por_cobrar'], 2), 0, 1, 'R');
+        }
+
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell($wGuiaEnt, 4, 'TOTAL PENDIENTE:', 'T', 0, 'L');
+        $pdf->Cell($wTotalEnt, 4, '', 'T', 0, 'R');
+        $pdf->Cell($wPorCobrarEnt, 4, '$' . number_format($total_por_cobrar_oficina, 2), 'T', 1, 'R');
         $pdf->Ln(1.5);
     }
 

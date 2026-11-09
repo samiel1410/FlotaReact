@@ -287,7 +287,10 @@ export const cajaBoleteriaService = {
       return response.data;
     } catch (error) {
       console.error('Error al eliminar detalle de caja:', error);
-      throw error;
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Error al eliminar el movimiento',
+      };
     }
   },
 

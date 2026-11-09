@@ -1,6 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
 import { api } from '../../config/axios';
+import { useAuth } from '../../hooks/useAuth';
+
+// Roles con permiso de administración (mismos que valida el backend).
+const ROLES_ADMIN = [1, 5];
 
 const DENOMINACIONES_APERTURA = [
   { key: 'apertura_100_caja', label: '$100', val: 100, type: 'billete' },
@@ -39,11 +44,16 @@ export default function EditarCajaVista({
   endpointEditar = '/caja/editarCaja',
   endpointDetalle = '/caja/detalleCaja',
   endpointListadoDetalle = '/caja/listadoDetalleCaja',
+  endpointEliminarDetalle = '/caja/eliminarDetalleCaja',
   onSuccess,
   readOnly = false
 }) {
   const handleBack = onClose || onCancel || (() => window.history.back());
   const idCaja = caja?.id_caja || caja?.id_caja_boleteria || caja?.id_caja_retenciones || '';
+
+  const { user } = useAuth();
+  const rolUsuario = Number(user?.rol_usuario || user?.id_fkrol_usuario || 0);
+  const esAdmin = ROLES_ADMIN.includes(rolUsuario);
 
   // Estado Apertura
   const [aperturaValues, setAperturaValues] = useState({});
@@ -59,6 +69,7 @@ export default function EditarCajaVista({
   const [movimientos, setMovimientos] = useState([]);
   const [loadingMovs, setLoadingMovs] = useState(false);
   const [loadingSave, setLoadingSave] = useState(false);
+  const [eliminandoMov, setEliminandoMov] = useState(null);
 
   // Formulario nuevo movimiento
   const [showAddMov, setShowAddMov] = useState(false);
@@ -202,6 +213,45 @@ export default function EditarCajaVista({
       toast.error(err.response?.data?.message || 'Error al conectar con el servidor');
     } finally {
       setSavingMov(false);
+    }
+  };
+
+  // Solo se puede borrar físicamente lo que todavía no afectó el cuadre:
+  // movimientos pendientes de aprobación o rechazados. Los aprobados se anulan.
+  const puedeEliminarMovimiento = (m) => {
+    if (!esAdmin) return false;
+    const estado = String(m.estado_caja_detalle || '').toUpperCase();
+    return estado === 'PENDIENTE' || estado === 'CANCELADO';
+  };
+
+  const handleEliminarMovimiento = async (m) => {
+    if (!puedeEliminarMovimiento(m) || eliminandoMov) return;
+
+    const monto = parseFloat(m.monto_caja_detalle || 0).toFixed(2);
+    const { isConfirmed } = await Swal.fire({
+      title: '¿Eliminar movimiento?',
+      html: `Se eliminará el movimiento <b>${m.tipo_caja_detalle || ''}</b> por <b>$${monto}</b>.<br/>Esta acción no se puede deshacer.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Sí, eliminar',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#dc2626',
+    });
+    if (!isConfirmed) return;
+
+    setEliminandoMov(m.id_caja_detalle);
+    try {
+      const res = await api.post(endpointEliminarDetalle, { id_caja_detalle: m.id_caja_detalle });
+      if (res.data?.success) {
+        toast.success('Movimiento eliminado');
+        await loadMovimientos();
+      } else {
+        toast.error(res.data?.message || 'No se pudo eliminar el movimiento');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Error al eliminar el movimiento');
+    } finally {
+      setEliminandoMov(null);
     }
   };
 
@@ -508,12 +558,13 @@ export default function EditarCajaVista({
                   <th className="py-2.5 px-3 font-black text-slate-500 uppercase tracking-widest text-[9px]"># DOCUMENTO</th>
                   <th className="py-2.5 px-3 font-black text-slate-500 uppercase tracking-widest text-[9px] text-center">ESTADO</th>
                   <th className="py-2.5 px-4 font-black text-slate-500 uppercase tracking-widest text-[9px]">OBSERVACIÓN</th>
+                  {esAdmin && <th className="py-2.5 px-4 font-black text-slate-500 uppercase tracking-widest text-[9px] text-center">ACCIONES</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loadingMovs ? (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400">
+                    <td colSpan={esAdmin ? 9 : 8} className="py-8 text-center text-slate-400">
                       <i className="fas fa-spinner fa-spin mr-2"></i> Cargando movimientos...
                     </td>
                   </tr>
@@ -543,11 +594,28 @@ export default function EditarCajaVista({
                         </span>
                       </td>
                       <td className="py-2.5 px-4 text-slate-500">{m.observacion_caja_detalle || '-'}</td>
+                      {esAdmin && (
+                        <td className="py-2.5 px-4 text-center">
+                          {puedeEliminarMovimiento(m) ? (
+                            <button
+                              type="button"
+                              onClick={() => handleEliminarMovimiento(m)}
+                              disabled={eliminandoMov === m.id_caja_detalle}
+                              title="Eliminar movimiento"
+                              className="w-7 h-7 rounded-lg text-rose-600 hover:bg-rose-50 border border-rose-200/70 inline-flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <i className={`fas ${eliminandoMov === m.id_caja_detalle ? 'fa-spinner fa-spin' : 'fa-trash-alt'} text-[11px]`}></i>
+                            </button>
+                          ) : (
+                            <span className="text-slate-300" title="Los movimientos aprobados se anulan, no se eliminan.">—</span>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={8} className="py-8 text-center text-slate-400 font-medium">
+                    <td colSpan={esAdmin ? 9 : 8} className="py-8 text-center text-slate-400 font-medium">
                       No hay otros ingresos o egresos registrados en esta caja.
                     </td>
                   </tr>
