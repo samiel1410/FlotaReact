@@ -88,9 +88,10 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
       const sucursales = sucursalesRaw.filter(s => s.id_sucursal !== 0 && s.id_sucursal !== '0');
       const vehiculos = vehRes.data || [];
       const companias = compRes.data?.data || compRes.data || [];
+      const oficinistas = ofiRes.data?.data || [];
 
       setDatosCombo({
-        oficinistas: ofiRes.data?.data || [],
+        oficinistas,
         buses: busRes.data?.data || [],
         personal: perRes.data?.data || [],
         sucursales: sucursales,
@@ -98,12 +99,19 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
         companias: Array.isArray(companias) ? companias : []
       });
 
-      // Encontrar sucursal de origen del usuario
-      const sucOrigenEncontrada = sucursales.find(s => 
-        String(s.suc_codigo_sucursal) === idOficinaUsuario || String(s.id_sucursal) === idOficinaUsuario
+      // El origen del despacho es la sucursal del oficinista asignado.
+      const oficinistaSesion = oficinistas.find(o => String(o.id_usuario) === String(idUsuario));
+      const idSucursalOficinista = String(
+        oficinistaSesion?.suc_codigo_sucursal ||
+        oficinistaSesion?.id_fksucursal_usuario ||
+        idOficinaUsuario
+      );
+
+      const sucOrigenEncontrada = sucursales.find(s =>
+        String(s.suc_codigo_sucursal) === idSucursalOficinista || String(s.id_sucursal) === idSucursalOficinista
       );
       const origenIdFinal = sucOrigenEncontrada ? String(sucOrigenEncontrada.suc_codigo_sucursal || sucOrigenEncontrada.id_sucursal) : (sucursales.length > 0 ? String(sucursales[0].suc_codigo_sucursal || sucursales[0].id_sucursal) : '');
-      const origenNombreFinal = sucOrigenEncontrada?.nombre_sucursal || nombreOficinaUsuario;
+      const origenNombreFinal = sucOrigenEncontrada?.nombre_sucursal || oficinistaSesion?.nombre_sucursal || nombreOficinaUsuario;
 
       // Auto-set oficinista, responsable y sucursal de origen fija
       setFormData(prev => ({
@@ -274,11 +282,15 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
       const perSel = datosCombo.personal.find(p => String(p.per_codigo_personal || p.id_personal) === String(formData.id_personal));
       const sucDestinoSel = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(formData.oficina_usuario));
       const compDestinoSel = datosCombo.companias.find(c => String(c.id_compania_asociada || c.id_compania) === String(formData.oficina_usuario));
-      const sucOrigenSel = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(formData.id_fkorigen_despacho));
       const ofiSel = datosCombo.oficinistas.find(o => String(o.id_usuario) === String(formData.id_fkoficinista_despacho_maestro));
 
+      // El origen del despacho debe coincidir con la sucursal del oficinista asignado.
+      const origenIdOficinista = ofiSel?.suc_codigo_sucursal || ofiSel?.id_fksucursal_usuario;
+      const origenId = origenIdOficinista ? String(origenIdOficinista) : formData.id_fkorigen_despacho;
+      const sucOrigenSel = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(origenId));
+
       const ofiNombre = ofiSel ? `${ofiSel.nombre_usuario || ''} ${ofiSel.apellido_usuario || ''}`.trim() : (formData.nombre_oficinista || '');
-      const origenNombre = sucOrigenSel?.nombre_sucursal || formData.nombre_origen || '';
+      const origenNombre = sucOrigenSel?.nombre_sucursal || ofiSel?.nombre_sucursal || formData.nombre_origen || '';
       const destinoNombre = (tipoDespacho === 'CONVENIO' 
         ? (compDestinoSel?.nombre_compania_asociada || formData.nombre_destino_raw || '') 
         : (sucDestinoSel?.nombre_sucursal || formData.nombre_destino_raw || '')).trim();
@@ -292,7 +304,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
         estado_despacho_maestro: '1',
         oficina_usuario: formData.oficina_usuario,
         nombre_destino: destinoNombre,
-        id_fkorigen_despacho: formData.id_fkorigen_despacho || null,
+        id_fkorigen_despacho: origenId || null,
         nombre_origen: origenNombre,
         id_fkbus_despacho_maestro: '',
         id_personal: '',

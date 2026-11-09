@@ -120,10 +120,15 @@ try {
     // Criterio de cobro unificado (igual que guiaPdfImpresion.php): un cobro cuenta
     // como COBRADO salvo que sea CRÉDITO (tipo_forma_pago = 4). Con LEFT JOIN, un
     // comprobante sin forma de pago registrada (id_fkforma_pago = 0) también cuenta.
+    // Se incluyen las guías en estado 3 (PENDIENTE ANULAR): su cobro sigue
+    // registrado como COBRADA en la caja y, si se omitieran, el detalle no
+    // cuadraría con COBRADO EN EFECTIVO / ESPERADO (saldoCaja). Solo se
+    // excluye la guía ya anulada (estado 2).
     $query2 = "SELECT
         a.id_guia,
         a.punto_emision_guia,
         a.numero_guia,
+        a.estado_guia,
         a.total_guia,
         f.punto_emision_sucursal,
         SUM(v.cantidad_detalle_guia) as cantidad,
@@ -144,8 +149,8 @@ try {
         AND cc.id_fkcaja_comprobante_cobro = $id_caja
         GROUP BY fa.id_fkguia_factura
     ) as h ON h.id_fkguia_factura = a.id_guia
-    WHERE id_fkcaja_guia = $id_caja AND estado_guia = 1
-    GROUP BY a.id_guia, a.punto_emision_guia, a.numero_guia, a.total_guia, f.punto_emision_sucursal, h.monto_comprobante_cobro
+    WHERE id_fkcaja_guia = $id_caja AND estado_guia IN (1, 3)
+    GROUP BY a.id_guia, a.punto_emision_guia, a.numero_guia, a.estado_guia, a.total_guia, f.punto_emision_sucursal, h.monto_comprobante_cobro
     ORDER BY a.id_guia DESC";
 
     $recuperar2 = mysqli_query($conn, $query2) or die(mysqli_error($conn));
@@ -170,6 +175,7 @@ try {
 
         $guias[] = [
             'guia' => $numero_guia,
+            'pendiente_anular' => ((int)$vals2['estado_guia'] === 3),
             'cobrado' => $cobrado,
             'cantidad' => $cant
         ];
@@ -185,6 +191,16 @@ try {
                 'cobrado' => $cobrado,
                 'por_cobrar' => $porCobrarGuia,
             ];
+        }
+    }
+
+    // Guías con anulación solicitada (estado 3): se listan y se marcan porque
+    // su cobro todavía forma parte de la caja.
+    $hayPendientesAnular = false;
+    foreach ($guias as $gPend) {
+        if (!empty($gPend['pendiente_anular'])) {
+            $hayPendientesAnular = true;
+            break;
         }
     }
 
@@ -207,7 +223,7 @@ try {
       AND COALESCE(fp.tipo_forma_pago, 0) <> 4
       AND f.id_fkcaja_factura != $id_caja
       AND g.id_fkcaja_guia != $id_caja
-      AND g.estado_guia = 1
+      AND g.estado_guia IN (1, 3)
     GROUP BY g.id_guia, s.punto_emision_sucursal, g.punto_emision_guia, g.numero_guia
     HAVING SUM(cc.monto_comprobante_cobro) > 0
     ORDER BY g.id_guia DESC";
@@ -282,7 +298,7 @@ try {
           AND ge.fecha_hora_entrega >= '$fechaIniSql'
           AND ge.fecha_hora_entrega <= '$fechaFinSql'
           AND g.id_fkcaja_guia <> $id_caja
-          AND g.estado_guia = 1
+          AND g.estado_guia IN (1, 3)
         GROUP BY g.id_guia, g.punto_emision_guia, g.numero_guia, g.total_guia, g.sucursal_guia, s.punto_emision_sucursal, h.cobrado
         HAVING por_cobrar > 0.009
         ORDER BY fecha_entrega ASC, g.id_guia ASC";
@@ -388,8 +404,13 @@ try {
         : round($total_apertura + $total_ingresos - $total_egresos + (float)($efectivo_sp ?? 0), 2);
 
     // ─── CACHÉ NIVEL 2: PDF por hash de datos (evita el render TCPDF) ────────
+    // La firma incluye las listas reales: un cambio de número, monto o estado
+    // de una guía debe invalidar el PDF aunque los totales no cambien.
+    $firmaGuias = md5(json_encode([
+        $guias, $guiasPorCobrar, $otrasGuias, $entregadasOficina, $entregadasOtrasOficinas
+    ]));
     $datosHash = md5(json_encode([
-        'render-v4',
+        'render-v5', $firmaGuias,
         $id_caja, $total_apertura, $cierre_total_caja, $fecha_hora_cierre, $estado_cuadre, $saldo,
         $total_cobrado, $total_por_cobrar, $total_egresos, $total_ingresos, $total_cantidad,
         $total_por_cobrar_oficina, count($guias), count($otrasGuias), count($entregadasOficina),
@@ -424,6 +445,7 @@ try {
     // blanco (se ven cortadas dentro del iframe de impresión rápida).
     $altoEstimado = 108
         + (count($guias) * 3.7)
+        + ($hayPendientesAnular ? 4 : 0)
         + (count($guiasPorCobrar) > 0 ? 16 + (count($guiasPorCobrar) * 3.7) : 0)
         + (count($otrasGuias) > 0 ? 14 + (count($otrasGuias) * 3.7) : 0)
         + (count($entregadasOficina) > 0 ? 14 + (count($entregadasOficina) * 3.7) : 0)
@@ -531,7 +553,7 @@ try {
 
     $pdf->SetFont('courier', '', 7);
     foreach ($guias as $g) {
-        $pdf->Cell($wGuia, 3.6, $g['guia'], 0, 0, 'L');
+        $pdf->Cell($wGuia, 3.6, $g['guia'] . (!empty($g['pendiente_anular']) ? ' *' : ''), 0, 0, 'L');
         $pdf->Cell($wCob, 3.6, '$' . number_format($g['cobrado'], 2), 0, 0, 'R');
         $pdf->Cell($wCant, 3.6, (string)$g['cantidad'], 0, 1, 'C');
     }
@@ -540,6 +562,10 @@ try {
     $pdf->Cell($wGuia, 4, 'TOTAL:', 'T', 0, 'L');
     $pdf->Cell($wCob, 4, '$' . number_format($total_final, 2), 'T', 0, 'R');
     $pdf->Cell($wCant, 4, '', 'T', 1, 'C');
+    if ($hayPendientesAnular) {
+        $pdf->SetFont('helvetica', 'I', 6.3);
+        $pdf->MultiCell($anchoUtil, 3.2, '(*) Guía con solicitud de anulación pendiente de aprobación: su cobro sí está incluido en la caja.', 0, 'L', false, 1);
+    }
     $pdf->Ln(1.5);
 
     // ─── 3b. GUÍAS CON SALDO PENDIENTE (POR COBRAR) ──────────────────────────
