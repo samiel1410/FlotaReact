@@ -71,6 +71,46 @@ const renderCuadre = (v, row) => {
   return <span className={`font-mono ${color}`}>{estado}{detalle}</span>;
 };
 
+// Roles con permiso de administración (mismos que valida el backend).
+const ROLES_ADMIN = [1, 5];
+
+// Un administrador puede editar cajas cerradas sin solicitud aprobada; el
+// resto de usuarios sigue requiriendo la solicitud (regla del flujo de caja).
+const puedeEditarCajaCerrada = (row) => {
+  const solicitudAprobada = row?.estado_solicitud == 2 || row?.estado_solicitud === 'APROBADA';
+  if (solicitudAprobada) return true;
+  try {
+    const user = comprobantesService.getCurrentUser();
+    const roles = [user?.rol_usuario, user?.id_fkrol_usuario, user?.id_rol]
+      .map(v => Number(v || 0));
+    return roles.some(rol => ROLES_ADMIN.includes(rol));
+  } catch {
+    return false;
+  }
+};
+
+// El listado paginado no trae las denominaciones de apertura/cierre. Antes de
+// abrir la edición se completa la fila con el detalle real de la caja para que
+// los campos no aparezcan en $0.00 y al guardar no se borren los valores.
+const cargarCajaCompleta = async (endpointInfo, idCaja, row) => {
+  if (!endpointInfo || !idCaja) return row;
+  try {
+    const res = await api.get(endpointInfo, { params: { id_caja: idCaja } });
+    const info = res.data?.data?.[0];
+    if (!info) return row;
+    const merged = { ...row, ...info };
+    // El detalle devuelve fecha y hora por separado; el listado trae el
+    // timestamp completo, que es el que usa el formulario de edición.
+    const fechaRow = String(row?.fecha_hora_cierre || '');
+    if (fechaRow && !fechaRow.startsWith('0000-00-00')) {
+      merged.fecha_hora_cierre = row.fecha_hora_cierre;
+    }
+    return merged;
+  } catch {
+    return row;
+  }
+};
+
 export const PAGES_CONFIG = {
 
   // ─── ADMINISTRACIÓN ─────────────────────────────────────────────────────────
@@ -1124,17 +1164,17 @@ export const PAGES_CONFIG = {
           id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Caja',
           color: 'text-amber-500 hover:bg-amber-50',
           handler: async (row, ctx) => {
-            const solicitudAprobada = row.estado_solicitud == 2 || row.estado_solicitud === 'APROBADA';
-            if (row.estado_caja === 'CERRADA' && !solicitudAprobada) {
+            if (row.estado_caja === 'CERRADA' && !puedeEditarCajaCerrada(row)) {
               toast.error('No se puede editar una caja cerrada sin solicitud aprobada');
               return;
             }
             if (ctx && ctx.openCustomModal) {
+              const cajaParaEditar = await cargarCajaCompleta('/caja/informacionCaja', row.id_caja, row);
               const { default: EditarCajaVista } = await import('../components/common/EditarCajaVista');
               ctx.openCustomModal(
                 EditarCajaVista,
                 {
-                  caja: row,
+                  caja: cajaParaEditar,
                   endpointEditar: '/caja/editarCaja',
                   endpointDetalle: '/caja/detalleCaja',
                   endpointListadoDetalle: '/caja/listadodetallecaja',
@@ -1154,11 +1194,12 @@ export const PAGES_CONFIG = {
           color: 'text-indigo-600 hover:bg-indigo-50',
           handler: async (row, ctx) => {
             if (ctx && ctx.openCustomModal) {
+              const cajaParaVer = await cargarCajaCompleta('/caja/informacionCaja', row.id_caja, row);
               const { default: EditarCajaVista } = await import('../components/common/EditarCajaVista');
               ctx.openCustomModal(
                 EditarCajaVista,
                 {
-                  caja: row,
+                  caja: cajaParaVer,
                   endpointEditar: '/caja/editarCaja',
                   endpointDetalle: '/caja/detalleCaja',
                   endpointListadoDetalle: '/caja/listadodetallecaja',
@@ -1377,17 +1418,21 @@ export const PAGES_CONFIG = {
           id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Caja',
           color: 'text-amber-500 hover:bg-amber-50',
           handler: async (row, ctx) => {
-            const solicitudAprobada = row.estado_solicitud == 2 || row.estado_solicitud === 'APROBADA';
-            if (row.estado_caja === 'CERRADA' && !solicitudAprobada) {
+            if (row.estado_caja === 'CERRADA' && !puedeEditarCajaCerrada(row)) {
               toast.error('No se puede editar una caja cerrada sin solicitud aprobada');
               return;
             }
             if (ctx && ctx.openCustomModal) {
+              const cajaParaEditar = await cargarCajaCompleta(
+                '/caja_boleteria/informacionCaja',
+                row.id_caja_boleteria || row.id_caja,
+                row
+              );
               const { default: EditarCajaVista } = await import('../components/common/EditarCajaVista');
               ctx.openCustomModal(
                 EditarCajaVista,
                 {
-                  caja: row,
+                  caja: cajaParaEditar,
                   endpointEditar: '/caja_boleteria/editarCaja',
                   endpointDetalle: '/caja_boleteria/detalleCaja',
                   endpointListadoDetalle: '/caja_boleteria/listadodetallecaja',
@@ -1542,17 +1587,21 @@ export const PAGES_CONFIG = {
           id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Caja',
           color: 'text-amber-500 hover:bg-amber-50',
           handler: async (row, ctx) => {
-            const solicitudAprobada = row.estado_solicitud == 2 || row.estado_solicitud === 'APROBADA';
-            if (row.estado_caja === 'CERRADA' && !solicitudAprobada) {
+            if (row.estado_caja === 'CERRADA' && !puedeEditarCajaCerrada(row)) {
               toast.error('No se puede editar una caja cerrada sin solicitud aprobada');
               return;
             }
             if (ctx && ctx.openCustomModal) {
+              const cajaParaEditar = await cargarCajaCompleta(
+                '/cajaretenciones/informacionCaja',
+                row.id_caja_retenciones || row.id_caja,
+                row
+              );
               const { default: EditarCajaVista } = await import('../components/common/EditarCajaVista');
               ctx.openCustomModal(
                 EditarCajaVista,
                 {
-                  caja: row,
+                  caja: cajaParaEditar,
                   endpointEditar: '/cajaretenciones/editarCaja',
                   endpointDetalle: '/cajaretenciones/detalleCaja',
                   endpointListadoDetalle: '/cajaretenciones/listadodetallecaja',
@@ -1707,8 +1756,7 @@ export const PAGES_CONFIG = {
           id: 'editar', icon: 'fas fa-edit', tooltip: 'Editar Caja',
           color: 'text-amber-500 hover:bg-amber-50',
           handler: async (row, ctx) => {
-            const solicitudAprobada = row.estado_solicitud == 2 || row.estado_solicitud === 'APROBADA';
-            if (row.estado_caja === 'CERRADA' && !solicitudAprobada) {
+            if (row.estado_caja === 'CERRADA' && !puedeEditarCajaCerrada(row)) {
               toast.error('No se puede editar una caja cerrada sin solicitud aprobada');
               return;
             }
