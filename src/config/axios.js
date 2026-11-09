@@ -229,7 +229,7 @@ const originalGet = api.get.bind(api);
 api.get = (url, config = {}) => {
   if (!config || config.signal) return originalGet(url, config);
 
-  const key = `${url}|${stableParamsKey(config.params)}`;
+  const key = `${CONFIG.API_URL || ''}|${url}|${stableParamsKey(config.params)}`;
   const pending = inFlightGets.get(key);
   if (pending) return pending;
 

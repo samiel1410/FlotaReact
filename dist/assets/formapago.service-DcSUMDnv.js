@@ -1,0 +1,1 @@
+import{t as e}from"./axios-CRz8yWNS.js";var t=`/formapago`,n=async n=>{try{return(await e.get(`${t}/formapagoSeleccionPaginado`,{params:n})).data}catch(e){throw console.error(`Error fetching formas de pago:`,e),e}};export{n as t};
