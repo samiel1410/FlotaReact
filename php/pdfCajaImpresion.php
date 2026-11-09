@@ -221,8 +221,9 @@ try {
     // invisibles en todos los cierres: "CAJA (GUÍAS)" filtra por
     // guia.id_fkcaja_guia y "OTRAS GUÍAS" solo lista cobros ya registrados, así
     // que una entrega con saldo pendiente no aparecía en ningún reporte.
-    // No se suma al resumen (TOTAL POR COBRAR / TOTAL GENERAL) para no duplicar
-    // el saldo que ya reporta el cierre de la caja de origen.
+    // Se suma al resumen (TOTAL POR COBRAR / TOTAL GENERAL): son guías
+    // entregadas en esta oficina que aún tienen saldo pendiente de cobro y
+    // deben reflejarse en el cierre.
     $entregadasOficina = [];
     $total_por_cobrar_oficina = 0.0;
     $idSucursalCaja = (int)($vals_caja['id_fksucursal_caja'] ?? 0);
@@ -314,6 +315,10 @@ try {
         ];
     }
 
+    // Guías entregadas en esta oficina con saldo pendiente: forman parte del
+    // total por cobrar del cierre.
+    $total_por_cobrar += $total_por_cobrar_oficina;
+
     $total_cobrado = $total_final + $total_otras_guias;
     $total_final_final = $total_cobrado + $total_ingresos - $total_egresos;
 
@@ -342,7 +347,7 @@ try {
 
     // ─── CACHÉ NIVEL 2: PDF por hash de datos (evita el render TCPDF) ────────
     $datosHash = md5(json_encode([
-        'render-v2',
+        'render-v3',
         $id_caja, $total_apertura, $cierre_total_caja, $fecha_hora_cierre, $estado_cuadre, $saldo,
         $total_cobrado, $total_por_cobrar, $total_egresos, $total_ingresos, $total_cantidad,
         $total_por_cobrar_oficina, count($guias), count($otrasGuias), count($entregadasOficina),
@@ -372,8 +377,13 @@ try {
     $margen = ($anchoPapel <= 60) ? 2.5 : 4.0;
     $anchoUtil = $anchoPapel - ($margen * 2);
 
-    $totalItems = count($guias) + count($otrasGuias) + count($entregadasOficina) + count($egresos_ingresos);
-    $altoEstimado = max(248, 188 + ($totalItems * 4.5));
+    // Alto ajustado al contenido real: evita páginas largas con espacio en
+    // blanco (se ven cortadas dentro del iframe de impresión rápida).
+    $altoEstimado = 108
+        + (count($guias) * 3.7)
+        + (count($otrasGuias) > 0 ? 14 + (count($otrasGuias) * 3.7) : 0)
+        + (count($entregadasOficina) > 0 ? 14 + (count($entregadasOficina) * 3.7) : 0)
+        + (count($egresos_ingresos) > 0 ? 10 + (count($egresos_ingresos) * 3.7) : 0);
 
     $pdf = new TCPDF('P', 'mm', array($anchoPapel, $altoEstimado), true, 'UTF-8', false);
     $pdf->setFontSubsetting(false);
@@ -386,8 +396,20 @@ try {
     // ─── 1. CABECERA ──────────────────────────────────────────────────
     $pdf->SetY(4);
 
+    // El nombre de la empresa se ajusta al ancho del papel para que no se
+    // corte en la vista previa del iframe (papel de 80 mm).
     $pdf->SetFont('helvetica', 'B', 10.5);
-    $pdf->Cell($anchoUtil, 4.5, strtoupper($razon_social_empresa), 0, 1, 'C');
+    $tituloEmpresa = strtoupper($razon_social_empresa);
+    $fontSizeEmpresa = 10.5;
+    while ($fontSizeEmpresa > 7 && $pdf->GetStringWidth($tituloEmpresa, 'helvetica', 'B', $fontSizeEmpresa) > $anchoUtil) {
+        $fontSizeEmpresa -= 0.5;
+    }
+    $pdf->SetFont('helvetica', 'B', $fontSizeEmpresa);
+    if ($pdf->GetStringWidth($tituloEmpresa) > $anchoUtil) {
+        $pdf->MultiCell($anchoUtil, 4, $tituloEmpresa, 0, 'C');
+    } else {
+        $pdf->Cell($anchoUtil, 4.5, $tituloEmpresa, 0, 1, 'C');
+    }
 
     if (!empty($ruc_empresa)) {
         $pdf->SetFont('helvetica', '', 7.5);
