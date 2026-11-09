@@ -8,6 +8,25 @@ DirectoryIndex index.php index.html
     Header set Pragma "no-cache"
     Header set Expires "0"
   </FilesMatch>
+
+  # Assets con hash de Vite, fuentes y vendor versionado: un año, inmutable.
+  <FilesMatch "\.(js|css|woff2?|ttf|eot)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # Imágenes estáticas (nombres sin hash, se pueden reemplazar): 30 días.
+  <FilesMatch "\.(png|jpe?g|gif|webp|avif|svg|ico)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+</IfModule>
+
+# Compresión en el origen (nginx/Apache suelen tenerla desactivada para .js/.css en Plesk).
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/css text/javascript application/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+<IfModule mod_brotli.c>
+  AddOutputFilterByType BROTLI_COMPRESS text/html text/plain text/css text/javascript application/javascript application/json application/xml image/svg+xml
 </IfModule>
 
 <IfModule mod_rewrite.c>

@@ -114,14 +114,20 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
       const origenNombreFinal = sucOrigenEncontrada?.nombre_sucursal || oficinistaSesion?.nombre_sucursal || nombreOficinaUsuario;
 
       // Auto-set oficinista, responsable y sucursal de origen fija
-      setFormData(prev => ({
-        ...prev,
-        id_fkoficinista_despacho_maestro: idUsuario,
-        nombre_oficinista: nombreUsuario,
-        responsable_despacho: nombreUsuario,
-        id_fkorigen_despacho: origenIdFinal,
-        nombre_origen: origenNombreFinal
-      }));
+      setFormData(prev => {
+        const destinoEsLaMismaOficina = prev.oficina_usuario &&
+          String(prev.oficina_usuario) === String(origenIdFinal);
+        return {
+          ...prev,
+          id_fkoficinista_despacho_maestro: idUsuario,
+          nombre_oficinista: nombreUsuario,
+          responsable_despacho: nombreUsuario,
+          id_fkorigen_despacho: origenIdFinal,
+          nombre_origen: origenNombreFinal,
+          oficina_usuario: destinoEsLaMismaOficina ? '' : prev.oficina_usuario,
+          nombre_destino_raw: destinoEsLaMismaOficina ? '' : prev.nombre_destino_raw
+        };
+      });
 
     } catch (err) {
       console.error('Error cargando combos:', err);
@@ -227,6 +233,26 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
       }
     }
 
+    // El destino de un despacho no puede ser la misma oficina del oficinista.
+    const ofiSel = datosCombo.oficinistas.find(
+      o => String(o.id_usuario) === String(formData.id_fkoficinista_despacho_maestro)
+    );
+    const origenId = String(
+      ofiSel?.suc_codigo_sucursal ||
+      ofiSel?.id_fksucursal_usuario ||
+      formData.id_fkorigen_despacho ||
+      ''
+    );
+    if (
+      tipoDespacho !== 'CONVENIO' &&
+      formData.oficina_usuario &&
+      origenId &&
+      String(formData.oficina_usuario) === origenId
+    ) {
+      toast.error('La sucursal de destino no puede ser la misma oficina del oficinista');
+      return;
+    }
+
     setSaving(true);
     try {
       // ── Si es vehículo manual (o sin ID), primero registrarlo en tabla vehiculo ──
@@ -282,11 +308,8 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
       const perSel = datosCombo.personal.find(p => String(p.per_codigo_personal || p.id_personal) === String(formData.id_personal));
       const sucDestinoSel = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(formData.oficina_usuario));
       const compDestinoSel = datosCombo.companias.find(c => String(c.id_compania_asociada || c.id_compania) === String(formData.oficina_usuario));
-      const ofiSel = datosCombo.oficinistas.find(o => String(o.id_usuario) === String(formData.id_fkoficinista_despacho_maestro));
 
       // El origen del despacho debe coincidir con la sucursal del oficinista asignado.
-      const origenIdOficinista = ofiSel?.suc_codigo_sucursal || ofiSel?.id_fksucursal_usuario;
-      const origenId = origenIdOficinista ? String(origenIdOficinista) : formData.id_fkorigen_despacho;
       const sucOrigenSel = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(origenId));
 
       const ofiNombre = ofiSel ? `${ofiSel.nombre_usuario || ''} ${ofiSel.apellido_usuario || ''}`.trim() : (formData.nombre_oficinista || '');
@@ -384,6 +407,19 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
     value: String(s.suc_codigo_sucursal || s.id_sucursal),
     label: `${s.nombre_sucursal || `Sucursal #${s.id_sucursal}`}${s.suc_codigo_sucursal ? ` (Cód. ${s.suc_codigo_sucursal})` : ''}`
   }));
+
+  const oficinistaActual = datosCombo.oficinistas.find(
+    o => String(o.id_usuario) === String(formData.id_fkoficinista_despacho_maestro)
+  );
+  const origenOficinistaId = String(
+    oficinistaActual?.suc_codigo_sucursal ||
+    oficinistaActual?.id_fksucursal_usuario ||
+    formData.id_fkorigen_despacho ||
+    ''
+  );
+  const opcionesSucursalesDestino = opcionesSucursales.filter(
+    opcion => !origenOficinistaId || String(opcion.value) !== origenOficinistaId
+  );
 
   const opcionesCompanias = datosCombo.companias.map(c => ({
     value: String(c.id_compania_asociada || c.id_compania),
@@ -521,7 +557,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
                   Sucursal de Destino <span className="text-red-500">*</span>
                 </label>
                 <SearchableSelect
-                  options={opcionesSucursales}
+                  options={opcionesSucursalesDestino}
                   value={formData.oficina_usuario}
                   onChange={(val) => {
                     const suc = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(val));
@@ -676,7 +712,7 @@ export const NuevoDespachoModal = ({ onClose, onSuccess }) => {
                   Sucursal Destino <span className="text-red-500">*</span>
                 </label>
                 <SearchableSelect
-                  options={opcionesSucursales}
+                  options={opcionesSucursalesDestino}
                   value={formData.oficina_usuario}
                   onChange={(val) => {
                     const suc = datosCombo.sucursales.find(s => String(s.suc_codigo_sucursal || s.id_sucursal) === String(val));

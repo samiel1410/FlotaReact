@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../../config/axios';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
+import { TableSkeleton } from '../../components/common/skeletons/PageSkeletons';
 
 const ACCIONES = [
   { value: '', label: 'Todas' },
@@ -35,13 +37,16 @@ export const AuditoriaPage = () => {
   const [detalleId, setDetalleId] = useState(null);
   const [detalleData, setDetalleData] = useState(null);
 
+  // La búsqueda recarga desde el servidor: debounce para no pedir por cada tecla.
+  const busquedaDebounced = useDebouncedValue(filtroBusqueda, 350);
+
   const cargarLogs = useCallback(async () => {
     setLoading(true);
     try {
       const params = { limit, page };
       if (filtroAccion) params.accion = filtroAccion;
       if (filtroResultado) params.resultado = filtroResultado;
-      if (filtroBusqueda) params.busqueda = filtroBusqueda;
+      if (busquedaDebounced) params.busqueda = busquedaDebounced;
       if (filtroDesde) params.desde = filtroDesde;
       if (filtroHasta) params.hasta = filtroHasta;
 
@@ -55,7 +60,7 @@ export const AuditoriaPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, limit, filtroAccion, filtroResultado, filtroBusqueda, filtroDesde, filtroHasta]);
+  }, [page, limit, filtroAccion, filtroResultado, busquedaDebounced, filtroDesde, filtroHasta]);
 
   const cargarEstadisticas = useCallback(async () => {
     try {
@@ -212,9 +217,8 @@ export const AuditoriaPage = () => {
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-7xl mx-auto">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <i className="fas fa-spinner fa-spin text-4xl text-blue-500 mb-4"></i>
-              <span className="text-slate-500 font-medium">Cargando registros de auditoría...</span>
+            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+              <TableSkeleton rows={12} columns={6} />
             </div>
           ) : logs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400">

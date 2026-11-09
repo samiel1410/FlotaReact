@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppMain } from './components/layout/AppMain';
+import { PageSkeleton } from './components/common/skeletons/PageSkeletons';
 import { useAuth } from './hooks/useAuth';
 import { useIdle } from './hooks/useIdle';
 import { useSocket } from './hooks/useSocket';
@@ -100,13 +101,10 @@ const ProtectedLayout = () => {
 // Página de suplantación (Login As)
 const LoginAsPage = lazy(() => import('./pages/Login/LoginAsPage').then(m => ({ default: m.LoginAsPage })));
 
-// Loading fallback para Suspense
+// Loading fallback para Suspense: esqueleto del layout, no spinner genérico
 const LoadingFallback = () => (
-  <div className="fixed inset-0 flex items-center justify-center bg-slate-50 z-50">
-    <div className="text-center">
-      <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
-      <p className="text-slate-600 font-medium">Cargando módulo...</p>
-    </div>
+  <div className="min-h-screen bg-slate-50">
+    <PageSkeleton cards={4} rows={10} />
   </div>
 );
 

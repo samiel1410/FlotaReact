@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { cobrosService } from '../../services/cobros.service';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { NuevaMultaModal } from './components/NuevaMultaModal';
 import { AnularMultaModal } from './components/AnularMultaModal';
 import { PagarMultaModal } from './components/PagarMultaModal';
@@ -34,6 +35,10 @@ export const MultasPage = () => {
   const [detalleId, setDetalleId] = useState(null);
   const [comprobanteRow, setComprobanteRow] = useState(null);
 
+  // El buscador filtra en cliente pero el efecto recarga la API: se debouncea
+  // para no disparar una petición por tecla.
+  const debouncedSearch = useDebouncedValue(filtros.search, 350);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -53,8 +58,8 @@ export const MultasPage = () => {
       const res = await cobrosService.listarMultas(params);
       if (res.success) {
         let rows = res.data || [];
-        if (filtros.search.trim()) {
-          const s = filtros.search.toLowerCase();
+        if (debouncedSearch.trim()) {
+          const s = debouncedSearch.toLowerCase();
           rows = rows.filter(r => 
             (r.socio_nombre || '').toLowerCase().includes(s) ||
             String(r.disco_buses || '').includes(s) ||
@@ -70,7 +75,7 @@ export const MultasPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, filtros]);
+  }, [page, pageSize, filtros.estado, filtros.fecha_desde, filtros.fecha_hasta, filtros.id_socio, filtros.id_bus, debouncedSearch]);
 
   useEffect(() => {
     loadData();

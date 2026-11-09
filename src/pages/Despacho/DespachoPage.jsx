@@ -376,6 +376,9 @@ export const DespachoPage = () => {
                     const esVehiculo = tipoU === 'VEHICULO' || tipoU === 'VEHÍCULO';
                     const esConvenio = tipoU === 'CONVENIO';
                     const esOficina = tipoU === 'OFICINA';
+                    const destinoInvalido = !esConvenio &&
+                      d.id_destino && d.id_fkorigen_despacho &&
+                      String(d.id_destino) === String(d.id_fkorigen_despacho);
 
                     return (
                       <tr key={d.id_despacho_maestro || idx} className="hover:bg-slate-50 transition-colors">
@@ -440,6 +443,12 @@ export const DespachoPage = () => {
                               <span className="text-slate-600 font-semibold">{d.nombre_origen}</span>
                               <i className="fas fa-arrow-right text-[10px] text-slate-400"></i>
                               <span className="text-slate-900 font-bold">{d.nombre_destino || '-'}</span>
+                              {destinoInvalido && (
+                                <i
+                                  className="fas fa-triangle-exclamation text-amber-500 text-[10px]"
+                                  title="El destino no puede ser la misma oficina del oficinista; corrija el despacho"
+                                ></i>
+                              )}
                             </div>
                           ) : (
                             <span className="text-xs">{d.nombre_destino || '-'}</span>

@@ -67,6 +67,20 @@ export const EditarDespachoModal = ({ despacho, onClose, onSuccess }) => {
   };
 
   const handleGuardar = async () => {
+    if (!esConvenio && !formData.id_oficina) {
+      toast.error('Debe seleccionar la sucursal de destino');
+      return;
+    }
+    if (
+      !esConvenio &&
+      formData.id_oficina &&
+      despacho.id_fkorigen_despacho &&
+      String(formData.id_oficina) === String(despacho.id_fkorigen_despacho)
+    ) {
+      toast.error('La sucursal de destino no puede ser la misma oficina del oficinista');
+      return;
+    }
+
     setSaving(true);
     try {
       const busSel = buses.find(b => String(b.bus_disco || b.disco_buses || b.id_buses || b.bus_codigo) === String(formData.id_bus));
@@ -101,10 +115,13 @@ export const EditarDespachoModal = ({ despacho, onClose, onSuccess }) => {
     label: `Bus #${b.bus_disco || b.disco_buses || '?'} — Placa: ${b.bus_placa || b.placa_buses || 'S/P'}`
   }));
 
-  const opcionesSucursales = sucursales.map(s => ({
-    value: String(s.suc_codigo_sucursal || s.id_sucursal),
-    label: `${s.nombre_sucursal || `Sucursal #${s.id_sucursal}`}${s.suc_codigo_sucursal ? ` (Cód. ${s.suc_codigo_sucursal})` : ''}`
-  }));
+  const esConvenio = String(despacho.tipo_despacho || 'BUS').toUpperCase() === 'CONVENIO';
+  const opcionesSucursales = sucursales
+    .filter(s => esConvenio || String(s.suc_codigo_sucursal || s.id_sucursal) !== String(despacho.id_fkorigen_despacho))
+    .map(s => ({
+      value: String(s.suc_codigo_sucursal || s.id_sucursal),
+      label: `${s.nombre_sucursal || `Sucursal #${s.id_sucursal}`}${s.suc_codigo_sucursal ? ` (Cód. ${s.suc_codigo_sucursal})` : ''}`
+    }));
 
   const handleQuitarGuia = async (idDetalle) => {
     const confirmQuitar = await Swal.fire({ title: '¿Quitar guía?', text: '¿Está seguro que desea quitar esta guía del despacho?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, quitar', cancelButtonText: 'Cancelar' });

@@ -52,10 +52,10 @@ try {
         CONCAT(p.per_nombres_persona, ' ', p.per_apellidos_personal) as nombre_busero,
         u.nombre_usuario,
         u.apellido_usuario,
-        d.lugar_destino
+        s_ofi.nombre_sucursal AS oficina_oficinista
     FROM despacho_maestro dm
     LEFT JOIN usuario u ON dm.id_fkusuario_despacho_maestro = u.id_usuario
-    LEFT JOIN destino d ON u.id_fkdestino_usuario = d.id_destino
+    LEFT JOIN sucursal2 s_ofi ON s_ofi.suc_codigo_sucursal = u.id_fksucursal_usuario
     LEFT JOIN personal p ON dm.id_fkbus_despacho_maestro = p.per_codigo_personal
     WHERE dm.id_despacho_maestro = $id_maestro 
     LIMIT 1";
@@ -82,7 +82,9 @@ try {
     $responsable_despacho    = $vals["responsable_despacho"] ?? '';
     $nombre_busero           = !empty(trim($vals["nombre_busero"] ?? '')) ? trim($vals["nombre_busero"]) : "N/A";
     $nombre_bus              = $vals["nombre_bus"];
-    $lugar_destino           = $vals["lugar_destino"] ?? '';
+    // La oficina que emite el despacho es la del oficinista, no un destino
+    // del catálogo (`usuario.id_fkdestino_usuario`), que puede ser otro lugar.
+    $oficina_emisora         = $vals["oficina_oficinista"] ?: ($vals["nombre_origen"] ?? '');
 
     // ─── DETALLE DE ENCOMIENDAS / GUÍAS (Indexado y Ultra Rápido) ─────────────
     $query2 = "SELECT 
@@ -156,9 +158,9 @@ try {
         $pdf->Cell($anchoUtil, 3.8, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
     }
 
-    if (!empty($lugar_destino)) {
+    if (!empty($oficina_emisora)) {
         $pdf->SetFont('helvetica', 'B', 8.5);
-        $pdf->Cell($anchoUtil, 4, 'OFICINA ' . strtoupper($lugar_destino), 0, 1, 'C');
+        $pdf->Cell($anchoUtil, 4, strtoupper($oficina_emisora), 0, 1, 'C');
     }
 
     $pdf->SetFont('helvetica', 'B', 11);
