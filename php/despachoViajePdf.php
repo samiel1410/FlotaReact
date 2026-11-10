@@ -83,10 +83,11 @@ try {
             v.cedula_viajes,
             r.nombre_rutas,
             r.tiempos_paradas_rutas,
+            r.id_fkdestino_rutas,
             (SELECT sr.nombre_sub_rutas FROM sub_rutas sr
               WHERE sr.id_fkruta_sub_rutas = v.id_fkruta_viajes
                 AND sr.estado_sub_rutas = 1
-              ORDER BY sr.orden_sub_rutas DESC LIMIT 1) AS destino_sub_ruta,
+              ORDER BY sr.orden_sub_rutas ASC LIMIT 1) AS destino_sub_ruta,
             b.disco_buses,
             b.placa_buses,
             CONCAT(IFNULL(chofer.per_nombres_persona, ''), ' ', IFNULL(chofer.per_apellidos_personal, '')) as nombre_completo_chofer,
@@ -134,10 +135,11 @@ try {
             v.cedula_viajes,
             r.nombre_rutas,
             r.tiempos_paradas_rutas,
+            r.id_fkdestino_rutas,
             (SELECT sr.nombre_sub_rutas FROM sub_rutas sr
               WHERE sr.id_fkruta_sub_rutas = v.id_fkruta_viajes
                 AND sr.estado_sub_rutas = 1
-              ORDER BY sr.orden_sub_rutas DESC LIMIT 1) AS destino_sub_ruta,
+              ORDER BY sr.orden_sub_rutas ASC LIMIT 1) AS destino_sub_ruta,
             b.disco_buses,
             b.placa_buses,
             CONCAT(IFNULL(chofer.per_nombres_persona, ''), ' ', IFNULL(chofer.per_apellidos_personal, '')) as nombre_completo_chofer,
@@ -184,9 +186,10 @@ try {
     $codigo_sucursal_despacho = trim((string)($despacho['codigo_sucursal_despacho'] ?? ''));
 
     // ─── DESTINO DEL VIAJE ───────────────────────────────────────────────────
-    // Se imprime el último punto de la ruta (sub_ruta activa de mayor orden) y,
-    // si no está configurado, el final del nombre de la ruta. Antes la hoja solo
-    // mostraba "RUTA" y el oficinista no veía el destino como en el sistema anterior.
+    // El destino es el cantón final configurado en la ruta (el mismo que usa el
+    // listado de viajes). Antes se tomaba la sub_ruta de mayor orden, que es la
+    // parada más cercana al origen: en la ruta Quito - Patate el despacho salía
+    // con "TAMBILLO" en lugar de "PATATE".
     $extraerDestino = static function ($texto) {
         $texto = trim((string)$texto);
         if ($texto === '') {
@@ -197,7 +200,25 @@ try {
         return $ultimo !== '' ? $ultimo : $texto;
     };
 
-    $destino_viaje = $extraerDestino($despacho['destino_sub_ruta'] ?? '');
+    $destino_viaje = '';
+    $id_destino_ruta = intval($despacho['id_fkdestino_rutas'] ?? 0);
+    if ($id_destino_ruta > 0) {
+        try {
+            $stmt_destino = $conn->prepare("SELECT nombre_canton FROM canton WHERE id_canton = ? LIMIT 1");
+            $stmt_destino->bind_param("i", $id_destino_ruta);
+            $stmt_destino->execute();
+            $row_destino = $stmt_destino->get_result()->fetch_assoc();
+            $stmt_destino->close();
+            if (!empty($row_destino['nombre_canton'])) {
+                $destino_viaje = trim((string)$row_destino['nombre_canton']);
+            }
+        } catch (Throwable $e) {
+            $destino_viaje = '';
+        }
+    }
+    if ($destino_viaje === '') {
+        $destino_viaje = $extraerDestino($despacho['destino_sub_ruta'] ?? '');
+    }
     if ($destino_viaje === '') {
         $destino_viaje = $extraerDestino($despacho['nombre_rutas'] ?? '');
     }
