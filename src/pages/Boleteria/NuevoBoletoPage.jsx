@@ -1471,7 +1471,12 @@ export const NuevoBoletoPage = () => {
               }
             } catch (e) {
               console.error('Error enviando comprobante por correo:', e?.response?.data || e);
-              toast.error('No se pudo enviar el comprobante por correo');
+              // Se muestra el motivo real (p. ej. proveedor pausado o destinatario
+              // rechazado) para no culpar al correo del cliente sin evidencia.
+              toast.error(
+                e?.response?.data?.message || 'No se pudo enviar el comprobante por correo',
+                { duration: 9000 }
+              );
             }
           } else if (correoDestino) {
             toast(

@@ -82,3 +82,19 @@ export const validarCorreo = async (correo, opciones = {}) => {
     return null;
   }
 };
+
+/**
+ * Estado del servicio de correo. `data.bloqueado === true` significa que el
+ * proveedor está rechazando TODOS los envíos (por ejemplo, SES con el envío
+ * pausado), aunque el correo del cliente sea válido.
+ *
+ * @returns {Promise<object|null>} null si no se pudo consultar
+ */
+export const getEstadoCorreo = async () => {
+  try {
+    const res = await api.get('/sistema/estadoCorreo');
+    return res.data?.success ? res.data.data : null;
+  } catch {
+    return null;
+  }
+};

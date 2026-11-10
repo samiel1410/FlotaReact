@@ -10,7 +10,7 @@ import Swal from 'sweetalert2';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { validarCorreo, describirCorreo } from '../../utils/emailValidation';
-import { validarCorreo as validarCorreoApi } from '../../services/sistema.service';
+import { validarCorreo as validarCorreoApi, getEstadoCorreo } from '../../services/sistema.service';
 
 export const BoleteriaPage = () => {
   const [boletos, setBoletos] = useState([]);
@@ -32,6 +32,10 @@ export const BoleteriaPage = () => {
 
   // Estado para indicar el boleto que se está enviando al SRI
   const [reenviandoId, setReenviandoId] = useState(null);
+
+  // Estado del servicio de correo: informa si el proveedor está rechazando
+  // TODOS los envíos (p. ej. Amazon SES con la cuenta pausada).
+  const [estadoCorreo, setEstadoCorreo] = useState(null);
 
   // Obtener usuario actual para permisos
   const currentUser = (() => {
@@ -70,6 +74,14 @@ export const BoleteriaPage = () => {
   useEffect(() => {
     loadBoletos(filtros, page);
   }, [filtros, page]);
+
+  useEffect(() => {
+    let activo = true;
+    getEstadoCorreo().then((estado) => {
+      if (activo) setEstadoCorreo(estado);
+    });
+    return () => { activo = false; };
+  }, [page]);
 
   const handleSearch = (nuevosFiltros) => {
     setFiltros(nuevosFiltros);
@@ -445,8 +457,11 @@ export const BoleteriaPage = () => {
           toast.success(`Correo actualizado en el ${detalle}`);
         }
       }
+      getEstadoCorreo().then(setEstadoCorreo);
     } catch (error) {
       console.error('[Enviar correo boleto] Error:', error?.response?.data || error);
+      // Refrescar el estado para mostrar el aviso del proveedor si rechazó el envío.
+      getEstadoCorreo().then(setEstadoCorreo);
     }
   };
 
@@ -490,6 +505,20 @@ export const BoleteriaPage = () => {
 
       <div className="boleteria-content">
         <BoleteriaFilterPanel onSearch={handleSearch} onSriLote={handleSriLote} />
+
+        {estadoCorreo?.bloqueado && (
+          <div className="mx-3 mb-2 flex items-start gap-2 rounded-md border border-red-300 bg-red-100 px-3 py-2 text-xs text-red-800">
+            <i className="fas fa-envelope-square mt-0.5 text-base"></i>
+            <div>
+              <b>El proveedor de correo está rechazando TODOS los envíos.</b>
+              <div className="mt-0.5">{estadoCorreo.mensaje}</div>
+              <div className="mt-0.5 text-red-700/80">
+                Los correos de los clientes pueden ser válidos: el problema está en la cuenta del
+                proveedor ({estadoCorreo.proveedor?.toUpperCase()} · remitente: {estadoCorreo.remitente}).
+              </div>
+            </div>
+          </div>
+        )}
 
         {(boletosConCorreoInvalido > 0 || boletosSinCorreo > 0) && (
           <div className="mx-3 mb-2 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
