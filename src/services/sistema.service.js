@@ -60,3 +60,25 @@ export const getSistemaModoPlan = async () => {
     return null;
   }
 };
+
+/**
+ * Valida un correo contra el backend (sintaxis + errores de escritura + DNS).
+ * Devuelve null si no se pudo consultar; en ese caso el envío igualmente
+ * valida el correo en el servidor.
+ *
+ * @param {string} correo
+ * @param {{verificarMx?: boolean, permitirVacio?: boolean}} [opciones]
+ * @returns {Promise<object|null>}
+ */
+export const validarCorreo = async (correo, opciones = {}) => {
+  try {
+    const res = await api.post('/sistema/validarCorreo', {
+      correo,
+      verificar_mx: opciones.verificarMx !== false,
+      permitir_vacio: opciones.permitirVacio === true
+    });
+    return res.data?.success ? res.data.data : null;
+  } catch {
+    return null;
+  }
+};

@@ -25,7 +25,7 @@ require_once("guiaA4_render.php");
 date_default_timezone_set('America/Guayaquil');
 
 // Cambiar la versión invalida los PDFs cacheados cuando cambia el diseño.
-define('GUIA_A4_LAYOUT_VERSION', 'ride-a4-v1');
+define('GUIA_A4_LAYOUT_VERSION', 'ride-a4-v2-anulada');
 
 try {
     $t0 = microtime(true);

@@ -15,6 +15,12 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
 import { getIvaRate, calcularTotalesGuia } from '../../utils/ivaUtils';
+import {
+  validarIdentificacion,
+  inferirTipoIdentificacionCliente,
+  maxLengthIdentificacion,
+  sanitizarIdentificacion
+} from '../../utils/identificacionUtils';
 
 const getInitialCobrarIvaGuia = () => {
   try {
@@ -510,8 +516,12 @@ export const NuevaGuiaNotaVentaPage = () => {
       toast.error('Identificación y Nombre son obligatorios');
       return;
     }
-    if (!/^\d+$/.test(otrosNewCliente.identificacion_cliente)) {
-      toast.error('La identificación debe contener solo números');
+    const validacionIdentificacion = validarIdentificacion(
+      otrosNewCliente.identificacion_cliente,
+      otrosNewCliente.tipo_identificacion_cliente
+    );
+    if (!validacionIdentificacion.valido) {
+      toast.error(validacionIdentificacion.mensaje);
       return;
     }
     if (otrosNewCliente.email_cliente && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(otrosNewCliente.email_cliente)) {
@@ -1340,8 +1350,9 @@ export const NuevaGuiaNotaVentaPage = () => {
 
             {/* Identidad + Botones */}
             <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
-              <input type="text" className={inputClass} placeholder="Identidad..."
-                value={otrosIdentidad} onChange={(e) => setOtrosIdentidad(e.target.value.replace(/\D/g, ''))}
+              <input type="text" className={inputClass} placeholder="Cédula, RUC o pasaporte"
+                value={otrosIdentidad} onChange={(e) => setOtrosIdentidad(sanitizarIdentificacion(e.target.value))}
+                maxLength={20}
                 disabled={facturarA !== '3'}
                 style={{ flex: 1 }} />
               <button onClick={handleBuscarOtros} disabled={otrosLoading || facturarA !== '3'}
@@ -1349,7 +1360,16 @@ export const NuevaGuiaNotaVentaPage = () => {
                 title="Buscar cliente">
                 <i className={`fas ${otrosLoading ? 'fa-spinner fa-spin' : 'fa-search'}`}></i>
               </button>
-              <button onClick={() => setOtrosShowCreate(true)}
+              <button onClick={() => {
+                setOtrosShowCreate(true);
+                if (otrosIdentidad) {
+                  setOtrosNewCliente(prev => ({
+                    ...prev,
+                    identificacion_cliente: otrosIdentidad,
+                    tipo_identificacion_cliente: inferirTipoIdentificacionCliente(otrosIdentidad)
+                  }));
+                }
+              }}
                 disabled={facturarA !== '3'}
                 className="h-8 px-2 bg-amber-500 hover:bg-amber-600 text-white rounded-md text-xs font-bold shadow-sm disabled:opacity-50"
                 title="Nuevo cliente">
@@ -1366,13 +1386,21 @@ export const NuevaGuiaNotaVentaPage = () => {
                   <div>
                     <label className={labelClass}>Identificación *</label>
                     <input className={inputClass} value={otrosNewCliente.identificacion_cliente}
-                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, identificacion_cliente: e.target.value.replace(/\D/g, '') })}
-                      maxLength={13} />
+                      maxLength={maxLengthIdentificacion(otrosNewCliente.tipo_identificacion_cliente)}
+                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, identificacion_cliente: sanitizarIdentificacion(e.target.value, otrosNewCliente.tipo_identificacion_cliente) })} />
                   </div>
                   <div>
                     <label className={labelClass}>Tipo ID</label>
                     <select className={inputClass} value={otrosNewCliente.tipo_identificacion_cliente}
-                      onChange={(e) => setOtrosNewCliente({ ...otrosNewCliente, tipo_identificacion_cliente: e.target.value })}>
+                      onChange={(e) => {
+                        const tipo = e.target.value;
+                        setOtrosNewCliente(prev => ({
+                          ...prev,
+                          tipo_identificacion_cliente: tipo,
+                          identificacion_cliente: sanitizarIdentificacion(prev.identificacion_cliente, tipo)
+                            .slice(0, maxLengthIdentificacion(tipo))
+                        }));
+                      }}>
                       <option value="C">Cédula</option>
                       <option value="R">RUC</option>
                       <option value="P">Pasaporte</option>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { clienteApi } from '../../../config/axios';
+import { validarCorreo, describirCorreo } from '../../../utils/emailValidation';
 
 const TIPOS_IDENTIFICACION = [
   { value: 'Cedula', label: 'Cédula' },
@@ -111,9 +112,12 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteIni
     console.log('[NuevoClienteModal] Guardar cliente:', { tipoIdentificacion, identificacion, nombres, direccion, celular, correo, fechaNacimiento });
     if (!identificacion) { console.log('[NuevoClienteModal] ⛔ Validación: falta identificación'); toast.error('Ingrese la identificación'); return; }
     if (!nombres) { console.log('[NuevoClienteModal] ⛔ Validación: falta nombre'); toast.error('Ingrese los nombres'); return; }
-    if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) {
-      toast.error('Ingrese un correo electrónico válido');
-      return;
+    if (correo) {
+      const validacionCorreo = validarCorreo(correo);
+      if (!validacionCorreo.valido) {
+        toast.error(describirCorreo(validacionCorreo));
+        return;
+      }
     }
     console.log('[NuevoClienteModal] ✅ Validación pasó, enviando petición...');
 
@@ -269,6 +273,12 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteIni
               onChange={e => setCorreo(e.target.value)}
               style={{ flex: 1, padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 4, fontSize: 12 }} />
           </div>
+          {correo && !validarCorreo(correo).valido && (
+            <div style={{ fontSize: 11, color: '#c0392b', paddingLeft: 128 }}>
+              <i className="fas fa-exclamation-triangle" style={{ marginRight: 4 }}></i>
+              {describirCorreo(validarCorreo(correo))}
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <label style={{ fontSize: 12, fontWeight: 600, width: 120 }}>F. Nacimiento:</label>
             <input type="date" value={fechaNacimiento}

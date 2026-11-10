@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './GuiasGrid.css';
+import { clasificarCorreosGuia, describirCorreo } from '../../../utils/emailValidation';
 
 export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onReload,
   onViewPdf, onPrint, onEdit, onCharge, onCharges, onTrack, onAnular, onFacturar,
@@ -16,6 +17,9 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
   };
 
   const totalPages = Math.ceil(total / limit) || 1;
+  const guiasConCorreoInvalido = (data || []).filter(
+    (item) => clasificarCorreosGuia(item).alerta
+  ).length;
 
   if (loading) {
     return <div className="guias-grid-loading"><i className="fas fa-spinner fa-spin"></i> Cargando guías...</div>;
@@ -94,6 +98,15 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
             <i className="fas fa-check-circle"></i> Aprobar Todas las Pendientes
           </button>
         )}
+        {guiasConCorreoInvalido > 0 && (
+          <span
+            className="ml-auto inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700"
+            title="Las guías marcadas tienen un correo mal escrito. Corrígelo antes de enviar notificaciones o facturas por correo."
+          >
+            <i className="fas fa-exclamation-triangle"></i>
+            {guiasConCorreoInvalido} guía(s) con correo inválido en esta página
+          </span>
+        )}
       </div>
       <div className="table-responsive">
         <table className="guias-table">
@@ -118,7 +131,13 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
             </tr>
           </thead>
           <tbody>
-            {data.map((item) => (
+            {data.map((item) => {
+              const correos = clasificarCorreosGuia(item);
+              const correoRemitente = correos.correos.find((c) => c.rol === 'REMITENTE');
+              const correoDestinatario = correos.correos.find((c) => c.rol === 'DESTINATARIO');
+              const correoOtros = correos.correos.find((c) => c.rol === 'OTROS');
+
+              return (
               <tr key={item.id_guia} className={
                 item.estado_guia === 2 ? 'row-anulado' : 
                 item.estado_guia === 3 ? 'row-pendiente' : 
@@ -136,10 +155,53 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
                 <td className="cell-client">
                   <strong>RUC:</strong> {item.cedula_cliente_remitente}<br/>
                   <strong>R.S.:</strong> {item.nombre_cliente_remitente}
+                  {correoRemitente?.tieneCorreo ? (
+                    correoRemitente.valido ? (
+                      <div style={{fontSize: '10px', color: '#16a085', marginTop: '3px'}} title={correoRemitente.correo}>
+                        <i className="fas fa-envelope" style={{marginRight: '3px'}}></i>{correoRemitente.correo}
+                      </div>
+                    ) : (
+                      <div
+                        style={{fontSize: '10px', color: '#c0392b', fontWeight: 'bold', marginTop: '3px', cursor: 'help'}}
+                        title={`${describirCorreo(correoRemitente)}. No se enviará la notificación hasta corregirlo.`}
+                      >
+                        <i className="fas fa-exclamation-triangle" style={{marginRight: '3px'}}></i>
+                        Correo inválido{correoRemitente.sugerencia ? ` (¿${correoRemitente.sugerencia}?)` : ''}
+                      </div>
+                    )
+                  ) : (
+                    <div style={{fontSize: '10px', color: '#b45309', marginTop: '3px', cursor: 'help'}} title="Sin correo registrado">
+                      <i className="fas fa-envelope" style={{marginRight: '3px'}}></i>Sin correo
+                    </div>
+                  )}
                 </td>
                 <td className="cell-client">
                   <strong>RUC:</strong> {item.cedula_cliente_receptor}<br/>
                   <strong>R.S.:</strong> {item.nombre_cliente_receptor}
+                  {correoDestinatario?.tieneCorreo ? (
+                    correoDestinatario.valido ? (
+                      <div style={{fontSize: '10px', color: '#16a085', marginTop: '3px'}} title={correoDestinatario.correo}>
+                        <i className="fas fa-envelope" style={{marginRight: '3px'}}></i>{correoDestinatario.correo}
+                      </div>
+                    ) : (
+                      <div
+                        style={{fontSize: '10px', color: '#c0392b', fontWeight: 'bold', marginTop: '3px', cursor: 'help'}}
+                        title={`${describirCorreo(correoDestinatario)}. No se enviará la notificación hasta corregirlo.`}
+                      >
+                        <i className="fas fa-exclamation-triangle" style={{marginRight: '3px'}}></i>
+                        Correo inválido{correoDestinatario.sugerencia ? ` (¿${correoDestinatario.sugerencia}?)` : ''}
+                      </div>
+                    )
+                  ) : (
+                    <div style={{fontSize: '10px', color: '#b45309', marginTop: '3px', cursor: 'help'}} title="Sin correo registrado">
+                      <i className="fas fa-envelope" style={{marginRight: '3px'}}></i>Sin correo
+                    </div>
+                  )}
+                  {correoOtros?.tieneCorreo && !correoOtros.valido && (
+                    <div style={{fontSize: '10px', color: '#c0392b', fontWeight: 'bold', marginTop: '2px', cursor: 'help'}} title={`OTROS: ${describirCorreo(correoOtros)}`}>
+                      <i className="fas fa-exclamation-triangle" style={{marginRight: '3px'}}></i>Correo de "Otros" inválido
+                    </div>
+                  )}
                 </td>
                 <td>{item.origen_guia}</td>
                 <td>{item.destino_guia}</td>
@@ -189,7 +251,8 @@ export const GuiasGrid = ({ data, loading, page, limit, total, onPageChange, onR
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

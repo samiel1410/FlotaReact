@@ -1,4 +1,5 @@
 import React from 'react';
+import { validarCorreo, describirCorreo } from '../../../utils/emailValidation';
 
 export const DatosPasajeroPanel = ({
   formData,
@@ -20,6 +21,8 @@ export const DatosPasajeroPanel = ({
     textAlign: 'right',
     whiteSpace: 'nowrap'
   };
+
+  const validacionCorreo = validarCorreo(formData.correo, { permitirVacio: true });
 
   const inputStyle = {
     flex: 1,
@@ -186,6 +189,14 @@ export const DatosPasajeroPanel = ({
             placeholder="usuario@correo.com"
             style={inputStyle}
           />
+          {validacionCorreo.tieneCorreo && !validacionCorreo.valido && (
+            <span
+              title={describirCorreo(validacionCorreo)}
+              style={{ color: '#c0392b', fontSize: 10, fontWeight: 'bold', cursor: 'help', whiteSpace: 'nowrap' }}
+            >
+              <i className="fas fa-exclamation-triangle"></i> Inválido
+            </span>
+          )}
         </div>
       </div>
     </div>

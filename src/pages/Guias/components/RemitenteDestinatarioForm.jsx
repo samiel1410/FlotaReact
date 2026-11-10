@@ -3,7 +3,14 @@ import { GuiaService } from '../../../services/guia.service';
 import { clienteApi } from '../../../config/axios';
 import Modal from '../../../components/common/Modal';
 import toast from 'react-hot-toast';
-import { validarIdentificacion, validarIdentificacionGuia } from '../../../utils/identificacionUtils';
+import {
+  validarIdentificacion,
+  validarIdentificacionGuia,
+  inferirTipoIdentificacion,
+  maxLengthIdentificacion,
+  sanitizarIdentificacion
+} from '../../../utils/identificacionUtils';
+import { validarCorreo, describirCorreo } from '../../../utils/emailValidation';
 
 export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioFound, onDestinatarioAutoFill, error, resetSignal = 0 }) => {
   const [busqueda, setBusqueda] = useState('');
@@ -60,7 +67,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       toast.error('Ingrese al menos 3 caracteres para buscar');
       return;
     }
-    // Validar cédula (10 dígitos) o RUC (13 dígitos)
+    // Validar cédula (10), RUC (13) o pasaporte (alfanumérico 5-20)
     if (!validarIdentificacionGuia(busqueda.trim()).valido) {
       toast.error(validarIdentificacionGuia(busqueda.trim()).mensaje);
       return;
@@ -77,7 +84,11 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
           direccion: cli.direccion_cliente || cli.direccion || '',
           telefono: cli.telefono_cliente || cli.telefono || '',
           email: cli.email_cliente || cli.correo_cliente || cli.email || '',
-          telefono2: cli.telefono2 || ''
+          telefono2: cli.telefono2 || '',
+          tipo_identificacion: inferirTipoIdentificacion(
+            cli.identificacion_cliente || cli.cedula || cli.ruc_cliente,
+            cli.tipo_identificacion_cliente || cli.tipo_identificacion
+          )
         };
         
         if (!clienteData.email || !clienteData.telefono) {
@@ -85,7 +96,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
           setEditFormData({
             id_cliente: clienteData.id_cliente,
             identificacion_cliente: clienteData.cedula || '',
-            tipo_identificacion_cliente: cli.tipo_identificacion || '05',
+            tipo_identificacion_cliente: inferirTipoIdentificacion(clienteData.cedula, cli.tipo_identificacion_cliente || cli.tipo_identificacion),
             nombre_cliente: clienteData.nombres || '',
             direccion_cliente: clienteData.direccion || '',
             telefono_cliente: (clienteData.telefono || '').replace(/\D/g, '').slice(0, 10),
@@ -116,7 +127,11 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       } else {
         toast.error(`${tipo} no encontrado. Puede crear uno nuevo.`);
         setShowCreateForm(true);
-        setNewCliente(prev => ({ ...prev, identificacion_cliente: busqueda.trim() }));
+        setNewCliente(prev => ({
+          ...prev,
+          identificacion_cliente: busqueda.trim(),
+          tipo_identificacion_cliente: inferirTipoIdentificacion(busqueda.trim())
+        }));
       }
     } catch (error) {
       console.error('Error buscando cliente:', error);
@@ -131,10 +146,6 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       toast.error('Identificación y Nombre son obligatorios');
       return;
     }
-    if (!/^\d+$/.test(newCliente.identificacion_cliente)) {
-      toast.error('La identificación debe contener solo números');
-      return;
-    }
     const validacionIdentificacion = validarIdentificacion(
       newCliente.identificacion_cliente,
       newCliente.tipo_identificacion_cliente
@@ -143,9 +154,12 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       toast.error(validacionIdentificacion.mensaje);
       return;
     }
-    if (newCliente.correo_cliente && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newCliente.correo_cliente)) {
-      toast.error('Formato de correo inválido');
-      return;
+    if (newCliente.correo_cliente) {
+      const validacionCorreo = validarCorreo(newCliente.correo_cliente);
+      if (!validacionCorreo.valido) {
+        toast.error(describirCorreo(validacionCorreo));
+        return;
+      }
     }
     setLoading(true);
     try {
@@ -173,7 +187,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       toast.success(`${tipo} creado exitosamente`);
     } catch (error) {
       console.error('Error creando cliente:', error);
-      toast.error('Error al crear el cliente');
+      toast.error(error?.response?.data?.message || 'Error al crear el cliente');
     } finally {
       setLoading(false);
     }
@@ -190,6 +204,11 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     }
     if (!editFormData.correo_cliente) {
       toast.error('El correo es obligatorio');
+      return;
+    }
+    const validacionCorreoEdicion = validarCorreo(editFormData.correo_cliente);
+    if (!validacionCorreoEdicion.valido) {
+      toast.error(describirCorreo(validacionCorreoEdicion));
       return;
     }
     const validacionIdentificacion = validarIdentificacion(
@@ -241,11 +260,14 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       toast.success(`${tipo} actualizado exitosamente`);
     } catch (error) {
       console.error('Error actualizando cliente:', error);
-      toast.error('Error al actualizar el cliente');
+      toast.error(error?.response?.data?.message || 'Error al actualizar el cliente');
     } finally {
       setEditLoading(false);
     }
   };
+
+  const validacionCorreoNuevo = validarCorreo(newCliente.correo_cliente, { permitirVacio: true });
+  const validacionCorreoEdicionVisual = validarCorreo(editFormData.correo_cliente, { permitirVacio: true });
 
   const inputClass = "w-full h-8 px-2 text-xs border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-700";
   const labelClass = "block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1";
@@ -262,24 +284,24 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
           {!showCreateForm ? (
             <>
               <div className="form-group" style={{ flex: 1 }}>
-                <label>{isRemitente ? 'Cédula / RUC del Remitente' : 'Cédula / RUC del Destinatario'}</label>
+                <label>{isRemitente ? 'Cédula / RUC / Pasaporte del Remitente' : 'Cédula / RUC / Pasaporte del Destinatario'}</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <input 
                     type="text" 
                     className={inputClass}
-                    placeholder="Ingrese número de identificación" 
+                    placeholder="Cédula, RUC o pasaporte" 
                     value={busqueda} 
-                    onChange={(e) => setBusqueda(e.target.value.replace(/\D/g, ''))} 
+                    onChange={(e) => setBusqueda(sanitizarIdentificacion(e.target.value))} 
                     onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                     disabled={loading}
-                    maxLength={13}
+                    maxLength={20}
                   />
                   <button type="button" className="btn-primary" onClick={handleSearch} disabled={loading} style={{ minWidth: '36px' }}>
                     {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-search"></i>}
                   </button>
                 </div>
               </div>
-              <button type="button" className="btn-link" onClick={() => { setShowCreateForm(true); setNewCliente(prev => ({ ...prev, identificacion_cliente: busqueda })); }} style={{ fontSize: '11px', color: iconColor, marginTop: '4px' }}>
+              <button type="button" className="btn-link" onClick={() => { setShowCreateForm(true); setNewCliente(prev => ({ ...prev, identificacion_cliente: busqueda, tipo_identificacion_cliente: inferirTipoIdentificacion(busqueda) })); }} style={{ fontSize: '11px', color: iconColor, marginTop: '4px' }}>
                 <i className="fas fa-plus-circle"></i> Crear nuevo {tipo.toLowerCase()}
               </button>
               {!isRemitente && (
@@ -290,7 +312,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                     nombres: 'CONSUMIDOR FINAL',
                     direccion: 'S/D',
                     telefono: '9999999999',
-                    email: 'sincorreo@gmail.com',
+                    email: '',
                     telefono2: ''
                   });
                   toast.success('Consumidor Final seleccionado');
@@ -309,12 +331,21 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                 <div>
                   <label className={labelClass}>Identificación *</label>
                   <input className={inputClass} value={newCliente.identificacion_cliente} 
-                    onChange={(e) => setNewCliente({...newCliente, identificacion_cliente: e.target.value.replace(/\D/g, '')})} />
+                    maxLength={maxLengthIdentificacion(newCliente.tipo_identificacion_cliente)}
+                    onChange={(e) => setNewCliente({...newCliente, identificacion_cliente: sanitizarIdentificacion(e.target.value, newCliente.tipo_identificacion_cliente)})} />
                 </div>
                 <div>
                   <label className={labelClass}>Tipo ID</label>
                   <select className={inputClass} value={newCliente.tipo_identificacion_cliente}
-                    onChange={(e) => setNewCliente({...newCliente, tipo_identificacion_cliente: e.target.value})}>
+                    onChange={(e) => {
+                      const tipo = e.target.value;
+                      setNewCliente(prev => ({
+                        ...prev,
+                        tipo_identificacion_cliente: tipo,
+                        identificacion_cliente: sanitizarIdentificacion(prev.identificacion_cliente, tipo)
+                          .slice(0, maxLengthIdentificacion(tipo))
+                      }));
+                    }}>
                   <option value="05">Cédula</option>
                   <option value="04">RUC</option>
                   <option value="06">Pasaporte</option>
@@ -340,6 +371,11 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                   <label className={labelClass}>Email</label>
                   <input className={inputClass} type="email" value={newCliente.correo_cliente}
                     onChange={(e) => setNewCliente({...newCliente, correo_cliente: e.target.value})} />
+                  {validacionCorreoNuevo.tieneCorreo && !validacionCorreoNuevo.valido && (
+                    <p className="text-[10px] text-red-600 mt-1">
+                      <i className="fas fa-exclamation-triangle mr-1"></i>{describirCorreo(validacionCorreoNuevo)}
+                    </p>
+                  )}
                 </div>
 
               </div>
@@ -365,7 +401,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
                 setEditFormData({
                   id_cliente: cliente.id_cliente || null,
                   identificacion_cliente: cliente.cedula || '',
-                  tipo_identificacion_cliente: cliente.tipo_identificacion || '05',
+                  tipo_identificacion_cliente: inferirTipoIdentificacion(cliente.cedula, cliente.tipo_identificacion),
                   nombre_cliente: cliente.nombres || '',
                   direccion_cliente: cliente.direccion || '',
                   telefono_cliente: (cliente.telefono || '').replace(/\D/g, '').slice(0, 10),
@@ -385,7 +421,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
             </div>
           </div>
           <div className="client-details" style={{ fontSize: '11px', marginTop: '6px', lineHeight: '1.6' }}>
-            <p style={{ margin: 0 }}><strong>C.I./RUC:</strong> {cliente.cedula}</p>
+            <p style={{ margin: 0 }}><strong>Identificación:</strong> {cliente.cedula}</p>
             {esConsumidorFinal ? (
               <div style={{ display: 'grid', gap: '6px', marginTop: '6px' }}>
                 <div>
@@ -433,13 +469,22 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
             <div>
               <label className={labelClass}>Identificación</label>
               <input className={inputClass} value={editFormData.identificacion_cliente}
-                onChange={(e) => setEditFormData({...editFormData, identificacion_cliente: e.target.value.replace(/\D/g, '')})}
-                maxLength={13} />
+                maxLength={maxLengthIdentificacion(editFormData.tipo_identificacion_cliente)}
+                onChange={(e) => setEditFormData({...editFormData, identificacion_cliente: sanitizarIdentificacion(e.target.value, editFormData.tipo_identificacion_cliente)})} />
             </div>
             <div>
               <label className={labelClass}>Tipo ID</label>
               <select className={inputClass} value={editFormData.tipo_identificacion_cliente}
-                onChange={(e) => setEditFormData({...editFormData, tipo_identificacion_cliente: e.target.value})}>                  <option value="05">Cédula</option>
+                onChange={(e) => {
+                  const tipo = e.target.value;
+                  setEditFormData(prev => ({
+                    ...prev,
+                    tipo_identificacion_cliente: tipo,
+                    identificacion_cliente: sanitizarIdentificacion(prev.identificacion_cliente, tipo)
+                      .slice(0, maxLengthIdentificacion(tipo))
+                  }));
+                }}>
+                  <option value="05">Cédula</option>
                   <option value="04">RUC</option>
                   <option value="06">Pasaporte</option>
                   <option value="08">Identificación del Exterior</option>
@@ -464,6 +509,11 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
               <label className={labelClass}>Email</label>
               <input className={inputClass} type="email" value={editFormData.correo_cliente}
                 onChange={(e) => setEditFormData({...editFormData, correo_cliente: e.target.value})} />
+              {validacionCorreoEdicionVisual.tieneCorreo && !validacionCorreoEdicionVisual.valido && (
+                <p className="text-[10px] text-red-600 mt-1">
+                  <i className="fas fa-exclamation-triangle mr-1"></i>{describirCorreo(validacionCorreoEdicionVisual)}
+                </p>
+              )}
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '14px' }}>

@@ -18,7 +18,7 @@ date_default_timezone_set('America/Guayaquil');
 // TTL corto (60s): ventana pequeña de posible stale si la guía se cobra justo después de imprimir.
 define('GUIAIMP_FAST_TTL', 60);
 // Cambiar la versión invalida los PDFs cacheados cuando cambia el diseño del ticket.
-define('GUIAIMP_LAYOUT_VERSION', 'cliente-dir-grande-v2');
+define('GUIAIMP_LAYOUT_VERSION', 'cliente-dir-grande-v3-anulada');
 
 try {
     $t0 = microtime(true);
@@ -653,7 +653,8 @@ try {
 
     // ─── GUÍA ANULADA: MARCA DE AGUA EN TODAS LAS PÁGINAS ────────────────────
     if ((int)($vals_guia['estado_guia'] ?? 0) === 2) {
-        marcarPdfAnulado($pdf, 'ANULADA', 'DOCUMENTO SIN VALIDEZ');
+        // Página de 800 mm: la marca se centra sobre el contenido impreso.
+        marcarPdfAnulado($pdf, 'ANULADA', 'DOCUMENTO SIN VALIDEZ', 80);
     }
 
     // ─── SALIDA CON CACHÉ NIVEL 2 ─────────────────────────────────────────────

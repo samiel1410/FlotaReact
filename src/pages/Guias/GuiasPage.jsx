@@ -16,6 +16,7 @@ import cajaService from '../../services/caja.service';
 import MotivoModal from '../../components/common/MotivoModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { PrintSelectorModal } from './components/PrintSelectorModal';
+import { clasificarCorreosGuia } from '../../utils/emailValidation';
 import Swal from 'sweetalert2';
 
 export const GuiasPage = () => {
@@ -486,6 +487,10 @@ export const GuiasPage = () => {
     }
   };
 
+  const guiasConCorreoInvalido = guias.filter(
+    (guia) => clasificarCorreosGuia(guia).alerta
+  ).length;
+
   return (
     <div className="flex flex-col min-h-screen gap-2 p-0 bg-slate-100/50">
       {/* ── CABECERA INTEGRADA ────────────────────────────────────────────────── */}
@@ -527,6 +532,17 @@ export const GuiasPage = () => {
         <div className={`filter-panel-container ${showFilters ? 'open' : 'collapsed'}`}>
           <GuiasFilterPanel onSearch={handleSearch} visible={showFilters} />
         </div>
+
+        {guiasConCorreoInvalido > 0 && (
+          <div className="mx-3 mb-2 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            <i className="fas fa-exclamation-triangle mt-0.5"></i>
+            <div>
+              <b>Revisa los correos de los clientes.</b>{' '}
+              {guiasConCorreoInvalido} guía(s) de esta página tienen un correo mal escrito.
+              Corrígelo antes de enviar notificaciones o facturas por correo.
+            </div>
+          </div>
+        )}
 
         <div className="guias-grid-wrapper">
           <GuiasGrid 

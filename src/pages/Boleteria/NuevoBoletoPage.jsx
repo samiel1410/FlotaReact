@@ -32,6 +32,7 @@ import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import { COLORES_ASIENTOS_DEFAULT, normalizarColoresAsientos } from '../../config/coloresAsientos';
 import { api, clienteApi } from '../../config/axios';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
+import { validarCorreo, describirCorreo } from '../../utils/emailValidation';
 import { useSocket } from '../../hooks/useSocket';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -482,7 +483,7 @@ export const NuevoBoletoPage = () => {
           nombres: c.nombre_cliente || 'CONSUMIDOR FINAL',
           celular: c.telefono_cliente || '9999999999',
           direccion: c.direccion_cliente || 'S/D',
-          correo: c.email_cliente || 'sincorreo@gmail.com',
+          correo: c.email_cliente || '',
           fechaNacimiento: '',
           tarifa: 1,
         }));
@@ -498,7 +499,7 @@ export const NuevoBoletoPage = () => {
       nombres: 'CONSUMIDOR FINAL',
       celular: '9999999999',
       direccion: 'S/D',
-      correo: 'sincorreo@gmail.com',
+      correo: '',
       fechaNacimiento: '',
       tarifa: 1,
     }));
@@ -1272,8 +1273,11 @@ export const NuevoBoletoPage = () => {
     if (formData.celular && !/^[0-9]{10}$/.test(formData.celular)) {
       errores.push('• El celular debe contener exactamente 10 dígitos numéricos');
     }
-    if (formData.correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.correo)) {
-      errores.push('• Ingresar un correo electrónico válido (ej: usuario@correo.com)');
+    if (formData.correo) {
+      const validacionCorreo = validarCorreo(formData.correo);
+      if (!validacionCorreo.valido) {
+        errores.push(`• ${describirCorreo(validacionCorreo)}`);
+      }
     }
 
     if (formData.asientosSeleccionados.length === 0) errores.push('• Seleccionar al menos un asiento');
@@ -1460,7 +1464,8 @@ export const NuevoBoletoPage = () => {
 
           // Envío automático al correo del cliente (PDF A4 factura + boleto y XML del SRI)
           const correoDestino = (formData.correo || '').trim();
-          if (correoDestino && /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(correoDestino)) {
+          const validacionCorreoDestino = validarCorreo(correoDestino, { permitirVacio: true });
+          if (correoDestino && validacionCorreoDestino.valido) {
             try {
               const envio = await BoleteriaService.enviarCorreoBoleto(idBoleto, { correo: correoDestino });
               if (envio?.success) {

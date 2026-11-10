@@ -19,6 +19,92 @@ export const normalizarTipoIdentificacion = (tipo) => {
 
 const esSoloDigitos = (valor) => /^\d+$/.test(valor);
 
+/**
+ * Código SRI del tipo de identificación.
+ * 04=RUC, 05=Cédula, 06=Pasaporte, 07=Consumidor Final, 08=Exterior.
+ */
+export const tipoIdentificacionACodigo = (tipo) => {
+  switch (normalizarTipoIdentificacion(tipo)) {
+    case 'CEDULA': return '05';
+    case 'RUC': return '04';
+    case 'PASAPORTE': return '06';
+    case 'EXTERIOR': return '08';
+    case 'CONSUMIDOR_FINAL': return '07';
+    default: return '';
+  }
+};
+
+/**
+ * Deduce el código de tipo de identificación a partir del tipo recibido y,
+ * si no es reconocible, del formato del número (10 dígitos cédula, 13 RUC,
+ * el resto pasaporte).
+ */
+export const inferirTipoIdentificacion = (identificacion, tipo = null) => {
+  const codigo = tipoIdentificacionACodigo(tipo);
+  if (codigo) return codigo;
+  const valor = String(identificacion ?? '').trim();
+  if (/^\d{10}$/.test(valor)) return '05';
+  if (/^\d{13}$/.test(valor)) return '04';
+  if (valor) return '06';
+  return '05';
+};
+
+/**
+ * Código corto usado por el módulo de clientes ('C' cédula, 'R' RUC,
+ * 'P' pasaporte, 'E' exterior, 'CF' consumidor final).
+ */
+export const tipoIdentificacionACodigoCorto = (tipo) => {
+  switch (normalizarTipoIdentificacion(tipo)) {
+    case 'CEDULA': return 'C';
+    case 'RUC': return 'R';
+    case 'PASAPORTE': return 'P';
+    case 'EXTERIOR': return 'E';
+    case 'CONSUMIDOR_FINAL': return 'CF';
+    default: return '';
+  }
+};
+
+/**
+ * Igual que inferirTipoIdentificacion pero devolviendo el código corto.
+ */
+export const inferirTipoIdentificacionCliente = (identificacion, tipo = null) => {
+  const corto = tipoIdentificacionACodigoCorto(tipo);
+  if (corto) return corto;
+  const valor = String(identificacion ?? '').trim();
+  if (/^\d{10}$/.test(valor)) return 'C';
+  if (/^\d{13}$/.test(valor)) return 'R';
+  if (valor) return 'P';
+  return 'C';
+};
+
+/**
+ * Longitud máxima admitida según el tipo de identificación.
+ */
+export const maxLengthIdentificacion = (tipo = null) => {
+  switch (normalizarTipoIdentificacion(tipo)) {
+    case 'CEDULA': return 10;
+    case 'RUC':
+    case 'CONSUMIDOR_FINAL': return 13;
+    default: return 20;
+  }
+};
+
+/**
+ * Limpia la identificación según el tipo: solo dígitos para cédula/RUC y
+ * alfanumérico (pasaporte / identificación del exterior) en el resto.
+ */
+export const sanitizarIdentificacion = (valor, tipo = null) => {
+  const texto = String(valor ?? '');
+  switch (normalizarTipoIdentificacion(tipo)) {
+    case 'CEDULA':
+    case 'RUC':
+    case 'CONSUMIDOR_FINAL':
+      return texto.replace(/\D/g, '');
+    default:
+      return texto.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  }
+};
+
 export const validarIdentificacion = (identificacion, tipo = null) => {
   const valor = String(identificacion ?? '').trim();
   const tipoNormalizado = normalizarTipoIdentificacion(tipo);
@@ -75,9 +161,9 @@ export const validarIdentificacionGuia = (identificacion) => {
     if (valor.length === 13) return { valido: true, mensaje: '' };
     return {
       valido: false,
-      mensaje: `Debe tener 10 dígitos (cédula) o 13 dígitos (RUC); se ingresaron ${valor.length}.`
+      mensaje: `Debe tener 10 dígitos (cédula), 13 dígitos (RUC) o 5 a 20 caracteres alfanuméricos (pasaporte); se ingresaron ${valor.length}.`
     };
   }
   if (/^[A-Za-z0-9]{5,20}$/.test(valor)) return { valido: true, mensaje: '' };
-  return { valido: false, mensaje: 'La identificación no tiene un formato válido.' };
+  return { valido: false, mensaje: 'Debe ser cédula (10 dígitos), RUC (13 dígitos) o pasaporte (5 a 20 caracteres alfanuméricos).' };
 };

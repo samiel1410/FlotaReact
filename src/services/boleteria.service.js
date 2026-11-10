@@ -187,6 +187,7 @@ export const BoleteriaService = {
    * @param {string} [opciones.asunto] - Asunto personalizado
    * @param {string} [opciones.mensaje] - Mensaje adicional
    * @param {boolean} [opciones.incluirXml=true] - Adjuntar el XML del SRI
+   * @param {boolean} [opciones.guardarCorreo=false] - Guardar el correo corregido en el boleto/cliente
    */
   enviarCorreoBoleto: async (idBoleto, opciones = {}) => {
     const response = await api.post('/boleto/enviarCorreo', {
@@ -195,7 +196,8 @@ export const BoleteriaService = {
       copia: opciones.copia,
       asunto: opciones.asunto,
       mensaje: opciones.mensaje,
-      incluir_xml: opciones.incluirXml !== false
+      incluir_xml: opciones.incluirXml !== false,
+      guardar_correo: opciones.guardarCorreo === true
     });
     return response.data;
   }

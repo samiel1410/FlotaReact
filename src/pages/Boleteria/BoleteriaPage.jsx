@@ -9,6 +9,8 @@ import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
+import { validarCorreo, describirCorreo } from '../../utils/emailValidation';
+import { validarCorreo as validarCorreoApi } from '../../services/sistema.service';
 
 export const BoleteriaPage = () => {
   const [boletos, setBoletos] = useState([]);
@@ -333,6 +335,22 @@ export const BoleteriaPage = () => {
       String(item.numero_boleto ?? '').padStart(9, '0')
     ].join('-');
     const correoBoleto = item.correo_boleto || '';
+    const validacionInicial = validarCorreo(correoBoleto, { permitirVacio: true });
+    const correoInicial = validacionInicial.valido
+      ? correoBoleto
+      : (validacionInicial.sugerencia || '');
+    const avisoCorreo = validacionInicial.tieneCorreo && !validacionInicial.valido
+      ? `<div style="margin:0 0 12px;padding:10px 12px;border:1px solid #fecaca;background:#fef2f2;border-radius:8px;color:#991b1b;font-size:12px;line-height:1.45;">
+           <b><i class="fas fa-exclamation-triangle"></i> El correo guardado en el boleto no es válido.</b><br>
+           ${escaparHtml(describirCorreo(validacionInicial))}<br>
+           <span style="color:#b91c1c;">Corrige el correo para poder enviar el comprobante.</span>
+         </div>`
+      : (!validacionInicial.tieneCorreo
+        ? `<div style="margin:0 0 12px;padding:10px 12px;border:1px solid #fde68a;background:#fffbeb;border-radius:8px;color:#92400e;font-size:12px;line-height:1.45;">
+             <b><i class="fas fa-exclamation-triangle"></i> El boleto no tiene correo registrado.</b><br>
+             Ingresa un correo válido para enviar el comprobante.
+           </div>`
+        : '');
 
     const { value: datos, isConfirmed } = await Swal.fire({
       title: 'Enviar comprobante por correo',
@@ -341,15 +359,20 @@ export const BoleteriaPage = () => {
           <p style="margin:0 0 12px;color:#475569;">
             Boleto <b>${escaparHtml(numero)}</b> — ${escaparHtml(item.nombres_boleto || '')}
           </p>
+          ${avisoCorreo}
           <label style="display:block;font-weight:600;margin-bottom:4px;">Correo destinatario *</label>
           <input id="swal-correo" class="swal2-input" type="email" style="margin:0 0 10px;width:100%;"
-                 placeholder="usuario@correo.com" value="${escaparHtml(correoBoleto)}">
+                 placeholder="usuario@correo.com" value="${escaparHtml(correoInicial)}">
           <label style="display:block;font-weight:600;margin-bottom:4px;">Copia (opcional)</label>
           <input id="swal-copia" class="swal2-input" type="email" style="margin:0 0 10px;width:100%;"
                  placeholder="copia@correo.com">
           <label style="display:block;font-weight:600;margin-bottom:4px;">Mensaje (opcional)</label>
           <textarea id="swal-mensaje" class="swal2-textarea" style="margin:0;width:100%;height:70px;"
                     placeholder="Mensaje adicional para el pasajero"></textarea>
+          <label style="display:flex;align-items:center;gap:8px;margin:10px 0 0;font-size:12px;color:#334155;">
+            <input id="swal-guardar-correo" type="checkbox" ${!validacionInicial.tieneCorreo || !validacionInicial.valido ? 'checked' : ''}>
+            Guardar este correo en el boleto y en el cliente
+          </label>
           <p style="margin:12px 0 0;font-size:11.5px;color:#64748b;">
             Se adjuntarán el <b>PDF A4</b> (factura + boleto) y el <b>XML</b> del comprobante electrónico.
           </p>
@@ -361,24 +384,40 @@ export const BoleteriaPage = () => {
       confirmButtonColor: '#16a085',
       cancelButtonColor: '#95a5a6',
       reverseButtons: true,
-      preConfirm: () => {
+      preConfirm: async () => {
         const correo = (document.getElementById('swal-correo')?.value || '').trim();
         const copia = (document.getElementById('swal-copia')?.value || '').trim();
         const mensaje = (document.getElementById('swal-mensaje')?.value || '').trim();
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+        const guardarCorreo = document.getElementById('swal-guardar-correo')?.checked === true;
+
         if (!correo) {
           Swal.showValidationMessage('Ingrese el correo del destinatario');
           return false;
         }
-        if (!emailRegex.test(correo)) {
-          Swal.showValidationMessage('El correo del destinatario no es válido');
+
+        const validacion = validarCorreo(correo);
+        if (!validacion.valido) {
+          Swal.showValidationMessage(describirCorreo(validacion));
           return false;
         }
-        if (copia && !emailRegex.test(copia)) {
-          Swal.showValidationMessage('El correo en copia no es válido');
+
+        if (copia) {
+          const validacionCopia = validarCorreo(copia);
+          if (!validacionCopia.valido) {
+            Swal.showValidationMessage(`Copia: ${describirCorreo(validacionCopia)}`);
+            return false;
+          }
+        }
+
+        // Verificación final del servidor (incluye DNS/MX). Si no responde, el
+        // envío vuelve a validar y no se pierde la operación.
+        const validacionServidor = await validarCorreoApi(correo);
+        if (validacionServidor && !validacionServidor.valido) {
+          Swal.showValidationMessage(describirCorreo(validacionServidor));
           return false;
         }
-        return { correo, copia, mensaje };
+
+        return { correo, copia, mensaje, guardarCorreo };
       }
     });
 
@@ -396,10 +435,27 @@ export const BoleteriaPage = () => {
       if (res?.advertencia) {
         toast(`Se envió el correo sin el XML: ${res.advertencia}`, { icon: '⚠️', duration: 7000 });
       }
+      if (datos.guardarCorreo && res?.correoGuardado) {
+        const guardado = res.correoGuardado;
+        const detalle = [guardado.boleto ? 'boleto' : null, guardado.cliente ? 'cliente' : null]
+          .filter(Boolean)
+          .join(' y ');
+        if (detalle) {
+          toast.success(`Correo actualizado en el ${detalle}`);
+        }
+      }
     } catch (error) {
       console.error('[Enviar correo boleto] Error:', error?.response?.data || error);
     }
   };
+
+  const boletosConCorreoInvalido = boletos.filter((boleto) => {
+    const validacion = validarCorreo(boleto.correo_boleto, { permitirVacio: true });
+    return validacion.tieneCorreo && !validacion.valido;
+  }).length;
+  const boletosSinCorreo = boletos.filter(
+    (boleto) => !String(boleto.correo_boleto || '').trim()
+  ).length;
 
   return (
     <div className="flex flex-col h-full gap-2 p-0 bg-slate-100/50">
@@ -433,6 +489,22 @@ export const BoleteriaPage = () => {
 
       <div className="boleteria-content">
         <BoleteriaFilterPanel onSearch={handleSearch} onSriLote={handleSriLote} />
+
+        {(boletosConCorreoInvalido > 0 || boletosSinCorreo > 0) && (
+          <div className="mx-3 mb-2 flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            <i className="fas fa-exclamation-triangle mt-0.5"></i>
+            <div>
+              <b>Revisa los correos de los clientes.</b>{' '}
+              {boletosConCorreoInvalido > 0 && (
+                <span>{boletosConCorreoInvalido} boleto(s) de esta página tienen un correo mal escrito.</span>
+              )}{' '}
+              {boletosSinCorreo > 0 && (
+                <span>{boletosSinCorreo} boleto(s) no tienen correo registrado.</span>
+              )}{' '}
+              El comprobante no se enviará hasta corregir el correo.
+            </div>
+          </div>
+        )}
 
         <div className="boleteria-grid-wrapper">
           <BoleteriaGrid

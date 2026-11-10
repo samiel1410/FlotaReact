@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import '../../Guias/components/GuiasGrid.css';
+import { validarCorreo, describirCorreo } from '../../../utils/emailValidation';
 
 export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange, onReload, onVisualizarPdf, onImprimir, onAnular, onReenviarSri, onEnviarCorreo, onCambiarFecha, onProbarTasa, currentUserId, reenviandoId }) => {
   const [activeMenu, setActiveMenu] = useState(null);
@@ -91,6 +92,7 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
               const est = formatEstado(item);
               const cobro = formatCobro(item);
               const sri = formatSri(item.estado_autorizacion);
+              const correo = validarCorreo(item.correo_boleto, { permitirVacio: true });
               const asientosStr = item.detalles && item.detalles.length > 0
                 ? item.detalles.map(d => d.asiento_boleto_detalle).join(', ')
                 : item.total_asiento > 0 ? `${item.total_asiento} asns` : '-';
@@ -110,6 +112,26 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                   {item.nombre_usuario && (
                     <div style={{fontSize: '10px', color: '#95a5a6', marginTop: '2px'}}>
                       <i className="far fa-user" style={{marginRight: '3px'}}></i>Vend: {item.nombre_usuario}
+                    </div>
+                  )}
+                  {correo.tieneCorreo ? (
+                    correo.valido ? (
+                      <div style={{fontSize: '10px', color: '#16a085', marginTop: '2px'}} title={correo.correo}>
+                        <i className="fas fa-envelope" style={{marginRight: '3px'}}></i>{correo.correo}
+                      </div>
+                    ) : (
+                      <div
+                        style={{fontSize: '10px', color: '#c0392b', fontWeight: 'bold', marginTop: '2px', cursor: 'help'}}
+                        title={`${describirCorreo(correo)}. No se enviará el comprobante hasta corregir el correo.`}
+                      >
+                        <i className="fas fa-exclamation-triangle" style={{marginRight: '3px'}}></i>
+                        Correo inválido{correo.sugerencia ? ` (¿${correo.sugerencia}?)` : ''}
+                      </div>
+                    )
+                  ) : (
+                    <div style={{fontSize: '10px', color: '#b45309', marginTop: '2px', cursor: 'help'}} title="Sin correo registrado: no se puede enviar el comprobante">
+                      <i className="fas fa-envelope" style={{marginRight: '3px'}}></i>
+                      Sin correo
                     </div>
                   )}
                 </td>
