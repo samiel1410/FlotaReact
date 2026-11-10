@@ -148,7 +148,9 @@ export const validarCorreo = (correoOriginal, { permitirVacio = false } = {}) =>
       motivo: limpia.valido
         ? 'El correo tiene comillas, comas, puntos o punto y coma al inicio/final'
         : limpia.motivo,
-      sugerencia: correoLimpio
+      sugerencia: limpia.valido
+        ? correoLimpio
+        : (limpia.sugerencia || correoLimpio)
     };
   }
 

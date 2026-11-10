@@ -434,7 +434,7 @@ export const BoleteriaPage = () => {
         }
       );
       if (res?.advertencia) {
-        toast(`Se envió el correo sin el XML: ${res.advertencia}`, { icon: '⚠️', duration: 7000 });
+        toast(`Aviso: ${res.advertencia}`, { icon: '⚠️', duration: 7000 });
       }
       if (datos.guardarCorreo && res?.correoGuardado) {
         const guardado = res.correoGuardado;
