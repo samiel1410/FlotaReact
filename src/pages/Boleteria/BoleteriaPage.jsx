@@ -148,6 +148,53 @@ export const BoleteriaPage = () => {
     }
   };
 
+  // Tasa FTTG de prueba: genera el QR del torniquete sin llamar a la API de FTTG.
+  // Sirve para revisar el ticket antes de habilitar la tasa real por agencia.
+  const handleProbarTasa = async (item) => {
+    if (!item?.id_boleto) return;
+
+    const { isConfirmed, isDenied } = await Swal.fire({
+      title: 'Tasa de prueba (QR TTG)',
+      html: `Boleto <b>#${item.id_boleto}</b> - ${item.nombres_boleto || ''}<br/>
+        <span style="font-size:12px;color:#64748b">
+          Genera un código de prueba para ver el QR del torniquete en el ticket.
+          No se envía nada a FTTG ni se cobra tasa real.
+        </span>`,
+      icon: 'question',
+      showDenyButton: true,
+      showCancelButton: true,
+      confirmButtonText: '<i class="fas fa-qrcode"></i> Generar y ver QR',
+      denyButtonText: '<i class="fas fa-eraser"></i> Quitar prueba',
+      cancelButtonText: 'Cancelar',
+      confirmButtonColor: '#0891b2',
+      denyButtonColor: '#64748b',
+      cancelButtonColor: '#94a3b8',
+      reverseButtons: true,
+    });
+
+    if (!isConfirmed && !isDenied) return;
+
+    const accion = isConfirmed ? 'crear' : 'eliminar';
+    const tId = toast.loading(accion === 'crear' ? 'Generando tasa de prueba...' : 'Quitando tasa de prueba...');
+    try {
+      const res = await BoleteriaService.gestionarTasaPrueba(item.id_boleto, accion);
+      if (!res?.success) {
+        toast.error(res?.message || 'No se pudo procesar la tasa de prueba', { id: tId });
+        return;
+      }
+      toast.success(res.message || 'Listo', { id: tId });
+      if (accion === 'crear') {
+        // Evita reutilizar el PDF en caché con la marca de tiempo actual
+        const url = `${CONFIG.PHP_URL}/boletoFactura.php?id_boleto=${item.id_boleto}&_t=${Date.now()}`;
+        setPdfUrl(buildPdfUrl(url));
+        setPdfModalOpen(true);
+      }
+    } catch (error) {
+      const mensaje = error?.response?.data?.message || 'Error al conectar con el servidor';
+      toast.error(mensaje, { id: tId });
+    }
+  };
+
   const handleCambiarFecha = (item) => {
     setBoletoParaCambioFecha(item);
     setShowCambiarFechaModal(true);
@@ -402,6 +449,7 @@ export const BoleteriaPage = () => {
             onReenviarSri={handleReenviarSri}
             onEnviarCorreo={handleEnviarCorreo}
             onCambiarFecha={handleCambiarFecha}
+            onProbarTasa={handleProbarTasa}
             currentUserId={currentUser.id_usuario}
             reenviandoId={reenviandoId}
           />

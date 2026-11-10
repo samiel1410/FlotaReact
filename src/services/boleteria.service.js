@@ -166,6 +166,16 @@ export const BoleteriaService = {
     return response.data;
   },
 
+  /**
+   * Tasa FTTG de prueba para revisar el QR del torniquete sin llamar a FTTG.
+   * @param {number} idBoleto
+   * @param {'crear'|'eliminar'} accion
+   */
+  gestionarTasaPrueba: async (idBoleto, accion = 'crear') => {
+    const response = await api.post('/boleto/tasaPrueba', { id_boleto: idBoleto, accion });
+    return response.data;
+  },
+
   // ============ ENVÍO POR CORREO ============
 
   /**

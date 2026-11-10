@@ -126,6 +126,7 @@ export const ConfiguracionPage = () => {
             autorizar_factura_sri: conf.autorizar_factura_sri === 1 || conf.autorizar_factura_sri === true,
             autorizar_boleto_sri: conf.autorizar_boleto_sri === 1 || conf.autorizar_boleto_sri === true,
             ejecutar_job_sri_automatico: conf.ejecutar_job_sri_automatico === undefined ? true : (conf.ejecutar_job_sri_automatico === 1 || conf.ejecutar_job_sri_automatico === true),
+            habilitar_tasas_ttg: conf.habilitar_tasas_ttg === 1 || conf.habilitar_tasas_ttg === true,
             enviar_whatsapp: conf.enviar_whatsapp === 1 || conf.enviar_whatsapp === true,
             cobrar_iva_guia: conf.cobrar_iva_guia === 1 || conf.cobrar_iva_guia === true,
             imprimir_boucher_guia: conf.imprimir_boucher_guia === 1 || conf.imprimir_boucher_guia === true,
@@ -403,7 +404,7 @@ export const ConfiguracionPage = () => {
         // Un campo vacío no debe sobrescribir lo que ya está guardado en la base de datos
         if (typeof value === 'string' && value.trim() === '') return acc;
 
-        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto' || key === 'omitir_confirmacion_boleto' || key === 'permitir_consumidor_final') {
+        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'habilitar_tasas_ttg' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto' || key === 'omitir_confirmacion_boleto' || key === 'permitir_consumidor_final') {
           acc[key] = +!!value;
         } else if (key === 'cobrar_iva_guia' || key === 'imprimir_boucher_guia') {
           acc[key] = value ? 1 : 0;
@@ -824,6 +825,23 @@ export const ConfiguracionPage = () => {
                           </label>
                           <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
                             Al activar esta opción se muestra el botón 'CF' en Nuevo Boleto para vender rápidamente a consumidor final. Al desactivarla, el botón se oculta.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 bg-cyan-50/60 border border-cyan-200 rounded-xl">
+                        <input
+                          type="checkbox"
+                          {...register('habilitar_tasas_ttg')}
+                          id="habilitar_tasas_ttg"
+                          className="w-4 h-4 text-cyan-600 bg-slate-100 border-slate-300 rounded focus:ring-cyan-500 mt-0.5 cursor-pointer"
+                        />
+                        <div>
+                          <label htmlFor="habilitar_tasas_ttg" className="text-sm font-bold text-slate-800 cursor-pointer">
+                            Habilitar Tasas TTG (Terminal Guayaquil)
+                          </label>
+                          <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+                            Interruptor general de la tasa de uso de terminal FTTG. Al activarlo, solo las agencias con el check "Generar tasa de terminal (FTTG)" enviarán la tasa y emitirán el QR en cada boleto.
                           </p>
                         </div>
                       </div>
