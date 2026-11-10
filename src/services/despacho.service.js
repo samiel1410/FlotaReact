@@ -43,6 +43,18 @@ export const despachoService = {
     return response.data;
   },
 
+  // Finalizar despacho (y opcionalmente registrar ahorro)
+  async finalizar(params = {}) {
+    const response = await api.post('/despacho/finalizarDespacho', params);
+    return response.data;
+  },
+
+  // Listado de ahorros registrados al finalizar despachos
+  async listarAhorros(params = {}) {
+    const response = await api.get('/despacho/ahorrosDespachoPaginado', { params });
+    return response.data;
+  },
+
   // Generar PDF de despacho
   async generarPdf(params = {}) {
     const response = await api.get('/despacho/despachoPdf', { params, responseType: 'blob' });

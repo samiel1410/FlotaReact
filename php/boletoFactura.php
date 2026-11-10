@@ -273,36 +273,7 @@ try {
         $pdf->SetFont('helvetica', '', round($fB * 0.9, 1));
         $pdf->Cell($w, $lh, 'Tarifa: ' . $tarifaDetalle, 0, 1, 'L');
 
-        // ── TASA DE TERMINAL (FTTG): QR para el torniquete ────────────────────
-        // El código `tasa` es único por pasajero; la `clave_acceso_tasa` es del
-        // documento completo de la venta y se repite entre boletos.
-        $tasaPasajero = trim((string)($detalle['tasa_boleto'] ?? ''));
-        if ($tasaPasajero !== '') {
-            $qrSize = min(40, max(30, $w - 10));
-            // Evita que un QR quede partido entre dos páginas del ticket.
-            if ($pdf->GetY() + $qrSize + 12 > $pdf->getPageHeight() - 2) {
-                $pdf->AddPage();
-            }
-            $xQr = $metricas['margen_mm'] + ($w - $qrSize) / 2;
-            $yQr = $pdf->GetY() + 1.5;
-
-            $pdf->write2DBarcode($tasaPasajero, 'QRCODE,M', $xQr, $yQr, $qrSize, $qrSize, [
-                'border' => 0,
-                'vpadding' => 0,
-                'hpadding' => 0,
-                'fgcolor' => [0, 0, 0],
-                'bgcolor' => false,
-            ], 'N');
-
-            $pdf->SetY($yQr + $qrSize + 1);
-            $pdf->SetFont('helvetica', 'B', round($fB * 0.95, 1));
-            $pdf->Cell($w, $lh, 'TASA TTG $' . number_format((float)($detalle['tasa_valor_boleto'] ?? 0), 2, ',', '.'), 0, 1, 'C');
-            $pdf->SetFont('helvetica', '', round($fB * 0.8, 1));
-            $pdf->Cell($w, $lh, 'Presente este codigo en el torniquete', 0, 1, 'C');
-            $pdf->SetFont('helvetica', '', round($fB * 0.9, 1));
-            $pdf->Ln(1);
-        }
-
+        // La tasa FTTG se imprime en hojas aparte (una por pasajero) al final.
         $pdf->Ln(0.5);
     }
 
@@ -359,6 +330,62 @@ try {
     $pdf->SetFont('helvetica', '', $fPie);
     $pdf->MultiCell($w, $lh * 1.1, $leyenda_viaje, 0, 'C', false, 1);
     // ── FIN RENDERIZADO NATIVO ────────────────────────────────────────────────
+
+    // ── TASAS DE TERMINAL (FTTG): una hoja por pasajero ───────────────────────
+    // El código `tasa` es único por pasajero; va en el QR y debajo en texto.
+    $tasaSlipAlto = 72;
+    foreach ($detalles as $detalle) {
+        $tasaPasajero = trim((string)($detalle['tasa_boleto'] ?? ''));
+        if ($tasaPasajero === '') {
+            continue;
+        }
+
+        $asientoTasa = isset($detalle['asiento_boleto_detalle'])
+            ? str_pad($detalle['asiento_boleto_detalle'], 2, '0', STR_PAD_LEFT)
+            : '01';
+        $rutaTasa = !empty($boleto['nombre_rutas']) ? $boleto['nombre_rutas'] : $viajeMostrar;
+        $rutaTasa = mb_strtoupper(mb_substr((string)$rutaTasa, 0, 28, 'UTF-8'), 'UTF-8');
+
+        $pdf->AddPage('P', [$ancho_impresion, $tasaSlipAlto]);
+        $pdf->SetAutoPageBreak(false, 0);
+        $pdf->SetY(4);
+
+        $fSlip = round($fB * 0.95, 1);
+        $filaH = 4.6;
+        $colIzq = $w * 0.38;
+        $colDer = $w - $colIzq;
+
+        $pdf->SetFont('helvetica', '', $fSlip);
+        $pdf->Cell($colIzq, $filaH, 'Viaje ' . ($boleto['id_fkviaje_boleto'] ?? ''), 0, 0, 'L');
+        $pdf->SetFont('helvetica', 'B', $fSlip);
+        $pdf->Cell($colDer, $filaH, $rutaTasa, 0, 1, 'R');
+
+        $pdf->SetFont('helvetica', '', $fSlip);
+        $pdf->Cell($colIzq, $filaH, 'Bus ' . $busMostrar, 0, 0, 'L');
+        $pdf->Cell($colDer, $filaH, 'Sale Origen ' . $fechaSalida . ' ' . $horaSalida, 0, 1, 'R');
+
+        $pdf->SetFont('helvetica', 'B', $fSlip);
+        $pdf->Cell($colIzq, $filaH * 1.4, 'Asiento', 0, 0, 'L');
+        $pdf->SetFont('helvetica', 'B', round($fB * 1.7, 1));
+        $pdf->Cell($colDer, $filaH * 1.4, $asientoTasa, 0, 1, 'L');
+
+        // QR del torniquete
+        $qrSize = min(38, max(30, $w - 12));
+        $yQr = $pdf->GetY() + 2;
+        $xQr = $metricas['margen_mm'] + ($w - $qrSize) / 2;
+        $pdf->write2DBarcode($tasaPasajero, 'QRCODE,M', $xQr, $yQr, $qrSize, $qrSize, [
+            'border' => 0,
+            'vpadding' => 0,
+            'hpadding' => 0,
+            'fgcolor' => [0, 0, 0],
+            'bgcolor' => false,
+        ], 'N');
+
+        $pdf->SetY($yQr + $qrSize + 1.5);
+        $pdf->SetFont('helvetica', '', round($fB * 1.1, 1));
+        $pdf->Cell($w, $lh * 1.4, $tasaPasajero, 0, 1, 'C');
+    }
+    // ── FIN TASAS FTTG ────────────────────────────────────────────────────────
 
     // ── CACHÉ NIVEL 2: PDF por hash de datos (ver bloque antes de TCPDF) ──────
     $filename = 'boleto_' . $id_boleto . '.pdf';

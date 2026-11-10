@@ -2,8 +2,11 @@ import { useState, useMemo, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 import { api } from '../../config/axios';
+import { CONFIG } from '../../config/env';
 import { useAuth } from '../../context/AuthContext';
 import { SeguimientoService } from '../../services/seguimiento.service';
+import { PdfViewerModal } from '../../components/PdfViewerModal';
+import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 
 const PAGE_SIZE = 15;
 
@@ -74,6 +77,10 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
   const [destinos, setDestinos] = useState([]);
   const [idBus, setIdBus] = useState('');
   const [destino, setDestino] = useState('');
+
+  // Vista previa / impresión de la guía (lleva marca de agua si está anulada)
+  const [pdfModalOpen, setPdfModalOpen] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState(null);
 
   useEffect(() => {
     // Combos necesarios para el CHEKING (bus y destino del viaje)
@@ -246,11 +253,25 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
    * Paso 2: registra el seguimiento de la guía ubicada.
    * estado 1 = CHECKING (en camino) · estado 2 = FINALIZAR (entregada a destino)
    */
+  /** Abre el PDF de la guía (marca de agua ANULADA cuando corresponde). */
+  const abrirGuiaPdf = () => {
+    if (!guiaInfo?.id_guia) return;
+    const tenantId = user?.tenant_id || user?.id_tenant || 1;
+    const url = `${CONFIG.PHP_URL}/guiaPdf.php?id_guia=${encodeURIComponent(guiaInfo.id_guia)}&tenantId=${encodeURIComponent(tenantId)}`;
+    setPdfUrl(buildPdfUrl(url));
+    setPdfModalOpen(true);
+  };
+
   const handleAccion = async (estado) => {
     const accionNombre = estado === 1 ? 'CHECKING' : 'FINALIZAR';
 
     if (!guiaInfo?.id_guia) {
       toast.error('Primero busque una guía');
+      return;
+    }
+
+    if (guiaInfo.anulada) {
+      toast.error('La guía está anulada y no admite seguimientos');
       return;
     }
 
@@ -419,21 +440,39 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
 
       {/* Paso 2: aparece solo cuando la guía fue encontrada */}
       {guiaInfo && !isNotaVenta && (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-slate-100">
+        <div
+          className={`rounded-xl border shadow-sm p-4 ${
+            guiaInfo.anulada ? 'bg-red-50 border-red-300' : 'bg-white border-slate-200'
+          }`}
+        >
+          <div
+            className={`flex flex-wrap items-start justify-between gap-3 pb-4 border-b ${
+              guiaInfo.anulada ? 'border-red-200' : 'border-slate-100'
+            }`}
+          >
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
-                <i className="fas fa-box text-blue-600 text-lg"></i>
+              <div
+                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                  guiaInfo.anulada ? 'bg-red-100' : 'bg-blue-100'
+                }`}
+              >
+                <i className={`fas ${guiaInfo.anulada ? 'fa-ban text-red-600' : 'fa-box text-blue-600'} text-lg`}></i>
               </div>
               <div>
-                <p className="font-mono font-bold text-slate-800">{guiaInfo.numero_guia}</p>
-                <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
+                <p
+                  className={`font-mono font-bold ${
+                    guiaInfo.anulada ? 'text-red-700 line-through decoration-red-400' : 'text-slate-800'
+                  }`}
+                >
+                  {guiaInfo.numero_guia}
+                </p>
+                <p className={`text-xs mt-0.5 flex items-center gap-1 ${guiaInfo.anulada ? 'text-red-600' : 'text-slate-500'}`}>
                   {guiaInfo.origen_guia || '-'}
-                  <i className="fas fa-arrow-right text-[10px] text-slate-400"></i>
+                  <i className="fas fa-arrow-right text-[10px] opacity-60"></i>
                   {guiaInfo.destino_guia || '-'}
                 </p>
-                <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                  <i className="fas fa-warehouse text-[10px] text-slate-400"></i>
+                <p className={`text-xs mt-1 flex items-center gap-1 ${guiaInfo.anulada ? 'text-red-600' : 'text-slate-500'}`}>
+                  <i className="fas fa-warehouse text-[10px] opacity-60"></i>
                   Ingreso a oficina:
                   {ingresoOficina ? (
                     <>
@@ -444,19 +483,55 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
                     <span className="italic">no registrado</span>
                   )}
                 </p>
+                {guiaInfo.anulada && (guiaInfo.motivo_anulacion || guiaInfo.fecha_anulacion) && (
+                  <p className="text-xs mt-1 font-semibold text-red-700">
+                    <i className="fas fa-circle-exclamation text-[10px] mr-1"></i>
+                    Anulada
+                    {guiaInfo.fecha_anulacion ? ` el ${formatFecha(guiaInfo.fecha_anulacion)}` : ''}
+                    {guiaInfo.motivo_anulacion ? ` · ${guiaInfo.motivo_anulacion}` : ''}
+                  </p>
+                )}
               </div>
             </div>
-            <span
-              className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide ${
-                Number(guiaInfo.estado_guia_seguimiento) === 1
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-blue-100 text-blue-700'
-              }`}
-            >
-              {Number(guiaInfo.estado_guia_seguimiento) === 1 ? 'FINALIZADA' : 'EN SEGUIMIENTO'}
-            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={abrirGuiaPdf}
+                className="px-3 py-1.5 rounded-lg text-[11px] font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+                title={guiaInfo.anulada ? 'Ver guía con marca de agua ANULADA' : 'Ver / imprimir guía'}
+              >
+                <i className="fas fa-file-pdf text-red-500"></i>
+                Ver guía
+              </button>
+              <span
+                className={`inline-flex px-2.5 py-1 rounded-full text-[11px] font-bold tracking-wide ${
+                  guiaInfo.anulada
+                    ? 'bg-red-600 text-white'
+                    : Number(guiaInfo.estado_guia_seguimiento) === 1
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-blue-100 text-blue-700'
+                }`}
+              >
+                {guiaInfo.anulada
+                  ? 'ANULADA'
+                  : Number(guiaInfo.estado_guia_seguimiento) === 1
+                    ? 'FINALIZADA'
+                    : 'EN SEGUIMIENTO'}
+              </span>
+            </div>
           </div>
 
+          {guiaInfo.anulada ? (
+            <div className="mt-4 p-3 rounded-lg bg-red-100 border border-red-200 text-red-700 text-xs font-semibold flex items-start gap-2">
+              <i className="fas fa-ban mt-0.5"></i>
+              <span>
+                Esta guía está <strong>ANULADA</strong>: no admite CHECKING ni FINALIZAR.
+                Si la imprime, el PDF saldrá con la marca de agua “ANULADA”.
+              </span>
+            </div>
+          ) : (
+          <>
           <div className="mt-4">
             <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">
               Observación
@@ -543,6 +618,8 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
                 Bus y destino son obligatorios para el CHEKING; FINALIZAR no requiere datos extra.
               </p>
             </>
+          )}
+          </>
           )}
         </div>
       )}
@@ -682,6 +759,14 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
           )}
         </div>
       )}
+
+      <PdfViewerModal
+        open={pdfModalOpen}
+        onClose={() => { setPdfModalOpen(false); setPdfUrl(null); }}
+        url={pdfUrl}
+        title={`Guía ${guiaInfo?.numero_guia || ''}`}
+        showPrintButton
+      />
     </div>
   );
 };

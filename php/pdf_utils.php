@@ -641,6 +641,58 @@ function imprimirLogoTcpdfA4($pdf, $rutaLogo, $x = 15.0, $y = 12.0, $maxW = 35.0
  * ¿Existe la columna en la tabla? El punto final del boleto se agregó después,
  * así que los PDF deben funcionar también en bases sin la migración aplicada.
  */
+if (!function_exists('marcarPdfAnulado')) {
+    /**
+     * Dibuja la marca de agua "ANULADA" sobre todas las páginas del PDF.
+     * Se usa un texto diagonal con opacidad baja para que no tape el contenido.
+     *
+     * @param TCPDF $pdf
+     * @param string $texto
+     * @param string|null $detalle Texto pequeño bajo la marca (motivo / fecha)
+     */
+    function marcarPdfAnulado($pdf, $texto = 'ANULADA', $detalle = '')
+    {
+        if (!is_object($pdf) || !method_exists($pdf, 'getNumPages')) {
+            return;
+        }
+
+        $totalPaginas = (int)$pdf->getNumPages();
+        $paginaActual = method_exists($pdf, 'getPage') ? (int)$pdf->getPage() : 1;
+        $texto = trim((string)$texto) !== '' ? (string)$texto : 'ANULADA';
+
+        for ($i = 1; $i <= $totalPaginas; $i++) {
+            $pdf->setPage($i);
+            $ancho = $pdf->getPageWidth();
+            $alto = $pdf->getPageHeight();
+            $tamano = max(18.0, min(70.0, $ancho * 0.30));
+
+            $pdf->SetAlpha(0.18);
+            $pdf->SetTextColor(200, 0, 0);
+            $pdf->SetFont('helvetica', 'B', $tamano);
+            $pdf->StartTransform();
+            $pdf->Rotate(45, $ancho / 2, $alto / 2);
+
+            $anchoTexto = $pdf->GetStringWidth($texto);
+            $pdf->SetXY(($ancho - $anchoTexto) / 2, ($alto / 2) - ($tamano * 0.35));
+            $pdf->Cell($anchoTexto, $tamano * 0.5, $texto, 0, 0, 'C');
+
+            if ($detalle !== '') {
+                $pdf->SetAlpha(0.30);
+                $pdf->SetFont('helvetica', '', max(7.0, $tamano * 0.22));
+                $anchoDetalle = $pdf->GetStringWidth($detalle);
+                $pdf->SetXY(($ancho - $anchoDetalle) / 2, ($alto / 2) + ($tamano * 0.25));
+                $pdf->Cell($anchoDetalle, 5, $detalle, 0, 0, 'C');
+            }
+
+            $pdf->StopTransform();
+            $pdf->SetAlpha(1);
+            $pdf->SetTextColor(0, 0, 0);
+        }
+
+        $pdf->setPage($paginaActual);
+    }
+}
+
 function columna_boleto_existe($conn, $tabla, $columna)
 {
     static $cache = [];

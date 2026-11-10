@@ -55,6 +55,7 @@ try {
         g.telefono_cliente_emisor, g.telefono_cliente_receptor,
         g.correo_cliente_emisor, g.correo_cliente_receptor,
         g.punto_emision_guia, g.sucursal_guia,
+        g.estado_guia, g.motivo_anulacion_guia, g.fecha_anulacion_guia,
         f.clave_acceso_factura, f.id_factura,
         COALESCE(s2.nombre_sucursal, s.nombre_sucursal, '') AS nombre_sucursal,
         COALESCE(s2.direccion_sucursal, s.ubicacion_sucursal, '') AS ubicacion_sucursal,
@@ -235,6 +236,11 @@ try {
         'forma_pago' => $formaPago,
         'leyenda' => $leyenda,
     ]);
+
+    // Guía anulada: marca de agua sobre todas las páginas.
+    if ((int)($guia['estado_guia'] ?? 0) === 2) {
+        marcarPdfAnulado($pdf, 'ANULADA', 'DOCUMENTO SIN VALIDEZ');
+    }
 
     $pdfContent = $pdf->Output('', 'S');
 

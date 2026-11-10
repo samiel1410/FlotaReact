@@ -130,6 +130,9 @@ try {
         g.impuesto_iva_guia,
         g.estado_cobro_guia,
         g.cancelado_por_guia,
+        g.estado_guia,
+        g.motivo_anulacion_guia,
+        g.fecha_anulacion_guia,
         CONCAT(u.nombre_usuario, ' ', u.apellido_usuario) AS usuario,
         COALESCE(NULLIF(TRIM(s.ciudad_sucursal), ''), NULLIF(TRIM(s.nombre_sucursal), '')) AS ubicacion_usuario
     FROM guia g
@@ -328,7 +331,8 @@ try {
         $id_guia, $numero_guia, $total_guia, $estado_factura,
         $numero_factura, $detalles_forma_pago, $total_cobrado,
         count($items_detalle), (string)$reimpreso_por, $imprimir_boucher_guia,
-        $ubicacion_usuario, $rutaLogo, GUIAIMP_LAYOUT_VERSION
+        $ubicacion_usuario, $rutaLogo, (int)($vals_guia['estado_guia'] ?? 0),
+        GUIAIMP_LAYOUT_VERSION
     ]));
     $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
     if (!is_dir($pdfCacheDir)) @mkdir($pdfCacheDir, 0777, true);
@@ -645,6 +649,11 @@ try {
 
             $pagina_actual++;
         }
+    }
+
+    // ─── GUÍA ANULADA: MARCA DE AGUA EN TODAS LAS PÁGINAS ────────────────────
+    if ((int)($vals_guia['estado_guia'] ?? 0) === 2) {
+        marcarPdfAnulado($pdf, 'ANULADA', 'DOCUMENTO SIN VALIDEZ');
     }
 
     // ─── SALIDA CON CACHÉ NIVEL 2 ─────────────────────────────────────────────

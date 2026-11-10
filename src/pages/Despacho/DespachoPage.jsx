@@ -4,6 +4,8 @@ import { despachoService } from '../../services/despacho.service';
 import ViajesService from '../../services/viajes.service';
 import { NuevoDespachoModal } from './components/NuevoDespachoModal';
 import { EditarDespachoModal } from './components/EditarDespachoModal';
+import { FinalizarDespachoModal } from './components/FinalizarDespachoModal';
+import { AhorrosDespachoModal } from './components/AhorrosDespachoModal';
 import { BusquedaGuiaDespachoModal } from './components/BusquedaGuiaDespachoModal';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { SearchableSelect } from '../../components/common/SearchableSelect';
@@ -36,6 +38,8 @@ export const DespachoPage = () => {
   const [showNuevo, setShowNuevo] = useState(false);
   const [showEditar, setShowEditar] = useState(false);
   const [showAgregarGuia, setShowAgregarGuia] = useState(false);
+  const [showFinalizar, setShowFinalizar] = useState(false);
+  const [showAhorros, setShowAhorros] = useState(false);
   const [selectedDespacho, setSelectedDespacho] = useState(null);
 
   // ─── Modal PDF ─────────────────────────────────────────────
@@ -157,8 +161,22 @@ export const DespachoPage = () => {
     }
   };
 
+  // ─── Acción: Finalizar Despacho ───────────────────────────
+  const handleFinalizarDespacho = (despacho) => {
+    if (String(despacho.estado_despacho_maestro) !== '1') {
+      toast.error('Este despacho ya está finalizado');
+      return;
+    }
+    setSelectedDespacho(despacho);
+    setShowFinalizar(true);
+  };
+
   // ─── Acción: PDF ──────────────────────────────────────────
   const handlePdf = (despacho) => {
+    if (String(despacho.estado_despacho_maestro) !== '2') {
+      toast.error('Debe finalizar el despacho para habilitar el PDF');
+      return;
+    }
     try {
       const url = `${CONFIG.PHP_URL}/despachoPdf.php?id_maestro=${despacho.id_despacho_maestro}`;
       setPdfUrl(url);
@@ -231,6 +249,13 @@ export const DespachoPage = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowAhorros(true)}
+              className="h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest shadow-sm"
+              title="Listado de ahorros registrados al finalizar despachos"
+            >
+              <i className="fas fa-piggy-bank text-xs"></i> AHORROS
+            </button>
             <button
               onClick={() => setShowNuevo(true)}
               className="h-9 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 uppercase tracking-widest shadow-sm"
@@ -348,14 +373,15 @@ export const DespachoPage = () => {
                   <th className="px-4 py-3 text-left">RUTA / DESTINO</th>
                   <th className="px-4 py-3 text-left">OFICINISTA</th>
                   <th className="px-4 py-3 text-center w-20"># ENCOM.</th>
+                  <th className="px-4 py-3 text-center w-24">AHORRO</th>
                   <th className="px-4 py-3 text-center w-24">ESTADO</th>
-                  <th className="px-4 py-3 text-center w-28">ACCIONES</th>
+                  <th className="px-4 py-3 text-center w-32">ACCIONES</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {loading ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-16 text-slate-400">
+                    <td colSpan="10" className="text-center py-16 text-slate-400">
                       <div className="flex items-center justify-center gap-2">
                         <i className="fas fa-spinner fa-spin text-indigo-600 text-lg"></i>
                         <span className="font-semibold text-slate-500">Cargando despachos...</span>
@@ -364,7 +390,7 @@ export const DespachoPage = () => {
                   </tr>
                 ) : despachos.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="text-center py-16 text-slate-400">
+                    <td colSpan="10" className="text-center py-16 text-slate-400">
                       <i className="fas fa-truck-loading text-4xl mb-3 block text-slate-300"></i>
                       <p className="font-bold text-slate-600 text-sm">No se encontraron despachos</p>
                       <p className="text-xs text-slate-400 mt-0.5">Cree un nuevo despacho o ajuste los filtros de búsqueda</p>
@@ -463,31 +489,57 @@ export const DespachoPage = () => {
                           </span>
                         </td>
                         <td className="px-4 py-3 text-center">
+                          {Number(d.ahorro_despacho_maestro) > 0 ? (
+                            <div className="leading-tight">
+                              <div className="text-xs font-black text-emerald-700">${Number(d.ahorro_despacho_maestro).toFixed(2)}</div>
+                              <div className="text-[9px] font-bold text-slate-400 uppercase">
+                                {d.tipo_ahorro_despacho_maestro === 'PORCENTAJE'
+                                  ? `${d.valor_ahorro_despacho_maestro ?? 0}%`
+                                  : 'VALOR'}
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-slate-300 font-bold">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
                           {renderEstado(d.estado_despacho_maestro)}
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex items-center justify-center gap-1">
-                            {/* Ver / Imprimir PDF */}
+                            {/* Finalizar despacho (solo activo) */}
+                            <button
+                              onClick={() => handleFinalizarDespacho(d)}
+                              disabled={String(d.estado_despacho_maestro) !== '1'}
+                              className="p-1.5 rounded-lg transition-all enabled:text-emerald-600 enabled:hover:bg-emerald-50 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              title={String(d.estado_despacho_maestro) === '1' ? 'Finalizar Despacho' : 'Despacho ya finalizado'}
+                            >
+                              <i className="fas fa-flag-checkered text-sm"></i>
+                            </button>
+                            {/* Ver / Imprimir PDF (solo finalizado) */}
                             <button
                               onClick={() => handlePdf(d)}
-                              className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                              title="Ver / Imprimir PDF"
+                              disabled={String(d.estado_despacho_maestro) !== '2'}
+                              className="p-1.5 rounded-lg transition-all enabled:text-rose-500 enabled:hover:bg-rose-50 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              title={String(d.estado_despacho_maestro) === '2' ? 'Ver / Imprimir PDF' : 'Finalice el despacho para habilitar el PDF'}
                             >
                               <i className="fas fa-file-pdf text-sm"></i>
                             </button>
-                            {/* Editar */}
+                            {/* Editar (bloqueado al finalizar) */}
                             <button
                               onClick={() => handleEditarDespacho(d)}
-                              className="p-1.5 text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
-                              title="Editar Despacho"
+                              disabled={String(d.estado_despacho_maestro) !== '1'}
+                              className="p-1.5 rounded-lg transition-all enabled:text-amber-500 enabled:hover:bg-amber-50 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              title={String(d.estado_despacho_maestro) === '1' ? 'Editar Despacho' : 'Despacho finalizado: no se puede editar'}
                             >
                               <i className="fas fa-edit text-sm"></i>
                             </button>
-                            {/* Agregar Guía */}
+                            {/* Agregar Guía (bloqueado al finalizar) */}
                             <button
                               onClick={() => handleAgregarGuia(d)}
-                              className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                              title="Agregar Guías al Despacho"
+                              disabled={String(d.estado_despacho_maestro) !== '1'}
+                              className="p-1.5 rounded-lg transition-all enabled:text-indigo-600 enabled:hover:bg-indigo-50 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              title={String(d.estado_despacho_maestro) === '1' ? 'Agregar Guías al Despacho' : 'Despacho finalizado: no admite más guías'}
                             >
                               <i className="fas fa-plus-circle text-sm"></i>
                             </button>
@@ -541,6 +593,18 @@ export const DespachoPage = () => {
             onClose={() => { setShowEditar(false); setSelectedDespacho(null); }}
             onSuccess={() => cargarDespachos(page)}
           />
+        )}
+
+        {showFinalizar && selectedDespacho && (
+          <FinalizarDespachoModal
+            despacho={selectedDespacho}
+            onClose={() => { setShowFinalizar(false); setSelectedDespacho(null); }}
+            onSuccess={() => cargarDespachos(page)}
+          />
+        )}
+
+        {showAhorros && (
+          <AhorrosDespachoModal onClose={() => setShowAhorros(false)} />
         )}
 
         {showAgregarGuia && selectedDespacho && (
