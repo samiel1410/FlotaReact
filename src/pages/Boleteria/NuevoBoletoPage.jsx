@@ -32,7 +32,7 @@ import { cajaBoleteriaService } from '../../services/cajaBoleteria.service';
 import { COLORES_ASIENTOS_DEFAULT, normalizarColoresAsientos } from '../../config/coloresAsientos';
 import { api, clienteApi } from '../../config/axios';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
-import { validarCorreo, describirCorreo } from '../../utils/emailValidation';
+import { validarCorreo } from '../../utils/emailValidation';
 import { useSocket } from '../../hooks/useSocket';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -1273,13 +1273,9 @@ export const NuevoBoletoPage = () => {
     if (formData.celular && !/^[0-9]{10}$/.test(formData.celular)) {
       errores.push('• El celular debe contener exactamente 10 dígitos numéricos');
     }
-    if (formData.correo) {
-      const validacionCorreo = validarCorreo(formData.correo);
-      if (!validacionCorreo.valido) {
-        errores.push(`• ${describirCorreo(validacionCorreo)}`);
-      }
-    }
-
+    // Un correo inválido NO bloquea la venta: el boleto se emite igual y el
+    // envío del comprobante se omite hasta que el correo sea corregido
+    // (la grilla de Boletería muestra la alerta correspondiente).
     if (formData.asientosSeleccionados.length === 0) errores.push('• Seleccionar al menos un asiento');
     if (formData.pasajeros.some(p => !p.cedula || !p.nombres)) errores.push('• Completar cédula y nombres de todos los pasajeros en la lista');
 
@@ -1477,6 +1473,11 @@ export const NuevoBoletoPage = () => {
               console.error('Error enviando comprobante por correo:', e?.response?.data || e);
               toast.error('No se pudo enviar el comprobante por correo');
             }
+          } else if (correoDestino) {
+            toast(
+              `El correo "${correoDestino}" no es válido. El boleto se emitió, pero el comprobante no se envió; corrígelo en Boletería.`,
+              { icon: '⚠️', duration: 9000 }
+            );
           }
         }
         const viajeVendido = formData.idViaje;
@@ -1513,7 +1514,7 @@ export const NuevoBoletoPage = () => {
       nombres: nuevoCliente.nombre_cliente,
       celular: nuevoCliente.telefono_cliente,
       direccion: nuevoCliente.direccion_cliente,
-      correo: nuevoCliente.email_cliente,
+      correo: nuevoCliente.email_cliente || '',
       fechaNacimiento: fechaNac,
       tarifa: tarifaVal,
     }));

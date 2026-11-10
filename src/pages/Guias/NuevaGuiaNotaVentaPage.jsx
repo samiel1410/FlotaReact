@@ -21,6 +21,7 @@ import {
   maxLengthIdentificacion,
   sanitizarIdentificacion
 } from '../../utils/identificacionUtils';
+import { validarCorreo, describirCorreo } from '../../utils/emailValidation';
 
 const getInitialCobrarIvaGuia = () => {
   try {
@@ -487,8 +488,14 @@ export const NuevaGuiaNotaVentaPage = () => {
         setOtrosCorreo(data.email || data.correo || '');
         setOtrosDireccion(data.direccion || '');
         
-        if (!data.telefono || !(data.email || data.correo)) {
-          toast.error('El cliente "Otros" no tiene correo o teléfono. Debe actualizarlos para continuar.');
+        const correoOtrosCliente = data.email || data.correo || '';
+        const validacionCorreoOtros = validarCorreo(correoOtrosCliente, { permitirVacio: true });
+        if (!data.telefono || !correoOtrosCliente || !validacionCorreoOtros.valido) {
+          toast.error(
+            correoOtrosCliente && !validacionCorreoOtros.valido
+              ? `El correo del cliente "Otros" no es válido: ${describirCorreo(validacionCorreoOtros)}`
+              : 'El cliente "Otros" no tiene correo o teléfono. Debe actualizarlos para continuar.'
+          );
         } else {
           toast.success('Cliente "Otros" encontrado');
         }
@@ -524,9 +531,12 @@ export const NuevaGuiaNotaVentaPage = () => {
       toast.error(validacionIdentificacion.mensaje);
       return;
     }
-    if (otrosNewCliente.email_cliente && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(otrosNewCliente.email_cliente)) {
-      toast.error('Formato de correo inválido');
-      return;
+    if (otrosNewCliente.email_cliente) {
+      const validacionCorreo = validarCorreo(otrosNewCliente.email_cliente);
+      if (!validacionCorreo.valido) {
+        toast.error(describirCorreo(validacionCorreo));
+        return;
+      }
     }
     setOtrosLoading(true);
     try {

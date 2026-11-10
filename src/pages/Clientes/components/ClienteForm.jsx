@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form';
 import { api } from '../../../config/axios';
 import { CONFIG } from '../../../config/env';
 import toast from 'react-hot-toast';
+import { validarCorreo, describirCorreo } from '../../../utils/emailValidation';
 
 const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
@@ -153,10 +154,19 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
           <label className={labelClass}>Correo</label>
           <input
             type="email"
-            {...register('email_cliente')}
+            {...register('email_cliente', {
+              validate: (valor) => {
+                if (!valor) return true;
+                const validacion = validarCorreo(valor);
+                return validacion.valido ? true : describirCorreo(validacion);
+              }
+            })}
             className={inputClass}
             placeholder="correo@ejemplo.com"
           />
+          {errors.email_cliente && (
+            <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.email_cliente.message}</span>
+          )}
         </div>
 
         <div>

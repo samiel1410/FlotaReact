@@ -379,6 +379,7 @@ export const BoleteriaPage = () => {
         </div>`,
       focusConfirm: false,
       showCancelButton: true,
+      showLoaderOnConfirm: true,
       confirmButtonText: '<i class="fas fa-paper-plane"></i> Enviar',
       cancelButtonText: 'Cancelar',
       confirmButtonColor: '#16a085',

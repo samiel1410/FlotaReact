@@ -91,8 +91,13 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
           )
         };
         
-        if (!clienteData.email || !clienteData.telefono) {
-          toast.error(`El ${tipo.toLowerCase()} no tiene correo o teléfono. Debe actualizarlos para continuar.`);
+        const validacionEmailCliente = validarCorreo(clienteData.email, { permitirVacio: true });
+        if (!clienteData.email || !clienteData.telefono || !validacionEmailCliente.valido) {
+          toast.error(
+            clienteData.email && !validacionEmailCliente.valido
+              ? `El correo del ${tipo.toLowerCase()} no es válido: ${describirCorreo(validacionEmailCliente)}`
+              : `El ${tipo.toLowerCase()} no tiene correo o teléfono. Debe actualizarlos para continuar.`
+          );
           setEditFormData({
             id_cliente: clienteData.id_cliente,
             identificacion_cliente: clienteData.cedula || '',

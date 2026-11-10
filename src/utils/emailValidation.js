@@ -6,8 +6,8 @@
  * final: es el único que además verifica los registros MX del dominio.
  */
 
-const EMAIL_REGEX = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,24}$/;
-const LOCAL_REGEX = /^[A-Za-z0-9!#$%&'*+/=?^_`{|}~.-]+$/;
+const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,24}$/;
+const LOCAL_REGEX = /^[A-Za-z0-9._%+-]+$/;
 const DOMAIN_LABEL_REGEX = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
 
 const CORREOS_PLACEHOLDER = new Set([
@@ -41,13 +41,13 @@ const DOMINIOS_CONOCIDOS = {
 };
 
 const TLD_TYPOS = new Map([
-  ['con', 'com'], ['cm', 'com'], ['coom', 'com'], ['comm', 'com'], ['comc', 'com'],
+  ['con', 'com'], ['coom', 'com'], ['comm', 'com'], ['comc', 'com'],
   ['cpm', 'com'], ['vom', 'com'], ['ocm', 'com'], ['cmo', 'com'], ['xom', 'com'],
-  ['nte', 'net'], ['ner', 'net'], ['nett', 'net'], ['ne', 'net'],
+  ['nte', 'net'], ['ner', 'net'], ['nett', 'net'],
   ['or', 'org'], ['rg', 'org'], ['ogr', 'org'], ['orga', 'org'],
-  ['ed', 'edu'], ['gob', 'gov'], ['gv', 'gov'],
-  ['in', 'info'], ['inf', 'info'], ['infoo', 'info'],
-  ['eec', 'ec'], ['ce', 'ec'], ['ecx', 'ec']
+  ['gob', 'gov'], ['gv', 'gov'],
+  ['inf', 'info'], ['infoo', 'info'],
+  ['eec', 'ec'], ['ecx', 'ec']
 ]);
 
 const MARCAS_ESTRICTAS = new Set([
@@ -137,15 +137,16 @@ export const validarCorreo = (correoOriginal, { permitirVacio = false } = {}) =>
     return { ...base, codigo: 'CORREO_CON_ESPACIOS', motivo: 'El correo contiene espacios', sugerencia: correo.replace(/\s+/g, '') };
   }
 
-  const correoLimpio = correo.replace(/^[<"']+|[>"',;]+$/g, '');
+  const correoLimpio = correo.replace(/^[<"']+|[>"',;.]+$/g, '');
   if (correoLimpio !== correo) {
     const limpia = validarCorreo(correoLimpio, { permitirVacio });
     return {
       ...limpia,
       valido: false,
+      tieneCorreo: true,
       codigo: limpia.valido ? 'CORREO_CON_SIGNOS' : limpia.codigo,
       motivo: limpia.valido
-        ? 'El correo tiene comillas, comas o punto y coma al inicio/final'
+        ? 'El correo tiene comillas, comas, puntos o punto y coma al inicio/final'
         : limpia.motivo,
       sugerencia: correoLimpio
     };
