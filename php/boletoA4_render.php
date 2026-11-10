@@ -61,6 +61,7 @@ function render_boleto_a4($pdf, $boleto, $detalles, $empresa, $opciones = [])
         'obligado_contabilidad' => $empresa['obligado_contabilidad'] ?? 'NO',
         'regimen' => $regimen,
         'contribuyente_especial' => $empresa['contribuyente_especial'] ?? '',
+        'logo' => $empresa['logo'] ?? null,
     ]);
 
     ride_caja_documento($pdf, 104, 10, 96, 62, [

@@ -237,6 +237,7 @@ try {
         }
     }
 
+    $rutaLogo = logoEmpresaParaPdf($conn, $_SESSION['db_name'] ?? '');
     $conn->close();
 
     // ─── INICIALIZACIÓN TCPDF NATIVO ──────────────────────────────────────────
@@ -252,6 +253,9 @@ try {
 
     // ─── PÁGINA 1: TICKET NOTA DE VENTA ──────────────────────────────────────
     $pdf->SetY(4);
+
+    // Logo de la empresa
+    imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $ancho_impresion, $metricas['margen_mm'], 32.0, 20.0, 1.5);
 
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);
     $pdf->MultiCell($lw, 5.0, strtoupper($razon_social_empresa), 0, 'C', false, 1);

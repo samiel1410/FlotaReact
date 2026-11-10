@@ -89,6 +89,23 @@ function ride_caja_empresa($pdf, $x, $y, $w, $h, $empresa)
     $ix = $x + 3;
     $iw = $w - 6;
 
+    // Logo de la empresa (opcional). Se dibuja arriba y se descuenta del alto
+    // para que el texto siga centrado y nunca se sobreponga.
+    $rutaLogo = $empresa['logo'] ?? null;
+    $logoW = 0.0;
+    $logoH = 0.0;
+    if (!empty($rutaLogo) && @is_file($rutaLogo)) {
+        $infoLogo = @getimagesize($rutaLogo);
+        if ($infoLogo && !empty($infoLogo[0]) && !empty($infoLogo[1])) {
+            $logoW = min($iw * 0.75, 40.0);
+            $logoH = ($infoLogo[1] / $infoLogo[0]) * $logoW;
+            if ($logoH > 16.0) {
+                $logoH = 16.0;
+                $logoW = ($infoLogo[0] / $infoLogo[1]) * $logoH;
+            }
+        }
+    }
+
     $razonSocial = mb_strtoupper((string)($empresa['razon_social'] ?? 'EMPRESA'), 'UTF-8');
     $lineas = [
         ['Dirección Matriz:', (string)($empresa['direccion_matriz'] ?? ''), 30],
@@ -110,6 +127,9 @@ function ride_caja_empresa($pdf, $x, $y, $w, $h, $empresa)
     // Altura real del contenido para centrarlo verticalmente en la caja.
     $pdf->SetFont('helvetica', 'B', 10.2);
     $altoContenido = $pdf->getStringHeight($iw, $razonSocial) + 1.6;
+    if ($logoH > 0) {
+        $altoContenido += $logoH + 2.0;
+    }
     foreach ($lineas as $linea) {
         $pdf->SetFont('helvetica', '', 7.2);
         $altoContenido += max(4.2, $pdf->getStringHeight($iw - $linea[2], $linea[1]) + 0.8);
@@ -123,6 +143,11 @@ function ride_caja_empresa($pdf, $x, $y, $w, $h, $empresa)
     }
 
     $cy = $y + max(2.8, ($h - $altoContenido) / 2);
+
+    if ($logoH > 0) {
+        $pdf->Image($rutaLogo, $x + ($w - $logoW) / 2, $cy, $logoW, $logoH, '', '', 'T', false, 300, 'C');
+        $cy += $logoH + 2.0;
+    }
 
     $pdf->SetXY($ix, $cy);
     $pdf->SetFont('helvetica', 'B', 10.2);

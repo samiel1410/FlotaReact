@@ -318,6 +318,8 @@ try {
             $detalles_forma_pago = "PENDIENTE";
         }
     }
+    // Logo de la empresa (se resuelve antes de cerrar la conexión y del hash).
+    $rutaLogo = logoEmpresaParaPdf($conn, $dbKey);
     $conn->close();
     $tData = microtime(true);
 
@@ -326,7 +328,7 @@ try {
         $id_guia, $numero_guia, $total_guia, $estado_factura,
         $numero_factura, $detalles_forma_pago, $total_cobrado,
         count($items_detalle), (string)$reimpreso_por, $imprimir_boucher_guia,
-        $ubicacion_usuario, GUIAIMP_LAYOUT_VERSION
+        $ubicacion_usuario, $rutaLogo, GUIAIMP_LAYOUT_VERSION
     ]));
     $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
     if (!is_dir($pdfCacheDir)) @mkdir($pdfCacheDir, 0777, true);
@@ -364,6 +366,9 @@ try {
 
     // ─── PÁGINA 1: TICKET GUÍA DE DESPACHO ────────────────────────────────────
     $pdf->SetY(4);
+
+    // Logo de la empresa
+    imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $ancho_impresion, $metricas['margen_mm'], 32.0, 20.0, 1.5);
 
     // 2. Encabezado Empresa y Guía
     $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_bold']);

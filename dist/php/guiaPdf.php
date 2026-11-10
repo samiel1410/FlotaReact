@@ -167,6 +167,9 @@ try {
         'leyendamensaje_configuracion' => '',
     ];
 
+    // Se resuelve fuera del JSON cacheado para que un cambio de logo se refleje.
+    $cfg['logo'] = logoEmpresaParaPdf($conn, $dbKey);
+
     $leyenda = trim((string)($cfg['leyendamensaje_configuracion'] ?? ''));
 
     // ─── FORMA DE PAGO ────────────────────────────────────────────────────────

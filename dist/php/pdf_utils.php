@@ -57,8 +57,83 @@ function esImagenValidaParaTcpdf($ruta)
  */
 function obtenerRutaLogoEmpresa($conn, $imageData = null)
 {
-    // Se deshabilita el uso del logo de la empresa en todos los PDFs.
-    return null;
+    if ($imageData === null || $imageData === '') {
+        if (!$conn) {
+            return null;
+        }
+        $res = @mysqli_query($conn, 'SELECT imagen_empresa FROM empresa LIMIT 1');
+        if (!$res) {
+            return null;
+        }
+        $fila = @mysqli_fetch_assoc($res);
+        @mysqli_free_result($res);
+        $imageData = $fila['imagen_empresa'] ?? null;
+    }
+
+    return procesarLogoParaTcpdf($imageData);
+}
+
+if (!function_exists('logoEmpresaParaPdf')) {
+    /**
+     * Ruta local del logo de la empresa listo para TCPDF, cacheada por petición.
+     *
+     * El cacheHint identifica al tenant y la firma del contenido evita reutilizar
+     * un PNG viejo cuando el usuario cambia el logo desde Configuración.
+     *
+     * @param mysqli|null $conn
+     * @param string $cacheHint
+     * @return string|null
+     */
+    function logoEmpresaParaPdf($conn, $cacheHint = '')
+    {
+        static $cache = [];
+        $clave = $cacheHint !== '' ? (string)$cacheHint : 'default';
+        if (array_key_exists($clave, $cache)) {
+            return $cache[$clave];
+        }
+        $cache[$clave] = null;
+
+        if (!$conn) {
+            return null;
+        }
+
+        // El logo es un BLOB de ~127 KB: leerlo en cada PDF añade 1-2 s por
+        // documento. Se cachea la ruta resuelta igual que la config de empresa.
+        $cacheDir = __DIR__ . '/tmp/cache/';
+        if (!is_dir($cacheDir)) {
+            @mkdir($cacheDir, 0777, true);
+        }
+        $archivoCache = $cacheDir . 'logo_empresa_' . md5($clave) . '.json';
+        if (is_file($archivoCache) && (time() - filemtime($archivoCache)) < 300) {
+            $guardado = json_decode(@file_get_contents($archivoCache), true);
+            $rutaGuardada = $guardado['ruta'] ?? null;
+            if ($rutaGuardada === null || @is_file($rutaGuardada)) {
+                $cache[$clave] = $rutaGuardada ?: null;
+                return $cache[$clave];
+            }
+        }
+
+        $res = @mysqli_query($conn, 'SELECT imagen_empresa FROM empresa LIMIT 1');
+        if (!$res) {
+            return null;
+        }
+        $fila = @mysqli_fetch_assoc($res);
+        @mysqli_free_result($res);
+
+        $imagen = $fila['imagen_empresa'] ?? null;
+        if (empty($imagen)) {
+            @file_put_contents($archivoCache, json_encode(['ruta' => null]));
+            return null;
+        }
+
+        // Firma barata del contenido: solo primeros/últimos bytes + longitud.
+        $firma = md5(substr($imagen, 0, 64) . substr($imagen, -64) . strlen($imagen));
+        $ruta = procesarLogoParaTcpdf($imagen, $clave . '_' . $firma);
+
+        @file_put_contents($archivoCache, json_encode(['ruta' => $ruta]));
+        $cache[$clave] = $ruta;
+        return $cache[$clave];
+    }
 }
 
 /**
@@ -70,8 +145,17 @@ function obtenerRutaLogoEmpresa($conn, $imageData = null)
  */
 function procesarLogoParaTcpdf($imageData, $cacheHint = '')
 {
-    // Los logos de empresa están deshabilitados en los PDFs.
-    return null;
+    if (empty($imageData)) {
+        return null;
+    }
+
+    $ruta = procesarImagenParaTcpdf($imageData, $cacheHint !== '' ? $cacheHint : 'logo_empresa');
+    if (!$ruta) {
+        return null;
+    }
+
+    // Un logo de varios megapíxeles hace que TCPDF tarde segundos por página.
+    return reducirLogoGigante($ruta, 600);
 }
 
 /**
@@ -493,9 +577,6 @@ function limpiarTextoPdf($val, $default = '')
  */
 function imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoPapel, $margenMm, $maxW = 28.0, $maxH = 22.0, $espacioAbajo = 2.0)
 {
-    // Se deshabilita el logo empresarial en los PDFs.
-    return 0;
-
     if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
         return 0;
     }
@@ -536,9 +617,6 @@ function imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $anchoPapel, $margenMm, $max
  */
 function imprimirLogoTcpdfA4($pdf, $rutaLogo, $x = 15.0, $y = 12.0, $maxW = 35.0, $maxH = 22.0)
 {
-    // Se deshabilita el logo empresarial en los PDFs.
-    return ['w' => 0, 'h' => 0];
-
     if (empty($rutaLogo) || !esImagenValidaParaTcpdf($rutaLogo)) {
         return ['w' => 0, 'h' => 0];
     }
@@ -634,7 +712,9 @@ function purgarCachesPdfConLogo()
     }
     $ejecutado = true;
 
-    $marca = __DIR__ . '/tmp/.pdf_sin_logos_v1';
+    // v2: los PDFs vuelven a incluir el logo de la empresa, así que hay que
+    // descartar los documentos cacheados que se generaron sin logo.
+    $marca = __DIR__ . '/tmp/.pdf_con_logos_v2';
     if (@file_exists($marca)) {
         return;
     }
@@ -643,6 +723,7 @@ function purgarCachesPdfConLogo()
         __DIR__ . '/tmp/pdfs/*.pdf',
         __DIR__ . '/tmp/logos/*',
         __DIR__ . '/tmp/cache/empresa_cfg_*.json',
+        __DIR__ . '/tmp/cache/logo_empresa_*.json',
     ];
     foreach ($patrones as $patron) {
         foreach ((array)@glob($patron) as $archivo) {

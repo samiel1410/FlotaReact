@@ -26,7 +26,8 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
       id_fkciudad_usuario: '',
 
       estado_usuario: 1,
-      per_personal_usuario: 0
+      per_personal_usuario: 0,
+      genera_tasa: false
     }
   });
 
@@ -40,6 +41,12 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
 
   // Watch for cascading combo values
   const selectedProvincia = watch('id_fkprovincia_usuario');
+  const selectedSucursal = watch('id_fksucursal_usuario');
+
+  // El permiso de tasa solo se ofrece en agencias con torniquete (genera_tasa = 1)
+  const sucursalGeneraTasa = combos.sucursales.some(
+    (s) => String(s.suc_codigo_sucursal) === String(selectedSucursal || '') && Number(s.genera_tasa) === 1
+  );
 
   useEffect(() => {
     // Load initial standalone combos
@@ -82,10 +89,19 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
         id_fkprovincia_usuario: String(initialData.id_fkprovincia_usuario ?? ''),
         estado_usuario: initialData.estado_usuario ?? initialData.estado ?? 1,
         per_personal_usuario: initialData.per_personal_usuario || 0,
+        genera_tasa: initialData.genera_tasa === 1 || initialData.genera_tasa === true,
         // id_fkciudad_usuario se setea en los efectos de cascada
       });
     }
   }, [initialData, reset]);
+
+  // Al cambiar a una agencia sin torniquete se limpia el permiso de tasa.
+  // Se espera a que carguen las sucursales para no borrar el valor al editar.
+  useEffect(() => {
+    if (combos.sucursales.length > 0 && !sucursalGeneraTasa) {
+      setValue('genera_tasa', false);
+    }
+  }, [sucursalGeneraTasa, combos.sucursales.length, setValue]);
 
   // Load Ciudades based on Provincia
   useEffect(() => {
@@ -301,6 +317,26 @@ const UsuarioForm = ({ initialData, onSubmit, onCancel }) => {
           </select>
           {errors.id_fksucursal_usuario && <span className="text-red-500 text-xs">{errors.id_fksucursal_usuario.message}</span>}
         </div>
+
+        {/* La tasa FTTG solo aplica a agencias con torniquete */}
+        {sucursalGeneraTasa && (
+          <div className="md:col-span-2 border border-cyan-200 bg-cyan-50/50 rounded-xl p-3">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                {...register('genera_tasa')}
+                className="w-4 h-4 mt-0.5 text-cyan-600 border-slate-300 rounded focus:ring-cyan-500"
+              />
+              <span>
+                <span className="block text-sm font-semibold text-slate-800">Generar tasa de terminal (FTTG)</span>
+                <span className="block text-xs text-slate-500">
+                  Este usuario emite la tasa y el QR del torniquete en cada boleto que venda en esta agencia.
+                  Si se desmarca, sus ventas no generan tasa.
+                </span>
+              </span>
+            </label>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-slate-700 mb-1">Provincia <span className="text-red-500">*</span></label>

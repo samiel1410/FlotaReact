@@ -95,6 +95,9 @@ try {
     $ancho_impresion = obtenerAnchoFormatoImpresion($conn, 80, $formato_impresion_db);
     $metricas = obtenerMetricasImpresion($ancho_impresion, 80);
 
+    // Logo de la empresa (se resuelve antes del hash para invalidar el PDF cacheado).
+    $rutaLogo = logoEmpresaParaPdf($conn, $dbKeyFast);
+
     // El contenido se incluye para regenerar la impresión tras cambios de viaje o asiento.
     $datosHash = md5(json_encode([
         $id_boleto,
@@ -103,7 +106,8 @@ try {
         $detalles,
         $vals_empresa,
         $vals_config,
-        $leyenda_viaje
+        $leyenda_viaje,
+        $rutaLogo
     ], JSON_UNESCAPED_UNICODE | JSON_PARTIAL_OUTPUT_ON_ERROR));
     $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
     if (!is_dir($pdfCacheDir)) @mkdir($pdfCacheDir, 0777, true);
@@ -167,6 +171,9 @@ try {
     $pdf->SetMargins($metricas['margen_mm'], 3, $metricas['margen_mm'], true);
     $pdf->SetAutoPageBreak(true, 2);
     $pdf->AddPage('P', [$ancho_impresion, 200]);
+
+    // ── LOGO DE LA EMPRESA ────────────────────────────────────────────────────
+    imprimirLogoTcpdfCentrado($pdf, $rutaLogo, $ancho_impresion, $metricas['margen_mm'], 32.0, 20.0, 1.5);
 
     $w  = $ancho_impresion - ($metricas['margen_mm'] * 2); // ancho útil
     $fB = $metricas['font_boleto_base_pt'];

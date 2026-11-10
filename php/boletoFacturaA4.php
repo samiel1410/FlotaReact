@@ -109,6 +109,9 @@ try {
         'mostrar_leyenda_boleteria' => 0,
     ];
 
+    // Se resuelve fuera del JSON cacheado para que un cambio de logo se refleje.
+    $cfg['logo'] = logoEmpresaParaPdf($conn, $dbKey);
+
     $leyenda = ((int)($cfg['mostrar_leyenda_boleteria'] ?? 0) === 1) ? trim((string)($cfg['leyenda_boleteria'] ?? '')) : '';
 
     // ─── FORMA DE PAGO (la boletería cobra en efectivo) ───────────────────────

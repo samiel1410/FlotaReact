@@ -109,6 +109,7 @@ try {
             'total'     => (float)($vals_detalles['total_detalle_guia'] ?? 0),
         ];
     }
+    $rutaLogo = logoEmpresaParaPdf($conn, $_SESSION['db_name'] ?? '');
     $conn->close();
 
     // ─── INICIALIZACIÓN TCPDF NATIVO ──────────────────────────────────────────
@@ -126,7 +127,11 @@ try {
     $xEmp = 15;
     $wEmp = 133 - $xEmp;
 
-    $pdf->SetXY($xEmp, 13);
+    // Logo de la empresa sobre los datos del emisor
+    $logoNV = !empty($rutaLogo) ? imprimirLogoTcpdfA4($pdf, $rutaLogo, $xEmp, 11, 34, 14) : ['w' => 0, 'h' => 0];
+    $yEmp = (($logoNV['h'] ?? 0) > 0) ? 11 + $logoNV['h'] + 2 : 13;
+
+    $pdf->SetXY($xEmp, $yEmp);
     $pdf->SetFont('helvetica', 'B', 13);
     $pdf->MultiCell($wEmp, 5, strtoupper($nombre_empresa), 0, 'L', false, 1);
     if (!empty($ruc_empresa)) {
