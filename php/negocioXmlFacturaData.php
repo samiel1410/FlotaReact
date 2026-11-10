@@ -21,7 +21,7 @@ try {
     if (empty($var) || empty($var['comprobante'])) {
         echo json_encode([
             'success' => false,
-            'mensaje' => 'No se pudo generar el comprobante XML de la factura'
+            'mensaje' => $ver->ultimoError ?: 'No se pudo generar el comprobante XML de la factura'
         ]);
         exit;
     }

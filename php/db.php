@@ -508,6 +508,39 @@ function calcularModulo11($cadena) {
 }
 
 /**
+ * Indica si el comprobante ya fue autorizado por el SRI.
+ * Un comprobante autorizado no puede cambiar de clave: el SRI conserva la clave
+ * con la que autorizó y, si se reescribe, el documento deja de ser verificable.
+ */
+function documentoYaAutorizado($conn, $tabla, $columnaId, $idDocumento) {
+    if (!$conn) {
+        return false;
+    }
+    $condiciones = [
+        'factura' => "estado_factura = 4 OR UPPER(COALESCE(estado_sri, '')) IN ('AUTORIZADO', 'AUTORIZADA')",
+        'boletos' => "UPPER(COALESCE(estado_autorizacion, '')) IN ('AUTORIZADO', 'AUTORIZADA')",
+    ];
+    if (!isset($condiciones[$tabla])) {
+        return false;
+    }
+    $sql = "SELECT 1 FROM {$tabla} WHERE {$columnaId} = ? AND ({$condiciones[$tabla]}) LIMIT 1";
+    try {
+        $stmt = $conn->prepare($sql);
+        if (!$stmt) {
+            return false;
+        }
+        $stmt->bind_param('i', $idDocumento);
+        $stmt->execute();
+        $stmt->store_result();
+        $autorizado = $stmt->num_rows > 0;
+        $stmt->close();
+        return $autorizado;
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
  * Regenera y actualiza la Clave de Acceso SRI para asegurar que tenga la fecha de HOY
  */
 function asegurarClaveAccesoHoy($claveOriginal, $tabla, $columnaClave, $columnaId, $idDocumento, $conn = null) {
@@ -516,6 +549,10 @@ function asegurarClaveAccesoHoy($claveOriginal, $tabla, $columnaClave, $columnaI
 
     if (strlen($claveOriginal) === 49 && $fechaAccesoOriginal === $hoyFormato) {
         return $claveOriginal; // Ya tiene la fecha de hoy → no modificar
+    }
+
+    if (documentoYaAutorizado($conn, $tabla, $columnaId, $idDocumento)) {
+        return $claveOriginal; // Autorizado: la clave es inmutable
     }
 
     if (strlen($claveOriginal) >= 48) {

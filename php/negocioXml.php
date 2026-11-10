@@ -6,6 +6,18 @@ $ver = new meotodoXml();
 $id_factura = $_GET['id_factura'];
 $var = $ver->armarXml($id_factura);
 
+header('Content-Type: application/json');
+
+if (!is_array($var) || empty($var['comprobante'])) {
+    echo json_encode(array(
+        "xml" => null,
+        "ruc" => null,
+        "clave" => null,
+        "success" => false,
+        "mensaje" => $ver->ultimoError ?: 'No se pudo generar el comprobante XML de la factura'
+    ));
+    exit;
+}
 
 $transaccion = array(
     "xml" => $var['comprobante'],
@@ -14,6 +26,5 @@ $transaccion = array(
     "success" => true
 );
 
-header('Content-Type: application/json');
 echo json_encode($transaccion);
 ?>

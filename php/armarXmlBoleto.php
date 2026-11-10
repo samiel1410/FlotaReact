@@ -5,6 +5,9 @@ error_reporting(E_ERROR | E_WARNING | E_PARSE);
 
 class metodoXmlBoleto
 {
+    /** Último error de generación, para que el endpoint devuelva un único JSON. */
+    public $ultimoError = null;
+
     public function armarXmlBoleto($id_boleto)
     {
         try {
@@ -26,11 +29,15 @@ class metodoXmlBoleto
             $agenteRetencion = trim((string)($datosEmpresa[0]['agente_retencion'] ?? '0'));
             $resolucionRetencion = trim((string)($datosEmpresa[0]['resolucion_agente_retencion'] ?? ''));
 
-            // Datos del boleto (factura) con fecha de emisión HOY y clave actualizada
-            $fechaEmision = date('d/m/Y');
+            // Datos del boleto (factura) con clave actualizada.
+            // La fecha de emisión debe coincidir siempre con la clave: si el
+            // comprobante ya estaba autorizado conserva su clave original.
             $claveAccesoOriginal = $datosBoleto[0]['clave_acceso_boletos'] ?? '';
             $conn = conexion();
             $claveAcceso = asegurarClaveAccesoHoy($claveAccesoOriginal, 'boletos', 'clave_acceso_boletos', 'id_boleto', $id_boleto, $conn);
+            $fechaEmision = (strlen((string)$claveAcceso) === 49 && ctype_digit((string)$claveAcceso))
+                ? substr($claveAcceso, 0, 2) . '/' . substr($claveAcceso, 2, 2) . '/' . substr($claveAcceso, 4, 4)
+                : date('d/m/Y');
 
             // Estab, P.E. y secuencial deben ser exactamente los de la clave de
             // acceso; si se toman de las columnas sin rellenar con ceros, el
@@ -281,11 +288,9 @@ class metodoXmlBoleto
 
             return ($respuesta);
         } catch (Exception $e) {
-            $array = array(
-                "error" => $e->getMessage(),
-                "success" => false,
-            );
-            echo json_encode($array);
+            // No se imprime aquí: el endpoint arma un único JSON con el mensaje.
+            $this->ultimoError = $e->getMessage();
+            return null;
         }
     }
 
