@@ -54,6 +54,21 @@ const MARCAS_ESTRICTAS = new Set([
   'gmail', 'googlemail', 'icloud', 'me', 'msn', 'aol', 'protonmail', 'proton'
 ]);
 
+/** Valores que quedan guardados cuando el campo llega vacío desde sistemas legacy. */
+const TOKENS_VACIOS = new Set([
+  'null', 'undefined', 'nan', 'none', 'ninguno', 'ninguna',
+  'n/a', 'n.a.', 'na', 'sin correo', 'sin_correo', '-', '--', '.'
+]);
+
+const esTokenVacio = (valor) => TOKENS_VACIOS.has(String(valor ?? '').trim().toLowerCase());
+
+/** Devuelve el correo limpio, o '' si el valor es vacío o un relleno ("null"). */
+export const normalizarCorreo = (valor) => {
+  const texto = String(valor ?? '').trim();
+  if (!texto || esTokenVacio(texto)) return '';
+  return texto;
+};
+
 const levenshtein = (a, b) => {
   const fila = Array.from({ length: b.length + 1 }, (_, i) => i);
   for (let i = 1; i <= a.length; i += 1) {
@@ -114,7 +129,8 @@ const sugerirDominio = (dominio) => {
  */
 export const validarCorreo = (correoOriginal, { permitirVacio = false } = {}) => {
   const original = correoOriginal == null ? '' : String(correoOriginal);
-  const correo = original.trim();
+  // "null"/"undefined"/"N/A" se tratan como campo vacío, no como correo inválido.
+  const correo = esTokenVacio(original) ? '' : original.trim();
   const base = {
     valido: false,
     correo,

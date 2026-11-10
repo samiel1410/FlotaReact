@@ -17,6 +17,7 @@ import Swal from 'sweetalert2';
 import { getIvaRate, calcularTotalesGuia } from '../../utils/ivaUtils';
 import {
   validarIdentificacion,
+  inferirTipoIdentificacion,
   inferirTipoIdentificacionCliente,
   maxLengthIdentificacion,
   sanitizarIdentificacion
@@ -720,6 +721,7 @@ export const NuevaGuiaNotaVentaPage = () => {
           idclienterem: remitente.id_cliente || 0,
           id_remitente: remitente.id_cliente || null,
           cedula_remitente: remitente.cedula,
+          tipo_identificacion_remitente: inferirTipoIdentificacion(remitente.cedula, remitente.tipo_identificacion),
           nombre_remitente: remitente.nombres,
           direccion_remitente: remitente.direccion,
           direccionemisor: remitente.direccion,
@@ -730,6 +732,7 @@ export const NuevaGuiaNotaVentaPage = () => {
           idclienterec: destinatario.id_cliente || 0,
           id_destinatario: destinatario.id_cliente || null,
           cedula_destinatario: destinatario.cedula,
+          tipo_identificacion_destinatario: inferirTipoIdentificacion(destinatario.cedula, destinatario.tipo_identificacion),
           cedula_receptor: destinatario.cedula,
           nombre_destinatario: destinatario.nombres,
           nombre_receptor: destinatario.nombres,
@@ -799,6 +802,7 @@ export const NuevaGuiaNotaVentaPage = () => {
       idclienterem: remitente.id_cliente || 0,
       id_remitente: remitente.id_cliente || null,
       cedula_remitente: remitente.cedula,
+      tipo_identificacion_remitente: inferirTipoIdentificacion(remitente.cedula, remitente.tipo_identificacion),
       nombre_remitente: remitente.nombres,
       direccion_remitente: remitente.direccion,
       direccionemisor: remitente.direccion,
@@ -811,6 +815,7 @@ export const NuevaGuiaNotaVentaPage = () => {
       idclienterec: destinatario.id_cliente || 0,
       id_destinatario: destinatario.id_cliente || null,
       cedula_destinatario: destinatario.cedula,
+      tipo_identificacion_destinatario: inferirTipoIdentificacion(destinatario.cedula, destinatario.tipo_identificacion),
       cedula_receptor: destinatario.cedula,
       nombre_destinatario: destinatario.nombres,
       nombre_receptor: destinatario.nombres,
@@ -837,6 +842,7 @@ export const NuevaGuiaNotaVentaPage = () => {
       id_cliente_otros: 0,
       identidad_otros: facturarA === '3' ? otrosIdentidad : null,
       cedula_otros: facturarA === '3' ? otrosIdentidad : null,
+      tipo_identificacion_otros: facturarA === '3' ? inferirTipoIdentificacion(otrosIdentidad) : null,
       nombre_otros: facturarA === '3' ? otrosNombre : null,
       telefono_otros: facturarA === '3' ? otrosTelefono : null,
       email_otros: facturarA === '3' ? otrosCorreo : null,

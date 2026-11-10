@@ -150,18 +150,27 @@ export const validarIdentificacion = (identificacion, tipo = null) => {
 };
 
 /**
- * Validación para guías: cédula 10 dígitos, RUC 13 dígitos.
- * Se aceptan identificaciones alfanuméricas (pasaporte) de 5 a 20 caracteres.
+ * Validación para guías.
+ *
+ * Si se conoce el tipo (cédula / RUC / pasaporte) se valida con esa regla.
+ * Si no, se acepta cédula (10 dígitos), RUC (13 dígitos) y pasaporte
+ * (5 a 20 caracteres alfanuméricos, incluidos los pasaportes solo numéricos
+ * de otros países, que no tienen 10 ni 13 dígitos).
  */
-export const validarIdentificacionGuia = (identificacion) => {
+export const validarIdentificacionGuia = (identificacion, tipo = null) => {
   const valor = String(identificacion ?? '').trim();
   if (!valor) return { valido: false, mensaje: 'La identificación es obligatoria.' };
+
+  if (normalizarTipoIdentificacion(tipo)) {
+    return validarIdentificacion(valor, tipo);
+  }
+
   if (esSoloDigitos(valor)) {
-    if (valor.length === 10) return { valido: true, mensaje: '' };
-    if (valor.length === 13) return { valido: true, mensaje: '' };
+    // 10 = cédula, 13 = RUC, cualquier otro largo de 5 a 20 = pasaporte numérico
+    if (valor.length >= 5 && valor.length <= 20) return { valido: true, mensaje: '' };
     return {
       valido: false,
-      mensaje: `Debe tener 10 dígitos (cédula), 13 dígitos (RUC) o 5 a 20 caracteres alfanuméricos (pasaporte); se ingresaron ${valor.length}.`
+      mensaje: `Debe tener entre 5 y 20 caracteres (pasaporte) o 10/13 dígitos (cédula/RUC); se ingresaron ${valor.length}.`
     };
   }
   if (/^[A-Za-z0-9]{5,20}$/.test(valor)) return { valido: true, mensaje: '' };

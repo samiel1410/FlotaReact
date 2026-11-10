@@ -167,10 +167,23 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       }
     }
     setLoading(true);
+    const clienteData = {
+      id_cliente: null,
+      cedula: newCliente.identificacion_cliente,
+      nombres: newCliente.nombre_cliente,
+      direccion: newCliente.direccion_cliente,
+      telefono: newCliente.telefono_cliente,
+      email: newCliente.correo_cliente,
+      telefono2: newCliente.telefono2,
+      tipo_identificacion: inferirTipoIdentificacion(
+        newCliente.identificacion_cliente,
+        newCliente.tipo_identificacion_cliente
+      )
+    };
     try {
-      await GuiaService.buscarClientePorIdentificacion(newCliente.identificacion_cliente);
-      // El backend de ingresarActualizarCliente crea o actualiza
-      await clienteApi.post('/cliente/ingresarActualizarCliente', {
+      // El directorio de clientes es externo: si rechaza el pasaporte no debe
+      // impedir vender la guía, porque la identificación se guarda en la guía.
+      const respuesta = await clienteApi.post('/cliente/ingresarActualizarCliente', {
         identificacion_cliente: newCliente.identificacion_cliente,
         tipo_identificacion_cliente: newCliente.tipo_identificacion_cliente,
         nombre_cliente: newCliente.nombre_cliente,
@@ -178,21 +191,24 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         correo_cliente: newCliente.correo_cliente,
         telefono_cliente: (newCliente.telefono_cliente || '').replace(/\D/g, '').slice(0, 10)
       });
-      const clienteData = {
-        id_cliente: null,
-        cedula: newCliente.identificacion_cliente,
-        nombres: newCliente.nombre_cliente,
-        direccion: newCliente.direccion_cliente,
-        telefono: newCliente.telefono_cliente,
-        email: newCliente.correo_cliente,
-        telefono2: newCliente.telefono2
-      };
       onChange(clienteData);
       setShowCreateForm(false);
-      toast.success(`${tipo} creado exitosamente`);
+      if (respuesta?.data?.success === false) {
+        toast(
+          `${tipo} agregado solo para esta guía (el directorio de clientes rechazó la identificación).`,
+          { icon: '⚠️', duration: 5000 }
+        );
+      } else {
+        toast.success(`${tipo} creado exitosamente`);
+      }
     } catch (error) {
-      console.error('Error creando cliente:', error);
-      toast.error(error?.response?.data?.message || 'Error al crear el cliente');
+      console.error('Error creando cliente en el directorio:', error);
+      onChange(clienteData);
+      setShowCreateForm(false);
+      toast(
+        `${tipo} agregado solo para esta guía (el directorio de clientes rechazó la identificación).`,
+        { icon: '⚠️', duration: 5000 }
+      );
     } finally {
       setLoading(false);
     }
