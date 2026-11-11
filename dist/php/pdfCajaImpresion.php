@@ -60,7 +60,7 @@ try {
     // son solo-lectura con GROUP BY completo. Ahorra 1 roundtrip (~90ms).
 
     // ─── CONSULTA DATOS BÁSICOS CAJA ─────────────────────────────────────────
-    $query_caja = "SELECT s.nombre_sucursal, c.estado_solicitud, c.id_caja, c.fecha_caja,
+    $query_caja = "SELECT s.nombre_sucursal, s.id_sucursal, c.estado_solicitud, c.id_caja, c.fecha_caja,
         c.apertura_total_caja, c.cierre_total_caja, c.id_fksucursal_caja, c.estado_caja, c.cuadre_caja,
         CONCAT(u.nombre_usuario, ' ', u.apellido_usuario) as usuario,
         c.fecha_hora_cierre, c.id_fkusuario_caja 
@@ -249,22 +249,32 @@ try {
         ];
     }
 
-    // ─── ENTREGADAS EN OFICINA (POR COBRAR) ──────────────────────────────────
-    // Guías entregadas en esta oficina durante el turno pero creadas/facturadas
-    // en otra caja (p. ej. Ambato → entregada en Guayaquil). Antes quedaban
-    // invisibles en todos los cierres: "CAJA (GUÍAS)" filtra por
-    // guia.id_fkcaja_guia y "OTRAS GUÍAS" solo lista cobros ya registrados, así
-    // que una entrega con saldo pendiente no aparecía en ningún reporte.
+    // ─── ENTREGADAS EN OFICINA (COBRADAS / SIN COBRO) ────────────────────────
+    // Guías entregadas en esta oficina durante el turno, sin importar en qué
+    // caja/sucursal se emitieron. Antes quedaban invisibles: "CAJA (GUÍAS)"
+    // filtra por guia.id_fkcaja_guia y "OTRAS GUÍAS" solo lista cobros ya
+    // registrados.
     //
-    // Solo las guías cuya sucursal de emisión es la MISMA oficina de la caja
-    // entran al TOTAL POR COBRAR / TOTAL GENERAL. Las emitidas por otra
-    // sucursal se listan aparte como informativas: su saldo pertenece a la
-    // oficina de origen y no debe inflar lo que esta oficina debe tener.
+    // Regla de negocio: para entregar se cobra. Por eso:
+    //  - guía con cobro registrado (en esta caja o en otra) → es efectivo
+    //    esperado de ESTA caja (se entregó aquí). Se lista con la caja donde
+    //    quedó el comprobante (ej. guía 020-213-000000042 de la caja 50 se
+    //    entregó sin cobro y el comprobante se registró en la caja 114).
+    //  - guía sin ningún cobro registrado → queda POR COBRAR (dato incompleto:
+    //    una entrega sin cobro no debería existir).
     $entregadasOficina = [];
     $entregadasOtrasOficinas = [];
+    $cobradoEntregadasOficina = 0.0;
+    $cobradoEntregadasOtrasOficinas = 0.0;
+    $sinCobroEntregadasOficina = 0.0;
+    $sinCobroEntregadasOtrasOficinas = 0.0;
     $total_por_cobrar_oficina = 0.0;
     $total_por_cobrar_otras_oficinas = 0.0;
     $idSucursalCaja = (int)($vals_caja['id_fksucursal_caja'] ?? 0);
+    // id_sucursal (PK de sucursal2): es el valor que guarda
+    // guias_entregadas.id_fkdestino_llegada, no el suc_codigo_sucursal.
+    $idSucursalCajaPk = (int)($vals_caja['id_sucursal'] ?? 0);
+    $esCajaCerrada = strtoupper(trim((string)($vals_caja['estado_caja'] ?? ''))) === 'CERRADA';
     $cierreCajaSql = (string)($vals_caja['fecha_hora_cierre'] ?? '');
     $finPeriodoCaja = ($cierreCajaSql !== '' && strpos($cierreCajaSql, '0000-00-00') !== 0)
         ? $cierreCajaSql
@@ -274,16 +284,27 @@ try {
         $fechaIniSql = mysqli_real_escape_string($conn, (string)$fecha_apertura);
         $fechaFinSql = mysqli_real_escape_string($conn, $finPeriodoCaja);
 
+        // El "cobrado" se corta en la fecha de cierre: un cobro posterior (en
+        // otra caja) no debe hacer desaparecer un saldo que sí estaba
+        // pendiente al cerrar. La oficina de entrega es
+        // guias_entregadas.id_fkdestino_llegada (id_sucursal); el usuario que
+        // registró la entrega solo se usa como respaldo si el destino no está
+        // informado, porque puede pertenecer a otra agencia.
+        // `caja_cobro` indica en qué caja quedó registrado el cobro de la guía
+        // (0 = sin cobro registrado). Regla de negocio: para entregar se cobra,
+        // así que ese dinero es efectivo esperado de la oficina de entrega
+        // aunque el comprobante se haya creado después o en otra caja.
         $query_entregadas = "SELECT g.id_guia, g.punto_emision_guia, g.numero_guia, g.total_guia,
             g.sucursal_guia,
             s.punto_emision_sucursal,
             COALESCE(h.cobrado, 0) AS cobrado,
             COALESCE(g.total_guia, 0) - COALESCE(h.cobrado, 0) AS por_cobrar,
+            COALESCE(cob.caja_cobro, 0) AS caja_cobro,
             MAX(ge.fecha_hora_entrega) AS fecha_entrega
         FROM guias_entregadas ge
         INNER JOIN guia g ON g.id_guia = ge.id_fkguia_guias_entregadas
         INNER JOIN sucursal2 s ON g.sucursal_guia = s.suc_codigo_sucursal
-        INNER JOIN usuario u ON u.id_usuario = COALESCE(NULLIF(ge.id_fkusuario_llegada, 0), ge.id_usuario_entrego)
+        LEFT JOIN usuario u ON u.id_usuario = COALESCE(NULLIF(ge.id_fkusuario_llegada, 0), ge.id_usuario_entrego)
         LEFT JOIN (
             SELECT fa.id_fkguia_factura, SUM(cc.monto_comprobante_cobro) AS cobrado
             FROM comprobante_cobro cc
@@ -291,15 +312,27 @@ try {
             LEFT JOIN forma_pago fp ON cc.id_fkforma_pago = fp.id_forma_pago
             WHERE cc.estado_comprobante_cobro = 'COBRADA'
             AND COALESCE(fp.tipo_forma_pago, 0) <> 4
+            AND cc.fecha_creacion_comprobante_cobro <= '$fechaFinSql'
             GROUP BY fa.id_fkguia_factura
         ) h ON h.id_fkguia_factura = g.id_guia
-        WHERE u.id_fksucursal_usuario = $idSucursalCaja
+        LEFT JOIN (
+            SELECT fa2.id_fkguia_factura, MAX(cc2.id_fkcaja_comprobante_cobro) AS caja_cobro
+            FROM factura fa2
+            INNER JOIN comprobante_cobro cc2 ON cc2.id_fkfactura_comprobante_cobro = fa2.id_factura
+            LEFT JOIN forma_pago fp2 ON cc2.id_fkforma_pago = fp2.id_forma_pago
+            WHERE cc2.estado_comprobante_cobro = 'COBRADA'
+            AND COALESCE(fp2.tipo_forma_pago, 0) <> 4
+            AND COALESCE(cc2.monto_comprobante_cobro, 0) > 0
+            GROUP BY fa2.id_fkguia_factura
+        ) cob ON cob.id_fkguia_factura = g.id_guia
+        WHERE (ge.id_fkdestino_llegada = $idSucursalCajaPk
+               OR (COALESCE(ge.id_fkdestino_llegada, 0) = 0 AND u.id_fksucursal_usuario = $idSucursalCaja))
           AND ge.estado_guias_entregadas = 2
           AND ge.fecha_hora_entrega >= '$fechaIniSql'
           AND ge.fecha_hora_entrega <= '$fechaFinSql'
           AND g.id_fkcaja_guia <> $id_caja
           AND g.estado_guia IN (1, 3)
-        GROUP BY g.id_guia, g.punto_emision_guia, g.numero_guia, g.total_guia, g.sucursal_guia, s.punto_emision_sucursal, h.cobrado
+        GROUP BY g.id_guia, g.punto_emision_guia, g.numero_guia, g.total_guia, g.sucursal_guia, s.punto_emision_sucursal, h.cobrado, cob.caja_cobro
         HAVING por_cobrar > 0.009
         ORDER BY fecha_entrega ASC, g.id_guia ASC";
 
@@ -312,19 +345,30 @@ try {
                 if ($porCobrarEnt <= 0) {
                     continue;
                 }
-                $registro = [
+                $cajaCobroEnt = (int)($vals_ent['caja_cobro'] ?? 0);
+                $registroEnt = [
                     'guia' => $num_ent,
                     'total' => (float)$vals_ent['total_guia'],
                     'por_cobrar' => $porCobrarEnt,
+                    'caja_cobro' => $cajaCobroEnt,
                 ];
-                // Solo las guías emitidas por esta misma oficina suman al
-                // por cobrar del cierre; las de otra sucursal se informan.
-                if ((int)$vals_ent['sucursal_guia'] === $idSucursalCaja) {
-                    $total_por_cobrar_oficina += $porCobrarEnt;
-                    $entregadasOficina[] = $registro;
+                // Se separan solo por oficina de origen (para mostrarlas en
+                // dos listas).
+                $esOficinaPropia = ((int)$vals_ent['sucursal_guia'] === $idSucursalCaja);
+                if ($esOficinaPropia) {
+                    $entregadasOficina[] = $registroEnt;
+                    if ($cajaCobroEnt > 0) {
+                        $cobradoEntregadasOficina += $porCobrarEnt;
+                    } else {
+                        $sinCobroEntregadasOficina += $porCobrarEnt;
+                    }
                 } else {
-                    $total_por_cobrar_otras_oficinas += $porCobrarEnt;
-                    $entregadasOtrasOficinas[] = $registro;
+                    $entregadasOtrasOficinas[] = $registroEnt;
+                    if ($cajaCobroEnt > 0) {
+                        $cobradoEntregadasOtrasOficinas += $porCobrarEnt;
+                    } else {
+                        $sinCobroEntregadasOtrasOficinas += $porCobrarEnt;
+                    }
                 }
             }
         } else {
@@ -362,12 +406,23 @@ try {
         ];
     }
 
-    // Guías entregadas en esta oficina con saldo pendiente y emisión de la
-    // misma oficina: forman parte del por cobrar del cierre. Las de otras
-    // sucursales quedan solo como informativas.
-    $total_por_cobrar += $total_por_cobrar_oficina;
+    // Guías entregadas en esta oficina sin cobro registrado: no hay dinero en
+    // ninguna caja, así que se muestran como saldo por cobrar.
+    $total_por_cobrar_oficina = $sinCobroEntregadasOficina;
+    $total_por_cobrar_otras_oficinas = $sinCobroEntregadasOtrasOficinas;
+    $total_por_cobrar += $total_por_cobrar_oficina + $total_por_cobrar_otras_oficinas;
 
     $total_cobrado = $total_final + $total_otras_guias;
+
+    // Cobros de guías entregadas aquí que quedaron registrados en otra caja
+    // (o después del cierre): por la regla "para entregar se cobra" ese dinero
+    // es efectivo esperado de esta caja. Solo aplica al cierre: mientras la
+    // caja está abierta el cobro en otra caja no está en este cajón.
+    $cobradoEntregadasTotal = round($cobradoEntregadasOficina + $cobradoEntregadasOtrasOficinas, 2);
+    $ajusteEntregadas = $esCajaCerrada ? $cobradoEntregadasTotal : 0.0;
+    if (!$esCajaCerrada) {
+        $total_por_cobrar += $cobradoEntregadasTotal;
+    }
 
     // ─── SALDO CAJA ─────────────────────────────────────────────────────────
     $sqlSaldoCaja = "CALL saldoCaja($id_caja)";
@@ -399,9 +454,14 @@ try {
     // Efectivo esperado en la caja: apertura + ingresos - egresos + cobros en
     // efectivo. Se calcula DESPUÉS del SP y es el mismo valor del bloque
     // ESPERADO de la cabecera, para que el resumen no contradiga el cuadre.
+    // Se suma el cobro de guías entregadas aquí registrado en otra caja: la
+    // guía se entregó en esta oficina, por lo que ese dinero se esperaba aquí.
     $total_efectivo_caja = $esperado_sp !== null
         ? $esperado_sp
         : round($total_apertura + $total_ingresos - $total_egresos + (float)($efectivo_sp ?? 0), 2);
+    $total_efectivo_caja = round((float)$total_efectivo_caja + $ajusteEntregadas, 2);
+    $cobradoEfectivoCaja = round((float)($efectivo_sp ?? 0) + $ajusteEntregadas, 2);
+    $total_cobrado = round($total_cobrado + $ajusteEntregadas, 2);
 
     // ─── CACHÉ NIVEL 2: PDF por hash de datos (evita el render TCPDF) ────────
     // La firma incluye las listas reales: un cambio de número, monto o estado
@@ -410,12 +470,13 @@ try {
         $guias, $guiasPorCobrar, $otrasGuias, $entregadasOficina, $entregadasOtrasOficinas
     ]));
     $datosHash = md5(json_encode([
-        'render-v5', $firmaGuias,
+        'render-v7', $firmaGuias,
         $id_caja, $total_apertura, $cierre_total_caja, $fecha_hora_cierre, $estado_cuadre, $saldo,
         $total_cobrado, $total_por_cobrar, $total_egresos, $total_ingresos, $total_cantidad,
         $total_por_cobrar_oficina, count($guias), count($otrasGuias), count($entregadasOficina),
         count($entregadasOtrasOficinas), $total_por_cobrar_otras_oficinas,
-        count($egresos_ingresos), count($guiasPorCobrar), $total_guias_por_cobrar, $total_efectivo_caja
+        count($egresos_ingresos), count($guiasPorCobrar), $total_guias_por_cobrar, $total_efectivo_caja,
+        $ajusteEntregadas, $cobradoEfectivoCaja
     ]));
     $cachePdfFile = $pdfCacheDir . 'caja_imp_' . $id_caja . '_' . $datosHash . '.pdf';
 
@@ -448,9 +509,10 @@ try {
         + ($hayPendientesAnular ? 4 : 0)
         + (count($guiasPorCobrar) > 0 ? 16 + (count($guiasPorCobrar) * 3.7) : 0)
         + (count($otrasGuias) > 0 ? 14 + (count($otrasGuias) * 3.7) : 0)
-        + (count($entregadasOficina) > 0 ? 14 + (count($entregadasOficina) * 3.7) : 0)
-        + (count($entregadasOtrasOficinas) > 0 ? 16 + (count($entregadasOtrasOficinas) * 3.7) : 0)
-        + (count($egresos_ingresos) > 0 ? 10 + (count($egresos_ingresos) * 3.7) : 0);
+        + (count($entregadasOficina) > 0 ? 14 + (count($entregadasOficina) * 3.7) + ($sinCobroEntregadasOficina > 0.009 ? 4 : 0) : 0)
+        + (count($entregadasOtrasOficinas) > 0 ? 16 + (count($entregadasOtrasOficinas) * 3.7) + ($sinCobroEntregadasOtrasOficinas > 0.009 ? 4 : 0) : 0)
+        + (count($egresos_ingresos) > 0 ? 10 + (count($egresos_ingresos) * 3.7) : 0)
+        + ($ajusteEntregadas > 0 ? 10 : 0);
 
     $pdf = new TCPDF('P', 'mm', array($anchoPapel, $altoEstimado), true, 'UTF-8', false);
     $pdf->setFontSubsetting(false);
@@ -510,8 +572,18 @@ try {
     $pdf->SetX($margen + 1);
     // Cuadre: se compara lo CONTADO contra lo ESPERADO (apertura + ingresos -
     // egresos + efectivo cobrado). Antes restaba el cierre y marcaba faltante falso.
+    // Si hay cobros de guías entregadas aquí registrados en otra caja, se suman
+    // al esperado: la guía se entregó en esta oficina, así que el dinero debía
+    // quedar aquí y la diferencia sale como faltante real.
     $esperadoCaja = $esperado_sp !== null ? $esperado_sp : 0.0;
     $contadoCaja = $contado_sp !== null ? $contado_sp : $cierre_total_caja;
+    $esperadoCaja = round((float)$esperadoCaja + $ajusteEntregadas, 2);
+    $difCuadre = $saldo;
+    $estadoCuadreMostrado = $estado_cuadre;
+    if ($ajusteEntregadas > 0) {
+        $difCuadre = round($contadoCaja - $esperadoCaja, 2);
+        $estadoCuadreMostrado = abs($difCuadre) < 0.01 ? 'CUADRADO' : ($difCuadre > 0 ? 'SOBRANTE' : 'FALTANTE');
+    }
     $pdf->SetFont('helvetica', '', 7.5);
     $pdf->Cell(
         $anchoUtil - 2,
@@ -526,7 +598,7 @@ try {
     $pdf->Cell(
         $anchoUtil - 2,
         $hLine,
-        'DIF: $' . number_format($saldo, 2) . ' ' . $estado_cuadre,
+        'DIF: ' . ($difCuadre < 0 ? '-$' : '$') . number_format(abs($difCuadre), 2) . ' ' . $estadoCuadreMostrado,
         0,
         1,
         'L'
@@ -621,64 +693,76 @@ try {
         $pdf->Ln(1.5);
     }
 
-    // ─── 4b. ENTREGADAS EN OFICINA (POR COBRAR DE ESTA OFICINA) ─────────────
+    // ─── 4b. ENTREGADAS EN OFICINA (GUÍAS DE ESTA OFICINA) ───────────────────
+    // Se muestra en qué caja quedó el cobro. Si está cobrada, el dinero se suma
+    // al efectivo esperado (se cobra al entregar); si no tiene cobro, queda
+    // como saldo por cobrar.
     if (count($entregadasOficina) > 0) {
         $pdf->SetFont('helvetica', 'B', 8);
         $pdf->Cell($anchoUtil, 4, 'ENTREGADAS AQUI - GUÍAS DE ESTA OFICINA', 0, 1, 'C');
 
         $wGuiaEnt = round($anchoUtil * 0.50, 1);
         $wTotalEnt = round($anchoUtil * 0.22, 1);
-        $wPorCobrarEnt = $anchoUtil - ($wGuiaEnt + $wTotalEnt);
+        $wCobroEnt = $anchoUtil - ($wGuiaEnt + $wTotalEnt);
 
         $pdf->SetFont('helvetica', 'B', 7);
         $pdf->Cell($wGuiaEnt, 4, 'GUIA', 'B', 0, 'L');
         $pdf->Cell($wTotalEnt, 4, 'TOTAL', 'B', 0, 'R');
-        $pdf->Cell($wPorCobrarEnt, 4, 'POR COBRAR', 'B', 1, 'R');
+        $pdf->Cell($wCobroEnt, 4, 'COBRO', 'B', 1, 'R');
 
         $pdf->SetFont('courier', '', 7);
         foreach ($entregadasOficina as $eof) {
             $pdf->Cell($wGuiaEnt, 3.6, $eof['guia'], 0, 0, 'L');
             $pdf->Cell($wTotalEnt, 3.6, '$' . number_format($eof['total'], 2), 0, 0, 'R');
-            $pdf->Cell($wPorCobrarEnt, 3.6, '$' . number_format($eof['por_cobrar'], 2), 0, 1, 'R');
+            $pdf->Cell($wCobroEnt, 3.6, !empty($eof['caja_cobro']) ? (string)$eof['caja_cobro'] : 'SIN COBRO', 0, 1, 'R');
         }
 
         $pdf->SetFont('helvetica', 'B', 7.5);
-        $pdf->Cell($wGuiaEnt, 4, 'TOTAL PENDIENTE:', 'T', 0, 'L');
-        $pdf->Cell($wTotalEnt, 4, '', 'T', 0, 'R');
-        $pdf->Cell($wPorCobrarEnt, 4, '$' . number_format($total_por_cobrar_oficina, 2), 'T', 1, 'R');
+        $pdf->Cell($wGuiaEnt + $wTotalEnt, 4, 'TOTAL COBRADO:', 'T', 0, 'L');
+        $pdf->Cell($wCobroEnt, 4, '$' . number_format($cobradoEntregadasOficina, 2), 'T', 1, 'R');
+        if ($sinCobroEntregadasOficina > 0.009) {
+            $pdf->Cell($wGuiaEnt + $wTotalEnt, 4, 'TOTAL SIN COBRO (por cobrar):', 0, 0, 'L');
+            $pdf->Cell($wCobroEnt, 4, '$' . number_format($sinCobroEntregadasOficina, 2), 0, 1, 'R');
+        }
+        $pdf->SetFont('helvetica', 'I', 6.3);
+        $pdf->MultiCell($anchoUtil, 3.2, 'Las cobradas suman al efectivo esperado de esta caja (se cobra al entregar). Las de SIN COBRO quedan por cobrar.', 0, 'L', false, 1);
         $pdf->Ln(1.5);
     }
 
-    // ─── 4c. ENTREGADAS DE OTRAS OFICINAS (INFORMATIVO) ─────────────────────
-    // Se muestran para no perderlas de vista, pero NO suman al por cobrar ni
-    // al total general: ese saldo pertenece a la oficina que emitió la guía.
+    // ─── 4c. ENTREGADAS AQUI - GUÍAS DE OTRAS OFICINAS ──────────────────────
+    // La guía se emitió en otra sucursal, pero se entregó aquí: por la regla
+    // "para entregar se cobra", el cobro corresponde a esta oficina. Se indica
+    // en qué caja quedó el comprobante.
     if (count($entregadasOtrasOficinas) > 0) {
         $pdf->SetFont('helvetica', 'B', 8);
         $pdf->Cell($anchoUtil, 4, 'ENTREGADAS AQUI - OTRAS OFICINAS', 0, 1, 'C');
 
         $wGuiaOtr = round($anchoUtil * 0.50, 1);
         $wTotalOtr = round($anchoUtil * 0.22, 1);
-        $wPorCobrarOtr = $anchoUtil - ($wGuiaOtr + $wTotalOtr);
+        $wCobroOtr = $anchoUtil - ($wGuiaOtr + $wTotalOtr);
 
         $pdf->SetFont('helvetica', 'B', 7);
         $pdf->Cell($wGuiaOtr, 4, 'GUIA', 'B', 0, 'L');
         $pdf->Cell($wTotalOtr, 4, 'TOTAL', 'B', 0, 'R');
-        $pdf->Cell($wPorCobrarOtr, 4, 'POR COBRAR', 'B', 1, 'R');
+        $pdf->Cell($wCobroOtr, 4, 'COBRO', 'B', 1, 'R');
 
         $pdf->SetFont('courier', '', 7);
         foreach ($entregadasOtrasOficinas as $eoo) {
             $pdf->Cell($wGuiaOtr, 3.6, $eoo['guia'], 0, 0, 'L');
             $pdf->Cell($wTotalOtr, 3.6, '$' . number_format($eoo['total'], 2), 0, 0, 'R');
-            $pdf->Cell($wPorCobrarOtr, 3.6, '$' . number_format($eoo['por_cobrar'], 2), 0, 1, 'R');
+            $pdf->Cell($wCobroOtr, 3.6, !empty($eoo['caja_cobro']) ? (string)$eoo['caja_cobro'] : 'SIN COBRO', 0, 1, 'R');
         }
 
         $pdf->SetFont('helvetica', 'B', 7.5);
-        $pdf->Cell($wGuiaOtr, 4, 'TOTAL (INFORMATIVO):', 'T', 0, 'L');
-        $pdf->Cell($wTotalOtr, 4, '', 'T', 0, 'R');
-        $pdf->Cell($wPorCobrarOtr, 4, '$' . number_format($total_por_cobrar_otras_oficinas, 2), 'T', 1, 'R');
+        $pdf->Cell($wGuiaOtr + $wTotalOtr, 4, 'TOTAL COBRADO:', 'T', 0, 'L');
+        $pdf->Cell($wCobroOtr, 4, '$' . number_format($cobradoEntregadasOtrasOficinas, 2), 'T', 1, 'R');
+        if ($sinCobroEntregadasOtrasOficinas > 0.009) {
+            $pdf->Cell($wGuiaOtr + $wTotalOtr, 4, 'TOTAL SIN COBRO (por cobrar):', 0, 0, 'L');
+            $pdf->Cell($wCobroOtr, 4, '$' . number_format($sinCobroEntregadasOtrasOficinas, 2), 0, 1, 'R');
+        }
 
         $pdf->SetFont('helvetica', 'I', 6.3);
-        $pdf->MultiCell($anchoUtil, 3.2, 'Pertenece a la oficina de origen: no se suma al total general de esta caja.', 0, 'L', false, 1);
+        $pdf->MultiCell($anchoUtil, 3.2, 'Se entrega en esta oficina: el cobro se suma al efectivo esperado de esta caja. La columna COBRO indica la caja donde quedo el comprobante.', 0, 'L', false, 1);
         $pdf->Ln(1.5);
     }
 
@@ -713,7 +797,7 @@ try {
     // El TOTAL GENERAL es lo que debe quedar al final cuando se cobre todo.
     $totalesSummary = [
         ['TOTAL COBRADO:', '$' . number_format($total_cobrado, 2)],
-        ['COBRADO EN EFECTIVO:', '$' . number_format((float)($efectivo_sp ?? 0), 2)],
+        ['COBRADO EN EFECTIVO:', '$' . number_format($cobradoEfectivoCaja, 2)],
         ['TOTAL EGRESOS:', '$' . number_format($total_egresos, 2)],
         ['TOTAL INGRESOS:', '$' . number_format($total_ingresos, 2)],
         ['TOTAL CANTIDAD:', (string)$total_cantidad],
@@ -722,6 +806,12 @@ try {
         ['TOTAL GENERAL:', '$' . number_format($total_efectivo_caja + $total_por_cobrar, 2)],
     ];
 
+    // Cuando el cobro de una guía entregada aquí quedó en otra caja, se explica
+    // en el resumen para que el ESPERADO (mayor al contado) no confunda.
+    if ($ajusteEntregadas > 0) {
+        $totalesSummary[] = ['INCLUYE COBRO EN OTRA CAJA:', '$' . number_format($ajusteEntregadas, 2)];
+    }
+
     foreach ($totalesSummary as $idx => $ts) {
         $pdf->SetFont('helvetica', ($idx >= 5) ? 'B' : '', 7.5);
         $pdf->Cell($wK, $hTot, $ts[0], 0, 0, 'L');
@@ -729,7 +819,7 @@ try {
     }
 
     $pdf->SetFont('helvetica', 'I', 6.3);
-    $pdf->MultiCell($anchoUtil, 3.2, 'TOTAL GENERAL = esperado en caja + por cobrar de esta oficina: es lo que debe quedar al cobrar todo. Los saldos de guías de otras oficinas no se suman.', 0, 'L', false, 1);
+    $pdf->MultiCell($anchoUtil, 3.2, 'TOTAL GENERAL = esperado en caja + por cobrar de esta oficina. Toda guia entregada aqui se considera cobrada (se cobra al entregar); si el comprobante quedo en otra caja se muestra en la columna COBRO.', 0, 'L', false, 1);
 
     $pdf->Ln(2);
     $pdf->SetFont('helvetica', '', 6.5);

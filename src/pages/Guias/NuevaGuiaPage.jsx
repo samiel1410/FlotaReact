@@ -481,18 +481,24 @@ export const NuevaGuiaPage = () => {
     setOtrosLoading(true);
     try {
       const res = await GuiaService.buscarClientePorIdentificacion(otrosIdentidad);
-      const data = res?.data;
-      if (data && (data.id_cliente || data.id)) {
-        setOtrosNombre(data.nombres || data.nombre || '');
-        setOtrosTelefono(data.telefono || '');
-        setOtrosCorreo(data.email || data.correo || '');
-        setOtrosDireccion(data.direccion || '');
-        
-        const correoOtrosCliente = data.email || data.correo || '';
-        const validacionCorreoOtros = validarCorreo(correoOtrosCliente, { permitirVacio: true });
-        if (!data.telefono || !correoOtrosCliente || !validacionCorreoOtros.valido) {
+      // El API de clientes devuelve { success, total, data: [ { ... } ] }
+      const lista = Array.isArray(res?.data) ? res.data : (res?.data ? [res.data] : []);
+      const data = lista[0];
+      if (res?.success !== false && data && (data.id_cliente || data.id)) {
+        const nombre = data.nombre_cliente || data.nombres || data.nombre || '';
+        const telefono = data.telefono_cliente || data.telefono || '';
+        const correo = data.email_cliente || data.email || data.correo || '';
+        const direccion = data.direccion_cliente || data.direccion || '';
+
+        setOtrosNombre(nombre);
+        setOtrosTelefono(telefono);
+        setOtrosCorreo(correo);
+        setOtrosDireccion(direccion);
+
+        const validacionCorreoOtros = validarCorreo(correo, { permitirVacio: true });
+        if (!telefono || !correo || !validacionCorreoOtros.valido) {
           toast.error(
-            correoOtrosCliente && !validacionCorreoOtros.valido
+            correo && !validacionCorreoOtros.valido
               ? `El correo del cliente "Otros" no es válido: ${describirCorreo(validacionCorreoOtros)}`
               : 'El cliente "Otros" no tiene correo o teléfono. Debe actualizarlos para continuar.'
           );

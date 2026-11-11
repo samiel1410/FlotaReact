@@ -257,7 +257,9 @@ authApi.interceptors.request.use(config => {
 // Instancia para búsqueda de clientes. Ya NO llama directo a clientesfp: pasa por el
 // intermediario interno del backend (/clientes-externos) para no salir a la red externa.
 export const clienteApi = axios.create({
-  timeout: 15000,
+  // La primera consulta de una cédula/RUC nueva tarda varios segundos porque el
+  // servicio de clientes consulta al proveedor externo y luego lo cachea.
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },

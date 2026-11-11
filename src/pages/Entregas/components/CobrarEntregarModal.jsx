@@ -19,6 +19,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   const [buscandoCliente, setBuscandoCliente] = useState(false);
   const [clienteInfo, setClienteInfo] = useState(null);
   const [clienteFotoUrl, setClienteFotoUrl] = useState(null);
+  const [errorCliente, setErrorCliente] = useState('');
   const [nombreRecibe, setNombreRecibe] = useState('');
 
   const [formData, setFormData] = useState({
@@ -99,6 +100,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
 
     const buscarCliente = async (ident) => {
       setBuscandoCliente(true);
+      setErrorCliente('');
       try {
         const res = await GuiaService.buscarClientePorIdentificacion(ident);
         if (cancelado) return;
@@ -111,6 +113,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
           setClienteInfo(null);
           setClienteFotoUrl(null);
           setNombreRecibe('');
+          setErrorCliente('No se pudo consultar el cliente. Verifique la conexión e intente de nuevo.');
         }
       }
       if (!cancelado) setBuscandoCliente(false);
@@ -123,6 +126,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
       setClienteInfo(null);
       setClienteFotoUrl(null);
       setNombreRecibe('');
+      setErrorCliente('');
     }
 
     return () => { cancelado = true; };
@@ -391,9 +395,13 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                 )}
 
                 {!buscandoCliente && !clienteInfo && formData.cedula_recibe.length >= 10 && (
-                  <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Identificación no registrada</p>
-                    <p className="text-[11px] text-amber-700">No es un cliente del sistema; escriba el nombre de quien recibe.</p>
+                  <div className={`mt-2 border rounded-lg px-3 py-2 ${errorCliente ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider ${errorCliente ? 'text-red-700' : 'text-amber-700'}`}>
+                      {errorCliente ? 'No se pudo consultar' : 'Identificación no registrada'}
+                    </p>
+                    <p className={`text-[11px] ${errorCliente ? 'text-red-700' : 'text-amber-700'}`}>
+                      {errorCliente || 'No es un cliente del sistema; escriba el nombre de quien recibe.'}
+                    </p>
                   </div>
                 )}
               </div>
