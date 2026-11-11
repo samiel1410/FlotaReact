@@ -268,6 +268,7 @@ try {
     $cobradoEntregadasOtrasOficinas = 0.0;
     $sinCobroEntregadasOficina = 0.0;
     $sinCobroEntregadasOtrasOficinas = 0.0;
+    $cajasCobroEntregadas = [];
     $total_por_cobrar_oficina = 0.0;
     $total_por_cobrar_otras_oficinas = 0.0;
     $idSucursalCaja = (int)($vals_caja['id_fksucursal_caja'] ?? 0);
@@ -346,6 +347,9 @@ try {
                     continue;
                 }
                 $cajaCobroEnt = (int)($vals_ent['caja_cobro'] ?? 0);
+                if ($cajaCobroEnt > 0) {
+                    $cajasCobroEntregadas[$cajaCobroEnt] = true;
+                }
                 $registroEnt = [
                     'guia' => $num_ent,
                     'total' => (float)$vals_ent['total_guia'],
@@ -578,11 +582,20 @@ try {
     $esperadoCaja = $esperado_sp !== null ? $esperado_sp : 0.0;
     $contadoCaja = $contado_sp !== null ? $contado_sp : $cierre_total_caja;
     $esperadoCaja = round((float)$esperadoCaja + $ajusteEntregadas, 2);
-    $difCuadre = $saldo;
-    $estadoCuadreMostrado = $estado_cuadre;
+    $textoDif = 'DIF: $' . number_format($saldo, 2) . ' ' . $estado_cuadre;
     if ($ajusteEntregadas > 0) {
         $difCuadre = round($contadoCaja - $esperadoCaja, 2);
-        $estadoCuadreMostrado = abs($difCuadre) < 0.01 ? 'CUADRADO' : ($difCuadre > 0 ? 'SOBRANTE' : 'FALTANTE');
+        if (abs($difCuadre) < 0.01) {
+            $textoDif = 'DIF: $0.00 CUADRADO';
+        } elseif ($difCuadre < 0 && abs($difCuadre + $ajusteEntregadas) < 0.01) {
+            // La diferencia es exactamente el cobro registrado en otra caja:
+            // no es dinero perdido, está contado en esa caja.
+            $textoDif = 'DIF: $' . number_format(abs($difCuadre), 2)
+                . ' COBRADO EN CAJA ' . implode(', ', array_keys($cajasCobroEntregadas));
+        } else {
+            $textoDif = 'DIF: ' . ($difCuadre < 0 ? '-$' : '$') . number_format(abs($difCuadre), 2)
+                . ' ' . ($difCuadre > 0 ? 'SOBRANTE' : 'FALTANTE');
+        }
     }
     $pdf->SetFont('helvetica', '', 7.5);
     $pdf->Cell(
@@ -598,7 +611,7 @@ try {
     $pdf->Cell(
         $anchoUtil - 2,
         $hLine,
-        'DIF: ' . ($difCuadre < 0 ? '-$' : '$') . number_format(abs($difCuadre), 2) . ' ' . $estadoCuadreMostrado,
+        $textoDif,
         0,
         1,
         'L'
@@ -718,14 +731,19 @@ try {
         }
 
         $pdf->SetFont('helvetica', 'B', 7.5);
-        $pdf->Cell($wGuiaEnt + $wTotalEnt, 4, 'TOTAL COBRADO:', 'T', 0, 'L');
-        $pdf->Cell($wCobroEnt, 4, '$' . number_format($cobradoEntregadasOficina, 2), 'T', 1, 'R');
+        if ($cobradoEntregadasOficina > 0.009) {
+            $pdf->Cell($wGuiaEnt + $wTotalEnt, 4, 'TOTAL COBRADO:', 'T', 0, 'L');
+            $pdf->Cell($wCobroEnt, 4, '$' . number_format($cobradoEntregadasOficina, 2), 'T', 1, 'R');
+        }
         if ($sinCobroEntregadasOficina > 0.009) {
-            $pdf->Cell($wGuiaEnt + $wTotalEnt, 4, 'TOTAL SIN COBRO (por cobrar):', 0, 0, 'L');
-            $pdf->Cell($wCobroEnt, 4, '$' . number_format($sinCobroEntregadasOficina, 2), 0, 1, 'R');
+            $pdf->Cell($wGuiaEnt + $wTotalEnt, 4, 'TOTAL SIN COBRO (por cobrar):', 'T', 0, 'L');
+            $pdf->Cell($wCobroEnt, 4, '$' . number_format($sinCobroEntregadasOficina, 2), 'T', 1, 'R');
         }
         $pdf->SetFont('helvetica', 'I', 6.3);
-        $pdf->MultiCell($anchoUtil, 3.2, 'Las cobradas suman al efectivo esperado de esta caja (se cobra al entregar). Las de SIN COBRO quedan por cobrar.', 0, 'L', false, 1);
+        $notaEntOficina = $cobradoEntregadasOficina > 0.009
+            ? 'Las cobradas suman al efectivo esperado de esta caja (se cobra al entregar).'
+            : 'Sin cobro registrado: quedan por cobrar. Corrija el cobro de la entrega.';
+        $pdf->MultiCell($anchoUtil, 3.2, $notaEntOficina, 0, 'L', false, 1);
         $pdf->Ln(1.5);
     }
 
@@ -754,15 +772,20 @@ try {
         }
 
         $pdf->SetFont('helvetica', 'B', 7.5);
-        $pdf->Cell($wGuiaOtr + $wTotalOtr, 4, 'TOTAL COBRADO:', 'T', 0, 'L');
-        $pdf->Cell($wCobroOtr, 4, '$' . number_format($cobradoEntregadasOtrasOficinas, 2), 'T', 1, 'R');
+        if ($cobradoEntregadasOtrasOficinas > 0.009) {
+            $pdf->Cell($wGuiaOtr + $wTotalOtr, 4, 'TOTAL COBRADO:', 'T', 0, 'L');
+            $pdf->Cell($wCobroOtr, 4, '$' . number_format($cobradoEntregadasOtrasOficinas, 2), 'T', 1, 'R');
+        }
         if ($sinCobroEntregadasOtrasOficinas > 0.009) {
-            $pdf->Cell($wGuiaOtr + $wTotalOtr, 4, 'TOTAL SIN COBRO (por cobrar):', 0, 0, 'L');
-            $pdf->Cell($wCobroOtr, 4, '$' . number_format($sinCobroEntregadasOtrasOficinas, 2), 0, 1, 'R');
+            $pdf->Cell($wGuiaOtr + $wTotalOtr, 4, 'TOTAL SIN COBRO (por cobrar):', 'T', 0, 'L');
+            $pdf->Cell($wCobroOtr, 4, '$' . number_format($sinCobroEntregadasOtrasOficinas, 2), 'T', 1, 'R');
         }
 
         $pdf->SetFont('helvetica', 'I', 6.3);
-        $pdf->MultiCell($anchoUtil, 3.2, 'Se entrega en esta oficina: el cobro se suma al efectivo esperado de esta caja. La columna COBRO indica la caja donde quedo el comprobante.', 0, 'L', false, 1);
+        $notaEntOtras = $cobradoEntregadasOtrasOficinas > 0.009
+            ? 'Se entrega en esta oficina: el cobro suma al efectivo esperado. COBRO indica la caja donde quedo el comprobante.'
+            : 'Sin cobro registrado: quedan por cobrar. Corrija el cobro de la entrega.';
+        $pdf->MultiCell($anchoUtil, 3.2, $notaEntOtras, 0, 'L', false, 1);
         $pdf->Ln(1.5);
     }
 
@@ -819,7 +842,7 @@ try {
     }
 
     $pdf->SetFont('helvetica', 'I', 6.3);
-    $pdf->MultiCell($anchoUtil, 3.2, 'TOTAL GENERAL = esperado en caja + por cobrar de esta oficina. Toda guia entregada aqui se considera cobrada (se cobra al entregar); si el comprobante quedo en otra caja se muestra en la columna COBRO.', 0, 'L', false, 1);
+    $pdf->MultiCell($anchoUtil, 3.2, 'TOTAL GENERAL = esperado en caja + por cobrar de esta oficina. Las guias entregadas aqui con cobro registrado suman al esperado (se cobra al entregar); las de SIN COBRO quedan por cobrar.', 0, 'L', false, 1);
 
     $pdf->Ln(2);
     $pdf->SetFont('helvetica', '', 6.5);
