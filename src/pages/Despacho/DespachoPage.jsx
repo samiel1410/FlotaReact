@@ -375,7 +375,7 @@ export const DespachoPage = () => {
                   <th className="px-4 py-3 text-center w-20"># ENCOM.</th>
                   <th className="px-4 py-3 text-center w-24">AHORRO</th>
                   <th className="px-4 py-3 text-center w-24">ESTADO</th>
-                  <th className="px-4 py-3 text-center w-32">ACCIONES</th>
+                  <th className="px-4 py-3 text-center w-32 sticky right-0 z-20 bg-slate-100 border-l border-slate-200 shadow-[-8px_0_12px_-10px_rgba(15,23,42,0.35)]">ACCIONES</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -407,7 +407,7 @@ export const DespachoPage = () => {
                       String(d.id_destino) === String(d.id_fkorigen_despacho);
 
                     return (
-                      <tr key={d.id_despacho_maestro || idx} className="hover:bg-slate-50 transition-colors">
+                      <tr key={d.id_despacho_maestro || idx} className="group hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3 text-center font-bold text-slate-700 font-mono">
                           #{d.numero_despacho_maestro || d.id_despacho_maestro || '-'}
                         </td>
@@ -505,13 +505,13 @@ export const DespachoPage = () => {
                         <td className="px-4 py-3 text-center">
                           {renderEstado(d.estado_despacho_maestro)}
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-3 text-center sticky right-0 z-10 bg-white group-hover:bg-slate-50 transition-colors border-l border-slate-200 shadow-[-8px_0_12px_-10px_rgba(15,23,42,0.25)]">
                           <div className="flex items-center justify-center gap-1">
                             {/* Finalizar despacho (solo activo) */}
                             <button
                               onClick={() => handleFinalizarDespacho(d)}
                               disabled={String(d.estado_despacho_maestro) !== '1'}
-                              className="p-1.5 rounded-lg transition-all enabled:text-emerald-600 enabled:hover:bg-emerald-50 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              className="p-1.5 rounded-lg transition-all enabled:text-emerald-600 enabled:hover:bg-emerald-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                               title={String(d.estado_despacho_maestro) === '1' ? 'Finalizar Despacho' : 'Despacho ya finalizado'}
                             >
                               <i className="fas fa-flag-checkered text-sm"></i>
@@ -520,7 +520,7 @@ export const DespachoPage = () => {
                             <button
                               onClick={() => handlePdf(d)}
                               disabled={String(d.estado_despacho_maestro) !== '2'}
-                              className="p-1.5 rounded-lg transition-all enabled:text-rose-500 enabled:hover:bg-rose-50 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              className="p-1.5 rounded-lg transition-all enabled:text-rose-500 enabled:hover:bg-rose-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                               title={String(d.estado_despacho_maestro) === '2' ? 'Ver / Imprimir PDF' : 'Finalice el despacho para habilitar el PDF'}
                             >
                               <i className="fas fa-file-pdf text-sm"></i>
@@ -529,7 +529,7 @@ export const DespachoPage = () => {
                             <button
                               onClick={() => handleEditarDespacho(d)}
                               disabled={String(d.estado_despacho_maestro) !== '1'}
-                              className="p-1.5 rounded-lg transition-all enabled:text-amber-500 enabled:hover:bg-amber-50 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              className="p-1.5 rounded-lg transition-all enabled:text-amber-500 enabled:hover:bg-amber-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                               title={String(d.estado_despacho_maestro) === '1' ? 'Editar Despacho' : 'Despacho finalizado: no se puede editar'}
                             >
                               <i className="fas fa-edit text-sm"></i>
@@ -538,7 +538,7 @@ export const DespachoPage = () => {
                             <button
                               onClick={() => handleAgregarGuia(d)}
                               disabled={String(d.estado_despacho_maestro) !== '1'}
-                              className="p-1.5 rounded-lg transition-all enabled:text-indigo-600 enabled:hover:bg-indigo-50 disabled:text-slate-300 disabled:cursor-not-allowed"
+                              className="p-1.5 rounded-lg transition-all enabled:text-indigo-600 enabled:hover:bg-indigo-50 disabled:text-slate-400 disabled:cursor-not-allowed"
                               title={String(d.estado_despacho_maestro) === '1' ? 'Agregar Guías al Despacho' : 'Despacho finalizado: no admite más guías'}
                             >
                               <i className="fas fa-plus-circle text-sm"></i>

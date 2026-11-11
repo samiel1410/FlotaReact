@@ -10,7 +10,7 @@ import Swal from 'sweetalert2';
 
 // 🔷 Fila memoizada de la tabla principal
 const DespachoRow = memo(({ despacho, onPdf, onEditar, onAgregarGuiaClick, formatDate, renderEstado }) => (
-  <tr className="hover:bg-slate-50/70 transition-colors">
+  <tr className="group hover:bg-slate-50/70 transition-colors">
     <td className="px-4 py-3 text-sm font-bold text-slate-700">
       {despacho.numero_despacho_maestro_convenios || '-'}
     </td>
@@ -34,7 +34,7 @@ const DespachoRow = memo(({ despacho, onPdf, onEditar, onAgregarGuiaClick, forma
     <td className="px-4 py-3 text-center">
       {renderEstado(despacho.estado_despacho_maestro_convenios)}
     </td>
-    <td className="px-4 py-3">
+    <td className="px-4 py-3 sticky right-0 z-10 bg-white group-hover:bg-slate-50/70 transition-colors border-l border-slate-200 shadow-[-8px_0_12px_-10px_rgba(15,23,42,0.25)]">
       <div className="flex items-center justify-center gap-1">
         <button onClick={() => onPdf(despacho)} className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-all" title="PDF">
           <i className="fas fa-file-pdf text-sm"></i>
@@ -440,7 +440,7 @@ export const DespachoGuiasPage = () => {
                     <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Sucursal</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider"># Guías</th>
                     <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-16">Estado</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-32">Acciones</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider w-32 sticky right-0 z-20 bg-slate-50 border-l border-slate-200 shadow-[-8px_0_12px_-10px_rgba(15,23,42,0.35)]">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
