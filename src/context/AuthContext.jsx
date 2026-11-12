@@ -347,16 +347,26 @@ export const AuthProvider = ({ children }) => {
     return false;
   }, [user, hasRole, permisos]);
 
-  // Alcance de datos: true si el rol solo puede ver sus propios registros en
-  // el módulo indicado. Si el rol no lo configuró se aplica la regla histórica.
-  const alcanceSoloPropios = useCallback((modulo) => {
+  // Alcance de datos configurado en el rol para el módulo indicado.
+  // Devuelve true (solo propios), false (todos) o undefined (heredar).
+  const alcanceDelModulo = useCallback((modulo) => {
     const configurado = permisos?.alcance?.[modulo];
-    if (typeof configurado === 'boolean') return configurado;
+    return typeof configurado === 'boolean' ? configurado : undefined;
+  }, [permisos]);
+
+  // Alcance efectivo: true si el listado queda limitado a los registros propios.
+  // Sin configuración se aplica la regla histórica de cada listado.
+  const alcanceSoloPropios = useCallback((modulo) => {
+    const configurado = alcanceDelModulo(modulo);
+    if (configurado !== undefined) return configurado;
 
     const rolNum = parseInt(user?.rol_usuario || user?.rol || 0, 10);
-    if (modulo === 'despachos') return !(rolNum === 1 || rolNum === 5);
+    const esAdmin = rolNum === 1 || rolNum === 5;
+    // En boletería el panel de filtros fija el usuario actual para no-admin.
+    if (modulo === 'boletos') return !esAdmin;
+    if (modulo === 'despachos') return !esAdmin;
     return rolNum === 4;
-  }, [permisos, user]);
+  }, [alcanceDelModulo, user]);
 
   // Nombre del usuario para mostrar
   const userName = user?.nombre || user?.username || user?.usuario || '';
@@ -414,7 +424,7 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, loginFromImpersonation, hasRole, hasPermission, alcanceSoloPropios, refreshPermisos, userName, userRole }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, loginFromImpersonation, hasRole, hasPermission, alcanceSoloPropios, alcanceDelModulo, refreshPermisos, userName, userRole }}>
       {!loading && children}
     </AuthContext.Provider>
   );

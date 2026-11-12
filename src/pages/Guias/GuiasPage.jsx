@@ -17,10 +17,12 @@ import MotivoModal from '../../components/common/MotivoModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import { PrintSelectorModal } from './components/PrintSelectorModal';
 import { clasificarCorreosGuia } from '../../utils/emailValidation';
+import { AlcancePropiosAviso } from '../../components/common/AlcancePropiosAviso';
 import Swal from 'sweetalert2';
 
 export const GuiasPage = () => {
-  const { user, userRole } = useAuth();
+  const { user, userRole, alcanceSoloPropios } = useAuth();
+  const verSoloPropios = alcanceSoloPropios('guias');
   const rolUsuario = Number(user?.rol_usuario || user?.id_fkrol_usuario || userRole || 0);
   const puedeAprobar = rolUsuario === 1 || rolUsuario === 5;
   const [guias, setGuias] = useState([]);
@@ -529,6 +531,7 @@ export const GuiasPage = () => {
       </div>
 
       <div className="guias-content">
+        <AlcancePropiosAviso mostrar={verSoloPropios} className="mx-3 mb-2" />
         <div className={`filter-panel-container ${showFilters ? 'open' : 'collapsed'}`}>
           <GuiasFilterPanel onSearch={handleSearch} visible={showFilters} />
         </div>

@@ -176,8 +176,22 @@ export const GlobalHeader = ({ onMenuToggle }) => {
       });
     };
 
+    // ─── CAJA DESCUADRADA (job de cuadre) ───────────────────────────
+    const handleCajaDescuadrada = (e) => {
+      const data = e.detail || {};
+      const monto = Number(data.diferencia || 0).toFixed(2);
+      addNotificacion({
+        tipo: 'caja_descuadrada',
+        titulo: `⚠️ Caja #${data.id_caja ?? ''} ${data.estado || 'DESCUADRADA'}`.trim(),
+        mensaje: data.mensaje || `${data.sucursal || 'Sucursal'} · diferencia $${monto}`,
+        acciones: [{ label: 'Ver cajas', link: '/caja', icon: 'fa-eye' }],
+        data
+      });
+    };
+
     window.addEventListener('reserva_por_vencer', handleReservaPorVencer);
     window.addEventListener('reserva_confirmada', handleReservaConfirmada);
+    window.addEventListener('caja_descuadrada', handleCajaDescuadrada);
 
     // Escuchar evento de cambio de ciudad de sucursal para refrescar datos
     const handleCiudadChanged = () => {
@@ -194,6 +208,7 @@ export const GlobalHeader = ({ onMenuToggle }) => {
       window.removeEventListener('sucursal_ciudad_changed', handleCiudadChanged);
       window.removeEventListener('reserva_por_vencer', handleReservaPorVencer);
       window.removeEventListener('reserva_confirmada', handleReservaConfirmada);
+      window.removeEventListener('caja_descuadrada', handleCajaDescuadrada);
       window.removeEventListener('metodo_impresion_changed', handleMetodoChanged);
     };
   }, []);
@@ -393,9 +408,16 @@ export const GlobalHeader = ({ onMenuToggle }) => {
                     >
                       <div className="flex items-start gap-3">
                         <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-                          notif.tipo === 'reserva_por_vencer' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
+                          notif.tipo === 'caja_descuadrada'
+                            ? (String(notif.data?.estado || '').toUpperCase() === 'SOBRANTE'
+                                ? 'bg-amber-100 text-amber-600'
+                                : 'bg-red-100 text-red-600')
+                            : notif.tipo === 'reserva_por_vencer' ? 'bg-amber-100 text-amber-600' : 'bg-emerald-100 text-emerald-600'
                         }`}>
-                          <i className={`fas fa-${notif.tipo === 'reserva_por_vencer' ? 'clock' : 'check-circle'} text-xs`}></i>
+                          <i className={`fas fa-${
+                            notif.tipo === 'caja_descuadrada' ? 'exclamation-triangle'
+                              : notif.tipo === 'reserva_por_vencer' ? 'clock' : 'check-circle'
+                          } text-xs`}></i>
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[10px] font-black text-slate-800 mb-0.5 uppercase tracking-tight">

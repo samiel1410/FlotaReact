@@ -3,6 +3,7 @@ import { io } from 'socket.io-client';
 import toast from 'react-hot-toast';
 import { CONFIG } from '../config/env';
 import { useAuth } from './useAuth';
+import { reproducirAlertaDescuadre } from '../utils/alertaSonido';
 
 export const useSocket = () => {
   const [socket, setSocket] = useState(null);
@@ -233,6 +234,40 @@ export const useSocket = () => {
           whiteSpace: 'pre-line',
         },
       });
+    });
+
+    // ─── CAJA DESCUADRADA (job de cuadre cada 30 min) ─────────────────────
+    // El job recalcula el cuadre de las cajas cerradas recientes y avisa solo
+    // cuando el estado cambia. Se reproduce un sonido y se muestra el aviso.
+    newSocket.on('caja_descuadrada', (data) => {
+      if (!data) return;
+
+      reproducirAlertaDescuadre();
+      window.dispatchEvent(new CustomEvent('caja_descuadrada', { detail: data }));
+
+      const esSobrante = String(data.estado || '').toUpperCase() === 'SOBRANTE';
+      const monto = Number(data.diferencia || 0).toFixed(2);
+      toast(data.mensaje || `Caja #${data.id_caja} ${data.estado} por $${monto}`, {
+        id: `caja-descuadrada-${data.id_caja}`,
+        duration: 12000,
+        icon: '⚠️',
+        style: {
+          background: esSobrante ? '#fffbeb' : '#fef2f2',
+          border: `1px solid ${esSobrante ? '#fde68a' : '#fecaca'}`,
+          color: esSobrante ? '#92400e' : '#991b1b',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          fontFamily: 'Outfit, sans-serif',
+          fontSize: '12px',
+          fontWeight: 500,
+          whiteSpace: 'pre-line',
+        },
+      });
+    });
+
+    // El job actualizó estados de cuadre: refrescar listados abiertos
+    newSocket.on('cajas_cuadre_actualizado', (data) => {
+      window.dispatchEvent(new CustomEvent('cajas_cuadre_actualizado', { detail: data }));
     });
 
     return () => {

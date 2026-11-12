@@ -17,10 +17,16 @@ const MESES = [
 
 export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, alcanceDelModulo } = useAuth();
   const rolNum = parseInt(user?.rol_usuario || user?.rol || 0, 10);
   const isRolAdmin = rolNum === 5 || rolNum === 1;
   const currentUserId = user?.id_usuario || user?.id || '';
+  // Alcance configurado en Roles → Permisos. Si no está configurado se mantiene
+  // el comportamiento histórico: los no administradores filtran por su usuario.
+  const alcanceBoletos = alcanceDelModulo('boletos');
+  const usuarioFiltroDefecto = (alcanceBoletos === undefined ? !isRolAdmin : alcanceBoletos)
+    ? currentUserId
+    : '';
 
   // Modales de búsqueda (las listas son largas y no caben en un <select>).
   const [showRutaModal, setShowRutaModal] = useState(false);
@@ -35,7 +41,7 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
   for (let a = anioActual + 1; a >= anioActual - 4; a--) aniosDisponibles.push(String(a));
 
   const [formData, setFormData] = useState({
-    id_usuario: !isRolAdmin ? currentUserId : '',
+    id_usuario: usuarioFiltroDefecto,
     id_bus: '',
     id_ruta: '',
     estado: '4',
@@ -73,7 +79,7 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
 
   const handleClear = () => {
     const resetData = {
-      id_usuario: !isRolAdmin ? currentUserId : '',
+      id_usuario: usuarioFiltroDefecto,
       id_bus: '',
       id_ruta: '',
       estado: '4',
@@ -165,7 +171,7 @@ export const BoleteriaFilterPanel = ({ onSearch, onSriLote }) => {
             />
           </div>
 
-          {isRolAdmin
+          {(isRolAdmin || !usuarioFiltroDefecto)
             ? campoBusqueda({
                 label: 'Usuario',
                 icon: 'fa-user',

@@ -209,7 +209,7 @@ export const ALCANCE_DATOS = {
     },
     despacho_convenios: {
       label: 'Despachos de Convenios',
-      hereda: 'Supervisor: solo los suyos. Resto: los de su oficina.',
+      hereda: 'Super Administrador: todos. Supervisor: solo los suyos. Resto: los de su oficina.',
     },
     despacho_notas_venta: {
       label: 'Despachos Nota Venta',

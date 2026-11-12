@@ -186,7 +186,7 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, onTotalesCha
             <th style={{ width: '12%', minWidth: '90px' }}>Destino</th>
             <th style={{ width: '7%', minWidth: '50px' }}>Asiento</th>
             <th style={{ width: '15%', minWidth: '100px' }}>Cédula / RUC</th>
-            <th style={{ width: '22%', minWidth: '120px' }}>Nombre</th>
+            <th style={{ width: '22%', minWidth: '120px' }}>Pasajero</th>
             <th style={{ width: '10%', minWidth: '70px' }} className="text-right">Valor</th>
             <th style={{ width: '10%', minWidth: '70px' }} className="text-right">Dcto</th>
             <th style={{ width: '14%', minWidth: '100px' }}>Tarifa</th>

@@ -5,6 +5,7 @@ import { NuevoDespachoGuiaCompaniaModal } from './components/NuevoDespachoGuiaCo
 import { BusquedaGuiaDespachoModal } from './components/BusquedaGuiaDespachoModal';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
+import { AlcancePropiosAviso } from '../../components/common/AlcancePropiosAviso';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
@@ -73,7 +74,8 @@ const DetalleRow = memo(({ detalle, onQuitarGuia }) => (
 ));
 
 export const DespachoGuiasPage = () => {
-  const { user } = useAuth();
+  const { user, alcanceSoloPropios } = useAuth();
+  const verSoloPropios = alcanceSoloPropios('despacho_convenios');
   // El despacho guarda la sucursal de destino como suc_codigo_sucursal,
   // por eso se prioriza la sucursal del usuario (no id_fkdestino_usuario).
   const usuarioSucursalId = user?.id_fksucursal_usuario || user?.sucursal_usuario || user?.id_fksucursal || user?.id_oficina || user?.id_sucursal || user?.id_fkdestino_usuario;
@@ -353,6 +355,7 @@ export const DespachoGuiasPage = () => {
       </div>
 
       <div className="p-4">
+        <AlcancePropiosAviso mostrar={verSoloPropios} className="mb-3" />
         {/* ─── FILTROS ─── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4">
           <div className="flex items-center gap-4 flex-wrap">

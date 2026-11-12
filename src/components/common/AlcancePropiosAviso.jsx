@@ -12,8 +12,8 @@ export const AlcancePropiosAviso = ({ mostrar, className = '' }) => {
       <i className="fas fa-user-shield mt-0.5 text-amber-600"></i>
       <div>
         <b>Estás viendo solo tus registros.</b>{' '}
-        Tu rol tiene activado el alcance <b>Solo los suyos</b> en este listado. Un administrador
-        puede cambiarlo en <b>Roles → Permisos → Alcance de Datos</b>.
+        Este listado está limitado a los registros de tu usuario. Un administrador puede
+        ampliarlo en <b>Roles → Permisos → Alcance de Datos</b>.
       </div>
     </div>
   );

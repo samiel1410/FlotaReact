@@ -5,6 +5,7 @@ import { NuevoDespachoGuiaNotaVentaModal } from './components/NuevoDespachoGuiaN
 import { BusquedaGuiaDespachoNotaVentaModal } from './components/BusquedaGuiaDespachoNotaVentaModal';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
+import { AlcancePropiosAviso } from '../../components/common/AlcancePropiosAviso';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
 
@@ -73,7 +74,8 @@ const DetalleRow = memo(({ detalle, onQuitarGuia }) => (
 ));
 
 export const DespachoGuiasNotaVentaPage = () => {
-  const { user } = useAuth();
+  const { user, alcanceSoloPropios } = useAuth();
+  const verSoloPropios = alcanceSoloPropios('despacho_notas_venta');
   // En notas de venta el despacho guarda id_destino, no el código de sucursal.
   const usuarioDestinoId = user?.id_fkdestino_usuario || '';
 
@@ -352,6 +354,7 @@ export const DespachoGuiasNotaVentaPage = () => {
       </div>
 
       <div className="p-4">
+        <AlcancePropiosAviso mostrar={verSoloPropios} className="mb-3" />
         {/* ─── FILTROS ─── */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4">
           <div className="flex items-center gap-4 flex-wrap">

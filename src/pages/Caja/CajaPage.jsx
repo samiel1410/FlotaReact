@@ -76,6 +76,19 @@ export const CajaPage = () => {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  // ─── REFRESCO POR EL JOB DE CUADRE ─────────────────────────────────────
+  // El job recalcula el cuadre cada 30 min y avisa por socket; si el listado
+  // está abierto se recarga para mostrar el estado vigente sin tocar F5.
+  useEffect(() => {
+    const handleCuadreActualizado = (e) => {
+      const cambios = Array.isArray(e?.detail?.cambios) ? e.detail.cambios : [];
+      if (cambios.length === 0) return;
+      loadData();
+    };
+    window.addEventListener('cajas_cuadre_actualizado', handleCuadreActualizado);
+    return () => window.removeEventListener('cajas_cuadre_actualizado', handleCuadreActualizado);
+  }, [loadData]);
+
   // ─── VALIDAR CAJA ABIERTA ──────────────────────────────────────────────
   useEffect(() => {
     cajaService.validarCaja().then(res => {

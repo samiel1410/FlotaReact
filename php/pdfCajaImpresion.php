@@ -134,8 +134,10 @@ try {
         SUM(v.cantidad_detalle_guia) as cantidad,
         COALESCE(h.monto_comprobante_cobro, 0) as cobrado,
         COALESCE(a.total_guia, 0) - COALESCE(h.monto_comprobante_cobro, 0) as por_cobrar,
-        (SELECT GROUP_CONCAT(DISTINCT CONCAT(fa2.punto_emision_factura, '-', LPAD(fa2.numero_factura, 9, '0')) SEPARATOR ', ')
-           FROM factura fa2 WHERE fa2.id_fkguia_factura = a.id_guia) AS facturas
+        (SELECT GROUP_CONCAT(DISTINCT CONCAT(sf.punto_emision_sucursal, '-', fa2.punto_emision_factura, '-', LPAD(fa2.numero_factura, 9, '0')) SEPARATOR ', ')
+           FROM factura fa2
+           INNER JOIN sucursal2 sf ON sf.suc_codigo_sucursal = fa2.id_fksucursal_factura
+          WHERE fa2.id_fkguia_factura = a.id_guia) AS facturas
     FROM guia as a
     INNER JOIN sucursal2 as f ON a.sucursal_guia = f.suc_codigo_sucursal
     LEFT JOIN detalle_guia as v ON a.id_guia = v.id_fkguia_detalle_envio

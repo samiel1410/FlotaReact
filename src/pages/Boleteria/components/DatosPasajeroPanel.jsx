@@ -45,13 +45,16 @@ export const DatosPasajeroPanel = ({
         borderBottom: '1px solid #e2e8f0', paddingBottom: 3
       }}>
         <i className="fas fa-user" style={{ marginRight: 5, color: '#0a365d', fontSize: 13 }}></i>
-        Datos del Pasajero
+        Datos del Cliente (Factura)
+      </div>
+      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: -3, marginBottom: 5 }}>
+        Se usan para la factura y para precargar cada asiento nuevo. El pasajero de cada asiento se edita en la Lista de Asientos.
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px' }}>
         {/* FILA 1 - IZQUIERDA: CI / RUC + Botones */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <label style={labelStyle}>
-            Num CI:
+            CI/RUC:
           </label>
           <input
             type="text"
@@ -144,7 +147,7 @@ export const DatosPasajeroPanel = ({
             type="text"
             value={formData.nombres}
             onChange={e => onFieldChange('nombres', e.target.value)}
-            placeholder="Nombre completo"
+            placeholder="Nombre o razón social"
             style={inputStyle}
           />
         </div>

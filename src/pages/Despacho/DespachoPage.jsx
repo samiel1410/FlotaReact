@@ -12,12 +12,16 @@ import { SearchableSelect } from '../../components/common/SearchableSelect';
 import { DateRangePicker } from '../../components/common/DateRangePicker';
 import { CONFIG } from '../../config/env';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
+import { useAuth } from '../../context/AuthContext';
+import { AlcancePropiosAviso } from '../../components/common/AlcancePropiosAviso';
 
 const PAGE_SIZE = 25;
 const inputCls = 'w-full h-9 px-3 text-xs font-semibold border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none bg-white';
 const labelCls = 'block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1';
 
 export const DespachoPage = () => {
+  const { alcanceSoloPropios } = useAuth();
+  const verSoloPropios = alcanceSoloPropios('despachos');
   // ─── Estado Principal ──────────────────────────────────────
   const [despachos, setDespachos] = useState([]);
   const [buses, setBuses] = useState([]);
@@ -274,6 +278,7 @@ export const DespachoPage = () => {
         </div>
 
         {/* ─── FILTROS DE BÚSQUEDA ─── */}
+        <AlcancePropiosAviso mostrar={verSoloPropios} />
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
           <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Filtros de Búsqueda</div>
           

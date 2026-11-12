@@ -1268,8 +1268,8 @@ export const NuevoBoletoPage = () => {
       : formData.pasajeros.some(p => !p.id_destino && !subrutaSeleccionada)) {
       errores.push('• Seleccionar un destino/tarifa');
     }
-    if (!formData.identificacion) errores.push('• Ingresar identificación del pasajero');
-    if (!formData.nombres) errores.push('• Ingresar nombre del pasajero');
+    if (!formData.identificacion) errores.push('• Ingresar identificación del cliente (factura)');
+    if (!formData.nombres) errores.push('• Ingresar nombre del cliente (factura)');
     if (formData.celular && !/^[0-9]{10}$/.test(formData.celular)) {
       errores.push('• El celular debe contener exactamente 10 dígitos numéricos');
     }
@@ -1335,7 +1335,7 @@ export const NuevoBoletoPage = () => {
       html: `
         <div style="text-align:center">
           <p style="font-size:16px;font-weight:bold;color:#0a365d">${formData.pasajeros.length} asiento(s)</p>
-          <p style="font-size:13px;color:#64748b">Pasajero: ${formData.nombres || '---'}</p>
+          <p style="font-size:13px;color:#64748b">Cliente (factura): ${formData.nombres || '---'}</p>
           <p style="font-size:13px;color:#64748b">Destino: <strong>${destinoTexto}${(formData.puntoFinal || '').trim() ? ' / ' + (formData.puntoFinal || '').trim().toUpperCase() : ''}</strong></p>
           <p style="font-size:13px;color:#64748b">Total: <strong>$${totalVenta.toFixed(2)}</strong></p>
         </div>
@@ -1392,8 +1392,11 @@ export const NuevoBoletoPage = () => {
         // Punto final real vendido (más allá de la última parada de la ruta).
         punto_final: (formData.puntoFinal || '').trim().slice(0, 120),
         id_origen: formData.origen,
-        identificacion: formData.pasajeros[0]?.cedula || formData.identificacion,
-        nombres: formData.pasajeros[0]?.nombres || formData.nombres,
+        // Datos del facturado (cliente de la factura): salen del panel
+        // "Datos del Cliente (Factura)", NO del primer asiento. Así el pasajero
+        // de un asiento puede ser distinto de quien recibe la factura.
+        identificacion: formData.identificacion,
+        nombres: formData.nombres,
         // Datos de contacto del facturado: el PDF del boleto (boletoFactura.php)
         // y el XML del SRI los leen desde celular_boleto / correo_boleto.
         celular: formData.celular,
@@ -1750,7 +1753,7 @@ export const NuevoBoletoPage = () => {
               alimentoInfo={alimentoInfo}
             />
 
-            {/* Datos del Pasajero */}
+            {/* Datos del Cliente (Factura) */}
             <DatosPasajeroPanel
               formData={formData}
               onFieldChange={(field, val) => {
@@ -1840,6 +1843,9 @@ export const NuevoBoletoPage = () => {
               }}>
                 <i className="fas fa-users" style={{ marginRight: 4, color: '#0a365d', fontSize: 13 }}></i>
                 Lista de Asientos
+                <span style={{ fontWeight: 400, fontSize: 10, color: '#94a3b8', marginLeft: 8 }}>
+                  Nombre y cédula del pasajero de cada asiento (pueden diferir del cliente de la factura)
+                </span>
               </div>
               <PasajerosGrid
                 pasajeros={formData.pasajeros}
