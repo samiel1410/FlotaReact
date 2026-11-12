@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useSocket } from '../../hooks/useSocket';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2'; // Para los prompts y confirmaciones
@@ -9,6 +9,7 @@ export const MonitoreoPage = () => {
   const [loginHistory, setLoginHistory] = useState([]);
   const [lockedSeats, setLockedSeats] = useState([]);
   const [busqueda, setBusqueda] = useState('');
+  const historyPausedRef = useRef(false);
 
   useEffect(() => {
     if (!socket) return;
@@ -20,7 +21,7 @@ export const MonitoreoPage = () => {
 
     socket.on('login_history_data', (data) => {
       console.log('Historial de login:', data);
-      setLoginHistory(data);
+      if (!historyPausedRef.current) setLoginHistory(data);
     });
 
     socket.on('nuevo_login_historial', () => {
@@ -38,7 +39,14 @@ export const MonitoreoPage = () => {
     socket.emit('get_login_history');
     socket.emit('get_locked_asientos');
 
+    // El login lo procesa AuthService (otro servicio), por eso refrescamos
+    // el historial periódicamente mientras la pantalla está abierta.
+    const historyTimer = setInterval(() => {
+      if (!historyPausedRef.current) socket.emit('get_login_history');
+    }, 30000);
+
     return () => {
+      clearInterval(historyTimer);
       socket.off('usuarios_actualizados');
       socket.off('login_history_data');
       socket.off('nuevo_login_historial');
@@ -423,6 +431,7 @@ export const MonitoreoPage = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50 sticky top-0">
                   <tr>
+                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP de Conexión</th>
                     <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha y Hora</th>
@@ -430,8 +439,9 @@ export const MonitoreoPage = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loginHistory.map((entry, index) => (
-                    <tr key={index}>
-                      <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <tr key={`${entry.id_usuario}-${entry.fecha_acceso}-${index}`}>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{entry.id_usuario ?? '—'}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
                         <div className="flex items-center">
                           <i className="fas fa-history mr-2 text-gray-500"></i>
                           {entry.nombre_usuario}
@@ -440,7 +450,7 @@ export const MonitoreoPage = () => {
                       <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
                         <code className="bg-gray-100 p-1 rounded text-xs">{entry.ip_acceso || 'Desconocida'}</code>
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{new Date(entry.fecha_acceso).toLocaleString()}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500">{formatFecha(entry.fecha_acceso)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -451,13 +461,19 @@ export const MonitoreoPage = () => {
           </div>
           <div className="mt-4">
             <button
-              onClick={() => setLoginHistory([])}
+              onClick={() => {
+                historyPausedRef.current = true;
+                setLoginHistory([]);
+              }}
               className="bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out"
             >
               <i className="fas fa-broom mr-2"></i> Limpiar Vista
             </button>
             <button
-              onClick={() => socket.emit('get_login_history')}
+              onClick={() => {
+                historyPausedRef.current = false;
+                socket.emit('get_login_history');
+              }}
               className="ml-4 bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full shadow-md transition duration-300 ease-in-out"
             >
               <i className="fas fa-sync mr-2"></i> REFRESCAR HISTORIAL

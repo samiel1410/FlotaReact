@@ -209,6 +209,8 @@ $mensajeleyenda_configuracion = $vals_configuracion["mensajeleyenda_configuracio
 
 $validar_leyenda = $mensajeleyenda_configuracion;
 $mensaje = $leyendamensaje_configuracion;
+// La leyenda puede venir con marcado enriquecido: este PDF la imprime en texto plano.
+$mensaje = preg_replace('/\[\/?(?:b|i|u|c|s|a)(?:=[^\]]*)?\]/i', '', (string)$mensaje);
 $leyenda = $mensaje;
 
 $html='

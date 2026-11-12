@@ -171,7 +171,7 @@ try {
     // Se resuelve fuera del JSON cacheado para que un cambio de logo se refleje.
     $cfg['logo'] = logoEmpresaParaPdf($conn, $dbKey);
 
-    $leyenda = trim((string)($cfg['leyendamensaje_configuracion'] ?? ''));
+    $leyenda = trim(leyendaTextoPlano($cfg['leyendamensaje_configuracion'] ?? ''));
 
     // ─── FORMA DE PAGO ────────────────────────────────────────────────────────
     $formaPago = 'SIN UTILIZACION DEL SISTEMA FINANCIERO';

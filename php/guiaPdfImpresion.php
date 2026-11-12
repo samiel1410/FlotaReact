@@ -18,11 +18,13 @@ date_default_timezone_set('America/Guayaquil');
 // TTL corto (60s): ventana pequeña de posible stale si la guía se cobra justo después de imprimir.
 define('GUIAIMP_FAST_TTL', 60);
 // Cambiar la versión invalida los PDFs cacheados cuando cambia el diseño del ticket.
-define('GUIAIMP_LAYOUT_VERSION', 'cliente-dir-grande-v3-anulada');
+define('GUIAIMP_LAYOUT_VERSION', 'guia-recepcion-dir-v4');
 
 try {
     $t0 = microtime(true);
     $fecha_actual = date('Y-m-d H:i:s');
+    // Fecha/hora de recepción que se imprime en el encabezado (momento de impresión).
+    $fecha_recepcion_txt = date('d/m/Y H:i');
     $id_guia = isset($_GET['id_guia']) ? (int)$_GET['id_guia'] : 0;
     $reimpreso_por = isset($_GET['reimpreso_por']) ? trim($_GET['reimpreso_por']) : null;
     $tenantId = isset($_GET['tenantId']) ? (int)$_GET['tenantId'] : 1;
@@ -176,14 +178,12 @@ try {
     // Compañía asociada
     $nombre_compania = '';
     $direccion_compania_asociada = '';
-    $numero_contacto = '';
     if ($id_fkcompania_asociada > 0) {
         $destino_escaped = mysqli_real_escape_string($conn, $destino_guia);
         $query_datos_compania = "SELECT 
             ca.nombre_compania_asociada, 
             d.nombre_destino AS direccion_compania_asociada, 
-            d.direccion_exacta, 
-            d.numero_contacto 
+            d.direccion_exacta 
         FROM compania_asociada ca
         LEFT JOIN destino d ON d.lugar_destino = '$destino_escaped'
         WHERE ca.id_compania_asociada = $id_fkcompania_asociada 
@@ -192,7 +192,6 @@ try {
         if ($rec_comp && $row_comp = mysqli_fetch_assoc($rec_comp)) {
             $nombre_compania = limpiarTextoPdf($row_comp['nombre_compania_asociada'] ?? '');
             $direccion_compania_asociada = limpiarTextoPdf($row_comp['direccion_compania_asociada'] ?? '');
-            $numero_contacto = limpiarTextoPdf($row_comp['numero_contacto'] ?? '');
         }
     }
 
@@ -332,6 +331,7 @@ try {
         $numero_factura, $detalles_forma_pago, $total_cobrado,
         count($items_detalle), (string)$reimpreso_por, $imprimir_boucher_guia,
         $ubicacion_usuario, $rutaLogo, (int)($vals_guia['estado_guia'] ?? 0),
+        $leyenda, $fecha_recepcion_txt,
         GUIAIMP_LAYOUT_VERSION
     ]));
     $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
@@ -391,6 +391,10 @@ try {
         $pdf->Cell($lw, 4.2, 'N° MANUAL: ' . $numero_manual_guia, 0, 1, 'C');
     }
 
+    // Fecha y hora de recepción (se imprime en el encabezado, junto al número de guía)
+    $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
+    $pdf->Cell($lw, 4.2, 'FECHA/HORA RECEPCIÓN: ' . $fecha_recepcion_txt, 0, 1, 'C');
+
     if (!empty($ubicacion_usuario)) {
         $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
         $pdf->Cell($lw, 4.2, 'OFICINA - ' . $ubicacion_usuario, 0, 1, 'C');
@@ -406,14 +410,7 @@ try {
         $pdf->SetY($y + 1.8);
     };
 
-    // 3. CLIENTE (remitente)
-    $drawLine();
-    $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_base'] * 1.15, 1));
-    $pdf->Cell($lw, 4.6, 'CLIENTE', 0, 1, 'C');
-    $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 4.4, 'RUC/CI: ' . $cedula_cliente_remitente, 0, 1, 'L');
-    $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.10, 1));
-    $pdf->MultiCell($lw, 5.2, 'Nombre: ' . $nombre_cliente_remitente, 0, 'L', false, 1);
+    // 3. CLIENTE (remitente): se omite esta sección; el remitente se imprime en ORIGEN.
 
     // 4. ORIGEN
     $drawLine();
@@ -446,10 +443,8 @@ try {
     $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.15, 1));
     $pdf->MultiCell($lw, 5.4, 'RECIBE: ' . $nombre_cliente_receptor, 0, 'L', false, 1);
     if ($direccion_cliente_receptor !== '') {
-        $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
-        $pdf->Cell($lw, 4.4, 'DIRECCIÓN:', 0, 1, 'L');
-        $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.10, 1));
-        $pdf->MultiCell($lw, 5.2, strtoupper($direccion_cliente_receptor), 0, 'L', false, 1);
+        $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
+        $pdf->MultiCell($lw, 4.4, 'DIRECCIÓN: ' . strtoupper($direccion_cliente_receptor), 0, 'L', false, 1);
     }
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
     $txtDest = 'TELÉFONO: ' . $telefono_cliente_receptor;
@@ -463,8 +458,15 @@ try {
         $drawLine();
         $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_base']);
         $pdf->Cell($lw, 4.2, 'RETIRAR EN:', 0, 1, 'C');
-        $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-        $pdf->MultiCell($lw, 4.0, 'DIRECCIÓN: ' . $direccion_compania_asociada . "\n" . 'EMPRESA: ' . $nombre_compania . "\n" . 'CONTACTO: ' . $numero_contacto, 0, 'L', false, 1);
+        if ($direccion_compania_asociada !== '') {
+            // Misma medida que tenía la dirección de destino (negrita y grande), sin el contacto.
+            $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.10, 1));
+            $pdf->MultiCell($lw, 5.2, strtoupper($direccion_compania_asociada), 0, 'L', false, 1);
+        }
+        if ($nombre_compania !== '') {
+            $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
+            $pdf->MultiCell($lw, 4.0, 'EMPRESA: ' . $nombre_compania, 0, 'L', false, 1);
+        }
     }
 
     // 7. OBSERVACIÓN (si existe)
@@ -540,8 +542,7 @@ try {
     // 13. LEYENDA Y REIMPRESIÓN
     if (!empty($leyenda)) {
         $drawLine();
-        $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_sub']);
-        $pdf->MultiCell($lw, 4.0, $leyenda, 0, 'C', false, 1);
+        imprimirLeyendaEnriquecida($pdf, $leyenda, $lw, $metricas['font_tcpdf_sub']);
     }
     if ($reimpreso_por) {
         $pdf->SetFont('helvetica', 'BI', $metricas['font_tcpdf_sub']);

@@ -2580,22 +2580,24 @@ export const PAGES_CONFIG = {
           color: 'text-red-500 hover:border-red-200 hover:bg-red-50',
           modal: (row) => {
             const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
-            const esLlegaSucursal = row.es_guia_llega_sucursal;
-            const esGuiaUsuario = row.es_guia_usuario;
+            const esLlegaSucursal = Number(row.es_guia_llega_sucursal) === 1;
+            const esGuiaUsuario = Number(row.es_guia_usuario) === 1;
             const estado = String(row.estado_guia_companias);
 
-            if (esLlegaSucursal === 1 || esLlegaSucursal === '1') {
-              if (estado !== '1') {
-                toast('Solo puedes ver el PDF de entrega cuando la guía está DESPACHADA.', { icon: '⚠️' });
-                return '';
-              }
+            if (!esGuiaUsuario && !esLlegaSucursal) {
+              toast.error('No se puede determinar el tipo de PDF para esta guía.');
+              return '';
+            }
+            if (estado === '2') {
+              toast('La guía está ANULADA y no se puede imprimir.', { icon: '⚠️' });
+              return '';
+            }
+            // DESPACHADA → comprobante de entrega (con firmas)
+            if (estado === '1') {
               return baseUrl + buildPdfUrl(`/php/pdfGuiaEntregasCompania.php?id_guia=${row.id}`);
             }
-            if (esGuiaUsuario === 1 || esGuiaUsuario === '1') {
-              return baseUrl + buildPdfUrl(`/php/pdfGuiaRecibesCompania.php?id_guia=${row.id}`);
-            }
-            toast.error('No se puede determinar el tipo de PDF para esta guía.');
-            return '';
+            // RECEPTADA → comprobante de recepción
+            return baseUrl + buildPdfUrl(`/php/pdfGuiaRecibesCompania.php?id_guia=${row.id}`);
           }
         },
         {

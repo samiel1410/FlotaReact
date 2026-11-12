@@ -764,6 +764,388 @@ function textoFechaHoraCierreCaja($fechaHoraCierre, $estadoCaja, $formato = 'Y-m
 }
 
 /**
+ * Quita el marcado enriquecido de una leyenda dejando solo el texto.
+ * Se usa en documentos que imprimen la leyenda como texto plano.
+ *
+ * @param string|null $texto
+ * @return string
+ */
+function leyendaTextoPlano($texto)
+{
+    $texto = str_replace(["\r\n", "\r"], "\n", (string)$texto);
+    return preg_replace('/\[\/?(?:b|i|u|c|s|a)(?:=[^\]]*)?\]/i', '', $texto);
+}
+
+/**
+ * Convierte el marcado enriquecido de leyendas en párrafos con estilo.
+ *
+ * Marcas admitidas:
+ *   [b]...[/b]            negrita
+ *   [i]...[/i]            cursiva
+ *   [u]...[/u]            subrayado
+ *   [c=#RRGGBB]...[/c]    color de texto
+ *   [s=12]...[/s]         tamaño en puntos
+ *   [a=l|c|r|j]           alineación del renglón
+ *
+ * El texto sin marcas se imprime con el tamaño base y alineación centrada.
+ *
+ * @param string $markup
+ * @param float  $tamanoBase
+ * @return array<int, array{alineacion: string, runs: array<int, array>}>
+ */
+function parsearLeyendaEnriquecida($markup, $tamanoBase = 8.0)
+{
+    $markup = str_replace(["\r\n", "\r"], "\n", (string)$markup);
+    if (trim($markup) === '') {
+        return [];
+    }
+
+    $tamanoBase = (float)$tamanoBase;
+    if ($tamanoBase <= 0) {
+        $tamanoBase = 8.0;
+    }
+
+    $parrafos = [];
+    $runs = [];
+    $alineacion = 'C';
+    $negrita = false;
+    $cursiva = false;
+    $subrayado = false;
+    $color = [0, 0, 0];
+    $tamano = $tamanoBase;
+    $pilas = ['b' => [], 'i' => [], 'u' => [], 'c' => [], 's' => []];
+
+    $cerrarParrafo = function ($forzarVacio = false) use (&$runs, &$parrafos, &$alineacion) {
+        if (!empty($runs)) {
+            $parrafos[] = ['alineacion' => $alineacion, 'runs' => $runs];
+            $runs = [];
+        } elseif ($forzarVacio && !empty($parrafos)) {
+            $parrafos[] = ['alineacion' => $alineacion, 'runs' => []];
+        }
+    };
+
+    $agregarTexto = function ($texto) use (&$runs, &$negrita, &$cursiva, &$subrayado, &$color, &$tamano) {
+        if ($texto === '') {
+            return;
+        }
+        $ultimo = count($runs) - 1;
+        if ($ultimo >= 0
+            && $runs[$ultimo]['negrita'] === $negrita
+            && $runs[$ultimo]['cursiva'] === $cursiva
+            && $runs[$ultimo]['subrayado'] === $subrayado
+            && $runs[$ultimo]['color'] === $color
+            && abs($runs[$ultimo]['tamano'] - $tamano) < 0.001) {
+            $runs[$ultimo]['texto'] .= $texto;
+            return;
+        }
+        $runs[] = [
+            'texto'      => $texto,
+            'negrita'    => $negrita,
+            'cursiva'    => $cursiva,
+            'subrayado'  => $subrayado,
+            'color'      => $color,
+            'tamano'     => $tamano,
+        ];
+    };
+
+    $partes = preg_split('/(\[[^\]\n]{1,24}\])/u', $markup, -1, PREG_SPLIT_DELIM_CAPTURE);
+    foreach ((array)$partes as $parte) {
+        if ($parte === '') {
+            continue;
+        }
+
+        if (preg_match('/^\[([biucsa])(?:=([^\]]*))?\]$/i', $parte, $m)) {
+            $etiqueta = strtolower($m[1]);
+            $valor = trim((string)($m[2] ?? ''));
+            switch ($etiqueta) {
+                case 'b':
+                    $pilas['b'][] = $negrita;
+                    $negrita = true;
+                    break;
+                case 'i':
+                    $pilas['i'][] = $cursiva;
+                    $cursiva = true;
+                    break;
+                case 'u':
+                    $pilas['u'][] = $subrayado;
+                    $subrayado = true;
+                    break;
+                case 'c':
+                    $pilas['c'][] = $color;
+                    $hex = ltrim($valor, '#');
+                    if (preg_match('/^[0-9a-f]{6}$/i', $hex)) {
+                        $color = [
+                            hexdec(substr($hex, 0, 2)),
+                            hexdec(substr($hex, 2, 2)),
+                            hexdec(substr($hex, 4, 2)),
+                        ];
+                    }
+                    break;
+                case 's':
+                    $pilas['s'][] = $tamano;
+                    $nuevo = (float)str_replace(',', '.', $valor);
+                    if ($nuevo >= 4 && $nuevo <= 72) {
+                        $tamano = $nuevo;
+                    }
+                    break;
+                case 'a':
+                    $cerrarParrafo();
+                    $mapa = [
+                        'l' => 'L', 'left' => 'L', 'izq' => 'L', 'izquierda' => 'L',
+                        'c' => 'C', 'center' => 'C', 'centro' => 'C',
+                        'r' => 'R', 'right' => 'R', 'der' => 'R', 'derecha' => 'R',
+                        'j' => 'J', 'justify' => 'J', 'justificado' => 'J',
+                    ];
+                    $clave = strtolower($valor);
+                    if (isset($mapa[$clave])) {
+                        $alineacion = $mapa[$clave];
+                    }
+                    break;
+            }
+            continue;
+        }
+
+        if (preg_match('/^\[\/(b|i|u|c|s|a)\]$/i', $parte, $m)) {
+            $etiqueta = strtolower($m[1]);
+            if ($etiqueta === 'a') {
+                continue;
+            }
+            if (!empty($pilas[$etiqueta])) {
+                $anterior = array_pop($pilas[$etiqueta]);
+                if ($etiqueta === 'b') $negrita = (bool)$anterior;
+                if ($etiqueta === 'i') $cursiva = (bool)$anterior;
+                if ($etiqueta === 'u') $subrayado = (bool)$anterior;
+                if ($etiqueta === 'c') $color = $anterior;
+                if ($etiqueta === 's') $tamano = (float)$anterior;
+            }
+            continue;
+        }
+
+        $lineas = explode("\n", $parte);
+        foreach ($lineas as $indice => $linea) {
+            if ($indice > 0) {
+                $cerrarParrafo(true);
+            }
+            if ($linea !== '') {
+                $agregarTexto($linea);
+            }
+        }
+    }
+
+    $cerrarParrafo();
+
+    return $parrafos;
+}
+
+/**
+ * Devuelve el estilo de fuente TCPDF (B/I/U) de un fragmento de leyenda.
+ */
+function estiloFuenteLeyenda($run)
+{
+    $estilo = '';
+    if (!empty($run['negrita'])) $estilo .= 'B';
+    if (!empty($run['cursiva'])) $estilo .= 'I';
+    if (!empty($run['subrayado'])) $estilo .= 'U';
+    return $estilo;
+}
+
+/**
+ * Acomoda los fragmentos de un párrafo en renglones que caben en $anchoMax.
+ *
+ * @param TCPDF  $pdf
+ * @param array  $runs
+ * @param float  $anchoMax
+ * @param string $familia
+ * @return array<int, array{segmentos: array<int, array>, ancho: float}>
+ */
+function construirLineasLeyenda($pdf, $runs, $anchoMax, $familia = 'helvetica')
+{
+    $lineas = [];
+    $segmentos = [];
+    $anchoLinea = 0.0;
+
+    $cerrarLinea = function () use (&$lineas, &$segmentos, &$anchoLinea) {
+        while (!empty($segmentos)) {
+            $ultimo = count($segmentos) - 1;
+            if (trim($segmentos[$ultimo]['texto']) !== '') {
+                break;
+            }
+            $anchoLinea -= $segmentos[$ultimo]['ancho'];
+            array_pop($segmentos);
+        }
+        $lineas[] = ['segmentos' => $segmentos, 'ancho' => max(0.0, $anchoLinea)];
+        $segmentos = [];
+        $anchoLinea = 0.0;
+    };
+
+    foreach ($runs as $run) {
+        $texto = (string)($run['texto'] ?? '');
+        if ($texto === '') {
+            continue;
+        }
+
+        $tamano = (float)($run['tamano'] ?? 8.0);
+        $estilo = estiloFuenteLeyenda($run);
+        $color = $run['color'] ?? [0, 0, 0];
+        $pdf->SetFont($familia, $estilo, $tamano);
+
+        $tokens = preg_split('/(\s+)/u', $texto, -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        foreach ((array)$tokens as $token) {
+            $esEspacio = trim($token) === '';
+            if ($esEspacio && empty($segmentos)) {
+                continue;
+            }
+
+            $anchoToken = $pdf->GetStringWidth($token);
+
+            if (!$esEspacio && $anchoLinea > 0 && ($anchoLinea + $anchoToken) > $anchoMax) {
+                $cerrarLinea();
+            }
+
+            // Palabra más ancha que el renglón: se parte por caracteres.
+            if (!$esEspacio && $anchoToken > $anchoMax && $anchoMax > 0) {
+                $buffer = '';
+                $chars = preg_split('//u', $token, -1, PREG_SPLIT_NO_EMPTY);
+                foreach ((array)$chars as $char) {
+                    $prueba = $buffer . $char;
+                    $anchoPrueba = $pdf->GetStringWidth($prueba);
+                    if ($buffer !== '' && ($anchoLinea + $anchoPrueba) > $anchoMax) {
+                        $anchoBuffer = $pdf->GetStringWidth($buffer);
+                        $segmentos[] = [
+                            'texto'     => $buffer,
+                            'ancho'     => $anchoBuffer,
+                            'tamano'    => $tamano,
+                            'negrita'   => !empty($run['negrita']),
+                            'cursiva'   => !empty($run['cursiva']),
+                            'subrayado' => !empty($run['subrayado']),
+                            'color'     => $color,
+                        ];
+                        $anchoLinea += $anchoBuffer;
+                        $cerrarLinea();
+                        $buffer = $char;
+                    } else {
+                        $buffer = $prueba;
+                    }
+                }
+                if ($buffer !== '') {
+                    $anchoBuffer = $pdf->GetStringWidth($buffer);
+                    $segmentos[] = [
+                        'texto'     => $buffer,
+                        'ancho'     => $anchoBuffer,
+                        'tamano'    => $tamano,
+                        'negrita'   => !empty($run['negrita']),
+                        'cursiva'   => !empty($run['cursiva']),
+                        'subrayado' => !empty($run['subrayado']),
+                        'color'     => $color,
+                    ];
+                    $anchoLinea += $anchoBuffer;
+                }
+                continue;
+            }
+
+            $segmentos[] = [
+                'texto'     => $token,
+                'ancho'     => $anchoToken,
+                'tamano'    => $tamano,
+                'negrita'   => !empty($run['negrita']),
+                'cursiva'   => !empty($run['cursiva']),
+                'subrayado' => !empty($run['subrayado']),
+                'color'     => $color,
+            ];
+            $anchoLinea += $anchoToken;
+        }
+    }
+
+    if (!empty($segmentos)) {
+        $cerrarLinea();
+    }
+
+    return $lineas;
+}
+
+/**
+ * Imprime una leyenda con formato enriquecido usando métodos nativos de TCPDF
+ * (sin writeHTML) para no perder rendimiento.
+ *
+ * @param TCPDF  $pdf
+ * @param string $markup
+ * @param float  $anchoUtil
+ * @param float  $tamanoBase
+ * @param string $familia
+ * @return void
+ */
+function imprimirLeyendaEnriquecida($pdf, $markup, $anchoUtil, $tamanoBase = 8.0, $familia = 'helvetica')
+{
+    $parrafos = parsearLeyendaEnriquecida($markup, $tamanoBase);
+    if (empty($parrafos)) {
+        return;
+    }
+
+    $anchoUtil = (float)$anchoUtil;
+    if ($anchoUtil <= 0) {
+        return;
+    }
+
+    $tamanoBase = (float)$tamanoBase;
+    if ($tamanoBase <= 0) {
+        $tamanoBase = 8.0;
+    }
+
+    $xInicial = (float)$pdf->GetX();
+    $margenesCelda = $pdf->getCellMargins();
+    $pdf->setCellMargins(0, 0, 0, 0);
+
+    $altoVacio = max(2.4, round($tamanoBase * 0.46, 1));
+
+    foreach ($parrafos as $parrafo) {
+        $runs = $parrafo['runs'] ?? [];
+        if (empty($runs)) {
+            $pdf->SetX($xInicial);
+            $pdf->Ln($altoVacio);
+            continue;
+        }
+
+        $alineacion = $parrafo['alineacion'] ?? 'C';
+        $lineas = construirLineasLeyenda($pdf, $runs, $anchoUtil, $familia);
+
+        foreach ($lineas as $linea) {
+            $tamanoMax = 0.0;
+            foreach ($linea['segmentos'] as $segmento) {
+                $tamanoMax = max($tamanoMax, (float)$segmento['tamano']);
+            }
+            if ($tamanoMax <= 0) {
+                $tamanoMax = $tamanoBase;
+            }
+            $alto = max(2.6, round($tamanoMax * 0.46, 1));
+
+            $x = $xInicial;
+            if ($alineacion === 'C') {
+                $x += max(0.0, ($anchoUtil - $linea['ancho']) / 2);
+            } elseif ($alineacion === 'R') {
+                $x += max(0.0, $anchoUtil - $linea['ancho']);
+            }
+
+            $pdf->SetXY($x, $pdf->GetY());
+
+            foreach ($linea['segmentos'] as $segmento) {
+                $pdf->SetFont($familia, estiloFuenteLeyenda($segmento), (float)$segmento['tamano']);
+                $color = $segmento['color'] ?? [0, 0, 0];
+                $pdf->SetTextColor((int)$color[0], (int)$color[1], (int)$color[2]);
+                $pdf->Write($alto, $segmento['texto']);
+            }
+
+            $pdf->Ln($alto);
+            $pdf->SetX($xInicial);
+        }
+    }
+
+    $pdf->setCellMargins($margenesCelda['L'], $margenesCelda['T'], $margenesCelda['R'], $margenesCelda['B']);
+    $pdf->SetTextColor(0, 0, 0);
+    $pdf->SetFont($familia, '', $tamanoBase);
+    $pdf->SetX($xInicial);
+}
+
+/**
  * Purga única de los caches generados cuando los PDFs todavía imprimían logos
  * (PDFs ya emitidos, logos en tmp/logos y config de empresa con logo_path).
  * Sin esto los documentos cacheados seguirían mostrando el logo viejo hasta que

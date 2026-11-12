@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import { getSistemaModo, getSistemaModoPlan, setSistemaModoCache } from '../../services/sistema.service';
 import { APARIENCIA_DEFAULT, aplicarApariencia, construirPaleta, normalizarColor } from '../../services/apariencia.service';
 import { WhatsAppTestForm } from './components/WhatsAppTestForm';
+import { LeyendaEditor } from './components/LeyendaEditor';
 import { CONFIG } from '../../config/env';
 
 const inputClass = "w-full pl-3 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-100 focus:border-blue-400 outline-none transition-all";
@@ -182,6 +183,8 @@ export const ConfiguracionPage = () => {
 
   const colorSidebarPreview = watch('color_sidebar') || APARIENCIA_DEFAULT.sidebar;
   const colorHeaderPreview = watch('color_header') || APARIENCIA_DEFAULT.header;
+  const leyendaGuias = watch('leyenda');
+  const leyendaGuiaNotaVenta = watch('leyenda_nota_venta');
   const paletaPreview = construirPaleta(colorSidebarPreview, colorHeaderPreview);
 
   const previsualizarColores = (parcial = {}) => {
@@ -854,7 +857,11 @@ export const ConfiguracionPage = () => {
                   </h2>
                   <div>
                     <label className={labelClass}>Leyenda Guías</label>
-                    <textarea {...register('leyenda')} rows="2" className={inputClass} placeholder="Texto en las guías de transporte..."></textarea>
+                    <LeyendaEditor
+                      value={leyendaGuias || ''}
+                      onChange={(valor) => setValue('leyenda', valor, { shouldDirty: true })}
+                      placeholder="Texto en las guías de transporte..."
+                    />
                   </div>
                   <div className="flex items-center gap-2">
                     <input type="checkbox" {...register('maneja_leyenda')} id="maneja_leyenda" className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500" />
@@ -862,7 +869,11 @@ export const ConfiguracionPage = () => {
                   </div>
                   <div>
                     <label className={labelClass}>Leyenda Guías Nota de Venta</label>
-                    <textarea {...register('leyenda_nota_venta')} rows="2" className={inputClass} placeholder="Texto en las guías de nota de venta..."></textarea>
+                    <LeyendaEditor
+                      value={leyendaGuiaNotaVenta || ''}
+                      onChange={(valor) => setValue('leyenda_nota_venta', valor, { shouldDirty: true })}
+                      placeholder="Texto en las guías de nota de venta..."
+                    />
                   </div>
                   <div className="flex items-center gap-2">
                     <input type="checkbox" {...register('maneja_leyenda_nota_venta')} id="maneja_leyenda_nota_venta" className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500" />
