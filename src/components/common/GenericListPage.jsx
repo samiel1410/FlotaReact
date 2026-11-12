@@ -35,7 +35,8 @@ export const GenericListPage = ({ config }) => {
     filters: filterDefs = [],
     actions = {},
     formComponent: FormComponent,
-    customParams
+    customParams,
+    showRowIndex = true
   } = config;
 
   const { data: rawData, loading, total, page, setPage, fetch, PAGE_SIZE } = useListado(endpoint, defaultParams, customParams);
@@ -331,7 +332,9 @@ export const GenericListPage = ({ config }) => {
           <table className="w-full text-left border-collapse table-auto">
             <thead className="bg-slate-50 sticky top-0 z-[1] border-b border-slate-200">
               <tr>
-                <th className="py-2 px-1 text-[9px] font-black text-slate-400 uppercase tracking-widest w-6 text-center">#</th>
+                {showRowIndex && (
+                  <th className="py-2 px-1 text-[9px] font-black text-slate-400 uppercase tracking-widest w-6 text-center">#</th>
+                )}
                 {columns.map(col => (
                   <th key={col.key} className="py-2 px-1 text-[9px] font-black text-slate-500 uppercase tracking-tight whitespace-nowrap">
                     {col.label}
@@ -348,7 +351,7 @@ export const GenericListPage = ({ config }) => {
               {loading ? (
                 Array(15).fill(0).map((_, i) => (
                   <tr key={i}>
-                    <td className="py-1.5 px-1"><Skeleton height={12} /></td>
+                    {showRowIndex && <td className="py-1.5 px-1"><Skeleton height={12} /></td>}
                     {columns.map(col => (
                       <td key={col.key} className="py-1.5 px-1"><Skeleton height={12} /></td>
                     ))}
@@ -360,9 +363,11 @@ export const GenericListPage = ({ config }) => {
                   const rowId = row.id || row.id_buses || row.id_rutas || row.id_viajes || row.id_usuario || row.id_caja || row.id_sucursal || row.id_rol || row.id_personal || row.id_boleto || row.id_destino || row.id_canton || row.id_provincia || row.id_lugar || row.id_sub_rutas || row.id_cliente || row.id_convenio || row.id_inventario || row.id_forma_pago || row.id_tipo_cobro || row.id_comprobante || row.id_reserva || row.id_anulacion || row.id_banco || `row-${i}`;
                   return (
                     <tr key={rowId} className="group hover:bg-indigo-50/30 transition-all duration-75">
-                    <td className="py-1.5 px-1 text-slate-400 font-mono text-[9px] text-center group-hover:text-indigo-500 transition-colors">
-                      {page * PAGE_SIZE + i + 1}
-                    </td>
+                    {showRowIndex && (
+                      <td className="py-1.5 px-1 text-slate-400 font-mono text-[9px] text-center group-hover:text-indigo-500 transition-colors">
+                        {page * PAGE_SIZE + i + 1}
+                      </td>
+                    )}
                     {columns.map(col => (
                       <td key={col.key} className="py-1.5 px-1 text-slate-700 font-bold text-[10px] uppercase tracking-tight">
                         {renderCell(col, row)}
@@ -415,7 +420,7 @@ export const GenericListPage = ({ config }) => {
                 })
               ) : (
                 <tr>
-                  <td colSpan={columns.length + 2} className="py-12 text-center">
+                  <td colSpan={columns.length + (showRowIndex ? 2 : 1)} className="py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <i className="fas fa-folder-open text-xl text-slate-200"></i>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sin registros</p>

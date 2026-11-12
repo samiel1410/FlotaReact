@@ -5,11 +5,30 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import {
   ALL_PERMISSIONS,
+  ALCANCE_DATOS,
+  ALCANCE_OPCIONES,
   parsePermisos,
   permisosVacios,
   normalizarPermisos,
+  normalizarAlcance,
   construirPayloadPermisos,
 } from '../../config/permisos';
+
+const alcanceInicial = () => Object.fromEntries(
+  Object.keys(ALCANCE_DATOS.modulos).map(mod => [mod, 'heredar'])
+);
+
+const seleccionDesdePermisos = (raw) => {
+  const guardado = normalizarAlcance(raw);
+  const seleccion = alcanceInicial();
+
+  Object.keys(ALCANCE_DATOS.modulos).forEach(mod => {
+    if (guardado[mod] === true) seleccion[mod] = 'propios';
+    else if (guardado[mod] === false) seleccion[mod] = 'todos';
+  });
+
+  return seleccion;
+};
 
 export const PermisosRolPage = () => {
   const { id } = useParams();
@@ -19,6 +38,8 @@ export const PermisosRolPage = () => {
   
   const { refreshPermisos } = useAuth();
   const [permisos, setPermisos] = useState(permisosVacios);
+  // Alcance de datos por listado: 'heredar' | 'propios' | 'todos'
+  const [alcance, setAlcance] = useState(alcanceInicial);
   // Se conserva lo que ya estaba en BD para no borrar permisos/módulos desconocidos
   const [permisosOriginales, setPermisosOriginales] = useState({});
   const [loading, setLoading] = useState(true);
@@ -39,15 +60,18 @@ export const PermisosRolPage = () => {
         const parsed = parsePermisos(raw);
         setPermisosOriginales(parsed);
         setPermisos(normalizarPermisos(parsed));
+        setAlcance(seleccionDesdePermisos(parsed));
       } else {
         setPermisosOriginales({});
         setPermisos(permisosVacios());
+        setAlcance(alcanceInicial());
       }
     } catch (err) {
       console.error('Error cargando permisos:', err);
       toast.error('Error al cargar los permisos');
       setPermisosOriginales({});
       setPermisos(permisosVacios());
+      setAlcance(alcanceInicial());
     } finally {
       setLoading(false);
     }
@@ -80,7 +104,7 @@ export const PermisosRolPage = () => {
   const guardarPermisos = async () => {
     setSaving(true);
     try {
-      const payload = construirPayloadPermisos(permisosOriginales, permisos);
+      const payload = construirPayloadPermisos(permisosOriginales, permisos, alcance);
       const res = await api.post('/roles/editarAccionesRoles', {
         id_rol: id,
         valores: JSON.stringify(payload)
@@ -139,7 +163,59 @@ export const PermisosRolPage = () => {
             <span className="text-slate-500 font-medium text-lg">Cargando permisos actuales...</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <>
+            {/* ── ALCANCE DE DATOS (visibilidad de listados) ── */}
+            <div className="bg-white border border-indigo-200 rounded-xl overflow-hidden shadow-sm mb-6">
+              <div className="flex items-center gap-3 px-4 py-3 bg-indigo-50/60 border-b border-indigo-100">
+                <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                  <i className={`${ALCANCE_DATOS.icon} text-sm`}></i>
+                </div>
+                <div>
+                  <h4 className="font-bold text-slate-800 text-sm">{ALCANCE_DATOS.label}</h4>
+                  <p className="text-[10px] text-slate-500 font-medium">{ALCANCE_DATOS.descripcion}</p>
+                </div>
+              </div>
+
+              <div className="divide-y divide-slate-100">
+                {Object.entries(ALCANCE_DATOS.modulos).map(([modKey, moduloAlcance]) => (
+                  <div key={modKey} className="flex flex-col md:flex-row md:items-center justify-between gap-2 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-slate-700">{moduloAlcance.label}</p>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        Heredar = {moduloAlcance.hereda}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg shrink-0">
+                      {ALCANCE_OPCIONES.map(opcion => {
+                        const activo = (alcance[modKey] || 'heredar') === opcion.valor;
+                        const colorActivo = opcion.valor === 'propios'
+                          ? 'bg-amber-500 text-white shadow-sm'
+                          : opcion.valor === 'todos'
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'bg-white text-slate-700 shadow-sm';
+
+                        return (
+                          <button
+                            key={opcion.valor}
+                            type="button"
+                            title={opcion.detalle}
+                            onClick={() => setAlcance(prev => ({ ...prev, [modKey]: opcion.valor }))}
+                            className={`px-3 py-1.5 text-[10px] font-bold rounded-md transition-all ${
+                              activo ? colorActivo : 'text-slate-500 hover:text-slate-700'
+                            }`}
+                          >
+                            {opcion.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Object.keys(ALL_PERMISSIONS).map(modKey => {
               const modulo = ALL_PERMISSIONS[modKey];
               const permisosMod = permisos[modKey] || {};
@@ -323,7 +399,8 @@ export const PermisosRolPage = () => {
                 </div>
               );
             })}
-          </div>
+            </div>
+          </>
         )}
       </div>
     </div>

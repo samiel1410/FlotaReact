@@ -11,8 +11,12 @@ import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { validarCorreo, describirCorreo } from '../../utils/emailValidation';
 import { validarCorreo as validarCorreoApi, getEstadoCorreo } from '../../services/sistema.service';
+import { useAuth } from '../../context/AuthContext';
+import { AlcancePropiosAviso } from '../../components/common/AlcancePropiosAviso';
 
 export const BoleteriaPage = () => {
+  const { alcanceSoloPropios } = useAuth();
+  const verSoloPropios = alcanceSoloPropios('boletos');
   const [boletos, setBoletos] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -504,6 +508,7 @@ export const BoleteriaPage = () => {
       </div>
 
       <div className="boleteria-content">
+        <AlcancePropiosAviso mostrar={verSoloPropios} className="mx-3 mb-2" />
         <BoleteriaFilterPanel onSearch={handleSearch} onSriLote={handleSriLote} />
 
         {estadoCorreo?.bloqueado && (

@@ -181,6 +181,49 @@ export const ALL_PERMISSIONS = {
   }
 };
 
+// ── Alcance de datos de los listados ────────────────────────────────────────
+// Permite que un rol vea solo sus propios registros o los de todos.
+// En BD se guarda dentro del JSON de permisos del rol:
+//   "alcance": { "boletos": true, "guias": false }
+//   true = solo los suyos · false = todos · sin la clave = hereda la regla actual
+export const ALCANCE_DATOS = {
+  label: 'Alcance de Datos',
+  icon: 'fas fa-user-shield',
+  descripcion: 'Controla si el rol ve únicamente sus registros o los de todos los usuarios en cada listado.',
+  modulos: {
+    boletos: {
+      label: 'Listado de Boletos',
+      hereda: 'Supervisor: solo los suyos. Resto: todos.',
+    },
+    guias: {
+      label: 'Listado de Guías',
+      hereda: 'Supervisor: solo las suyas. Resto: todas.',
+    },
+    guias_nota_venta: {
+      label: 'Listado Guías Nota Venta',
+      hereda: 'Supervisor: solo las suyas. Resto: todas.',
+    },
+    despachos: {
+      label: 'Listado de Despachos',
+      hereda: 'Administrador: todos. Resto: solo los suyos.',
+    },
+    despacho_convenios: {
+      label: 'Despachos de Convenios',
+      hereda: 'Supervisor: solo los suyos. Resto: los de su oficina.',
+    },
+    despacho_notas_venta: {
+      label: 'Despachos Nota Venta',
+      hereda: 'Supervisor: solo los suyos. Resto: los de su destino.',
+    },
+  },
+};
+
+export const ALCANCE_OPCIONES = [
+  { valor: 'heredar', label: 'Heredar', detalle: 'Mantiene la regla actual del sistema' },
+  { valor: 'propios', label: 'Solo los suyos', detalle: 'No verá registros de otros usuarios' },
+  { valor: 'todos', label: 'Todos', detalle: 'Verá los registros de todos los usuarios' },
+];
+
 // Claves antiguas que aún existen en la BD de muchos roles.
 // Se mapean hacia la clave canónica nueva para que el menú siga funcionando
 // sin obligar a volver a marcar todos los permisos uno por uno.
@@ -318,12 +361,48 @@ export const sincronizarAlias = (permisos) => {
 };
 
 // Construye el JSON final a guardar, preservando módulos/permisos desconocidos.
-export const construirPayloadPermisos = (original, estado) => {
+// `seleccionAlcance` es opcional: { boletos: 'heredar'|'propios'|'todos', ... }.
+export const construirPayloadPermisos = (original, estado, seleccionAlcance = null) => {
   const salida = mezclarModulos({}, parsePermisos(original));
 
   Object.keys(ALL_PERMISSIONS).forEach(mod => {
     salida[mod] = { ...(esObjetoPlano(salida[mod]) ? salida[mod] : {}), ...(estado[mod] || {}) };
   });
 
+  if (seleccionAlcance) {
+    const previo = esObjetoPlano(salida.alcance) ? salida.alcance : {};
+    const restantes = { ...previo };
+    Object.keys(ALCANCE_DATOS.modulos).forEach(mod => { delete restantes[mod]; });
+
+    const alcance = { ...restantes, ...construirAlcance(seleccionAlcance) };
+    if (Object.keys(alcance).length > 0) salida.alcance = alcance;
+    else delete salida.alcance;
+  }
+
   return sincronizarAlias(salida);
+};
+
+// Devuelve solo los módulos que tienen alcance configurado (true|false).
+export const normalizarAlcance = (raw) => {
+  const permisos = parsePermisos(raw);
+  const origen = esObjetoPlano(permisos.alcance) ? permisos.alcance : {};
+  const salida = {};
+
+  Object.keys(ALCANCE_DATOS.modulos).forEach(mod => {
+    if (typeof origen[mod] === 'boolean') salida[mod] = origen[mod];
+  });
+
+  return salida;
+};
+
+// Convierte la selección de la pantalla de permisos al objeto que se guarda.
+export const construirAlcance = (seleccion = {}) => {
+  const salida = {};
+
+  Object.keys(ALCANCE_DATOS.modulos).forEach(mod => {
+    if (seleccion[mod] === 'propios') salida[mod] = true;
+    else if (seleccion[mod] === 'todos') salida[mod] = false;
+  });
+
+  return salida;
 };

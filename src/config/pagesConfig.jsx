@@ -1061,6 +1061,7 @@ export const PAGES_CONFIG = {
     icon: 'fas fa-cash-register', iconBg: 'bg-blue-100', iconColor: 'text-blue-600',
     endpoint: '/caja/listadoCaja',
     idField: 'id_caja',
+    showRowIndex: false,
     columns: [
       { key: 'numero_caja', label: '#' },
       { key: 'fecha_caja', label: 'Fecha', render: v => v ? v.split('T')[0] || v.split(' ')[0] : '-' },
@@ -1281,6 +1282,7 @@ export const PAGES_CONFIG = {
     icon: 'fas fa-ticket-alt', iconBg: 'bg-teal-100', iconColor: 'text-teal-600',
     endpoint: '/caja_boleteria/listadoCaja',
     idField: 'id_caja_boleteria',
+    showRowIndex: false,
     columns: [
       { key: 'numero_caja', label: '#' },
       { key: 'fecha_caja', label: 'Fecha', render: v => v ? v.split('T')[0] || v.split(' ')[0] : '-' },
@@ -1488,6 +1490,7 @@ export const PAGES_CONFIG = {
     icon: 'fas fa-hand-holding-usd', iconBg: 'bg-amber-100', iconColor: 'text-amber-600',
     endpoint: '/cajaretenciones/listadoCaja',
     idField: 'id_caja_retenciones',
+    showRowIndex: false,
     columns: [
       { key: 'numero_caja', label: '#' },
       { key: 'fecha_caja', label: 'Fecha', render: v => v ? v.split('T')[0] || v.split(' ')[0] : '-' },
@@ -1657,6 +1660,7 @@ export const PAGES_CONFIG = {
     icon: 'fas fa-cash-register', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600',
     endpoint: '/caja_nota_venta/listadoCaja',
     idField: 'id_caja',
+    showRowIndex: false,
     columns: [
       { key: 'numero_caja', label: '#' },
       { key: 'fecha_caja', label: 'Fecha', render: v => v ? v.split('T')[0] || v.split(' ')[0] : '-' },

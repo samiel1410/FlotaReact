@@ -347,6 +347,17 @@ export const AuthProvider = ({ children }) => {
     return false;
   }, [user, hasRole, permisos]);
 
+  // Alcance de datos: true si el rol solo puede ver sus propios registros en
+  // el módulo indicado. Si el rol no lo configuró se aplica la regla histórica.
+  const alcanceSoloPropios = useCallback((modulo) => {
+    const configurado = permisos?.alcance?.[modulo];
+    if (typeof configurado === 'boolean') return configurado;
+
+    const rolNum = parseInt(user?.rol_usuario || user?.rol || 0, 10);
+    if (modulo === 'despachos') return !(rolNum === 1 || rolNum === 5);
+    return rolNum === 4;
+  }, [permisos, user]);
+
   // Nombre del usuario para mostrar
   const userName = user?.nombre || user?.username || user?.usuario || '';
   const userRole = user?.rol || user?.role || user?.roles || '';
@@ -403,7 +414,7 @@ export const AuthProvider = ({ children }) => {
   }, [user]);
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, loginFromImpersonation, hasRole, hasPermission, refreshPermisos, userName, userRole }}>
+    <AuthContext.Provider value={{ user, isAuthenticated, loading, login, logout, loginFromImpersonation, hasRole, hasPermission, alcanceSoloPropios, refreshPermisos, userName, userRole }}>
       {!loading && children}
     </AuthContext.Provider>
   );
