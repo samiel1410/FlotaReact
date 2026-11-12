@@ -1,4 +1,8 @@
 <?php
+// Cualquier warning/notice impreso antes del PDF hace que TCPDF aborte con
+// "Some data has already been output, can't send PDF file".
+ob_start();
+
 require_once('../library/tcpdf.php');
 require_once("../db.php");
 
@@ -8,50 +12,67 @@ try {
   $fecha_actual = date('Y-m-d H:i:s');
   $id_maestro = isset($_GET['id_maestro']) ? intval($_GET['id_maestro']) : 0;
 
+  if ($id_maestro <= 0) {
+    throw new Exception('ID de despacho no proporcionado');
+  }
+
 
   // create new PDF document
   $pdf = new TCPDF(PDF_PAGE_ORIENTATION, PDF_UNIT, array(500, 200), true, 'UTF-8', false);
 
   $conn = conexion();
-  $query = "SELECT numero_despacho_maestro_convenios AS numero_despacho_maestro,
-                 nombre_destino,
-                 fecha_despacho_maestro_convenios AS fecha_despacho_maestro,
-                 nombre_oficinista,
-                 nombre_busero,
-                 nombre_bus,
-                 id_fkusuario_despacho_maestro_convenios
-          FROM despacho_maestro_convenios
-          WHERE id_despacho_maestro_convenios=$id_maestro";
-  $recuperar = mysqli_query($conn, $query) or die(mysqli_error($conn));
+  $query = "SELECT dm.numero_despacho_maestro_convenios AS numero_despacho_maestro,
+                 dm.nombre_destino,
+                 dm.fecha_despacho_maestro_convenios AS fecha_despacho_maestro,
+                 dm.nombre_oficinista,
+                 dm.nombre_busero,
+                 dm.nombre_bus,
+                 dm.id_fkusuario_despacho_maestro_convenios,
+                 COALESCE(s.nombre_sucursal, s_ofi.nombre_sucursal) AS oficina_emisora
+          FROM despacho_maestro_convenios dm
+          LEFT JOIN usuario u ON u.id_usuario = dm.id_fkusuario_despacho_maestro_convenios
+          LEFT JOIN sucursal2 s ON s.suc_codigo_sucursal = u.id_fksucursal_usuario
+          LEFT JOIN usuario u_ofi ON u_ofi.id_usuario = dm.id_fkoficinista_despacho_maestro_convenios
+          LEFT JOIN sucursal2 s_ofi ON s_ofi.suc_codigo_sucursal = u_ofi.id_fksucursal_usuario
+          WHERE dm.id_despacho_maestro_convenios = $id_maestro";
+  $recuperar = mysqli_query($conn, $query);
+  if (!$recuperar) {
+    throw new Exception('No se pudo consultar el despacho: ' . mysqli_error($conn));
+  }
   $vals = mysqli_fetch_array($recuperar);
+  if (!$vals) {
+    throw new Exception('No se encontró el despacho #' . $id_maestro);
+  }
   // En la tabla convenio ya vienen los nombres requeridos
-  $nombre_oficinista_real = $vals["nombre_oficinista"];
-  $numero_despacho_maestro = $vals["numero_despacho_maestro"];
-  $nombre_destino = $vals["nombre_destino"];
-  $fecha_despacho_maestro = $vals["fecha_despacho_maestro"];
-  $nombre_oficinista = $vals["nombre_oficinista"];
-  $nombre_busero = $vals["nombre_busero"];
-  $nombre_bus = $vals["nombre_bus"];
-  $id_fkusuario_despacho_maestro = $vals["id_fkusuario_despacho_maestro_convenios"];
+  $nombre_oficinista_real = $vals["nombre_oficinista"] ?? '';
+  $numero_despacho_maestro = $vals["numero_despacho_maestro"] ?? '';
+  $nombre_destino = $vals["nombre_destino"] ?? '';
+  $fecha_despacho_maestro = $vals["fecha_despacho_maestro"] ?? '';
+  $nombre_oficinista = $vals["nombre_oficinista"] ?? '';
+  $nombre_busero = $vals["nombre_busero"] ?? '';
+  $nombre_bus = $vals["nombre_bus"] ?? '';
+  $id_fkusuario_despacho_maestro = $vals["id_fkusuario_despacho_maestro_convenios"] ?? 0;
 
   $query3 = "SELECT id_empresa, telefono_empresa, correo_empresa, ruc_empresa, direccion_empresa, razon_social_empresa FROM empresa WHERE 1";
-  $recuperar3 = mysqli_query($conn, $query3) or die(mysqli_error($conn));
-  $vals3 = mysqli_fetch_array($recuperar3);
+  $recuperar3 = mysqli_query($conn, $query3);
+  if (!$recuperar3) {
+    throw new Exception('No se pudo consultar la empresa: ' . mysqli_error($conn));
+  }
+  $vals3 = mysqli_fetch_array($recuperar3) ?: [];
 
-  $id_empresa = $vals3["id_empresa"];
+  $id_empresa = $vals3["id_empresa"] ?? '';
   //$imagen_empresa = $vals2["imagen_empresa"];
-  $telefono_empresa = $vals3["telefono_empresa"];
-  $correo_empresa = $vals3["correo_empresa"];
-  $ruc_empresa = $vals3["ruc_empresa"];
-  $direccion_empresa = $vals3["direccion_empresa"];
-  $razon_social_empresa = $vals3["razon_social_empresa"];
+  $telefono_empresa = $vals3["telefono_empresa"] ?? '';
+  $correo_empresa = $vals3["correo_empresa"] ?? '';
+  $ruc_empresa = $vals3["ruc_empresa"] ?? '';
+  $direccion_empresa = $vals3["direccion_empresa"] ?? '';
+  $razon_social_empresa = $vals3["razon_social_empresa"] ?? '';
 
-
-  $query4 = "SELECT destino.lugar_destino FROM destino,usuario WHERE destino.id_destino = usuario.id_fkdestino_usuario AND usuario.id_usuario= $id_fkusuario_despacho_maestro;";
-  $recuperar4 = mysqli_query($conn, $query4) or die(mysqli_error($conn));
-  $vals4 = mysqli_fetch_array($recuperar4);
-
-  $lugar_destino = $vals4["lugar_destino"];
+  // La oficina que emite el despacho es la sucursal del oficinista
+  // (usuario.id_fksucursal_usuario). Ya NO se usa usuario.id_fkdestino_usuario:
+  // ese campo viene en 0/NULL en la mayoría de usuarios y el resultado vacío
+  // disparaba el warning que rompía el PDF.
+  $lugar_destino = trim((string) ($vals["oficina_emisora"] ?? ''));
 
   $datos = '';
 
@@ -65,7 +86,10 @@ try {
        JOIN guias_companias g ON dd.id_fkguia_despacho_detalle_convenios = g.id
        LEFT JOIN sucursal2 s ON g.id_fksucursal_guias_companias = s.suc_codigo_sucursal
        WHERE dd.id_fkdespacho_maestro_convenios = $id_maestro;";
-  $recuperar2 = mysqli_query($conn, $query2) or die(mysqli_error($conn));
+  $recuperar2 = mysqli_query($conn, $query2);
+  if (!$recuperar2) {
+    throw new Exception('No se pudo consultar el detalle del despacho: ' . mysqli_error($conn));
+  }
 
   //<td class="td_table">  `+  result_detalles[index].punto_emision_sucursal+'-'+result_detalles[index].punto_emision_guia+'-'+resultado + `</td>
   $total_final = 0;
@@ -170,7 +194,7 @@ try {
     </p>
 
     <p class=" center" style="margin: 1px; padding: 0px;">
-    OFICINA ' . $lugar_destino . ' <br>
+    ' . ($lugar_destino !== '' ? 'OFICINA ' . $lugar_destino . ' <br>' : '') . '
     <strong>DESPACHO CONVENIOS #' . $numero_despacho_maestro . '</strong>
     </p>
 
@@ -284,7 +308,16 @@ try {
   $fileName = 'despacho.pdf';
   $fullPath = $tempDir . $fileName;
 
+  // Se descarta cualquier salida previa (warnings incluidos) para no corromper
+  // el PDF ni el JSON de respuesta.
+  if (ob_get_length()) {
+    ob_clean();
+  }
+
   if (isset($_GET['inline']) && $_GET['inline'] == 1) {
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
     $pdf->Output($fileName, 'I');
   } else {
     $pdf->Output($fullPath, 'F');
@@ -298,7 +331,16 @@ try {
     echo json_encode($array);
   }
 
-} catch (Exception $e) {
+  exit();
+
+} catch (Throwable $e) {
+  if (ob_get_length()) {
+    ob_clean();
+  }
+
+  http_response_code(500);
+  header('Content-Type: application/json');
+
   $array = array(
     "error" => $e->getMessage(),
     "success" => false,
