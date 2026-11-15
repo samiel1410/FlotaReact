@@ -135,6 +135,7 @@ export const ConfiguracionPage = () => {
             descuento_global_boleto: conf.descuento_global_boleto === 1 || conf.descuento_global_boleto === true,
             omitir_confirmacion_boleto: conf.omitir_confirmacion_boleto === 1 || conf.omitir_confirmacion_boleto === true,
             permitir_consumidor_final: conf.permitir_consumidor_final === undefined || conf.permitir_consumidor_final === 1 || conf.permitir_consumidor_final === true,
+            autocompletar_destinatario_remitente: conf.autocompletar_destinatario_remitente === undefined ? true : (conf.autocompletar_destinatario_remitente === 1 || conf.autocompletar_destinatario_remitente === true),
             color_sidebar: normalizarColor(conf.color_sidebar, APARIENCIA_DEFAULT.sidebar),
             color_header: normalizarColor(conf.color_header, APARIENCIA_DEFAULT.header),
           };
@@ -407,7 +408,7 @@ export const ConfiguracionPage = () => {
         // Un campo vacío no debe sobrescribir lo que ya está guardado en la base de datos
         if (typeof value === 'string' && value.trim() === '') return acc;
 
-        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'habilitar_tasas_ttg' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto' || key === 'omitir_confirmacion_boleto' || key === 'permitir_consumidor_final') {
+        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'habilitar_tasas_ttg' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto' || key === 'omitir_confirmacion_boleto' || key === 'permitir_consumidor_final' || key === 'autocompletar_destinatario_remitente') {
           acc[key] = +!!value;
         } else if (key === 'cobrar_iva_guia' || key === 'imprimir_boucher_guia') {
           acc[key] = value ? 1 : 0;
@@ -845,6 +846,30 @@ export const ConfiguracionPage = () => {
                           </label>
                           <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
                             Interruptor general de la tasa de uso de terminal FTTG. Al activarlo, solo las agencias con el check "Generar tasa de terminal (FTTG)" enviarán la tasa y emitirán el QR en cada boleto.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 mt-2">
+                    <h3 className="text-sm font-bold text-slate-800 mb-3">
+                      <i className="fas fa-box text-emerald-600 mr-2"></i>Guías
+                    </h3>
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3 p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl">
+                        <input
+                          type="checkbox"
+                          {...register('autocompletar_destinatario_remitente')}
+                          id="autocompletar_destinatario_remitente"
+                          className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 mt-0.5 cursor-pointer"
+                        />
+                        <div>
+                          <label htmlFor="autocompletar_destinatario_remitente" className="text-sm font-bold text-slate-800 cursor-pointer">
+                            Autocompletar Destinatario al Buscar Remitente
+                          </label>
+                          <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+                            Al activar esta opción, al buscar un remitente con envíos previos se carga automáticamente el destinatario del último envío. Al desactivarla, el destinatario debe buscarse manualmente en cada guía.
                           </p>
                         </div>
                       </div>

@@ -154,6 +154,7 @@ export const NuevaGuiaPage = () => {
   const [defaultFormaPagoId, setDefaultFormaPagoId] = useState('');
   const [configTipoTarifa, setConfigTipoTarifa] = useState(0);
   const [cobrarIvaGuia, setCobrarIvaGuia] = useState(getInitialCobrarIvaGuia);
+  const [autoCompletarDestinatario, setAutoCompletarDestinatario] = useState(true);
   const [metodoImpresion, setMetodoImpresion] = useState('manual');
   const [printerGuias, setPrinterGuias] = useState('');
 
@@ -271,6 +272,9 @@ export const NuevaGuiaPage = () => {
           setConfigTipoTarifa(parseInt(cfg.tipo_tarifa_configuracion) || 0);
           if (cfg.cobrar_iva_guia !== undefined && cfg.cobrar_iva_guia !== null) {
             setCobrarIvaGuia(cfg.cobrar_iva_guia === 1 || cfg.cobrar_iva_guia === true);
+          }
+          if (cfg.autocompletar_destinatario_remitente !== undefined && cfg.autocompletar_destinatario_remitente !== null) {
+            setAutoCompletarDestinatario(cfg.autocompletar_destinatario_remitente === 1 || cfg.autocompletar_destinatario_remitente === true);
           }
         }
       }
@@ -577,6 +581,7 @@ export const NuevaGuiaPage = () => {
 
   // ── Autocompletar destinatario desde remitente ──────
   const handleDestinatarioAutoFill = (data) => {
+    if (!autoCompletarDestinatario) return;
     if (!data) return;
     const aux = data.id_cliente_receptor || data.id_cliente || data.cedula_cliente_receptor;
     if (!aux) return;
@@ -1350,6 +1355,7 @@ export const NuevaGuiaPage = () => {
             onChange={handleSetRemitente}
             onConvenioFound={handleConvenioFound}
             onDestinatarioAutoFill={handleDestinatarioAutoFill}
+            autoCompletarDestinatario={autoCompletarDestinatario}
             error={fieldErrors.remitente}
             resetSignal={formResetKey}
           />

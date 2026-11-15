@@ -12,7 +12,7 @@ import {
 } from '../../../utils/identificacionUtils';
 import { validarCorreo, describirCorreo } from '../../../utils/emailValidation';
 
-export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioFound, onDestinatarioAutoFill, error, resetSignal = 0 }) => {
+export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioFound, onDestinatarioAutoFill, autoCompletarDestinatario = true, error, resetSignal = 0 }) => {
   const [busqueda, setBusqueda] = useState('');
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -118,7 +118,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         onChange(clienteData);
         
         // Si es remitente, autocompletar destinatario (ExtJS: params { cedula })
-        if (isRemitente && onDestinatarioAutoFill && clienteData.cedula) {
+        if (isRemitente && autoCompletarDestinatario && onDestinatarioAutoFill && clienteData.cedula) {
           try {
             const ultDest = await GuiaService.getUltimoDestinatarioPorRemitente(clienteData.cedula);
             if (ultDest?.success && ultDest.data) {
@@ -266,7 +266,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       };
       onChange(clienteActualizado);
       
-      if (isForcedEdit && isRemitente && onDestinatarioAutoFill && clienteActualizado.cedula) {
+      if (isForcedEdit && isRemitente && autoCompletarDestinatario && onDestinatarioAutoFill && clienteActualizado.cedula) {
         try {
           const ultDest = await GuiaService.getUltimoDestinatarioPorRemitente(clienteActualizado.cedula);
           if (ultDest?.success && ultDest.data) {
