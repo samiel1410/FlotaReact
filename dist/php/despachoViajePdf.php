@@ -261,12 +261,15 @@ try {
 
         $despacho = null;
         $criterios = [
-            // 1) El despacho del usuario en la oficina pedida.
-            static fn($d) => $coincideIdUsuario($d) && (count($refsSucursal) === 0 || $coincideSucursal($d)),
-            // 2) El último despacho de la oficina pedida.
+            // 1) El despacho del usuario en sesión (id explícito).
+            static fn($d) => $coincideIdUsuario($d),
+            // 2) El despacho del usuario en sesión dentro de la oficina pedida.
+            static fn($d) => $coincideUsuario($d) && $coincideSucursal($d),
+            // 3) El despacho del usuario en sesión, aunque la oficina no se resuelva.
+            static fn($d) => $coincideUsuario($d),
+            // 4) El último despacho de la oficina pedida.
             static fn($d) => $coincideSucursal($d),
-            // 3) El despacho del usuario aunque la oficina no se haya resuelto.
-            static fn($d) => $coincideIdUsuario($d) || $coincideUsuario($d),
+            // 5) El más reciente del viaje.
             static fn($d) => true,
         ];
         foreach ($criterios as $criterio) {
@@ -462,7 +465,7 @@ try {
                             LIMIT 1";
             $stmt_prev = $conn->prepare($query_prev);
             $stmt_prev->bind_param(
-                "iisisii",
+                "iisisis",
                 $id_despacho_viaje,
                 $id_despacho_num,
                 $sello_despacho,

@@ -465,7 +465,7 @@ try {
                             LIMIT 1";
             $stmt_prev = $conn->prepare($query_prev);
             $stmt_prev->bind_param(
-                "iisisii",
+                "iisisis",
                 $id_despacho_viaje,
                 $id_despacho_num,
                 $sello_despacho,
