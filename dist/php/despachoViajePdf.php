@@ -261,10 +261,12 @@ try {
 
         $despacho = null;
         $criterios = [
-            static fn($d) => $coincideIdUsuario($d),
-            static fn($d) => $coincideUsuario($d) && $coincideSucursal($d),
+            // 1) El despacho del usuario en la oficina pedida.
+            static fn($d) => $coincideIdUsuario($d) && (count($refsSucursal) === 0 || $coincideSucursal($d)),
+            // 2) El último despacho de la oficina pedida.
             static fn($d) => $coincideSucursal($d),
-            static fn($d) => $coincideUsuario($d),
+            // 3) El despacho del usuario aunque la oficina no se haya resuelto.
+            static fn($d) => $coincideIdUsuario($d) || $coincideUsuario($d),
             static fn($d) => true,
         ];
         foreach ($criterios as $criterio) {
@@ -465,7 +467,7 @@ try {
                 $id_despacho_num,
                 $sello_despacho,
                 $id_sucursal_despacho, $codigo_sucursal_despacho,
-                $id_sucursal_despacho, $id_sucursal_despacho
+                $id_sucursal_despacho, $codigo_sucursal_despacho
             );
             $stmt_prev->execute();
             $row_prev = $stmt_prev->get_result()->fetch_assoc();
@@ -572,7 +574,7 @@ try {
            )";
 
         $stmt_acum = $conn->prepare($query_acumulado);
-        $stmt_acum->bind_param("ssississ",
+        $stmt_acum->bind_param("ssisisis",
             $sello_anterior, $sello_anterior,
             $id_despacho_viaje,
             $sello_despacho,
@@ -897,9 +899,9 @@ try {
     // oficina en el viaje, mientras esta hoja liquida solo el turno actual.
     if ($id_despacho_anterior > 0) {
         $pdf->SetFont('helvetica', 'B', 6.8);
-        $pdf->Cell($wResKey, 3.4, 'Acumulado oficina:', 0, 0, 'L');
+        $pdf->Cell($wResKey, 3.4, $recortar($pdf, 'Acumulado oficina:', $wResKey - 1, 'B', 6.8), 0, 0, 'L');
         $pdf->Cell($wResVal, 3.4, '$' . number_format($total_acumulado, 2) . ' (' . $cantidad_acumulada . ' pas.)', 0, 1, 'R');
-        $pdf->Cell($wResKey, 3.4, 'Entregado antes (#' . $id_despacho_anterior . '):', 0, 0, 'L');
+        $pdf->Cell($wResKey, 3.4, $recortar($pdf, 'Entregado antes (#' . $id_despacho_anterior . '):', $wResKey - 1, 'B', 6.8), 0, 0, 'L');
         $pdf->Cell($wResVal, 3.4, '$' . number_format($total_entregado_antes, 2) . ' (' . $cantidad_entregada_antes . ' pas.)', 0, 1, 'R');
         $pdf->SetFont('helvetica', 'B', 7.8);
     }

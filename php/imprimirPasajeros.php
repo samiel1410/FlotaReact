@@ -85,10 +85,13 @@ try {
 
     $query_despachos = "SELECT d.id_despacho_viaje, d.fecha_salida_despacho_viaje,
             d.id_fkusuario_aprueba, u.id_usuario, u.nombre_usuario, u.apellido_usuario,
-            u.username_usuario,
+            u.username_usuario, u.id_fksucursal_usuario,
+            s_d.id_sucursal AS id_sucursal_despacho,
+            s_d.suc_codigo_sucursal AS codigo_sucursal_despacho,
             TRIM(CONCAT(COALESCE(u.nombre_usuario, ''), ' ', COALESCE(u.apellido_usuario, ''))) AS nombre_completo
         FROM despacho_viaje d
         LEFT JOIN usuario u ON u.id_usuario = d.id_fkusuario_aprueba
+        LEFT JOIN sucursal2 s_d ON (s_d.id_sucursal = u.id_fksucursal_usuario OR s_d.suc_codigo_sucursal = u.id_fksucursal_usuario)
         WHERE d.id_fkviaje_despacho_viaje = $id_viaje
         ORDER BY d.id_despacho_viaje DESC";
     $res_despachos = mysqli_query($conn, $query_despachos);
@@ -100,6 +103,15 @@ try {
     $despacho_entrega = null;
     $criterios_despacho = [
         static fn($d) => $id_despacho_param > 0 && (int)$d['id_despacho_viaje'] === $id_despacho_param,
+        // Manifiesto filtrado por oficina: la entrega es del oficinista de ESA
+        // oficina, aunque quien imprima sea de otra o haya despachado otro turno.
+        static function ($d) use ($id_sucursal_filtro) {
+            if ($id_sucursal_filtro <= 0) return false;
+            $ref = (string)$id_sucursal_filtro;
+            return (string)($d['id_sucursal_despacho'] ?? '') === $ref
+                || (string)($d['codigo_sucursal_despacho'] ?? '') === $ref
+                || (string)($d['id_fksucursal_usuario'] ?? '') === $ref;
+        },
         static fn($d) => $id_usuario_param > 0 && (int)$d['id_fkusuario_aprueba'] === $id_usuario_param,
         static function ($d) use ($usuario_param_norm, $normalizar_usuario) {
             if ($usuario_param_norm === '') return false;
