@@ -57,11 +57,7 @@ try {
         v.id_viajes, v.dia_viajes, v.hora_salida_estimado, v.hora_origen_salida, v.fecha_cierre, r.nombre_rutas,
         b.disco_buses, b.placa_buses,
         p.per_cedula_personal, p.per_nombres_persona, p.per_apellidos_personal,
-        v.chofer_viajes, v.cedula_viajes,
-        d.fecha_salida_despacho_viaje,
-        COALESCE(u.nombre_usuario, u2.nombre_usuario, u3.nombre_usuario) AS nombre_usuario,
-        COALESCE(u.apellido_usuario, u2.apellido_usuario, u3.apellido_usuario) AS apellido_usuario,
-        COALESCE(u.username_usuario, u2.username_usuario, u3.username_usuario) AS username_usuario
+        v.chofer_viajes, v.cedula_viajes, v.id_fkusuario_viajes
     FROM viajes v
     LEFT JOIN rutas r ON v.id_fkruta_viajes = r.id_rutas
     LEFT JOIN buses b ON v.id_fkbus_viajes = b.id_buses
@@ -69,20 +65,76 @@ try {
         WHEN IFNULL(v.id_fkchofer_viajes, 0) > 0 THEN v.id_fkchofer_viajes 
         ELSE b.id_fkpersonal_buses 
     END
-    LEFT JOIN despacho_viaje d ON v.id_viajes = d.id_fkviaje_despacho_viaje
-    LEFT JOIN usuario u ON d.id_fkusuario_aprueba = u.id_usuario
-    LEFT JOIN usuario u2 ON d.id_fkusuario_aprueba = u2.username_usuario
-    LEFT JOIN usuario u3 ON v.id_fkusuario_viajes = u3.id_usuario
     WHERE v.id_viajes = $id_viaje LIMIT 1";
 
     $result_info = mysqli_query($conn, $query_info) or die(mysqli_error($conn));
     $info = mysqli_fetch_assoc($result_info) ?: [];
 
+    // ─── DESPACHO QUE ENTREGA LA LISTA ───────────────────────────────────────
+    // Un viaje puede tener varios despachos (turnos y oficinas). La lista se
+    // entrega a nombre del oficinista del despacho correcto: el indicado, el
+    // del usuario en sesión y, si no coincide, el más reciente. Antes el JOIN
+    // traía una fila arbitraria y la lista salía a nombre de otra persona.
+    $id_despacho_param = (int)($_GET['id_despacho'] ?? 0);
+    $id_usuario_param = (int)($_GET['id_usuario'] ?? 0);
+    $usuario_param = trim($_GET['usuario'] ?? '');
+    $normalizar_usuario = static function ($texto) {
+        return preg_replace('/\s+/u', ' ', mb_strtolower(trim((string)$texto), 'UTF-8'));
+    };
+    $usuario_param_norm = $normalizar_usuario($usuario_param);
+
+    $query_despachos = "SELECT d.id_despacho_viaje, d.fecha_salida_despacho_viaje,
+            d.id_fkusuario_aprueba, u.id_usuario, u.nombre_usuario, u.apellido_usuario,
+            u.username_usuario,
+            TRIM(CONCAT(COALESCE(u.nombre_usuario, ''), ' ', COALESCE(u.apellido_usuario, ''))) AS nombre_completo
+        FROM despacho_viaje d
+        LEFT JOIN usuario u ON u.id_usuario = d.id_fkusuario_aprueba
+        WHERE d.id_fkviaje_despacho_viaje = $id_viaje
+        ORDER BY d.id_despacho_viaje DESC";
+    $res_despachos = mysqli_query($conn, $query_despachos);
+    $despachos_lista = [];
+    while ($res_despachos && ($dRow = mysqli_fetch_assoc($res_despachos))) {
+        $despachos_lista[] = $dRow;
+    }
+
+    $despacho_entrega = null;
+    $criterios_despacho = [
+        static fn($d) => $id_despacho_param > 0 && (int)$d['id_despacho_viaje'] === $id_despacho_param,
+        static fn($d) => $id_usuario_param > 0 && (int)$d['id_fkusuario_aprueba'] === $id_usuario_param,
+        static function ($d) use ($usuario_param_norm, $normalizar_usuario) {
+            if ($usuario_param_norm === '') return false;
+            return in_array($usuario_param_norm, [
+                $normalizar_usuario($d['nombre_usuario'] ?? ''),
+                $normalizar_usuario($d['nombre_completo'] ?? ''),
+                $normalizar_usuario($d['username_usuario'] ?? ''),
+            ], true);
+        },
+        static fn($d) => true,
+    ];
+    foreach ($criterios_despacho as $criterio) {
+        foreach ($despachos_lista as $dRow) {
+            if ($criterio($dRow)) {
+                $despacho_entrega = $dRow;
+                break 2;
+            }
+        }
+    }
+
+    // Si el viaje no tiene despacho, se usa el usuario que lo creó.
+    $usuario_creador_viaje = null;
+    if (!$despacho_entrega && !empty($info['id_fkusuario_viajes'])) {
+        $idCreadorViaje = (int)$info['id_fkusuario_viajes'];
+        $qCreador = mysqli_query($conn, "SELECT nombre_usuario, apellido_usuario, username_usuario FROM usuario WHERE id_usuario = $idCreadorViaje LIMIT 1");
+        if ($qCreador && $rCreador = mysqli_fetch_assoc($qCreador)) {
+            $usuario_creador_viaje = $rCreador;
+        }
+    }
+
     $ruta = $info['nombre_rutas'] ?? '';
 
     $raw_fecha_viaje = !empty($info['fecha_cierre']) 
         ? $info['fecha_cierre'] 
-        : (!empty($info['fecha_salida_despacho_viaje']) ? $info['fecha_salida_despacho_viaje'] : '');
+        : (!empty($despacho_entrega['fecha_salida_despacho_viaje']) ? $despacho_entrega['fecha_salida_despacho_viaje'] : '');
 
     $fecha_viaje = (!empty($raw_fecha_viaje) && strtotime($raw_fecha_viaje) !== false) 
         ? date('d/m/Y', strtotime($raw_fecha_viaje)) 
@@ -109,12 +161,21 @@ try {
         : (!empty($info['cedula_viajes']) ? trim($info['cedula_viajes']) : 'N/A');
 
     // Usuario de entrega
-    $usuario_entrega = trim(($info['nombre_usuario'] ?? '') . ' ' . ($info['apellido_usuario'] ?? ''));
-    if (empty($usuario_entrega) && !empty($info['username_usuario'])) {
-        $usuario_entrega = trim($info['username_usuario']);
+    $usuario_entrega = '';
+    if ($despacho_entrega) {
+        $usuario_entrega = trim(($despacho_entrega['nombre_usuario'] ?? '') . ' ' . ($despacho_entrega['apellido_usuario'] ?? ''));
+        if (empty($usuario_entrega) && !empty($despacho_entrega['username_usuario'])) {
+            $usuario_entrega = trim($despacho_entrega['username_usuario']);
+        }
     }
-    if (empty($usuario_entrega) && !empty($_GET['usuario'])) {
-        $usuario_entrega = trim($_GET['usuario']);
+    if (empty($usuario_entrega) && $usuario_creador_viaje) {
+        $usuario_entrega = trim(($usuario_creador_viaje['nombre_usuario'] ?? '') . ' ' . ($usuario_creador_viaje['apellido_usuario'] ?? ''));
+        if (empty($usuario_entrega) && !empty($usuario_creador_viaje['username_usuario'])) {
+            $usuario_entrega = trim($usuario_creador_viaje['username_usuario']);
+        }
+    }
+    if (empty($usuario_entrega) && $usuario_param !== '') {
+        $usuario_entrega = $usuario_param;
     }
     if (empty($usuario_entrega) && !empty($_GET['nombre_usuario'])) {
         $usuario_entrega = trim($_GET['nombre_usuario']);

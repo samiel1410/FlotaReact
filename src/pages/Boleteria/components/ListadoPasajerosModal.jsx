@@ -11,7 +11,8 @@ export const ListadoPasajerosModal = ({ isOpen, onClose, viajeId }) => {
   useEffect(() => {
     if (isOpen && iframeRef.current) {
       const nombreUsuario = user?.nombre_usuario || user?.nombre || user?.username || '';
-      iframeRef.current.src = BASE_URL + buildPdfUrl(`/php/imprimirPasajeros.php?inline=1&id_viaje=${viajeId}&usuario=${encodeURIComponent(nombreUsuario)}`);
+      const idUsuario = user?.id_usuario ? `&id_usuario=${user.id_usuario}` : '';
+      iframeRef.current.src = BASE_URL + buildPdfUrl(`/php/imprimirPasajeros.php?inline=1&id_viaje=${viajeId}&usuario=${encodeURIComponent(nombreUsuario)}${idUsuario}`);
     }
   }, [isOpen, viajeId, user]);
 

@@ -194,7 +194,8 @@ export const ListaViajes = () => {
     setMenuAbierto(null);
     const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
     const nombreUsuario = user?.nombre_usuario || user?.nombre || user?.username || '';
-    setPdfUrl(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?inline=1&id_viaje=${trip.id_viajes}&usuario=${encodeURIComponent(nombreUsuario)}`));
+    const idUsuario = user?.id_usuario ? `&id_usuario=${user.id_usuario}` : '';
+    setPdfUrl(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?inline=1&id_viaje=${trip.id_viajes}&usuario=${encodeURIComponent(nombreUsuario)}${idUsuario}`));
     setPdfTitle(`Lista de Pasajeros — Viaje #${trip.id_viajes}`);
     setPdfModalOpen(true);
   };

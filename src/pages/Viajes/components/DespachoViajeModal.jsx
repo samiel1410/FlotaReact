@@ -107,7 +107,7 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
           : `id_viajes=${form.id_viaje}`;
         const idUsuario = user?.id_usuario ? `&id_usuario=${user.id_usuario}` : '';
         window.open(baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?${paramsDespacho}&usuario=${encodeURIComponent(nombreUsuario)}${idUsuario}`), '_blank');
-        window.open(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?id_viaje=${form.id_viaje}&usuario=${encodeURIComponent(nombreUsuario)}`), '_blank');
+        window.open(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?id_viaje=${form.id_viaje}&usuario=${encodeURIComponent(nombreUsuario)}${idUsuario}`), '_blank');
         onClose(true);
       } else {
         toast.error(res.data?.message || 'Error al despachar');

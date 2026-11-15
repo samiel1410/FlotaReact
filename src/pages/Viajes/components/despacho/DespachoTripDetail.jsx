@@ -489,7 +489,8 @@ export const DespachoTripDetail = ({
                 const sucursalParam = (activeSuc && activeSuc.id > 0)
                   ? `&id_sucursal=${activeSuc.id}`
                   : '';
-                window.open(`${baseUrl}/php/imprimirPasajeros.php?id_viaje=${tripId}${sucursalParam}`, '_blank');
+                const usuarioParam = user?.id_usuario ? `&id_usuario=${user.id_usuario}` : '';
+                window.open(`${baseUrl}/php/imprimirPasajeros.php?id_viaje=${tripId}${sucursalParam}${usuarioParam}`, '_blank');
               }}
               className="mb-2 text-xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl border border-blue-200 flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
               title={selectedSucursalKey === 'TODOS' ? 'Imprimir manifiesto general de todas las sucursales' : 'Imprimir manifiesto de pasajeros de esta sucursal'}
