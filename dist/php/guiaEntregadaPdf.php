@@ -49,10 +49,14 @@ try {
         ge.id_fkguia_guias_entregadas,
         ge.total_guias_entregadas,
         u.nombre_usuario,
-        u.apellido_usuario
+        u.apellido_usuario,
+        COALESCE(NULLIF(TRIM(s.ciudad_sucursal), ''), NULLIF(TRIM(s.nombre_sucursal), '')) AS oficina_entrega
     FROM guias_entregadas ge
     LEFT JOIN usuario u ON ge.id_usuario_entrego = u.id_usuario
-    WHERE ge.id_fkguia_guias_entregadas = $id_guia LIMIT 1";
+    LEFT JOIN sucursal2 s ON s.id_sucursal = ge.id_fkdestino_llegada
+    WHERE ge.id_fkguia_guias_entregadas = $id_guia
+    ORDER BY (ge.estado_guias_entregadas = 2) DESC, ge.id_guias_entregadas DESC
+    LIMIT 1";
 
     $recuperar_guia = mysqli_query($conn, $sql_verificar) or die(mysqli_error($conn));
     $vals_guia = mysqli_fetch_assoc($recuperar_guia);
@@ -95,12 +99,26 @@ try {
         }
     }
 
-    $ubicacion_usuario = '';
-    if ($id_usuario > 0) {
-        $query_ubicacion = "SELECT d.lugar_destino FROM destino d JOIN usuario u ON u.id_fkdestino_usuario = d.id_destino WHERE u.id_usuario = $id_usuario LIMIT 1";
+    // OFICINA del ticket = oficina donde se ENTREGÓ la guía
+    // (`guias_entregadas.id_fkdestino_llegada` = id de sucursal2 de la oficina
+    // de llegada). Antes se usaba la oficina del usuario que imprime
+    // (`usuario.id_fkdestino_usuario`) y el ticket salía con otra agencia.
+    $oficina_entrega = limpiarTextoPdf($vals_guia['oficina_entrega'] ?? '');
+
+    // Respaldo para entregas antiguas sin oficina de llegada: sucursal del
+    // usuario que imprime y, si tampoco hay, su oficina (comportamiento previo).
+    if ($oficina_entrega === '' && $id_usuario > 0) {
+        $query_ubicacion = "SELECT COALESCE(
+                (SELECT COALESCE(NULLIF(TRIM(s.ciudad_sucursal), ''), NULLIF(TRIM(s.nombre_sucursal), '')) FROM sucursal2 s WHERE s.suc_codigo_sucursal = u.id_fksucursal_usuario LIMIT 1),
+                (SELECT COALESCE(NULLIF(TRIM(s.ciudad_sucursal), ''), NULLIF(TRIM(s.nombre_sucursal), '')) FROM sucursal2 s WHERE s.id_sucursal = u.id_fksucursal_usuario LIMIT 1),
+                (SELECT d.lugar_destino FROM destino d WHERE d.id_destino = u.id_fkdestino_usuario LIMIT 1)
+            ) AS ubicacion
+            FROM usuario u
+            WHERE u.id_usuario = $id_usuario
+            LIMIT 1";
         $rec_ub = mysqli_query($conn, $query_ubicacion);
         if ($rec_ub && $row_ub = mysqli_fetch_assoc($rec_ub)) {
-            $ubicacion_usuario = limpiarTextoPdf($row_ub['lugar_destino'] ?? '');
+            $oficina_entrega = limpiarTextoPdf($row_ub['ubicacion'] ?? '');
         }
     }
 
@@ -144,9 +162,9 @@ try {
         $pdf->SetFont('helvetica', '', 7.5);
         $pdf->Cell($anchoUtil, 3.5, 'RUC: ' . $ruc_empresa, 0, 1, 'C');
     }
-    if (!empty($ubicacion_usuario)) {
+    if (!empty($oficina_entrega)) {
         $pdf->SetFont('helvetica', '', 7.5);
-        $pdf->Cell($anchoUtil, 3.5, 'OFICINA - ' . $ubicacion_usuario, 0, 1, 'C');
+        $pdf->Cell($anchoUtil, 3.5, 'OFICINA - ' . $oficina_entrega, 0, 1, 'C');
     }
 
     // Línea divisoria

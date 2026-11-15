@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { CameraCapture } from './CameraCapture';
+import { validarIdentificacionEntrega } from '../../../utils/identificacionUtils';
 import { CONFIG } from '../../../config/env';
 import { EntregaService, abrirPdfEntrega } from '../../../services/entrega.service';
 import { GuiaService } from '../../../services/guia.service';
@@ -21,6 +22,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   const [clienteFotoUrl, setClienteFotoUrl] = useState(null);
   const [errorCliente, setErrorCliente] = useState('');
   const [nombreRecibe, setNombreRecibe] = useState('');
+  const [entregaTercero, setEntregaTercero] = useState(false);
 
   const [formData, setFormData] = useState({
     monto: '',
@@ -33,6 +35,8 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   });
 
   const fileInputRef = useRef(null);
+  const cedulaDestinatarioGuia = String(guia.cedula_cliente_receptor ?? '').replace(/\D/g, '');
+  const nombreDestinatarioGuia = String(guia.nombre_cliente_receptor ?? '').trim();
 
   const initModal = async () => {
     try {
@@ -89,10 +93,10 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
 
   useEffect(() => {
     initModal();
-    if (guia.cedula_cliente_receptor && !formData.cedula_recibe) {
-      setFormData(prev => ({ ...prev, cedula_recibe: guia.cedula_cliente_receptor }));
+    if (cedulaDestinatarioGuia) {
+      setFormData(prev => ({ ...prev, cedula_recibe: prev.cedula_recibe || cedulaDestinatarioGuia }));
     }
-  }, [guia]);
+  }, [guia, cedulaDestinatarioGuia]);
 
   // Buscar cliente cuando cambia la cédula
   useEffect(() => {
@@ -107,7 +111,8 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
         const cliente = res?.success && res.data?.length > 0 ? res.data[0] : null;
         setClienteInfo(cliente);
         setClienteFotoUrl(cliente?.foto_cliente ? `${CONFIG.CLIENTE_URL}/cliente/fotos/${cliente.foto_cliente}` : null);
-        setNombreRecibe(cliente?.nombre_cliente || '');
+        const esDestinatarioGuia = cedulaDestinatarioGuia === ident;
+        setNombreRecibe(cliente?.nombre_cliente || (esDestinatarioGuia ? nombreDestinatarioGuia : ''));
       } catch (e) {
         if (!cancelado) {
           setClienteInfo(null);
@@ -130,7 +135,26 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
     }
 
     return () => { cancelado = true; };
-  }, [formData.cedula_recibe]);
+  }, [formData.cedula_recibe, cedulaDestinatarioGuia, nombreDestinatarioGuia]);
+
+  const handleEntregaTerceroChange = (checked) => {
+    setEntregaTercero(checked);
+
+    if (checked) {
+      setFormData(prev => ({ ...prev, cedula_recibe: '' }));
+      setClienteInfo(null);
+      setClienteFotoUrl(null);
+      setNombreRecibe('');
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, cedula_recibe: cedulaDestinatarioGuia }));
+    if (!cedulaDestinatarioGuia) {
+      setClienteInfo(null);
+      setClienteFotoUrl(null);
+      setNombreRecibe('');
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -156,6 +180,23 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   const handleSubmit = async () => {
     if (!formData.monto || !formData.idformapago || !formData.fecha || !formData.concepto) {
       toast.error('Complete todos los campos obligatorios');
+      return;
+    }
+
+    const esCedulaDestinatario = !!cedulaDestinatarioGuia && formData.cedula_recibe === cedulaDestinatarioGuia;
+    const validacion = validarIdentificacionEntrega(formData.cedula_recibe);
+    if (!validacion.valido && !esCedulaDestinatario) {
+      toast.error(validacion.mensaje);
+      return;
+    }
+
+    if (!entregaTercero && cedulaDestinatarioGuia && !esCedulaDestinatario) {
+      toast.error('La cédula no coincide con el destinatario de la guía. Si la recibe otra persona, marque “Entrega a tercero”.');
+      return;
+    }
+
+    if ((entregaTercero || !clienteInfo) && !nombreRecibe.trim()) {
+      toast.error('Ingrese el nombre de quien recibe la guía.');
       return;
     }
 
@@ -210,16 +251,26 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
       // 3. Si hay cédula o foto, guardar datos de entrega
       if (formData.cedula_recibe || fotoCapturada) {
         try {
-          await EntregaService.entregarGuiaConFoto({
+          const entregaRes = await EntregaService.entregarGuiaConFoto({
             id_guia: guia.id_guia,
             nombre_oficina: nombre_oficina || '',
             destino_guia: destinoGuia || guia.destino_guia || '',
             cedula_recibe: formData.cedula_recibe,
             nombre_recibe: (nombreRecibe || clienteInfo?.nombre_cliente || '').trim(),
+            entrega_tercero: entregaTercero,
             foto_base64: fotoCapturada
           }, isNotaVenta);
+
+          if (entregaRes && entregaRes.success === false) {
+            toast.error(entregaRes.message || entregaRes.data || 'No se pudo registrar la identidad de quien recibe');
+            setSaving(false);
+            return;
+          }
         } catch (e) {
-          console.warn('Error guardando foto de entrega:', e);
+          console.warn('Error guardando datos de entrega:', e);
+          toast.error('No se pudo registrar la identidad de quien recibe');
+          setSaving(false);
+          return;
         }
       }
 
@@ -261,6 +312,14 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
 
   const numFactura = String(facturaData.numero_factura).padStart(9, '0');
   const nombreFactura = `${facturaData.punto_emision_sucursal}-${facturaData.punto_emision_factura}-${numFactura}`;
+
+  const cedulaValida = formData.cedula_recibe.length === 10 || formData.cedula_recibe.length === 13;
+  const validacionCedula = cedulaValida ? validarIdentificacionEntrega(formData.cedula_recibe) : null;
+  const esCedulaDestinatario = !!cedulaDestinatarioGuia && formData.cedula_recibe === cedulaDestinatarioGuia;
+  const cedulaInvalida = !!validacionCedula && !validacionCedula.valido && !esCedulaDestinatario;
+  const advertenciaCedula = !!validacionCedula && !validacionCedula.valido && esCedulaDestinatario;
+  const cedulaNoCoincide = !entregaTercero && !!cedulaDestinatarioGuia && cedulaValida && !esCedulaDestinatario;
+  const nombreObligatorio = entregaTercero || (!clienteInfo && cedulaValida);
 
   return (
     <>
@@ -364,7 +423,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">
-                  Cédula de quien recibe <span className="text-red-500">*</span>
+                  {entregaTercero ? 'Cédula del tercero que recibe' : 'Cédula de quien recibe'} <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -375,6 +434,49 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                   maxLength={13}
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+
+                <label className={`mt-2 flex items-center gap-2 text-xs font-semibold cursor-pointer select-none rounded-full px-3 py-1 border shadow-sm w-fit transition-colors ${entregaTercero ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
+                  <input
+                    type="checkbox"
+                    checked={entregaTercero}
+                    onChange={(e) => handleEntregaTerceroChange(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Entrega a tercero
+                </label>
+
+                {cedulaInvalida && (
+                  <div className="mt-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-red-700">
+                      <i className="fas fa-exclamation-triangle mr-1"></i> Cédula no válida
+                    </p>
+                    <p className="text-[11px] text-red-700">
+                      {validacionCedula.mensaje} No se puede entregar con una identificación falsa o incompleta.
+                    </p>
+                  </div>
+                )}
+
+                {advertenciaCedula && (
+                  <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                      <i className="fas fa-exclamation-circle mr-1"></i> Verifique la cédula registrada
+                    </p>
+                    <p className="text-[11px] text-amber-700">
+                      {validacionCedula.mensaje} Es la cédula del destinatario en la guía; confirme con el cliente antes de entregar.
+                    </p>
+                  </div>
+                )}
+
+                {cedulaNoCoincide && (
+                  <div className="mt-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-red-700">
+                      <i className="fas fa-user-shield mr-1"></i> No coincide con el destinatario
+                    </p>
+                    <p className="text-[11px] text-red-700">
+                      La cédula ingresada no es la del destinatario de la guía ({cedulaDestinatarioGuia}). Si la recibe otra persona, marque “Entrega a tercero”.
+                    </p>
+                  </div>
+                )}
 
                 {buscandoCliente && (
                   <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
@@ -394,7 +496,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                   </div>
                 )}
 
-                {!buscandoCliente && !clienteInfo && formData.cedula_recibe.length >= 10 && (
+                {!buscandoCliente && !clienteInfo && !cedulaInvalida && !cedulaNoCoincide && formData.cedula_recibe.length >= 10 && (
                   <div className={`mt-2 border rounded-lg px-3 py-2 ${errorCliente ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
                     <p className={`text-[10px] font-bold uppercase tracking-wider ${errorCliente ? 'text-red-700' : 'text-amber-700'}`}>
                       {errorCliente ? 'No se pudo consultar' : 'Identificación no registrada'}
@@ -406,7 +508,9 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                 )}
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-1">Nombre de quien recibe</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">
+                  Nombre de quien recibe {nombreObligatorio && <span className="text-red-500">*</span>}
+                </label>
                 <input
                   type="text"
                   value={nombreRecibe}
@@ -503,7 +607,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
             <button
               onClick={handleSubmit}
               className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-sm transition-colors flex items-center gap-2 disabled:opacity-60"
-              disabled={saving || formData.cedula_recibe.length < 10}
+              disabled={saving || !cedulaValida || cedulaInvalida || cedulaNoCoincide || (nombreObligatorio && !nombreRecibe.trim())}
             >
               {saving ? (
                 <><i className="fas fa-spinner fa-spin"></i> Procesando...</>

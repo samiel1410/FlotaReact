@@ -101,7 +101,12 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
         // Abrir PDF de despacho y PDF de listado de pasajeros
         const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
         const nombreUsuario = user?.nombre_usuario || user?.nombre || user?.username || '';
-        window.open(baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?id_viajes=${form.id_viaje}&usuario=${encodeURIComponent(nombreUsuario)}`), '_blank');
+        const idDespachoNuevo = res.data?.data?.idDespacho || res.data?.data?.id_despacho;
+        const paramsDespacho = idDespachoNuevo
+          ? `id_despacho=${idDespachoNuevo}&id_viajes=${form.id_viaje}`
+          : `id_viajes=${form.id_viaje}`;
+        const idUsuario = user?.id_usuario ? `&id_usuario=${user.id_usuario}` : '';
+        window.open(baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?${paramsDespacho}&usuario=${encodeURIComponent(nombreUsuario)}${idUsuario}`), '_blank');
         window.open(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?id_viaje=${form.id_viaje}&usuario=${encodeURIComponent(nombreUsuario)}`), '_blank');
         onClose(true);
       } else {

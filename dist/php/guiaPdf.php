@@ -144,8 +144,16 @@ try {
             ];
         }
 
-        $queryConfig = "SELECT leyendamensaje_configuracion, mensajeleyenda_configuracion FROM configuracion LIMIT 1";
+        // Incluye las columnas de impresión para que el cache compartido
+        // (usado por guiaPdfImpresion.php) no pierda la configuración de hojas extra.
+        $queryConfig = "SELECT leyendamensaje_configuracion, mensajeleyenda_configuracion, imprimir_boucher_guia, formato_impresion FROM configuracion LIMIT 1";
         $resConfig = @mysqli_query($conn, $queryConfig);
+        if (!$resConfig) {
+            // BD antiguas sin las columnas nuevas: guiaPdfImpresion.php
+            // regenera el cache antes de imprimir.
+            $queryConfig = "SELECT leyendamensaje_configuracion, mensajeleyenda_configuracion FROM configuracion LIMIT 1";
+            $resConfig = @mysqli_query($conn, $queryConfig);
+        }
         $config = $resConfig ? mysqli_fetch_assoc($resConfig) : [];
 
         $cfg = array_merge([

@@ -231,7 +231,13 @@ export const DespachoViajesPage = () => {
         const printerBoletos = localStorage.getItem('printer_boletos') || localStorage.getItem('printer_guias');
         const baseUrl = import.meta.env.VITE_URL_BASE || window.location.origin;
         const nombreUsuario = user?.nombre_usuario || user?.nombre || user?.username || '';
-        const pdfUrl = baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?id_viajes=${tripId}&usuario=${encodeURIComponent(nombreUsuario)}`);
+        // Se imprime por el id del despacho recién creado: por viaje el PDF
+        // podía tomar el despacho de otro turno/oficina y mostrar otro nombre.
+        const idDespachoNuevo = res.data?.id_despacho;
+        const pdfParams = idDespachoNuevo
+          ? `id_despacho=${idDespachoNuevo}&id_viajes=${tripId}`
+          : `id_viajes=${tripId}`;
+        const pdfUrl = baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?${pdfParams}&usuario=${encodeURIComponent(nombreUsuario)}${user?.id_usuario ? `&id_usuario=${user.id_usuario}` : ''}`);
 
         if (metodoImpresion === 'directa') {
           try {

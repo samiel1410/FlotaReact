@@ -21,6 +21,9 @@ try {
     $id_viajes_param = intval($_GET['id_viajes'] ?? $_GET['id_viaje'] ?? 0);
     $usuario_param = trim($_GET['usuario'] ?? '');
     $id_sucursal_param = intval($_GET['id_sucursal'] ?? 0);
+    // Id del usuario en sesión: identifica sin ambigüedad el despacho del turno
+    // cuando el mismo viaje tiene despachos de varias oficinas/oficinistas.
+    $id_usuario_param = intval($_GET['id_usuario'] ?? 0);
 
     if ($id_despacho_param <= 0 && $id_viajes_param <= 0) {
         throw new Exception("Parámetros de viaje o despacho no válidos");
@@ -155,26 +158,127 @@ try {
           LEFT JOIN usuario u ON dv.id_fkusuario_aprueba = u.id_usuario
           LEFT JOIN sucursal2 s ON (s.id_sucursal = u.id_fksucursal_usuario OR s.suc_codigo_sucursal = u.id_fksucursal_usuario)
           WHERE v.id_viajes = ?
-          ORDER BY (CASE 
-              WHEN ? != '' AND (u.nombre_usuario = ? OR u.username_usuario = ?) THEN 0 
-              WHEN ? > 0 AND u.id_fksucursal_usuario = ? THEN 0
-              ELSE 1 
-          END), dv.id_despacho_viaje DESC
-          LIMIT 1";
+          ORDER BY dv.id_despacho_viaje DESC";
 
         $stmt = $conn->prepare($query_despacho);
-        $stmt->bind_param("isssii", $id_viajes_param, $usuario_param, $usuario_param, $usuario_param, $id_sucursal_param, $id_sucursal_param);
+        $stmt->bind_param("i", $id_viajes_param);
     }
 
     $stmt->execute();
     $res_despacho = $stmt->get_result();
+    $despachosCandidatos = $res_despacho->fetch_all(MYSQLI_ASSOC);
+    $stmt->close();
 
-    if ($res_despacho->num_rows === 0) {
+    if (count($despachosCandidatos) === 0) {
         throw new Exception("Viaje o Despacho no encontrado");
     }
 
-    $despacho = $res_despacho->fetch_assoc();
-    $stmt->close();
+    if ($id_despacho_param > 0) {
+        $despacho = $despachosCandidatos[0];
+    } else {
+        // Reimpresión por viaje: elegir el despacho de MI oficina (o el mío).
+        // Antes se tomaba el último despacho del viaje aunque fuera de otra
+        // oficina; al reimprimir desde otra sucursal la hoja mostraba pasajeros
+        // y valores que no coincidían con su lista de pasajeros.
+        $refsSucursal = [];
+        // Resuelve el valor recibido (id o código) a ambos para comparar contra
+        // id_sucursal, suc_codigo_sucursal y la sucursal del usuario del despacho.
+        $resolverSucursal = static function ($valor) use ($conn, &$refsSucursal) {
+            $valor = trim((string)$valor);
+            if ($valor === '') return;
+            $refsSucursal[] = $valor;
+            try {
+                $valorInt = intval($valor);
+                $stmtSuc = $conn->prepare("SELECT id_sucursal, suc_codigo_sucursal FROM sucursal2 WHERE id_sucursal = ? OR suc_codigo_sucursal = ? LIMIT 1");
+                $stmtSuc->bind_param("is", $valorInt, $valor);
+                $stmtSuc->execute();
+                $rowSuc = $stmtSuc->get_result()->fetch_assoc();
+                $stmtSuc->close();
+                if ($rowSuc) {
+                    $refsSucursal[] = (string)$rowSuc['id_sucursal'];
+                    $refsSucursal[] = (string)$rowSuc['suc_codigo_sucursal'];
+                }
+            } catch (Throwable $eSuc) {
+                // Sin resolución: se compara solo con el valor recibido.
+            }
+        };
+
+        $normalizar = static function ($texto) {
+            $texto = mb_strtolower(trim((string)$texto), 'UTF-8');
+            return preg_replace('/\s+/u', ' ', $texto);
+        };
+        $usuarioNorm = $normalizar($usuario_param);
+
+        if ($id_sucursal_param > 0) {
+            $resolverSucursal($id_sucursal_param);
+        } elseif ($usuarioNorm !== '') {
+            // Sin id_sucursal, la oficina se deduce del usuario que reimprime:
+            // el despacho puede haberlo hecho otro turno de la misma oficina.
+            try {
+                $resUsuarios = $conn->query("SELECT id_fksucursal_usuario, username_usuario, nombre_usuario, apellido_usuario FROM usuario");
+                while ($resUsuarios && ($uRow = $resUsuarios->fetch_assoc())) {
+                    $candidatosUsuario = [
+                        $normalizar($uRow['username_usuario'] ?? ''),
+                        $normalizar($uRow['nombre_usuario'] ?? ''),
+                        $normalizar(trim(($uRow['nombre_usuario'] ?? '') . ' ' . ($uRow['apellido_usuario'] ?? ''))),
+                    ];
+                    if (in_array($usuarioNorm, $candidatosUsuario, true)) {
+                        $resolverSucursal($uRow['id_fksucursal_usuario']);
+                        break;
+                    }
+                }
+            } catch (Throwable $eUsu) {
+                // Sin resolución: se elige el despacho más reciente del viaje.
+            }
+        }
+        $refsSucursal = array_values(array_unique(array_filter($refsSucursal, static fn($v) => $v !== '')));
+
+        $coincideUsuario = static function ($d) use ($usuarioNorm, $normalizar) {
+            if ($usuarioNorm === '') return false;
+            $candidatos = [
+                $normalizar($d['username_usuario'] ?? ''),
+                $normalizar($d['nombre_usuario'] ?? ''),
+                $normalizar(trim(($d['nombre_usuario'] ?? '') . ' ' . ($d['apellido_usuario'] ?? ''))),
+            ];
+            return in_array($usuarioNorm, $candidatos, true);
+        };
+        $coincideSucursal = static function ($d) use ($refsSucursal) {
+            if (count($refsSucursal) === 0) return false;
+            $valores = [
+                (string)($d['id_sucursal_despacho_resuelta'] ?? ''),
+                (string)($d['codigo_sucursal_despacho'] ?? ''),
+                (string)($d['id_fksucursal_usuario'] ?? ''),
+            ];
+            foreach ($valores as $v) {
+                if ($v !== '' && in_array($v, $refsSucursal, true)) return true;
+            }
+            return false;
+        };
+
+        $coincideIdUsuario = static function ($d) use ($id_usuario_param) {
+            return $id_usuario_param > 0 && intval($d['id_fkusuario_aprueba'] ?? 0) === $id_usuario_param;
+        };
+
+        $despacho = null;
+        $criterios = [
+            static fn($d) => $coincideIdUsuario($d),
+            static fn($d) => $coincideUsuario($d) && $coincideSucursal($d),
+            static fn($d) => $coincideSucursal($d),
+            static fn($d) => $coincideUsuario($d),
+            static fn($d) => true,
+        ];
+        foreach ($criterios as $criterio) {
+            foreach ($despachosCandidatos as $candidato) {
+                if ($criterio($candidato)) {
+                    $despacho = $candidato;
+                    break 2;
+                }
+            }
+        }
+        if (!$despacho) {
+            $despacho = $despachosCandidatos[0];
+        }
+    }
 
     $id_despacho_viaje = intval($despacho['id_viajes']);
     $id_despacho_num = !empty($despacho['id_despacho_viaje']) ? intval($despacho['id_despacho_viaje']) : $id_despacho_viaje;
@@ -336,9 +440,11 @@ try {
     // inferior, la segunda hoja reimprime los pasajeros/dinero ya entregados y
     // el "RECIBE" se duplica.
     $sello_anterior = '';
+    $id_despacho_anterior = 0;
     if ($id_despacho_num > 0) {
         try {
-            $query_prev = "SELECT MAX(dv_p.fecha_creacion_despacho_viaje) AS sello_anterior
+            $query_prev = "SELECT dv_p.id_despacho_viaje,
+                                  dv_p.fecha_creacion_despacho_viaje AS sello_anterior
                              FROM despacho_viaje dv_p
                              JOIN usuario u_p ON u_p.id_usuario = dv_p.id_fkusuario_aprueba
                              LEFT JOIN sucursal2 s_p ON (s_p.id_sucursal = u_p.id_fksucursal_usuario OR s_p.suc_codigo_sucursal = u_p.id_fksucursal_usuario)
@@ -349,7 +455,9 @@ try {
                                    (? = 0 AND ? = '')
                                    OR s_p.id_sucursal = ?
                                    OR s_p.suc_codigo_sucursal = ?
-                              )";
+                              )
+                            ORDER BY dv_p.fecha_creacion_despacho_viaje DESC, dv_p.id_despacho_viaje DESC
+                            LIMIT 1";
             $stmt_prev = $conn->prepare($query_prev);
             $stmt_prev->bind_param(
                 "iisisii",
@@ -363,8 +471,10 @@ try {
             $row_prev = $stmt_prev->get_result()->fetch_assoc();
             $stmt_prev->close();
             $sello_anterior = !empty($row_prev['sello_anterior']) ? (string)$row_prev['sello_anterior'] : '';
+            $id_despacho_anterior = intval($row_prev['id_despacho_viaje'] ?? 0);
         } catch (Throwable $ePrev) {
             $sello_anterior = '';
+            $id_despacho_anterior = 0;
         }
     }
 
@@ -428,6 +538,56 @@ try {
     $stmt_tot->close();
 
     $total_boletos = floatval($totales_boletos['total_boletos'] ?? 0);
+
+    // Venta ACUMULADA de la oficina en el viaje (todos sus turnos/despachos).
+    // La hoja de cada turno liquida solo lo nuevo, pero la lista de pasajeros
+    // muestra el total de la oficina; sin este dato las dos impresiones no
+    // cuadran (ej. viaje 551: despacho #166 $5.63 vs lista Naranjito $59.99).
+    $cantidad_acumulada = 0;
+    $total_acumulado = 0.0;
+    $cantidad_entregada_antes = 0;
+    $total_entregado_antes = 0.0;
+    if ($id_despacho_anterior > 0) {
+        $query_acumulado = "SELECT
+            COUNT(bd.id_boleto_detalle) AS cantidad,
+            IFNULL(SUM(bd.total_boleto_detalle), 0) AS total,
+            IFNULL(SUM(CASE WHEN b.fecha_creacion_boleto IS NOT NULL AND b.fecha_creacion_boleto <= ? THEN 1 ELSE 0 END), 0) AS cantidad_antes,
+            IFNULL(SUM(CASE WHEN b.fecha_creacion_boleto IS NOT NULL AND b.fecha_creacion_boleto <= ? THEN bd.total_boleto_detalle ELSE 0 END), 0) AS total_antes
+          FROM boletos b
+          JOIN boleto_detalle bd ON b.id_boleto = bd.id_fkboleto_boleto_detalle
+          LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
+         WHERE b.id_fkviaje_boleto = ?
+           AND (b.estado_boleto IS NULL OR b.estado_boleto != 3)
+           AND (b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= ?)
+           AND (
+               (? = 0 AND ? = '')
+               OR EXISTS (
+                   SELECT 1 FROM sucursal2 s_bol
+                   WHERE (
+                           s_bol.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                           OR s_bol.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                         )
+                     AND (s_bol.id_sucursal = ? OR s_bol.suc_codigo_sucursal = ?)
+               )
+           )";
+
+        $stmt_acum = $conn->prepare($query_acumulado);
+        $stmt_acum->bind_param("ssississ",
+            $sello_anterior, $sello_anterior,
+            $id_despacho_viaje,
+            $sello_despacho,
+            $id_sucursal_despacho, $codigo_sucursal_despacho,
+            $id_sucursal_despacho, $codigo_sucursal_despacho
+        );
+        $stmt_acum->execute();
+        $row_acum = $stmt_acum->get_result()->fetch_assoc();
+        $stmt_acum->close();
+
+        $cantidad_acumulada = intval($row_acum['cantidad'] ?? 0);
+        $total_acumulado = floatval($row_acum['total'] ?? 0);
+        $cantidad_entregada_antes = intval($row_acum['cantidad_antes'] ?? 0);
+        $total_entregado_antes = floatval($row_acum['total_antes'] ?? 0);
+    }
 
     // 3. Consulta de cobros/retenciones
     $totalRetenciones = 0;
@@ -732,6 +892,17 @@ try {
     $pdf->SetFont('helvetica', 'B', 7.8);
     $pdf->Cell($wResKey, 3.9, '(+) VENTA BOLETOS:', 0, 0, 'L');
     $pdf->Cell($wResVal, 3.9, '$' . number_format($total_boletos, 2), 0, 1, 'R');
+
+    // Cuadre con la lista de pasajeros: la lista imprime TODA la venta de la
+    // oficina en el viaje, mientras esta hoja liquida solo el turno actual.
+    if ($id_despacho_anterior > 0) {
+        $pdf->SetFont('helvetica', 'B', 6.8);
+        $pdf->Cell($wResKey, 3.4, 'Acumulado oficina:', 0, 0, 'L');
+        $pdf->Cell($wResVal, 3.4, '$' . number_format($total_acumulado, 2) . ' (' . $cantidad_acumulada . ' pas.)', 0, 1, 'R');
+        $pdf->Cell($wResKey, 3.4, 'Entregado antes (#' . $id_despacho_anterior . '):', 0, 0, 'L');
+        $pdf->Cell($wResVal, 3.4, '$' . number_format($total_entregado_antes, 2) . ' (' . $cantidad_entregada_antes . ' pas.)', 0, 1, 'R');
+        $pdf->SetFont('helvetica', 'B', 7.8);
+    }
 
     $pdf->Cell($wResKey, 3.9, '(-) RETENCIONES:', 0, 0, 'L');
     $pdf->Cell($wResVal, 3.9, '$' . number_format($totalRetenciones, 2), 0, 1, 'R');

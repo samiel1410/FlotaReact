@@ -74,17 +74,36 @@ try {
         $empresaCfgCached = json_decode(@file_get_contents($cacheCfgFile), true);
     }
 
+    // El cache es compartido con otros PDFs (guiaPdf.php, boletoFactura.php, caja, etc.).
+    // Si el archivo lo reescribió un script que no selecciona estas columnas, la clave
+    // faltaría y la guía imprimiría hojas extra aunque estén desactivadas.
+    $clavesConfigRequeridas = ['imprimir_boucher_guia', 'formato_impresion'];
+    if (is_array($empresaCfgCached)) {
+        foreach ($clavesConfigRequeridas as $clave) {
+            if (!array_key_exists($clave, $empresaCfgCached)) {
+                $empresaCfgCached = null;
+                break;
+            }
+        }
+    }
+
     if ($empresaCfgCached) {
         $vals_empresa       = $empresaCfgCached;
         $vals_configuracion = $empresaCfgCached;
     } else {
         // 1 solo roundtrip: empresa + configuracion (sin BLOB) vía LEFT JOIN ON 1=1
         // (CROSS JOIN devolvería 0 filas si configuracion está vacía)
-        $rec_emp = mysqli_query($conn, "SELECT e.id_empresa, e.telefono_empresa, e.correo_empresa, e.ruc_empresa, e.direccion_empresa, e.razon_social_empresa, c.leyendamensaje_configuracion, c.mensajeleyenda_configuracion, c.imprimir_boucher_guia, c.formato_impresion FROM empresa e LEFT JOIN configuracion c ON 1=1 LIMIT 1");
+        $rec_emp = @mysqli_query($conn, "SELECT e.id_empresa, e.telefono_empresa, e.correo_empresa, e.ruc_empresa, e.direccion_empresa, e.razon_social_empresa, c.leyendamensaje_configuracion, c.mensajeleyenda_configuracion, c.imprimir_boucher_guia, c.formato_impresion FROM empresa e LEFT JOIN configuracion c ON 1=1 LIMIT 1");
+        if (!$rec_emp) {
+            // BD antiguas sin las columnas nuevas: se consulta sin ellas.
+            $rec_emp = @mysqli_query($conn, "SELECT e.id_empresa, e.telefono_empresa, e.correo_empresa, e.ruc_empresa, e.direccion_empresa, e.razon_social_empresa, c.leyendamensaje_configuracion, c.mensajeleyenda_configuracion FROM empresa e LEFT JOIN configuracion c ON 1=1 LIMIT 1");
+        }
         $row_emp = $rec_emp ? mysqli_fetch_assoc($rec_emp) : [];
         $vals_empresa = $row_emp ?: [];
         $vals_configuracion = $row_emp ?: [];
-        @file_put_contents($cacheCfgFile, json_encode($vals_empresa));
+        if (is_array($row_emp) && array_key_exists('imprimir_boucher_guia', $row_emp)) {
+            @file_put_contents($cacheCfgFile, json_encode($vals_empresa));
+        }
     }
     $tCfg = microtime(true);
 

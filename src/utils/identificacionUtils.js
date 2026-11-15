@@ -150,6 +150,104 @@ export const validarIdentificacion = (identificacion, tipo = null) => {
 };
 
 /**
+ * Valida el dígito verificador de una cédula ecuatoriana (módulo 10).
+ * Los números de "consumidor final" (9999999999) se aceptan como válidos
+ * porque son un identificador genérico del sistema, no una cédula real.
+ */
+export const validarCedulaEcuatoriana = (cedula) => {
+  const valor = String(cedula ?? '').trim();
+  if (!/^\d{10}$/.test(valor)) {
+    return { valido: false, mensaje: 'La cédula debe tener 10 dígitos.' };
+  }
+  if (/^9{10}$/.test(valor)) return { valido: true, mensaje: '' };
+
+  const provincia = Number(valor.slice(0, 2));
+  if (!((provincia >= 1 && provincia <= 24) || provincia === 30)) {
+    return { valido: false, mensaje: 'Cédula inválida: el código de provincia no existe.' };
+  }
+  if (Number(valor[2]) >= 6) {
+    return { valido: false, mensaje: 'Cédula inválida: el tercer dígito no corresponde a una persona natural.' };
+  }
+
+  const coeficientes = [2, 1, 2, 1, 2, 1, 2, 1, 2];
+  let suma = 0;
+  for (let i = 0; i < 9; i += 1) {
+    let producto = Number(valor[i]) * coeficientes[i];
+    if (producto > 9) producto -= 9;
+    suma += producto;
+  }
+  const verificador = (10 - (suma % 10)) % 10;
+  if (verificador !== Number(valor[9])) {
+    return { valido: false, mensaje: 'Cédula inválida: el dígito verificador no coincide.' };
+  }
+  return { valido: true, mensaje: '' };
+};
+
+/**
+ * Valida el dígito verificador de un RUC ecuatoriano (módulo 11).
+ * Acepta personas naturales (cédula + establecimiento), sociedades privadas
+ * (tercer dígito 9) y entidades públicas (tercer dígito 6).
+ */
+export const validarRucEcuatoriano = (ruc) => {
+  const valor = String(ruc ?? '').trim();
+  if (!/^\d{13}$/.test(valor)) {
+    return { valido: false, mensaje: 'El RUC debe tener 13 dígitos.' };
+  }
+  if (/^9{13}$/.test(valor)) return { valido: true, mensaje: '' };
+  if (valor.slice(10) === '000') {
+    return { valido: false, mensaje: 'RUC inválido: el establecimiento no puede ser 000.' };
+  }
+
+  const tercerDigito = Number(valor[2]);
+
+  if (tercerDigito <= 5) {
+    const cedula = validarCedulaEcuatoriana(valor.slice(0, 10));
+    if (!cedula.valido) return { valido: false, mensaje: `RUC inválido: ${cedula.mensaje}` };
+    return { valido: true, mensaje: '' };
+  }
+
+  if (tercerDigito === 6 || tercerDigito === 9) {
+    const coeficientes = tercerDigito === 6
+      ? [3, 2, 7, 6, 5, 4, 3, 2]
+      : [4, 3, 2, 7, 6, 5, 4, 3, 2];
+    let suma = 0;
+    for (let i = 0; i < coeficientes.length; i += 1) {
+      suma += Number(valor[i]) * coeficientes[i];
+    }
+    let verificador = 11 - (suma % 11);
+    if (verificador === 11) verificador = 0;
+    if (verificador === 10) {
+      return { valido: false, mensaje: 'RUC inválido: el dígito verificador no es válido.' };
+    }
+    if (verificador !== Number(valor[coeficientes.length])) {
+      return { valido: false, mensaje: 'RUC inválido: el dígito verificador no coincide.' };
+    }
+    return { valido: true, mensaje: '' };
+  }
+
+  return { valido: false, mensaje: 'RUC inválido: el tercer dígito no es válido.' };
+};
+
+/**
+ * Validación usada al entregar una guía: solo cédula (10 dígitos) o RUC
+ * (13 dígitos) con dígito verificador correcto. Evita entregas con números
+ * inventados.
+ */
+export const validarIdentificacionEntrega = (identificacion) => {
+  const valor = String(identificacion ?? '').trim();
+  if (!valor) return { valido: false, mensaje: 'Ingrese la cédula de quien recibe.' };
+  if (!esSoloDigitos(valor)) {
+    return { valido: false, mensaje: 'La identificación debe contener solo números.' };
+  }
+  if (valor.length === 10) return validarCedulaEcuatoriana(valor);
+  if (valor.length === 13) return validarRucEcuatoriano(valor);
+  return {
+    valido: false,
+    mensaje: `Debe tener 10 dígitos (cédula) o 13 dígitos (RUC); se ingresaron ${valor.length}.`
+  };
+};
+
+/**
  * Validación para guías.
  *
  * Si se conoce el tipo (cédula / RUC / pasaporte) se valida con esa regla.

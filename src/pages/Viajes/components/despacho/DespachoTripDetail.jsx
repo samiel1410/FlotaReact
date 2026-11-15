@@ -186,6 +186,7 @@ export const DespachoTripDetail = ({
     if (selectedSucursalKey === 'TODOS') {
       return {
         boletos: globalBoletos,
+        cantidad: Number(detailData?.valores?.cantidad_boletos || 0),
         retencion: globalRetencion,
         retencion_techo: parseFloat(detailData?.valores?.retencion_porcentual || 0),
         entrega: globalEntrega,
@@ -203,6 +204,9 @@ export const DespachoTripDetail = ({
         : parseFloat(sucVal.retencion || 0);
       return {
         boletos: parseFloat(sucVal.boletos || 0),
+        // `sucursal_usuario` es el corte del turno (venta pendiente de despachar),
+        // no toda la venta de la oficina: el subtítulo debe usar este número.
+        cantidad: Number(sucVal.cantidad_boletos || 0),
         retencion: retencionAplicada,
         retencion_techo: parseFloat(sucVal.retencion || 0),
         entrega: Math.max(0, parseFloat(sucVal.boletos || 0) - retencionAplicada),
@@ -223,6 +227,7 @@ export const DespachoTripDetail = ({
     if (desgloseMatch) {
       return {
         boletos: parseFloat(desgloseMatch.total_boletos || 0),
+        cantidad: Number(desgloseMatch.cantidad_boletos || 0),
         retencion: parseFloat(desgloseMatch.retencion_monto || 0),
         retencion_techo: parseFloat(desgloseMatch.total_boletos || 0) * (parseFloat(desgloseMatch.porcentaje_retencion || 0) / 100),
         entrega: parseFloat(desgloseMatch.entrega ?? Math.max(0, desgloseMatch.total_boletos - desgloseMatch.retencion_monto)),
@@ -234,6 +239,7 @@ export const DespachoTripDetail = ({
 
     return {
       boletos: globalBoletos,
+      cantidad: Number(detailData?.valores?.cantidad_boletos || 0),
       retencion: globalRetencion,
       retencion_techo: parseFloat(detailData?.valores?.retencion_porcentual || 0),
       entrega: globalEntrega,
@@ -508,7 +514,7 @@ export const DespachoTripDetail = ({
               </span>
               <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                 {valoresVista.esPorSucursal
-                  ? `Valores de ${asientosFiltrados.length} pasajero(s) por ${Number(valoresVista.boletos || 0).toFixed(2)} USD de ${valoresVista.sucursalNombre}`
+                  ? `Turno a despachar: ${Number(valoresVista.cantidad || 0)} pasajero(s) por $${Number(valoresVista.boletos || 0).toFixed(2)} USD de ${valoresVista.sucursalNombre}${asientosFiltrados.length > Number(valoresVista.cantidad || 0) ? ` · ${asientosFiltrados.length} pasajero(s) en el viaje` : ''}`
                   : 'Valores consolidados de todas las sucursales del viaje'}
               </p>
             </div>
@@ -600,7 +606,14 @@ export const DespachoTripDetail = ({
                 type="button"
                 onClick={() => {
                   const nombreUsuario = user?.nombre_usuario || user?.nombre || user?.username || '';
-                  const pdfUrl = baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?id_viajes=${tripId}&usuario=${encodeURIComponent(nombreUsuario)}`);
+                  // Reimprimir el despacho de MI oficina, no el último del viaje:
+                  // en un cambio de turno el último despacho es de otro oficinista.
+                  const idDespachoOficina = detailData?.id_despacho_mi_sucursal;
+                  const params = idDespachoOficina
+                    ? `id_despacho=${idDespachoOficina}&id_viajes=${tripId}`
+                    : `id_viajes=${tripId}`;
+                  const idUsuario = user?.id_usuario ? `&id_usuario=${user.id_usuario}` : '';
+                  const pdfUrl = baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?${params}&usuario=${encodeURIComponent(nombreUsuario)}${idUsuario}`);
                   window.open(pdfUrl, '_blank');
                 }}
                 className="w-full h-12 text-xs font-bold rounded-xl text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95"
