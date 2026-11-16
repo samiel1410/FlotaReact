@@ -18,7 +18,7 @@ date_default_timezone_set('America/Guayaquil');
 // TTL corto (60s): ventana pequeña de posible stale si la guía se cobra justo después de imprimir.
 define('GUIAIMP_FAST_TTL', 60);
 // Cambiar la versión invalida los PDFs cacheados cuando cambia el diseño del ticket.
-define('GUIAIMP_LAYOUT_VERSION', 'guia-recepcion-dir-v4');
+define('GUIAIMP_LAYOUT_VERSION', 'guia-recepcion-dir-v5');
 
 try {
     $t0 = microtime(true);
@@ -351,6 +351,7 @@ try {
         count($items_detalle), (string)$reimpreso_por, $imprimir_boucher_guia,
         $ubicacion_usuario, $rutaLogo, (int)($vals_guia['estado_guia'] ?? 0),
         $leyenda, $fecha_recepcion_txt,
+        $nombre_compania, $direccion_compania_asociada,
         GUIAIMP_LAYOUT_VERSION
     ]));
     $pdfCacheDir = __DIR__ . '/tmp/pdfs/';
@@ -442,35 +443,57 @@ try {
 
     // 5. DESTINO
     $drawLine();
+
+    // La compañía asociada se repite en vertical al costado del destino, en una
+    // franja angosta a la derecha, para identificarla de un vistazo al despachar.
+    $textoCompaniaVertical = strtoupper(trim((string)$nombre_compania));
+    $anchoCompaniaVertical = $textoCompaniaVertical !== ''
+        ? max(4.5, min(9.0, $lw * 0.09))
+        : 0.0;
+    $lwDestino = $lw - $anchoCompaniaVertical;
+    $yBloqueDestinoIni = $pdf->GetY();
+
     $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_base'] * 1.15, 1));
-    $pdf->Cell($lw, 4.6, 'DESTINO', 0, 1, 'C');
+    $pdf->Cell($lwDestino, 4.6, 'DESTINO', 0, 1, 'C');
 
     // Nombre del destino en letras grandes (se reduce si no cabe en el ancho del ticket)
     if ($destino_guia !== '') {
         $fontDestino = max(round($metricas['font_tcpdf_bold'] * 1.9, 1), 12.0);
         $textoDestino = strtoupper($destino_guia);
         $pdf->SetFont('helvetica', 'B', $fontDestino);
-        while ($fontDestino > 6 && $pdf->GetStringWidth($textoDestino) > $lw) {
+        while ($fontDestino > 6 && $pdf->GetStringWidth($textoDestino) > $lwDestino) {
             $fontDestino = round($fontDestino - 0.5, 1);
             $pdf->SetFont('helvetica', 'B', $fontDestino);
         }
-        $pdf->MultiCell($lw, round($fontDestino * 0.42, 1), $textoDestino, 0, 'C', false, 1);
+        $pdf->MultiCell($lwDestino, round($fontDestino * 0.42, 1), $textoDestino, 0, 'C', false, 1);
     }
 
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
-    $pdf->Cell($lw, 4.4, 'CI: ' . $cedula_cliente_receptor, 0, 1, 'L');
+    $pdf->Cell($lwDestino, 4.4, 'CI: ' . $cedula_cliente_receptor, 0, 1, 'L');
     $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.15, 1));
-    $pdf->MultiCell($lw, 5.4, 'RECIBE: ' . $nombre_cliente_receptor, 0, 'L', false, 1);
+    $pdf->MultiCell($lwDestino, 5.4, 'RECIBE: ' . $nombre_cliente_receptor, 0, 'L', false, 1);
     if ($direccion_cliente_receptor !== '') {
         $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
-        $pdf->MultiCell($lw, 4.4, 'DIRECCIÓN: ' . strtoupper($direccion_cliente_receptor), 0, 'L', false, 1);
+        $pdf->MultiCell($lwDestino, 4.4, 'DIRECCIÓN: ' . strtoupper($direccion_cliente_receptor), 0, 'L', false, 1);
     }
     $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
     $txtDest = 'TELÉFONO: ' . $telefono_cliente_receptor;
     foreach ($lista_contenido as $cnt) {
         $txtDest .= "\n" . 'CONTENIDO: ' . $cnt;
     }
-    $pdf->MultiCell($lw, 4.4, $txtDest, 0, 'L', false, 1);
+    $pdf->MultiCell($lwDestino, 4.4, $txtDest, 0, 'L', false, 1);
+
+    if ($anchoCompaniaVertical > 0) {
+        imprimirTextoVerticalTcpdf(
+            $pdf,
+            $textoCompaniaVertical,
+            $metricas['margen_mm'] + $lwDestino + 0.5,
+            $yBloqueDestinoIni,
+            $anchoCompaniaVertical - 1.0,
+            $pdf->GetY() - $yBloqueDestinoIni,
+            round($metricas['font_tcpdf_bold'] * 0.85, 1)
+        );
+    }
 
     // 6. RETIRAR EN
     if (!empty($direccion_compania_asociada) || !empty($nombre_compania)) {
@@ -620,22 +643,41 @@ try {
             $pdf->MultiCell($lw, 5.6, $nombre_cliente_receptor, 0, 'C', false, 1);
             $pdf->Ln(1);
 
-            // DESTINO
+            // DESTINO (con la compañía repetida en vertical al costado)
+            $textoCompaniaVertical = strtoupper(trim((string)$nombre_compania));
+            $anchoCompaniaVertical = $textoCompaniaVertical !== ''
+                ? max(4.5, min(9.0, $lw * 0.09))
+                : 0.0;
+            $lwDestino = $lw - $anchoCompaniaVertical;
+            $ySlipDestinoIni = $pdf->GetY();
+
             $pdf->SetFont('helvetica', 'B', $metricas['font_tcpdf_sub']);
-            $pdf->Cell($lw, 4, 'Destino', 0, 1, 'C');
+            $pdf->Cell($lwDestino, 4, 'Destino', 0, 1, 'C');
             $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.35, 1));
-            $pdf->Cell($lw, 6.5, strtoupper($destino_guia), 0, 1, 'C');
+            $pdf->Cell($lwDestino, 6.5, strtoupper($destino_guia), 0, 1, 'C');
             if ($direccion_cliente_receptor !== '') {
                 $pdf->SetFont('helvetica', 'B', round($metricas['font_tcpdf_bold'] * 1.10, 1));
-                $pdf->MultiCell($lw, 5.2, strtoupper($direccion_cliente_receptor), 0, 'C', false, 1);
+                $pdf->MultiCell($lwDestino, 5.2, strtoupper($direccion_cliente_receptor), 0, 'C', false, 1);
             }
             $pdf->Ln(1);
 
             // TELÉFONO
             if (!empty($telefono_cliente_receptor)) {
                 $pdf->SetFont('helvetica', '', $metricas['font_tcpdf_base']);
-                $pdf->Cell($lw, 5, 'Fono: ' . $telefono_cliente_receptor, 0, 1, 'C');
+                $pdf->Cell($lwDestino, 5, 'Fono: ' . $telefono_cliente_receptor, 0, 1, 'C');
                 $pdf->Ln(1);
+            }
+
+            if ($anchoCompaniaVertical > 0) {
+                imprimirTextoVerticalTcpdf(
+                    $pdf,
+                    $textoCompaniaVertical,
+                    $metricas['margen_mm'] + $lwDestino + 0.5,
+                    $ySlipDestinoIni,
+                    $anchoCompaniaVertical - 1.0,
+                    $pdf->GetY() - $ySlipDestinoIni,
+                    round($metricas['font_tcpdf_bold'] * 0.85, 1)
+                );
             }
 
             // CONTENIDO

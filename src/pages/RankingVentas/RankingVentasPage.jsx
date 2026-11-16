@@ -33,6 +33,7 @@ export const RankingVentasPage = () => {
     colorHeader: '',
     itemData: null,
     detalles: [],
+    gastos: [],
     loading: false,
     busqueda: ''
   });
@@ -70,9 +71,10 @@ export const RankingVentasPage = () => {
     cargarRanking();
   }, [cargarRanking]);
 
-  // Abrir modal y cargar los detalles
+  // Abrir modal y cargar los detalles (ventas y gastos)
   const abrirModalDetalle = async (tipo, row, titulo, colorHeader) => {
     const nombreItem = row.nombre_usuario || row.nombre_destino || 'Seleccionado';
+    const esPorUsuario = tipo.includes('_usuario');
     setModalData({
       isOpen: true,
       tipo,
@@ -81,6 +83,7 @@ export const RankingVentasPage = () => {
       colorHeader,
       itemData: row,
       detalles: [],
+      gastos: [],
       loading: true,
       busqueda: ''
     });
@@ -95,15 +98,22 @@ export const RankingVentasPage = () => {
         nombre_destino: row.nombre_destino
       };
 
-      const res = await api.get('/reportes/rankingDetalle', { params });
-      if (res.data?.success) {
+      const [resDetalle, resGastos] = await Promise.all([
+        api.get('/reportes/rankingDetalle', { params }),
+        esPorUsuario
+          ? api.get('/reportes/rankingGastos', { params })
+          : Promise.resolve({ data: { success: true, data: [] } })
+      ]);
+
+      if (resDetalle.data?.success) {
         setModalData(prev => ({
           ...prev,
-          detalles: res.data.data || [],
+          detalles: resDetalle.data.data || [],
+          gastos: resGastos.data?.success ? (resGastos.data.data || []) : [],
           loading: false
         }));
       } else {
-        toast.error(res.data?.mensaje || 'Error al obtener detalles');
+        toast.error(resDetalle.data?.mensaje || 'Error al obtener detalles');
         setModalData(prev => ({ ...prev, loading: false }));
       }
     } catch (err) {

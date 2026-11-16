@@ -638,6 +638,71 @@ function imprimirLogoTcpdfA4($pdf, $rutaLogo, $x = 15.0, $y = 12.0, $maxW = 35.0
 }
 
 /**
+ * Imprime un texto rotado 90° (vertical, de abajo hacia arriba) centrado dentro
+ * de una franja. Se usa en el ticket POS para repetir la compañía asociada al
+ * costado del destino sin quitarle ancho a los datos del destinatario.
+ *
+ * @param TCPDF  $pdf
+ * @param string $texto        Texto a rotar.
+ * @param float  $xFranja      Borde izquierdo de la franja (mm).
+ * @param float  $yFranja      Borde superior de la franja (mm).
+ * @param float  $anchoFranja  Ancho de la franja (mm) = alto del texto rotado.
+ * @param float  $altoFranja   Alto de la franja (mm) = largo disponible del texto.
+ * @param float  $tamanoMax    Tamaño máximo de fuente (pt).
+ * @param string $familia      Familia tipográfica TCPDF.
+ * @param string $estilo       'B', 'I', 'BI' o ''.
+ * @return bool  true si se dibujó el texto.
+ */
+function imprimirTextoVerticalTcpdf($pdf, $texto, $xFranja, $yFranja, $anchoFranja, $altoFranja, $tamanoMax = 9.0, $familia = 'helvetica', $estilo = 'B')
+{
+    $texto = trim((string)$texto);
+    if (!is_object($pdf) || $texto === '' || $anchoFranja <= 0 || $altoFranja <= 0) {
+        return false;
+    }
+
+    $largoDisponible = max(6.0, $altoFranja - 2.0);
+    $tamano = max(4.0, (float)$tamanoMax);
+
+    $pdf->SetFont($familia, $estilo, $tamano);
+    while ($tamano > 4.0 && $pdf->GetStringWidth($texto) > $largoDisponible) {
+        $tamano = round($tamano - 0.5, 1);
+        $pdf->SetFont($familia, $estilo, $tamano);
+    }
+
+    if ($pdf->GetStringWidth($texto) > $largoDisponible) {
+        $recortar = function ($cadena, $largo) {
+            return function_exists('mb_substr')
+                ? mb_substr($cadena, 0, $largo, 'UTF-8')
+                : substr($cadena, 0, $largo);
+        };
+        $largo = function_exists('mb_strlen') ? mb_strlen($texto, 'UTF-8') : strlen($texto);
+        while ($largo > 1 && $pdf->GetStringWidth($recortar($texto, $largo) . '...') > $largoDisponible) {
+            $largo--;
+        }
+        $texto = rtrim($recortar($texto, $largo)) . '...';
+    }
+
+    $anchoCelda = $pdf->GetStringWidth($texto) + 1.0;
+    $altoCelda  = $anchoFranja;
+    $centroX    = $xFranja + ($anchoFranja / 2);
+    $centroY    = $yFranja + ($altoFranja / 2);
+
+    // Rotate() y setXY() trabajan en coordenadas absolutas de página (mismo
+    // criterio que marcarPdfAnulado): -90° deja el texto de abajo hacia arriba.
+    $xAntes = $pdf->GetX();
+    $yAntes = $pdf->GetY();
+    $pdf->StartTransform();
+    $pdf->Rotate(-90, $centroX, $centroY);
+    $pdf->setXY($centroX - ($anchoCelda / 2), $centroY - ($altoCelda / 2));
+    $pdf->Cell($anchoCelda, $altoCelda, $texto, 0, 0, 'C');
+    $pdf->StopTransform();
+    // setXY movió el cursor: se restaura para no alterar el flujo del ticket.
+    $pdf->setXY($xAntes, $yAntes);
+
+    return true;
+}
+
+/**
  * ¿Existe la columna en la tabla? El punto final del boleto se agregó después,
  * así que los PDF deben funcionar también en bases sin la migración aplicada.
  */
