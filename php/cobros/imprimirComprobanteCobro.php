@@ -50,6 +50,8 @@ try {
         ccr.concepto_detalle_comprobante_cobro,
         ccr.estado_comprobante_cobro,
         ccr.observacion_comprobante_cobro,
+        ccr.referencia_comprobante_cobro,
+        bn.nombre_banco,
         u.nombre_usuario,
         u.apellido_usuario,
         b.placa_buses,
@@ -61,6 +63,7 @@ try {
     LEFT JOIN buses b ON ccr.id_fkbus_comprobante_cobro = b.id_buses
     LEFT JOIN sucursal2 s ON ccr.id_fksucursal_comprobante_cobro = s.suc_codigo_sucursal
     LEFT JOIN forma_pago fp ON ccr.id_fkforma_pago = fp.id_forma_pago
+    LEFT JOIN banco bn ON ccr.id_fkbanco_comprobante_cobro = bn.id_banco
     WHERE ccr.numero_comprobante_cobro = $numero_comprobante
     ORDER BY ccr.fecha_creacion_comprobante_cobro ASC";
 
@@ -158,6 +161,14 @@ try {
     }
     if (!empty($usuario)) {
         $pdf->Cell($anchoUtil, 3.2, 'Usuario: ' . $usuario, 0, 1, 'L');
+    }
+    $banco = $comprobantes[0]['nombre_banco'] ?? '';
+    if (!empty($banco)) {
+        $pdf->Cell($anchoUtil, 3.2, 'Banco: ' . $banco, 0, 1, 'L');
+    }
+    $referencia = $comprobantes[0]['referencia_comprobante_cobro'] ?? '';
+    if (!empty($referencia)) {
+        $pdf->Cell($anchoUtil, 3.2, 'Referencia: ' . $referencia, 0, 1, 'L');
     }
     $pdf->Cell($anchoUtil, 3.2, 'Impresión: ' . $fecha_actual, 0, 1, 'R');
 

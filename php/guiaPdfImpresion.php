@@ -18,7 +18,7 @@ date_default_timezone_set('America/Guayaquil');
 // TTL corto (60s): ventana pequeña de posible stale si la guía se cobra justo después de imprimir.
 define('GUIAIMP_FAST_TTL', 60);
 // Cambiar la versión invalida los PDFs cacheados cuando cambia el diseño del ticket.
-define('GUIAIMP_LAYOUT_VERSION', 'guia-recepcion-dir-v5');
+define('GUIAIMP_LAYOUT_VERSION', 'guia-recepcion-dir-v6');
 
 try {
     $t0 = microtime(true);
@@ -448,7 +448,7 @@ try {
     // franja angosta a la derecha, para identificarla de un vistazo al despachar.
     $textoCompaniaVertical = strtoupper(trim((string)$nombre_compania));
     $anchoCompaniaVertical = $textoCompaniaVertical !== ''
-        ? max(4.5, min(9.0, $lw * 0.09))
+        ? max(5.5, min(9.0, $lw * 0.11))
         : 0.0;
     $lwDestino = $lw - $anchoCompaniaVertical;
     $yBloqueDestinoIni = $pdf->GetY();
@@ -489,7 +489,7 @@ try {
             $textoCompaniaVertical,
             $metricas['margen_mm'] + $lwDestino + 0.5,
             $yBloqueDestinoIni,
-            $anchoCompaniaVertical - 1.0,
+            $anchoCompaniaVertical - 1.4,
             $pdf->GetY() - $yBloqueDestinoIni,
             round($metricas['font_tcpdf_bold'] * 0.85, 1)
         );
@@ -646,7 +646,7 @@ try {
             // DESTINO (con la compañía repetida en vertical al costado)
             $textoCompaniaVertical = strtoupper(trim((string)$nombre_compania));
             $anchoCompaniaVertical = $textoCompaniaVertical !== ''
-                ? max(4.5, min(9.0, $lw * 0.09))
+                ? max(5.5, min(9.0, $lw * 0.11))
                 : 0.0;
             $lwDestino = $lw - $anchoCompaniaVertical;
             $ySlipDestinoIni = $pdf->GetY();
@@ -674,7 +674,7 @@ try {
                     $textoCompaniaVertical,
                     $metricas['margen_mm'] + $lwDestino + 0.5,
                     $ySlipDestinoIni,
-                    $anchoCompaniaVertical - 1.0,
+                    $anchoCompaniaVertical - 1.4,
                     $pdf->GetY() - $ySlipDestinoIni,
                     round($metricas['font_tcpdf_bold'] * 0.85, 1)
                 );

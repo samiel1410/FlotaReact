@@ -521,7 +521,50 @@ export const PAGES_CONFIG = {
     endpoint: '/sucursal/sucursalselect',
     idField: 'id_sucursal',
     deleteEndpoint: '/sucursal/eliminarSucursal',
-    actions: { create: true, edit: true, delete: true },
+    actions: {
+      create: true,
+      edit: true,
+      delete: true,
+      custom: [
+        {
+          id: 'retenciones-frecuencia',
+          icon: 'fas fa-percent',
+          tooltip: 'Retenciones por Frecuencias',
+          color: 'text-indigo-600 hover:bg-indigo-50',
+          handler: async (row, ctx) => {
+            try {
+              const confRes = await api.get('/configuracion/selectconfiguracion');
+              const conf = confRes?.data?.data?.[0] || {};
+              const habilitado = Number(conf.retenciones_por_frecuencia) === 1 || conf.retenciones_por_frecuencia === true;
+
+              if (!habilitado) {
+                Swal.fire({
+                  icon: 'info',
+                  title: 'Opción deshabilitada',
+                  html: 'Activa <b>Retenciones por Frecuencias</b> en <b>Configuración → Boletería</b> para configurar qué rutas o frecuencias retienen y con qué porcentaje.',
+                  confirmButtonText: 'Entendido',
+                  confirmButtonColor: '#4f46e5',
+                });
+                return;
+              }
+
+              const { RetencionesFrecuenciaModal } = await import('../pages/Agencias/components/RetencionesFrecuenciaModal');
+              if (ctx?.openCustomModal) {
+                ctx.openCustomModal(
+                  RetencionesFrecuenciaModal,
+                  { initialData: row },
+                  `Retenciones por Frecuencias — ${row.nombre_sucursal || 'Agencia'}`,
+                  'max-w-5xl'
+                );
+              }
+            } catch (error) {
+              console.error('Error abriendo retenciones por frecuencia:', error);
+              toast.error('No se pudo abrir la configuración de retenciones por frecuencia');
+            }
+          },
+        },
+      ],
+    },
     formComponent: SucursalForm,
     columns: [
       { key: 'nombre_sucursal', label: 'Nombre' },

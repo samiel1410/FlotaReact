@@ -1,9 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../../../config/axios';
 import ViajesService from '../../../services/viajes.service';
 import { buildPdfUrl } from '../../../utils/pdfUrlUtils';
 import { useAuth } from '../../../context/AuthContext';
+
+// Margen para centavos de redondeo (venta por cabecera vs. suma de detalles).
+// Debe coincidir con el que valida el backend en despacharViajesClases.
+const TOLERANCIA_ENTREGA = 0.05;
+const round2 = (v) => Math.round((Number(v) + Number.EPSILON) * 100) / 100;
 
 export const DespachoViajeModal = ({ trip, onClose }) => {
   const { user } = useAuth();
@@ -28,6 +33,26 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
     motivo: '',
     aprobado: '',
   });
+
+  // Neto que debe entregar la oficina en este turno. Es el mínimo permitido:
+  // el oficinista puede entregar más, pero nunca menos.
+  const entregaEsperada = useMemo(() => {
+    const misValores = detalle?.valores?.sucursal_usuario || {};
+    const pendiente = detalle?.despacho_pendiente;
+    const valor = (pendiente?.hay_pendientes ? pendiente.entrega : null)
+      ?? misValores.entrega
+      ?? detalle?.valores?.entrega
+      ?? 0;
+    return round2(Math.max(0, parseFloat(valor) || 0));
+  }, [detalle]);
+
+  const montoEntrega = parseFloat(form.tarifa);
+  const montoIngresado = Number.isFinite(montoEntrega) && montoEntrega >= 0;
+  const idOperador = String(user?.id_usuario ?? user?.id ?? '');
+  const entregaIncompleta = Boolean(detalle) && montoIngresado && montoEntrega + TOLERANCIA_ENTREGA < entregaEsperada;
+  const entregaExtra = Boolean(detalle) && montoIngresado && montoEntrega - TOLERANCIA_ENTREGA > entregaEsperada;
+  const autorizacionValida = Boolean(form.aprobado) && String(form.aprobado) !== idOperador;
+  const faltaAutorizacion = entregaExtra && !autorizacionValida;
 
   useEffect(() => {
     const loadData = async () => {
@@ -80,6 +105,27 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
   };
 
   const handleDespachar = async () => {
+    const monto = parseFloat(form.tarifa);
+    if (!Number.isFinite(monto) || monto < 0) {
+      toast.error('Ingrese el dinero que entrega el oficinista');
+      return;
+    }
+    // Mismas reglas que valida el backend: nunca menos que el neto del turno
+    // y, si entrega más, autorización de otro usuario.
+    if (detalle && monto + TOLERANCIA_ENTREGA < entregaEsperada) {
+      toast.error(`No puede entregar menos de $${entregaEsperada.toFixed(2)} (neto del turno)`);
+      return;
+    }
+    if (detalle && monto - TOLERANCIA_ENTREGA > entregaEsperada) {
+      if (!form.aprobado) {
+        toast.error(`Para entregar más de $${entregaEsperada.toFixed(2)} seleccione quién autoriza`);
+        return;
+      }
+      if (String(form.aprobado) === idOperador) {
+        toast.error('La autorización debe ser de otro usuario, no del que despacha');
+        return;
+      }
+    }
     setLoading(true);
     try {
       // Usar el endpoint v1 (POST /viajes/despacharViajes) que soporta tarifa, motivo, aprobado, etc.
@@ -88,7 +134,7 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
         bus_disco: form.bus_disco,
         nombre_chofer: form.nombre_chofer,
         nombre_auxiliar: form.nombre_auxiliar,
-        tarifa: form.tarifa || '0',
+        tarifa: monto.toFixed(2),
         motivo: form.motivo || '',
         aprobado: form.aprobado || '',
         id_ruta: form.id_ruta,
@@ -261,23 +307,56 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
             </div>
           )}
 
-          {/* Tarifa + Recorrido + Motivo + Aprobado */}
+          {/* Dinero a entregar + autorización.
+              El oficinista entrega lo que físicamente tiene: no puede ser
+              menor al neto del turno; si entrega más, otro usuario autoriza. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Tarifa</label>
-              <input type="number" step="0.01" value={form.tarifa}
-                onChange={e => setForm(f => ({ ...f, tarifa: e.target.value }))}
-                className={inputCls} placeholder="0.00" />
+              <label className={labelCls}>Dinero a entregar</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-black pointer-events-none">$</span>
+                <input type="number" inputMode="decimal" min="0" step="0.01" value={form.tarifa}
+                  onChange={e => setForm(f => ({ ...f, tarifa: e.target.value }))}
+                  className={`${inputCls} pl-6 ${entregaIncompleta ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20' : ''}`}
+                  placeholder="0.00" />
+              </div>
+              <p className="mt-1 text-[9px] font-semibold text-slate-400">
+                Neto del turno: <span className="text-slate-600">${entregaEsperada.toFixed(2)}</span>
+                {' '}· puede entregar igual o más, nunca menos
+              </p>
+              {entregaIncompleta && (
+                <p className="mt-1 text-[10px] font-bold text-rose-600">
+                  <i className="fas fa-ban mr-1" />No puede entregar menos de ${entregaEsperada.toFixed(2)}
+                </p>
+              )}
+              {entregaExtra && (
+                <p className="mt-1 text-[10px] font-bold text-amber-700">
+                  <i className="fas fa-shield-halved mr-1" />
+                  Entrega extra de ${(montoEntrega - entregaEsperada).toFixed(2)}: requiere autorización
+                </p>
+              )}
             </div>
             <div>
-              <label className={labelCls}>Aprueba</label>
+              <label className={labelCls}>
+                {entregaExtra ? 'Autoriza la entrega extra *' : 'Autoriza (solo si entrega más)'}
+              </label>
               <select value={form.aprobado} onChange={e => setForm(f => ({ ...f, aprobado: e.target.value }))}
-                className={inputCls}>
-                <option value="">Seleccionar...</option>
-                {usuarios.map(u => (
-                  <option key={u.id_usuario} value={u.id_usuario}>{u.nombre_usuario}</option>
-                ))}
+                className={`${inputCls} ${faltaAutorizacion ? 'border-rose-300 focus:border-rose-500 focus:ring-rose-500/20' : ''}`}>
+                <option value="">{entregaExtra ? 'Seleccione quién autoriza...' : 'Sin autorización requerida'}</option>
+                {usuarios.map(u => {
+                  const esOperador = String(u.id_usuario) === idOperador;
+                  return (
+                    <option key={u.id_usuario} value={u.id_usuario} disabled={esOperador}>
+                      {u.nombre_usuario}{esOperador ? ' (usted)' : ''}
+                    </option>
+                  );
+                })}
               </select>
+              {faltaAutorizacion && (
+                <p className="mt-1 text-[10px] font-bold text-rose-600">
+                  <i className="fas fa-user-shield mr-1" />Seleccione otro usuario para autorizar el excedente
+                </p>
+              )}
             </div>
           </div>
 
@@ -325,10 +404,14 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
             className="h-9 px-5 text-[10px] font-black text-slate-500 bg-white border border-slate-200 rounded-lg hover:bg-slate-100 transition-all uppercase tracking-widest">
             Cancelar
           </button>
-          <button onClick={handleDespachar} disabled={loading || !form.bus_disco}
-            className="h-9 px-6 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg transition-all disabled:opacity-50 flex items-center gap-2 uppercase tracking-widest shadow-sm">
+          <button onClick={handleDespachar}
+            disabled={loading || !form.bus_disco || entregaIncompleta || faltaAutorizacion}
+            title={entregaIncompleta
+              ? `No puede entregar menos de $${entregaEsperada.toFixed(2)}`
+              : (faltaAutorizacion ? 'Seleccione quién autoriza la entrega extra' : '')}
+            className="h-9 px-6 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 uppercase tracking-widest shadow-sm">
             {loading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-paper-plane"></i>}
-            {loading ? 'Despachando...' : 'Despachar Viaje'}
+            {loading ? 'Despachando...' : `Despachar ${montoIngresado ? `$${montoEntrega.toFixed(2)}` : 'Viaje'}`}
           </button>
         </div>
       </div>

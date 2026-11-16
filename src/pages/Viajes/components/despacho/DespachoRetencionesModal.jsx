@@ -40,6 +40,7 @@ export const DespachoRetencionesModal = ({
   );
 
   const avisosRetencion = React.useMemo(() => valores?.avisos_retencion || [], [valores?.avisos_retencion]);
+  const frecuenciaRetencion = valores?.frecuencia_retencion || null;
   const conceptosRetencion = React.useMemo(
   // Solo los conceptos que REALMENTE se cobran: los que quedan en $0 no aportan
   // nada aquí (su saldo pendiente ya se informa en "Cobros pendientes").
@@ -240,6 +241,18 @@ export const DespachoRetencionesModal = ({
                 {isSucursal && (
                   <span className="bg-blue-100 text-blue-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full border border-blue-200">
                     {nombreSucursalActiva}
+                  </span>
+                )}
+                {frecuenciaRetencion && frecuenciaRetencion.modo !== 'NORMAL' && (
+                  <span
+                    className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                      frecuenciaRetencion.modo === 'SIN_RETENCION'
+                        ? 'bg-rose-100 text-rose-700 border-rose-200'
+                        : 'bg-indigo-100 text-indigo-700 border-indigo-200'
+                    }`}
+                    title={`Ruta ${frecuenciaRetencion.id_ruta || ''} · ${frecuenciaRetencion.hora || 'toda la ruta'}`}
+                  >
+                    {frecuenciaRetencion.modo === 'SIN_RETENCION' ? 'Frecuencia sin retención de %' : 'Retención con % de la agencia'}
                   </span>
                 )}
               </h3>

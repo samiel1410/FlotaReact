@@ -34,6 +34,7 @@ const DespachoGuiasNotaVentaPage = lazy(() => import('./pages/DespachoGuiasNotaV
 const DespachoPage = lazy(() => import('./pages/Despacho/DespachoPage').then(m => ({ default: m.DespachoPage })));
 const SeguimientoPage = lazy(() => import('./pages/Seguimiento/SeguimientoPage').then(m => ({ default: m.SeguimientoPage })));
 const CobrosPage = lazy(() => import('./pages/Cobros/CobrosPage').then(m => ({ default: m.CobrosPage })));
+const PromesasPagoPage = lazy(() => import('./pages/PromesasPago/PromesasPagoPage').then(m => ({ default: m.PromesasPagoPage })));
 const FacturacionPage = lazy(() => import('./pages/Facturacion/FacturacionPage').then(m => ({ default: m.FacturacionPage })));
 const CajasComprobantesPage = lazy(() => import('./pages/CajasComprobantes/CajasComprobantesPage').then(m => ({ default: m.CajasComprobantesPage })));
 const AnulacionesPage = lazy(() => import('./pages/Anulaciones/AnulacionesPage').then(m => ({ default: m.AnulacionesPage })));
@@ -184,6 +185,7 @@ function App() {
           <Route path="notificaciones" element={<NotificacionesPage />} />
 
           <Route path="cobros" element={<CobrosPage />} />
+          <Route path="promesas-pago" element={<PromesasPagoPage />} />
           <Route path="cartera-socio" element={<CarteraSocioPage />} />
           <Route path="multas" element={<MultasPage />} />
           <Route path="creditos-admin" element={<CreditosAdminPage />} />

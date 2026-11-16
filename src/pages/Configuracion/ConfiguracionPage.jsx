@@ -34,6 +34,7 @@ export const ConfiguracionPage = () => {
   const [configData, setConfigData] = useState({});
   const [formasPago, setFormasPago] = useState([]);
   const [formatosImpresion, setFormatosImpresion] = useState([]);
+  const [tiposDeuda, setTiposDeuda] = useState([]);
   const [sistemaModo, setSistemaModo] = useState('prueba');
   const [savingModo, setSavingModo] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -72,11 +73,14 @@ export const ConfiguracionPage = () => {
 
     const fetchConfig = async () => {
       try {
-        const [confRes, fpRes, impRes] = await Promise.all([
+        const [confRes, fpRes, impRes, tdRes] = await Promise.all([
           api.get('/configuracion/configuracionSeleccion'),
           api.get('/formapago/formapagoSeleccionPaginadoCombo'),
           api.get('/impresoras/formatos-impresion'),
+          api.get('/promesa-pago/tiposDeuda').catch(() => ({ data: { data: [] } })),
         ]);
+
+        if (tdRes?.data?.data) setTiposDeuda(tdRes.data.data);
 
         if (fpRes.data && fpRes.data.data) {
           setFormasPago(fpRes.data.data);
@@ -135,7 +139,13 @@ export const ConfiguracionPage = () => {
             descuento_global_boleto: conf.descuento_global_boleto === 1 || conf.descuento_global_boleto === true,
             omitir_confirmacion_boleto: conf.omitir_confirmacion_boleto === 1 || conf.omitir_confirmacion_boleto === true,
             permitir_consumidor_final: conf.permitir_consumidor_final === undefined || conf.permitir_consumidor_final === 1 || conf.permitir_consumidor_final === true,
+            retenciones_por_frecuencia: Number(conf.retenciones_por_frecuencia) === 1 || conf.retenciones_por_frecuencia === true,
             autocompletar_destinatario_remitente: conf.autocompletar_destinatario_remitente === undefined ? true : (conf.autocompletar_destinatario_remitente === 1 || conf.autocompletar_destinatario_remitente === true),
+            promesa_pago_habilitado: conf.promesa_pago_habilitado === undefined ? true : (conf.promesa_pago_habilitado === 1 || conf.promesa_pago_habilitado === true),
+            promesa_pago_dia_corte: conf.promesa_pago_dia_corte ?? 25,
+            promesa_pago_dias_aviso: conf.promesa_pago_dias_aviso ?? 5,
+            promesa_pago_max_cuotas: conf.promesa_pago_max_cuotas ?? 12,
+            promesa_pago_tipo_deuda: conf.promesa_pago_tipo_deuda ?? 3,
             color_sidebar: normalizarColor(conf.color_sidebar, APARIENCIA_DEFAULT.sidebar),
             color_header: normalizarColor(conf.color_header, APARIENCIA_DEFAULT.header),
           };
@@ -408,7 +418,7 @@ export const ConfiguracionPage = () => {
         // Un campo vacío no debe sobrescribir lo que ya está guardado en la base de datos
         if (typeof value === 'string' && value.trim() === '') return acc;
 
-        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'habilitar_tasas_ttg' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto' || key === 'omitir_confirmacion_boleto' || key === 'permitir_consumidor_final' || key === 'autocompletar_destinatario_remitente') {
+        if (key === 'maneja_leyenda' || key === 'maneja_leyenda_boleteria' || key === 'maneja_leyenda_nota_venta' || key === 'autorizar_factura_sri' || key === 'autorizar_boleto_sri' || key === 'ejecutar_job_sri_automatico' || key === 'habilitar_tasas_ttg' || key === 'enviar_whatsapp' || key === 'descuento_global_boleto' || key === 'omitir_confirmacion_boleto' || key === 'permitir_consumidor_final' || key === 'autocompletar_destinatario_remitente' || key === 'promesa_pago_habilitado' || key === 'retenciones_por_frecuencia') {
           acc[key] = +!!value;
         } else if (key === 'cobrar_iva_guia' || key === 'imprimir_boucher_guia') {
           acc[key] = value ? 1 : 0;
@@ -833,6 +843,23 @@ export const ConfiguracionPage = () => {
                         </div>
                       </div>
 
+                      <div className="flex items-start gap-3 p-3 bg-indigo-50/60 border border-indigo-200 rounded-xl">
+                        <input
+                          type="checkbox"
+                          {...register('retenciones_por_frecuencia')}
+                          id="retenciones_por_frecuencia"
+                          className="w-4 h-4 text-indigo-600 bg-slate-100 border-slate-300 rounded focus:ring-indigo-500 mt-0.5 cursor-pointer"
+                        />
+                        <div>
+                          <label htmlFor="retenciones_por_frecuencia" className="text-sm font-bold text-slate-800 cursor-pointer">
+                            Retenciones por Frecuencias
+                          </label>
+                          <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+                            Habilita en Agencias la configuración de retenciones por ruta y horario/frecuencia. Permite dejar una frecuencia sin retención del porcentaje de comisión o forzar el porcentaje de la agencia, ignorando el porcentaje individual del busero. Si está desactivada, se mantiene el comportamiento actual (porcentaje del busero o de la agencia).
+                          </p>
+                        </div>
+                      </div>
+
                       <div className="flex items-start gap-3 p-3 bg-cyan-50/60 border border-cyan-200 rounded-xl">
                         <input
                           type="checkbox"
@@ -911,6 +938,84 @@ export const ConfiguracionPage = () => {
                   <div className="flex items-center gap-2">
                     <input type="checkbox" {...register('maneja_leyenda_boleteria')} id="maneja_leyenda_boleteria" className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500" />
                     <label htmlFor="maneja_leyenda_boleteria" className="text-sm font-semibold text-slate-700 cursor-pointer">Mostrar en Boletos</label>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 mt-2">
+                    <h2 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-4">
+                      <i className="fas fa-calendar-check text-emerald-500 mr-2"></i>Promesas de Pago
+                    </h2>
+
+                    <div className="flex items-start gap-3 p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl">
+                      <input
+                        type="checkbox"
+                        {...register('promesa_pago_habilitado')}
+                        id="promesa_pago_habilitado"
+                        className="w-4 h-4 text-emerald-600 bg-slate-100 border-slate-300 rounded focus:ring-emerald-500 mt-0.5 cursor-pointer"
+                      />
+                      <div>
+                        <label htmlFor="promesa_pago_habilitado" className="text-sm font-bold text-slate-800 cursor-pointer">
+                          Habilitar Promesas de Pago
+                        </label>
+                        <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
+                          Permite registrar promesas de la cuota administrativa con una o varias fechas.
+                          Mientras la promesa esté vigente no se retiene la cuota.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 mt-3">
+                      <div>
+                        <label className={labelClass}>Día de corte</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="31"
+                          {...register('promesa_pago_dia_corte')}
+                          className={inputClass}
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Del 1 al {watch('promesa_pago_dia_corte') || 25} no se retiene; desde el día siguiente sí.
+                        </p>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Días de aviso en caja</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="30"
+                          {...register('promesa_pago_dias_aviso')}
+                          className={inputClass}
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Anticipación con la que aparece en "Promesas por Cobrar".
+                        </p>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Máximo de fechas</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="60"
+                          {...register('promesa_pago_max_cuotas')}
+                          className={inputClass}
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Cantidad máxima de cuotas por promesa.
+                        </p>
+                      </div>
+                      <div>
+                        <label className={labelClass}>Tipo de cuota administrativa</label>
+                        <select {...register('promesa_pago_tipo_deuda')} className={inputClass}>
+                          <option value="">Seleccionar...</option>
+                          {tiposDeuda.map((t) => (
+                            <option key={t.id_tipo_deuda} value={t.id_tipo_deuda}>{t.nombre}</option>
+                          ))}
+                        </select>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          Tipo de deuda que se controla con la promesa (por defecto Cuota administrativa).
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
             </div>

@@ -661,41 +661,127 @@ function imprimirTextoVerticalTcpdf($pdf, $texto, $xFranja, $yFranja, $anchoFran
     }
 
     $largoDisponible = max(6.0, $altoFranja - 2.0);
-    $tamano = max(4.0, (float)$tamanoMax);
+    $tamanoMinimo    = 4.0;
+    $tamanoMaximo    = max($tamanoMinimo, (float)$tamanoMax);
 
-    $pdf->SetFont($familia, $estilo, $tamano);
-    while ($tamano > 4.0 && $pdf->GetStringWidth($texto) > $largoDisponible) {
-        $tamano = round($tamano - 0.5, 1);
+    $largoDe = function ($cadena) {
+        return function_exists('mb_strlen') ? mb_strlen($cadena, 'UTF-8') : strlen($cadena);
+    };
+    $recorteDe = function ($cadena, $inicio, $largo = null) {
+        if (function_exists('mb_substr')) {
+            return $largo === null
+                ? mb_substr($cadena, $inicio, null, 'UTF-8')
+                : mb_substr($cadena, $inicio, $largo, 'UTF-8');
+        }
+        return $largo === null ? substr($cadena, $inicio) : substr($cadena, $inicio, $largo);
+    };
+
+    // ¿Todas las líneas entran en el alto disponible con ese tamaño de fuente?
+    $caben = function ($lineas, $tamano) use ($pdf, $familia, $estilo, $largoDisponible) {
         $pdf->SetFont($familia, $estilo, $tamano);
+        foreach ($lineas as $linea) {
+            if ($pdf->GetStringWidth($linea) > $largoDisponible) {
+                return false;
+            }
+        }
+        return true;
+    };
+    $ajustarTamano = function ($lineas, $maximo, $minimo) use ($caben) {
+        $tamano = $maximo;
+        while ($tamano > $minimo && !$caben($lineas, $tamano)) {
+            $tamano = max($minimo, round($tamano - 0.5, 1));
+        }
+        return $tamano;
+    };
+
+    // 1) Una sola columna: se reduce la fuente sin pasar de 6 pt (debajo ya no se lee).
+    $lineas = [$texto];
+    $tamano = $ajustarTamano($lineas, $tamanoMaximo, 6.0);
+
+    // 2) Si el nombre es muy largo, se reparte en dos columnas verticales antes
+    //    de recortarlo. Sólo si la franja da para dos columnas y hay alto de sobra.
+    if (!$caben($lineas, $tamano) && $anchoFranja >= 4.5 && $largoDisponible >= 14.0) {
+        $partirEnDos = function ($cadena) use ($largoDe, $recorteDe) {
+            $palabras = preg_split('/\s+/u', $cadena, -1, PREG_SPLIT_NO_EMPTY);
+            if (!$palabras) {
+                return [$cadena];
+            }
+            if (count($palabras) === 1) {
+                $largo = $largoDe($cadena);
+                if ($largo < 4) {
+                    return [$cadena];
+                }
+                $mitad = (int)ceil($largo / 2);
+                return [$recorteDe($cadena, 0, $mitad), $recorteDe($cadena, $mitad)];
+            }
+            // Corte por palabras que deja las dos líneas lo más parejas posible.
+            $total = 0;
+            foreach ($palabras as $palabra) {
+                $total += $largoDe($palabra) + 1;
+            }
+            $acumulado = 0;
+            $mejorCorte = 1;
+            $mejorDiferencia = null;
+            $ultima = count($palabras) - 1;
+            for ($i = 0; $i < $ultima; $i++) {
+                $acumulado += $largoDe($palabras[$i]) + 1;
+                $diferencia = abs($total - (2 * $acumulado));
+                if ($mejorDiferencia === null || $diferencia < $mejorDiferencia) {
+                    $mejorDiferencia = $diferencia;
+                    $mejorCorte = $i + 1;
+                }
+            }
+            return [
+                implode(' ', array_slice($palabras, 0, $mejorCorte)),
+                implode(' ', array_slice($palabras, $mejorCorte))
+            ];
+        };
+
+        $dosLineas = $partirEnDos($texto);
+        if (count($dosLineas) === 2) {
+            $lineas = $dosLineas;
+            // Con dos columnas la fuente también debe caber en el ancho de cada una.
+            $altoColumna = $anchoFranja / 2;
+            $tamanoDos = min($tamanoMaximo, max($tamanoMinimo, ($altoColumna - 0.4) / 0.3528));
+            $tamano = $ajustarTamano($lineas, round($tamanoDos, 1), $tamanoMinimo);
+        }
     }
 
-    if ($pdf->GetStringWidth($texto) > $largoDisponible) {
-        $recortar = function ($cadena, $largo) {
-            return function_exists('mb_substr')
-                ? mb_substr($cadena, 0, $largo, 'UTF-8')
-                : substr($cadena, 0, $largo);
-        };
-        $largo = function_exists('mb_strlen') ? mb_strlen($texto, 'UTF-8') : strlen($texto);
-        while ($largo > 1 && $pdf->GetStringWidth($recortar($texto, $largo) . '...') > $largoDisponible) {
+    // 3) Último recurso: se permite bajar hasta el mínimo legible y, si ni así
+    //    entra, se recorta con puntos suspensivos.
+    $tamano = $ajustarTamano($lineas, $tamano, $tamanoMinimo);
+    foreach ($lineas as $i => $linea) {
+        $pdf->SetFont($familia, $estilo, $tamano);
+        if ($pdf->GetStringWidth($linea) <= $largoDisponible) {
+            continue;
+        }
+        $largo = $largoDe($linea);
+        while ($largo > 1 && $pdf->GetStringWidth(rtrim($recorteDe($linea, 0, $largo)) . '...') > $largoDisponible) {
             $largo--;
         }
-        $texto = rtrim($recortar($texto, $largo)) . '...';
+        $lineas[$i] = rtrim($recorteDe($linea, 0, $largo)) . '...';
     }
 
-    $anchoCelda = $pdf->GetStringWidth($texto) + 1.0;
-    $altoCelda  = $anchoFranja;
-    $centroX    = $xFranja + ($anchoFranja / 2);
-    $centroY    = $yFranja + ($altoFranja / 2);
+    $cantidadLineas = count($lineas);
+    $altoColumna    = $anchoFranja / $cantidadLineas;
+    $centroY        = $yFranja + ($altoFranja / 2);
 
     // Rotate() y setXY() trabajan en coordenadas absolutas de página (mismo
     // criterio que marcarPdfAnulado): -90° deja el texto de abajo hacia arriba.
+    // La segunda columna queda a la derecha de la primera, como un bloque girado.
     $xAntes = $pdf->GetX();
     $yAntes = $pdf->GetY();
-    $pdf->StartTransform();
-    $pdf->Rotate(-90, $centroX, $centroY);
-    $pdf->setXY($centroX - ($anchoCelda / 2), $centroY - ($altoCelda / 2));
-    $pdf->Cell($anchoCelda, $altoCelda, $texto, 0, 0, 'C');
-    $pdf->StopTransform();
+    foreach ($lineas as $i => $linea) {
+        $pdf->SetFont($familia, $estilo, $tamano);
+        $anchoCelda = $pdf->GetStringWidth($linea) + 1.0;
+        $centroX = $xFranja + ($altoColumna * ($i + 0.5));
+
+        $pdf->StartTransform();
+        $pdf->Rotate(-90, $centroX, $centroY);
+        $pdf->setXY($centroX - ($anchoCelda / 2), $centroY - ($altoColumna / 2));
+        $pdf->Cell($anchoCelda, $altoColumna, $linea, 0, 0, 'C');
+        $pdf->StopTransform();
+    }
     // setXY movió el cursor: se restaura para no alterar el flujo del ticket.
     $pdf->setXY($xAntes, $yAntes);
 

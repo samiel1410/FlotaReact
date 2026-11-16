@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { dialog } from '../../components/common/dialog/dialog';
 import toast from 'react-hot-toast';
 import { cobrosService } from '../../services/cobros.service';
@@ -34,6 +35,7 @@ const formatFecha = (f) => {
 };
 
 export const CuotaAdminPage = () => {
+  const navigate = useNavigate();
   // ── Estados de Datos y Paginación ───────────────────────────
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
@@ -245,6 +247,10 @@ export const CuotaAdminPage = () => {
     setCuotaSeleccionada(item);
   };
 
+  const handleCrearPromesa = (item) => {
+    navigate('/promesas-pago', { state: { crearPara: item } });
+  };
+
   const getEstadoBadge = (estado) => {
     switch (estado?.toLowerCase()) {
       case 'pagado':
@@ -310,6 +316,15 @@ export const CuotaAdminPage = () => {
             >
               <i className={`fas fa-sync-alt ${loading ? 'fa-spin' : ''}`} />
               <span>Refrescar</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/promesas-pago')}
+              className="h-9 px-4 bg-white hover:bg-slate-50 text-blue-700 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-sm border border-blue-200 active:scale-95"
+            >
+              <i className="fas fa-calendar-check" />
+              <span>Promesas de Pago</span>
             </button>
 
             <button
@@ -451,7 +466,7 @@ export const CuotaAdminPage = () => {
                   <th className="px-4 py-3 text-right w-24">Valor Pagado</th>
                   <th className="px-4 py-3 text-right w-28">Saldo Pendiente</th>
                   <th className="px-4 py-3 text-center w-28">Estado</th>
-                  <th className="px-4 py-3 text-center w-40">Acciones</th>
+                  <th className="px-4 py-3 text-center w-56">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -519,6 +534,16 @@ export const CuotaAdminPage = () => {
                         <div className="flex items-center justify-center gap-1.5">
                           {item.estado !== 'pagado' && item.estado !== 'anulado' && (
                             <>
+                              <button
+                                type="button"
+                                onClick={() => handleCrearPromesa(item)}
+                                className="h-7 px-2.5 text-[11px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg flex items-center justify-center gap-1 transition-all shadow-xs"
+                                title="Crear promesa de pago con fechas"
+                              >
+                                <i className="fas fa-calendar-check text-[10px]" />
+                                <span>Promesa</span>
+                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => handleAbrirPago(item)}

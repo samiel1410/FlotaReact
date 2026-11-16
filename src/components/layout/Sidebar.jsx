@@ -119,6 +119,7 @@ const MENU = [
       { to: '/creditos-admin', icon: 'fas fa-hand-holding-usd', label: 'Créditos Admin.', permission: 'cobros.creditos_admin' },
       { to: '/bonos', icon: 'fas fa-gift', label: 'Bonos', permission: 'cobros.bonos' },
       { to: '/cuota-admin', icon: 'fas fa-calendar-alt', label: 'Cuota Admin.', permission: 'cobros.cuota_admin' },
+      { to: '/promesas-pago', icon: 'fas fa-calendar-check', label: 'Promesas de Pago', permission: 'cobros.listado_cobros' },
       { to: '/cierre-cobros', icon: 'fas fa-file-invoice', label: 'Cierre x Concepto', permission: 'cobros.cierre_cobros' },
     ]
   },

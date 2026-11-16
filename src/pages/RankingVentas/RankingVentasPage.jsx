@@ -157,35 +157,67 @@ export const RankingVentasPage = () => {
     return `$${parseFloat(val || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  const formatFechaHora = (valor) => {
+    if (!valor) return '-';
+    const fecha = new Date(String(valor).replace(' ', 'T'));
+    if (Number.isNaN(fecha.getTime())) return String(valor);
+    return fecha.toLocaleString('es-EC', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+  };
+
   // Filtrado de registros en el modal
+  const coincideBusqueda = (item) => {
+    const term = modalData.busqueda.toLowerCase().trim();
+    return (
+      String(item.id_viaje || '').toLowerCase().includes(term) ||
+      String(item.id_boleto || '').toLowerCase().includes(term) ||
+      String(item.numero_guia || item.id_guia || '').toLowerCase().includes(term) ||
+      String(item.cliente || item.clientes || '').toLowerCase().includes(term) ||
+      String(item.remitente_guia || '').toLowerCase().includes(term) ||
+      String(item.destinatario_guia || '').toLowerCase().includes(term) ||
+      String(item.identificacion || '').toLowerCase().includes(term) ||
+      String(item.asiento || item.asientos || '').toLowerCase().includes(term) ||
+      String(item.destino || '').toLowerCase().includes(term) ||
+      String(item.nombre_usuario || '').toLowerCase().includes(term) ||
+      String(item.nombre_sucursal || '').toLowerCase().includes(term)
+    );
+  };
+
   const detallesFiltrados = useMemo(() => {
     if (!modalData.detalles || modalData.detalles.length === 0) return [];
     if (!modalData.busqueda.trim()) return modalData.detalles;
+    return modalData.detalles.filter(coincideBusqueda);
+  }, [modalData.detalles, modalData.busqueda]);
+
+  const gastosFiltrados = useMemo(() => {
+    if (!modalData.gastos || modalData.gastos.length === 0) return [];
+    if (!modalData.busqueda.trim()) return modalData.gastos;
 
     const term = modalData.busqueda.toLowerCase().trim();
-    return modalData.detalles.filter(item => {
+    return modalData.gastos.filter(item => {
       return (
-        String(item.id_viaje || '').toLowerCase().includes(term) ||
-        String(item.id_boleto || '').toLowerCase().includes(term) ||
-        String(item.numero_guia || item.id_guia || '').toLowerCase().includes(term) ||
-        String(item.cliente || item.clientes || '').toLowerCase().includes(term) ||
-        String(item.remitente_guia || '').toLowerCase().includes(term) ||
-        String(item.destinatario_guia || '').toLowerCase().includes(term) ||
-        String(item.identificacion || '').toLowerCase().includes(term) ||
-        String(item.asiento || item.asientos || '').toLowerCase().includes(term) ||
-        String(item.destino || '').toLowerCase().includes(term) ||
+        String(item.observacion || '').toLowerCase().includes(term) ||
+        String(item.numero_detalle || '').toLowerCase().includes(term) ||
+        String(item.estado || '').toLowerCase().includes(term) ||
+        String(item.fecha_gasto || '').toLowerCase().includes(term) ||
         String(item.nombre_usuario || '').toLowerCase().includes(term) ||
         String(item.nombre_sucursal || '').toLowerCase().includes(term)
       );
     });
-  }, [modalData.detalles, modalData.busqueda]);
+  }, [modalData.gastos, modalData.busqueda]);
 
   const totalFiltradoModal = useMemo(() => {
     return detallesFiltrados.reduce((s, r) => s + parseFloat(r.total || r.total_boleto || r.total_guia || 0), 0);
   }, [detallesFiltrados]);
 
+  const totalGastosFiltrado = useMemo(() => {
+    return gastosFiltrados.reduce((s, g) => s + parseFloat(g.monto_gasto || 0), 0);
+  }, [gastosFiltrados]);
+
   // Tabla de ranking
-  const TablaRanking = ({ titulo, tipoRanking, datos, total, colorHeader, colName = "Oficinista" }) => {
+  const TablaRanking = ({ titulo, tipoRanking, datos, total, totalGastos = 0, totalNeto = 0, colorHeader, colName = "Oficinista", conGastos = false }) => {
     if (!datos || datos.length === 0) {
       return (
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -203,16 +235,30 @@ export const RankingVentasPage = () => {
     return (
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between">
         <div>
-          <div className={`px-5 py-4 flex items-center justify-between ${colorHeader}`}>
+          <div className={`px-5 py-4 flex items-center justify-between gap-3 ${colorHeader}`}>
             <div className="flex items-center gap-3">
               <div>
                 <h3 className="text-base font-black text-white uppercase tracking-tight">{titulo}</h3>
                 <p className="text-[10px] text-white/80 font-medium">{datos.length} {colName.toLowerCase()}s &bull; <span className="underline decoration-dotted cursor-default">Clic en una fila para ver detalles</span></p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-lg font-black text-white">{formatMoney(total)}</p>
-              <p className="text-[9px] text-white/70 uppercase tracking-wider font-bold">Total</p>
+            <div className="flex items-center gap-4 text-right">
+              <div>
+                <p className="text-lg font-black text-white">{formatMoney(total)}</p>
+                <p className="text-[9px] text-white/70 uppercase tracking-wider font-bold">Total vendido</p>
+              </div>
+              {conGastos && (
+                <>
+                  <div className="pl-4 border-l border-white/25">
+                    <p className="text-lg font-black text-white">{formatMoney(totalGastos)}</p>
+                    <p className="text-[9px] text-white/70 uppercase tracking-wider font-bold">Gastos</p>
+                  </div>
+                  <div className="pl-4 border-l border-white/25">
+                    <p className="text-lg font-black text-white">{formatMoney(totalNeto)}</p>
+                    <p className="text-[9px] text-white/70 uppercase tracking-wider font-bold">Neto</p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -224,6 +270,12 @@ export const RankingVentasPage = () => {
                   <th className="px-4 py-3 text-left text-[10px] font-bold text-slate-500 uppercase tracking-wider">{colName}</th>
                   <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-20">Cantidad</th>
                   <th className="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Vendido</th>
+                  {conGastos && (
+                    <>
+                      <th className="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gastos</th>
+                      <th className="px-4 py-3 text-right text-[10px] font-bold text-slate-500 uppercase tracking-wider">Neto</th>
+                    </>
+                  )}
                   <th className="px-4 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-16">%</th>
                   <th className="px-3 py-3 text-center text-[10px] font-bold text-slate-500 uppercase tracking-wider w-10">Ver</th>
                 </tr>
@@ -231,13 +283,15 @@ export const RankingVentasPage = () => {
               <tbody className="divide-y divide-slate-100">
                 {datos.map((row, i) => {
                   const valorVendido = parseFloat(row.total_vendido || 0);
+                  const valorGastos = parseFloat(row.total_gastos || 0);
+                  const valorNeto = parseFloat(row.total_neto ?? (valorVendido - valorGastos));
                   const porcentaje = total > 0 ? ((valorVendido / total) * 100) : 0;
                   return (
                     <tr
                       key={row.id_usuario || row.nombre_destino || i}
                       onClick={() => abrirModalDetalle(tipoRanking, row, titulo, colorHeader)}
                       className={`group hover:bg-indigo-50/70 cursor-pointer transition-all duration-150 ${i === 0 ? 'bg-amber-50/40' : ''}`}
-                      title="Haga clic para ver el desglose completo de ventas"
+                      title="Haga clic para ver el desglose completo de ventas y gastos"
                     >
                       <td className="px-4 py-3 text-center">
                         <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-black ${
@@ -272,6 +326,23 @@ export const RankingVentasPage = () => {
                           {formatMoney(row.total_vendido)}
                         </span>
                       </td>
+                      {conGastos && (
+                        <>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`text-sm font-bold ${valorGastos > 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                              {valorGastos > 0 ? `- ${formatMoney(valorGastos)}` : formatMoney(0)}
+                            </span>
+                            {row.cantidad_gastos > 0 && (
+                              <span className="block text-[9px] text-slate-400 font-medium">{row.cantidad_gastos} mov.</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <span className={`text-sm font-black ${valorNeto < 0 ? 'text-rose-600' : 'text-emerald-600'}`}>
+                              {formatMoney(valorNeto)}
+                            </span>
+                          </td>
+                        </>
+                      )}
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center gap-1.5 justify-end">
                           <div className="w-12 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -303,6 +374,12 @@ export const RankingVentasPage = () => {
                     {datos.reduce((s, r) => s + parseInt(r.cantidad || 0), 0)}
                   </td>
                   <td className="px-4 py-3 text-right text-sm font-black text-emerald-600">{formatMoney(total)}</td>
+                  {conGastos && (
+                    <>
+                      <td className="px-4 py-3 text-right text-sm font-black text-rose-600">{formatMoney(totalGastos)}</td>
+                      <td className="px-4 py-3 text-right text-sm font-black text-emerald-700">{formatMoney(totalNeto)}</td>
+                    </>
+                  )}
                   <td className="px-4 py-3 text-center text-xs font-bold text-slate-400">100%</td>
                   <td></td>
                 </tr>
@@ -313,6 +390,8 @@ export const RankingVentasPage = () => {
       </div>
     );
   };
+
+  const modalEsPorUsuario = modalData.tipo.includes('_usuario');
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-64px)] bg-slate-100/50">
@@ -406,7 +485,42 @@ export const RankingVentasPage = () => {
               </span>
             </div>
             <div className="text-xs text-slate-400 font-medium italic">
-              * Haz clic sobre cualquier fila para ver el listado detallado de boletos o guías
+              * Haz clic sobre cualquier fila para ver el listado detallado de boletos, guías y gastos
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Resumen de ventas, gastos y neto */}
+      {data && (
+        <div className="px-6 pt-3">
+          <div className="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 shadow-sm flex items-center gap-3">
+              <span className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <i className="fas fa-cash-register"></i>
+              </span>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Ventas</p>
+                <p className="text-lg font-black text-slate-800">{formatMoney(data.total_ventas || 0)}</p>
+              </div>
+            </div>
+            <div className="bg-white border border-rose-200 rounded-xl px-4 py-3 shadow-sm flex items-center gap-3">
+              <span className="w-9 h-9 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                <i className="fas fa-arrow-trend-down"></i>
+              </span>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Gastos / Egresos</p>
+                <p className="text-lg font-black text-rose-600">- {formatMoney(data.total_gastos || 0)}</p>
+              </div>
+            </div>
+            <div className="bg-white border border-emerald-200 rounded-xl px-4 py-3 shadow-sm flex items-center gap-3">
+              <span className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                <i className="fas fa-sack-dollar"></i>
+              </span>
+              <div>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Neto</p>
+                <p className="text-lg font-black text-emerald-700">{formatMoney(data.total_neto || 0)}</p>
+              </div>
             </div>
           </div>
         </div>
@@ -428,16 +542,22 @@ export const RankingVentasPage = () => {
                   tipoRanking="boleteria_usuario"
                   datos={data?.boleteria}
                   total={data?.total_boleteria || 0}
+                  totalGastos={data?.total_gastos_boleteria || 0}
+                  totalNeto={data?.total_neto_boleteria || 0}
                   colorHeader="bg-gradient-to-r from-blue-600 to-blue-500"
                   colName="Oficinista"
+                  conGastos
                 />
                 <TablaRanking
                   titulo="Encomiendas (Guías)"
                   tipoRanking="guias_usuario"
                   datos={data?.guias}
                   total={data?.total_guias || 0}
+                  totalGastos={data?.total_gastos_guias || 0}
+                  totalNeto={data?.total_neto_guias || 0}
                   colorHeader="bg-gradient-to-r from-emerald-600 to-emerald-500"
                   colName="Oficinista"
+                  conGastos
                 />
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -507,15 +627,27 @@ export const RankingVentasPage = () => {
                 )}
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg text-xs">
                   <span className="text-slate-500 font-medium">Registros: </span>
                   <strong className="text-slate-800 font-bold">{detallesFiltrados.length}</strong>
                 </div>
                 <div className="bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg text-xs text-emerald-800">
-                  <span className="font-medium">Total Filtrado: </span>
+                  <span className="font-medium">Ventas: </span>
                   <strong className="font-black">{formatMoney(totalFiltradoModal)}</strong>
                 </div>
+                {modalEsPorUsuario && (
+                  <>
+                    <div className="bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg text-xs text-rose-700">
+                      <span className="font-medium">Gastos: </span>
+                      <strong className="font-black">{formatMoney(totalGastosFiltrado)}</strong>
+                    </div>
+                    <div className="bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg text-xs text-indigo-800">
+                      <span className="font-medium">Neto: </span>
+                      <strong className="font-black">{formatMoney(totalFiltradoModal - totalGastosFiltrado)}</strong>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
@@ -526,12 +658,14 @@ export const RankingVentasPage = () => {
                   <i className="fas fa-spinner fa-spin text-3xl text-indigo-500 mb-3"></i>
                   <p className="text-sm font-medium">Cargando registros detallados...</p>
                 </div>
-              ) : detallesFiltrados.length === 0 ? (
-                <div className="text-center py-16 text-slate-400">
-                  <i className="fas fa-search text-3xl mb-3 opacity-30"></i>
-                  <p className="font-medium text-sm">No se encontraron registros para la búsqueda</p>
-                </div>
               ) : (
+                <div className="flex flex-col gap-5">
+                  {detallesFiltrados.length === 0 ? (
+                    <div className="text-center py-10 text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                      <i className="fas fa-search text-2xl mb-2 opacity-30"></i>
+                      <p className="font-medium text-sm">No se encontraron ventas para la búsqueda</p>
+                    </div>
+                  ) : (
                 <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
                   <table className="w-full text-left text-xs">
                     <thead>
@@ -621,8 +755,8 @@ export const RankingVentasPage = () => {
                     </tbody>
                     <tfoot>
                       <tr className="bg-slate-100 border-t-2 border-slate-200 font-bold">
-                        <td colSpan={modalData.tipo.includes('boleteria') ? 7 : 6} className="px-4 py-2.5 text-right uppercase text-slate-600">
-                          Total ({detallesFiltrados.length} registros)
+                        <td colSpan={modalData.tipo.includes('boleteria') ? 8 : 7} className="px-4 py-2.5 text-right uppercase text-slate-600">
+                          Total ventas ({detallesFiltrados.length} registros)
                         </td>
                         <td className="px-3 py-2.5 text-right font-black text-emerald-600 text-sm">
                           {formatMoney(totalFiltradoModal)}
@@ -630,15 +764,100 @@ export const RankingVentasPage = () => {
                       </tr>
                     </tfoot>
                   </table>
+                  </div>
+                  )}
+
+                  {/* Detalle de Gastos / Egresos */}
+                  {modalEsPorUsuario && (
+                    <div>
+                      <div className="flex items-center justify-between gap-3 mb-2 px-1">
+                        <div className="flex items-center gap-2">
+                          <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
+                            <i className="fas fa-arrow-trend-down text-xs"></i>
+                          </span>
+                          <div>
+                            <h4 className="text-sm font-black text-slate-700 uppercase tracking-tight">Gastos / Egresos</h4>
+                            <p className="text-[10px] text-slate-400 font-medium">{gastosFiltrados.length} movimiento(s) registrados en caja</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-black text-rose-600">- {formatMoney(totalGastosFiltrado)}</p>
+                          <p className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">Total gastos</p>
+                        </div>
+                      </div>
+
+                      {gastosFiltrados.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                          <i className="fas fa-receipt text-2xl mb-2 opacity-30"></i>
+                          <p className="font-medium text-sm">Sin gastos registrados para este período</p>
+                        </div>
+                      ) : (
+                        <div className="border border-rose-200 rounded-xl overflow-hidden shadow-sm">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="bg-rose-50 border-b border-rose-200 text-rose-700 font-bold uppercase tracking-wider text-[10px]">
+                                <th className="px-3 py-2.5 text-center w-10">#</th>
+                                <th className="px-3 py-2.5">N° Detalle</th>
+                                <th className="px-3 py-2.5">Fecha</th>
+                                <th className="px-3 py-2.5">Concepto / Observación</th>
+                                <th className="px-3 py-2.5">Oficinista / Sucursal</th>
+                                <th className="px-3 py-2.5">Estado</th>
+                                <th className="px-3 py-2.5 text-right font-black">Monto</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {gastosFiltrados.map((gasto, idx) => (
+                                <tr key={gasto.id_gasto || idx} className="hover:bg-rose-50/50 transition-colors">
+                                  <td className="px-3 py-2 text-center text-slate-400 font-medium">{idx + 1}</td>
+                                  <td className="px-3 py-2 font-bold text-slate-700">#{gasto.numero_detalle ?? gasto.id_gasto}</td>
+                                  <td className="px-3 py-2 text-slate-600 font-medium whitespace-nowrap">{formatFechaHora(gasto.fecha_gasto)}</td>
+                                  <td className="px-3 py-2 text-slate-700">{gasto.observacion || '-'}</td>
+                                  <td className="px-3 py-2 text-slate-500 text-[11px]">
+                                    <span className="font-medium text-slate-700 block">{gasto.nombre_usuario || '-'}</span>
+                                    <span className="text-[10px] text-slate-400">{gasto.nombre_sucursal || ''}</span>
+                                  </td>
+                                  <td className="px-3 py-2">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold text-[10px] uppercase">
+                                      {gasto.estado || '-'}
+                                    </span>
+                                  </td>
+                                  <td className="px-3 py-2 text-right font-black text-rose-600">- {formatMoney(gasto.monto_gasto)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                            <tfoot>
+                              <tr className="bg-rose-50 border-t-2 border-rose-200 font-bold">
+                                <td colSpan={6} className="px-4 py-2.5 text-right uppercase text-rose-700">
+                                  Total gastos ({gastosFiltrados.length} registros)
+                                </td>
+                                <td className="px-3 py-2.5 text-right font-black text-rose-700 text-sm">
+                                  - {formatMoney(totalGastosFiltrado)}
+                                </td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-              <span className="text-xs text-slate-400 font-medium">
-                Mostrando datos actualizados del sistema de transporte
-              </span>
+            <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs text-slate-400 font-medium">
+                  Mostrando datos actualizados del sistema de transporte
+                </span>
+                {modalEsPorUsuario && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <span className="font-bold text-emerald-700">Ventas: {formatMoney(totalFiltradoModal)}</span>
+                    <span className="font-bold text-rose-600">Gastos: - {formatMoney(totalGastosFiltrado)}</span>
+                    <span className="font-black text-slate-800">Neto: {formatMoney(totalFiltradoModal - totalGastosFiltrado)}</span>
+                  </div>
+                )}
+              </div>
               <button
                 onClick={cerrarModal}
                 className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
