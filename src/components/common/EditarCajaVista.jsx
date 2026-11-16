@@ -37,6 +37,15 @@ const DENOMINACIONES_CIERRE = [
   { key: 'cierre_moneda_1_caja', label: '1¢', val: 0.01, type: 'moneda' },
 ];
 
+// Las fechas pueden venir como "YYYY-MM-DD HH:mm:ss" o como ISO
+// ("YYYY-MM-DDTHH:mm:ss.sssZ"); el input date solo acepta YYYY-MM-DD.
+const parsearFechaHora = (valor) => {
+  const txt = String(valor || '').trim();
+  if (!txt || txt.startsWith('0000-00-00')) return { fecha: '', hora: '' };
+  const [fecha, hora = ''] = txt.replace('T', ' ').split(' ');
+  return { fecha: fecha.slice(0, 10), hora: hora.slice(0, 8) };
+};
+
 export default function EditarCajaVista({
   caja,
   onClose,
@@ -50,6 +59,13 @@ export default function EditarCajaVista({
 }) {
   const handleBack = onClose || onCancel || (() => window.history.back());
   const idCaja = caja?.id_caja || caja?.id_caja_boleteria || caja?.id_caja_retenciones || '';
+  const { fecha: fechaApertura, hora: horaApertura } = parsearFechaHora(caja?.fecha_caja);
+  // Si la fila del listado tampoco trae las denominaciones, no se debe guardar:
+  // se sobrescribirían con $0.00 los valores reales de la caja.
+  const sinDatosDenominaciones = !!caja && ![
+    ...DENOMINACIONES_APERTURA,
+    ...DENOMINACIONES_CIERRE
+  ].some(d => caja[d.key] !== undefined && caja[d.key] !== null);
 
   const { user } = useAuth();
   const rolUsuario = Number(user?.rol_usuario || user?.id_fkrol_usuario || 0);
@@ -92,9 +108,9 @@ export default function EditarCajaVista({
       setCierreValues(ci);
 
       if (caja.fecha_hora_cierre) {
-        const [f, h] = caja.fecha_hora_cierre.split(' ');
-        if (f) setFechaCierre(f);
-        if (h) setHoraCierre(h);
+        const { fecha, hora } = parsearFechaHora(caja.fecha_hora_cierre);
+        if (fecha) setFechaCierre(fecha);
+        if (hora) setHoraCierre(hora);
       }
     }
   }, [caja]);
@@ -280,8 +296,9 @@ export default function EditarCajaVista({
           {!readOnly && (
             <button
               onClick={handleSaveCaja}
-              disabled={loadingSave}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-lg flex items-center gap-2 transition-all shadow-md shadow-emerald-900/20"
+              disabled={loadingSave || sinDatosDenominaciones}
+              title={sinDatosDenominaciones ? 'No se pudo cargar el detalle de apertura y cierre' : undefined}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold rounded-lg flex items-center gap-2 transition-all shadow-md shadow-emerald-900/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <i className={`fas ${loadingSave ? 'fa-spinner fa-spin' : 'fa-save'} text-sm`}></i>
               <span>Guardar Cambios</span>
@@ -297,6 +314,13 @@ export default function EditarCajaVista({
         </div>
       </div>
 
+      {sinDatosDenominaciones && !readOnly && (
+        <div className="mx-6 mt-4 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-xl px-4 py-3 flex items-start gap-2">
+          <i className="fas fa-exclamation-triangle mt-0.5"></i>
+          <span>No se pudo cargar el detalle de apertura y cierre. Para no sobrescribir los valores reales con $0.00, el guardado está deshabilitado.</span>
+        </div>
+      )}
+
       {/* ── TARJETAS DE APERTURA Y CIERRE (GRID 2 COLUMNAS PREMIUM) ── */}
       <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* CARD APERTURA */}
@@ -309,6 +333,10 @@ export default function EditarCajaVista({
             <span className="text-xs font-mono font-bold bg-amber-700/40 px-2.5 py-1 rounded-md border border-amber-400/30">
               Total: ${totalApertura.toFixed(2)}
             </span>
+          </div>
+          <div className="bg-amber-50/70 px-5 py-2 border-b border-amber-100 flex items-center justify-between text-[10px] font-bold text-amber-800 uppercase tracking-wider">
+            <span><i className="far fa-calendar-alt mr-1.5"></i>{fechaApertura || 'Sin fecha de apertura'}</span>
+            <span><i className="far fa-clock mr-1.5"></i>{horaApertura || '--:--'}</span>
           </div>
 
           <div className="p-5 flex-1 space-y-4">

@@ -96,9 +96,17 @@ const cargarCajaCompleta = async (endpointInfo, idCaja, row) => {
   if (!endpointInfo || !idCaja) return row;
   try {
     const res = await api.get(endpointInfo, { params: { id_caja: idCaja } });
-    const info = res.data?.data?.[0];
-    if (!info) return row;
-    const merged = { ...row, ...info };
+    const info = Array.isArray(res.data?.data) ? res.data.data[0] : res.data?.data;
+    // Si el endpoint responde un error en texto (p. ej. {data: "..."}) no se
+    // debe mezclar: la fila del listado ya trae las denominaciones.
+    if (!info || typeof info !== 'object' || Array.isArray(info)) {
+      console.warn(`[caja] ${endpointInfo} no devolvió el detalle (id_caja=${idCaja})`, res.data);
+      return row;
+    }
+    const merged = { ...row };
+    Object.entries(info).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) merged[key] = value;
+    });
     // El detalle devuelve fecha y hora por separado; el listado trae el
     // timestamp completo, que es el que usa el formulario de edición.
     const fechaRow = String(row?.fecha_hora_cierre || '');
