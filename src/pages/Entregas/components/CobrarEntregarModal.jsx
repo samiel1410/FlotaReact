@@ -20,9 +20,11 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   const [buscandoCliente, setBuscandoCliente] = useState(false);
   const [clienteInfo, setClienteInfo] = useState(null);
   const [clienteFotoUrl, setClienteFotoUrl] = useState(null);
+  const [clienteNoRegistrado, setClienteNoRegistrado] = useState(false);
   const [errorCliente, setErrorCliente] = useState('');
   const [nombreRecibe, setNombreRecibe] = useState('');
   const [entregaTercero, setEntregaTercero] = useState(false);
+  const [intentoBusqueda, setIntentoBusqueda] = useState(0);
 
   const [formData, setFormData] = useState({
     monto: '',
@@ -98,30 +100,52 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
     }
   }, [guia, cedulaDestinatarioGuia]);
 
-  // Buscar cliente cuando cambia la cédula
+  // Buscar cliente cuando cambia la cédula.
+  // Un fallo del API no debe presentarse como "identificación no registrada".
   useEffect(() => {
     let cancelado = false;
 
-    const buscarCliente = async (ident) => {
+    const buscarCliente = async (ident, intento = 0) => {
       setBuscandoCliente(true);
       setErrorCliente('');
+      let reintentando = false;
       try {
         const res = await GuiaService.buscarClientePorIdentificacion(ident);
         if (cancelado) return;
-        const cliente = res?.success && res.data?.length > 0 ? res.data[0] : null;
+
+        if (!res || typeof res !== 'object' || typeof res.success !== 'boolean') {
+          throw new Error('El API de clientes devolvió una respuesta no válida.');
+        }
+        if (res.success === false) {
+          throw new Error(res.mensaje || res.message || res.detalle || res.error || 'El API de clientes rechazó la consulta.');
+        }
+
+        const lista = Array.isArray(res.data)
+          ? res.data
+          : (res.data && typeof res.data === 'object' ? [res.data] : []);
+        const cliente = lista.length > 0 ? lista[0] : null;
+        const esDestinatarioGuia = cedulaDestinatarioGuia === ident;
+
         setClienteInfo(cliente);
         setClienteFotoUrl(cliente?.foto_cliente ? `${CONFIG.CLIENTE_URL}/cliente/fotos/${cliente.foto_cliente}` : null);
-        const esDestinatarioGuia = cedulaDestinatarioGuia === ident;
+        setClienteNoRegistrado(!cliente);
         setNombreRecibe(cliente?.nombre_cliente || (esDestinatarioGuia ? nombreDestinatarioGuia : ''));
       } catch (e) {
-        if (!cancelado) {
-          setClienteInfo(null);
-          setClienteFotoUrl(null);
-          setNombreRecibe('');
-          setErrorCliente('No se pudo consultar el cliente. Verifique la conexión e intente de nuevo.');
+        if (cancelado) return;
+        if (intento < 1) {
+          reintentando = true;
+          setTimeout(() => { if (!cancelado) buscarCliente(ident, intento + 1); }, 800);
+          return;
         }
+        console.warn('No se pudo verificar la identificación en el API de clientes:', e?.message || e);
+        setClienteInfo(null);
+        setClienteFotoUrl(null);
+        setClienteNoRegistrado(false);
+        setNombreRecibe(cedulaDestinatarioGuia === ident ? nombreDestinatarioGuia : '');
+        setErrorCliente('No se pudo verificar la identificación en el API de clientes. Reintente o continúe escribiendo el nombre de quien recibe.');
+      } finally {
+        if (!cancelado && !reintentando) setBuscandoCliente(false);
       }
-      if (!cancelado) setBuscandoCliente(false);
     };
 
     const cedula = formData.cedula_recibe;
@@ -130,12 +154,13 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
     } else {
       setClienteInfo(null);
       setClienteFotoUrl(null);
+      setClienteNoRegistrado(false);
       setNombreRecibe('');
       setErrorCliente('');
     }
 
     return () => { cancelado = true; };
-  }, [formData.cedula_recibe, cedulaDestinatarioGuia, nombreDestinatarioGuia]);
+  }, [formData.cedula_recibe, cedulaDestinatarioGuia, nombreDestinatarioGuia, intentoBusqueda]);
 
   const handleEntregaTerceroChange = (checked) => {
     setEntregaTercero(checked);
@@ -144,6 +169,8 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
       setFormData(prev => ({ ...prev, cedula_recibe: '' }));
       setClienteInfo(null);
       setClienteFotoUrl(null);
+      setClienteNoRegistrado(false);
+      setErrorCliente('');
       setNombreRecibe('');
       return;
     }
@@ -152,6 +179,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
     if (!cedulaDestinatarioGuia) {
       setClienteInfo(null);
       setClienteFotoUrl(null);
+      setClienteNoRegistrado(false);
       setNombreRecibe('');
     }
   };
@@ -257,7 +285,8 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
             destino_guia: destinoGuia || guia.destino_guia || '',
             cedula_recibe: formData.cedula_recibe,
             nombre_recibe: (nombreRecibe || clienteInfo?.nombre_cliente || '').trim(),
-            entrega_tercero: entregaTercero,
+            // Se envía 1/0 porque el cuerpo se serializa como form-urlencoded.
+            entrega_tercero: entregaTercero ? 1 : 0,
             foto_base64: fotoCapturada
           }, isNotaVenta);
 
@@ -429,7 +458,10 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                   type="text"
                   name="cedula_recibe"
                   value={formData.cedula_recibe}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cedula_recibe: e.target.value.replace(/[^0-9]/g, '') }))}
+                  onChange={(e) => {
+                    setFormData(prev => ({ ...prev, cedula_recibe: e.target.value.replace(/[^0-9]/g, '') }));
+                    setClienteNoRegistrado(false);
+                  }}
                   placeholder="Cédula o RUC"
                   maxLength={13}
                   className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -496,13 +528,31 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                   </div>
                 )}
 
-                {!buscandoCliente && !clienteInfo && !cedulaInvalida && !cedulaNoCoincide && formData.cedula_recibe.length >= 10 && (
-                  <div className={`mt-2 border rounded-lg px-3 py-2 ${errorCliente ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${errorCliente ? 'text-red-700' : 'text-amber-700'}`}>
-                      {errorCliente ? 'No se pudo consultar' : 'Identificación no registrada'}
+                {!buscandoCliente && errorCliente && (
+                  <div className="mt-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-red-700">
+                      No se pudo verificar
                     </p>
-                    <p className={`text-[11px] ${errorCliente ? 'text-red-700' : 'text-amber-700'}`}>
-                      {errorCliente || 'No es un cliente del sistema; escriba el nombre de quien recibe.'}
+                    <p className="text-[11px] text-red-700">{errorCliente}</p>
+                    <button
+                      type="button"
+                      onClick={() => setIntentoBusqueda((n) => n + 1)}
+                      className="mt-1 text-[11px] font-bold text-red-700 underline hover:text-red-900"
+                    >
+                      Reintentar consulta
+                    </button>
+                  </div>
+                )}
+
+                {!buscandoCliente && !errorCliente && clienteNoRegistrado && !cedulaInvalida && !cedulaNoCoincide && formData.cedula_recibe.length >= 10 && (
+                  <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                      Identificación no registrada
+                    </p>
+                    <p className="text-[11px] text-amber-700">
+                      {entregaTercero
+                        ? 'El API de clientes no tiene registrado al tercero. Puede continuar escribiendo el nombre de quien recibe.'
+                        : 'El API de clientes no tiene registrado este número. Puede entregar igual indicando el nombre de quien recibe.'}
                     </p>
                   </div>
                 )}

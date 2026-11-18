@@ -22,10 +22,13 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
   const [buscandoCliente, setBuscandoCliente] = useState(false);
   const [clienteInfo, setClienteInfo] = useState(null);
   const [clienteFotoUrl, setClienteFotoUrl] = useState(null);
+  const [clienteNoRegistrado, setClienteNoRegistrado] = useState(false);
   const [errorCliente, setErrorCliente] = useState('');
   const [nombreRecibe, setNombreRecibe] = useState('');
   const [entregaTercero, setEntregaTercero] = useState(false);
+  const [intentoBusqueda, setIntentoBusqueda] = useState(0);
   const cedulaInputRef = useRef(null);
+  const nombreAutoRef = useRef('');
   const cedulaDestinatarioGuia = String(guia.cedula_cliente_receptor ?? '').replace(/\D/g, '');
   const nombreDestinatarioGuia = String(guia.nombre_cliente_receptor ?? '').trim();
 
@@ -36,30 +39,71 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
     }
   }, [cedulaDestinatarioGuia]);
 
-  // Buscar cliente cuando cambia la cédula para mostrar a quién se entrega
+  // Buscar cliente cuando cambia la cédula para mostrar a quién se entrega.
+  // Un fallo de red o del intermediario NO debe mostrarse como "identificación
+  // no registrada": solo se afirma eso cuando el API responde que no existe.
   useEffect(() => {
     let cancelado = false;
 
-    const buscarCliente = async (ident) => {
+    const aplicarNombre = (sugerido) => {
+      setNombreRecibe((prev) => {
+        if (sugerido) {
+          nombreAutoRef.current = sugerido;
+          return sugerido;
+        }
+        // Solo se borra el nombre que trajo la consulta; lo que escribió el
+        // oficinista se respeta (p. ej. el nombre de un tercero sin registrar).
+        if (prev && prev === nombreAutoRef.current) {
+          nombreAutoRef.current = '';
+          return '';
+        }
+        return prev;
+      });
+    };
+
+    const buscarCliente = async (ident, intento = 0) => {
       setBuscandoCliente(true);
       setErrorCliente('');
+      let reintentando = false;
       try {
         const res = await GuiaService.buscarClientePorIdentificacion(ident);
         if (cancelado) return;
-        const cliente = res?.success && res.data?.length > 0 ? res.data[0] : null;
+
+        // El intermediario puede devolver HTML o un error sin formato: eso no
+        // significa que el cliente no exista.
+        if (!res || typeof res !== 'object' || typeof res.success !== 'boolean') {
+          throw new Error('El API de clientes devolvió una respuesta no válida.');
+        }
+        if (res.success === false) {
+          throw new Error(res.mensaje || res.message || res.detalle || res.error || 'El API de clientes rechazó la consulta.');
+        }
+
+        const lista = Array.isArray(res.data)
+          ? res.data
+          : (res.data && typeof res.data === 'object' ? [res.data] : []);
+        const cliente = lista.length > 0 ? lista[0] : null;
+        const esDestinatarioGuia = cedulaDestinatarioGuia === ident;
+
         setClienteInfo(cliente);
         setClienteFotoUrl(cliente?.foto_cliente ? `${CONFIG.CLIENTE_URL}/cliente/fotos/${cliente.foto_cliente}` : null);
-        const esDestinatarioGuia = cedulaDestinatarioGuia === ident;
-        setNombreRecibe(cliente?.nombre_cliente || (esDestinatarioGuia ? nombreDestinatarioGuia : ''));
+        setClienteNoRegistrado(!cliente);
+        aplicarNombre(cliente?.nombre_cliente || (esDestinatarioGuia ? nombreDestinatarioGuia : ''));
       } catch (e) {
-        if (!cancelado) {
-          setClienteInfo(null);
-          setClienteFotoUrl(null);
-          setNombreRecibe('');
-          setErrorCliente('No se pudo consultar el cliente. Verifique la conexión e intente de nuevo.');
+        if (cancelado) return;
+        if (intento < 1) {
+          reintentando = true;
+          setTimeout(() => { if (!cancelado) buscarCliente(ident, intento + 1); }, 800);
+          return;
         }
+        console.warn('No se pudo verificar la identificación en el API de clientes:', e?.message || e);
+        setClienteInfo(null);
+        setClienteFotoUrl(null);
+        setClienteNoRegistrado(false);
+        setErrorCliente('No se pudo verificar la identificación en el API de clientes. Reintente o continúe escribiendo el nombre de quien recibe.');
+        aplicarNombre(cedulaDestinatarioGuia === ident ? nombreDestinatarioGuia : '');
+      } finally {
+        if (!cancelado && !reintentando) setBuscandoCliente(false);
       }
-      if (!cancelado) setBuscandoCliente(false);
     };
 
     if (cedula && (cedula.length === 10 || cedula.length === 13)) {
@@ -67,12 +111,13 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
     } else {
       setClienteInfo(null);
       setClienteFotoUrl(null);
+      setClienteNoRegistrado(false);
       setNombreRecibe('');
       setErrorCliente('');
     }
 
     return () => { cancelado = true; };
-  }, [cedula, cedulaDestinatarioGuia, nombreDestinatarioGuia]);
+  }, [cedula, cedulaDestinatarioGuia, nombreDestinatarioGuia, intentoBusqueda]);
 
   // Al marcar "Entrega a tercero" se limpia la identificación del destinatario
   // para que el oficinista ingrese la del tercero y se recuperen sus datos.
@@ -83,7 +128,10 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
       setCedula('');
       setClienteInfo(null);
       setClienteFotoUrl(null);
+      setClienteNoRegistrado(false);
+      setErrorCliente('');
       setNombreRecibe('');
+      nombreAutoRef.current = '';
       setTimeout(() => cedulaInputRef.current?.focus(), 0);
       return;
     }
@@ -93,6 +141,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
     if (!cedulaDestinatario) {
       setClienteInfo(null);
       setClienteFotoUrl(null);
+      setClienteNoRegistrado(false);
       setNombreRecibe('');
     }
   };
@@ -104,6 +153,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
   };
 
   const handleSubmit = async () => {
+    if (saving) return;
     const esCedulaDestinatario = !!cedulaDestinatarioGuia && cedula === cedulaDestinatarioGuia;
     const validacion = validarIdentificacionEntrega(cedula);
     if (!validacion.valido && !esCedulaDestinatario) {
@@ -139,12 +189,14 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
         destino_guia: destinoGuia || guia.destino_guia || '',
         cedula_recibe: cedula,
         nombre_recibe: (nombreRecibe || clienteInfo?.nombre_cliente || '').trim(),
-        entrega_tercero: entregaTercero,
+        // Se envía 1/0 porque el interceptor serializa el cuerpo como
+        // form-urlencoded y un booleano viaja como "true".
+        entrega_tercero: entregaTercero ? 1 : 0,
         foto_base64: fotoBase64
       }, isNotaVenta);
 
       if (!entregaRes?.success) {
-        toast.error(entregaRes?.data || 'Error al entregar la guía');
+        toast.error(entregaRes?.message || entregaRes?.data || 'Error al entregar la guía');
         setSaving(false);
         return;
       }
@@ -216,7 +268,10 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                 ref={cedulaInputRef}
                 type="text"
                 value={cedula}
-                onChange={(e) => setCedula(e.target.value.replace(/[^0-9]/g, ''))}
+                onChange={(e) => {
+                  setCedula(e.target.value.replace(/[^0-9]/g, ''));
+                  setClienteNoRegistrado(false);
+                }}
                 placeholder={entregaTercero ? 'Ingrese la cédula del tercero' : 'Ingrese cédula o RUC'}
                 maxLength={13}
                 className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -299,17 +354,31 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                 </div>
               )}
 
-              {!buscandoCliente && !clienteInfo && !cedulaInvalida && !cedulaNoCoincide && cedula.length >= 10 && (
-                <div className={`mt-2 border rounded-lg px-3 py-2 ${errorCliente ? 'bg-red-50 border-red-200' : 'bg-amber-50 border-amber-200'}`}>
-                  <p className={`text-[10px] font-bold uppercase tracking-wider ${errorCliente ? 'text-red-700' : 'text-amber-700'}`}>
-                    {errorCliente ? 'No se pudo consultar' : 'Identificación no registrada'}
+              {!buscandoCliente && errorCliente && (
+                <div className="mt-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-red-700">
+                    <i className="fas fa-plug-circle-xmark mr-1"></i> No se pudo verificar
                   </p>
-                  <p className={`text-[11px] ${errorCliente ? 'text-red-700' : 'text-amber-700'}`}>
-                    {errorCliente
-                      ? errorCliente
-                      : (entregaTercero
-                        ? 'El tercero no está registrado en el sistema. Puede continuar escribiendo el nombre de quien recibe.'
-                        : 'No es un cliente del sistema. Puede entregar igual indicando el nombre de quien recibe.')}
+                  <p className="text-[11px] text-red-700">{errorCliente}</p>
+                  <button
+                    type="button"
+                    onClick={() => setIntentoBusqueda((n) => n + 1)}
+                    className="mt-1 text-[11px] font-bold text-red-700 underline hover:text-red-900"
+                  >
+                    Reintentar consulta
+                  </button>
+                </div>
+              )}
+
+              {!buscandoCliente && !errorCliente && clienteNoRegistrado && !cedulaInvalida && !cedulaNoCoincide && cedula.length >= 10 && (
+                <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
+                    Identificación no registrada
+                  </p>
+                  <p className="text-[11px] text-amber-700">
+                    {entregaTercero
+                      ? 'El API de clientes no tiene registrado al tercero. Puede continuar escribiendo el nombre de quien recibe.'
+                      : 'El API de clientes no tiene registrado este número. Puede entregar igual indicando el nombre de quien recibe.'}
                   </p>
                 </div>
               )}
