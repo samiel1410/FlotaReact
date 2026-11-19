@@ -195,9 +195,12 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
         setSelectedGuia(guia);
         setModalType('confirmar');
       } else {
-        // Hay cobro pendiente → validar caja
-        const cajaRes = await EntregaService.validarCaja();
-        if (cajaRes?.message === 1 || cajaRes?.success) {
+        // Hay cobro pendiente → validar caja. `validarCaja` responde
+        // success:true incluso cuando NO hay caja (message: 0), así que se
+        // exige el indicador de apertura o el id de caja.
+        const cajaRes = await EntregaService.validarCaja(isNotaVenta);
+        const cajaAbierta = Number(cajaRes?.message) === 1 || Number(cajaRes?.id_caja) > 0;
+        if (cajaAbierta) {
           setSelectedGuia(guia);
           setModalType('cobrar');
         } else {

@@ -48,7 +48,36 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
         setFormasPago(fpRes.data);
       }
 
-      // 2. Obtener datos de factura de la guía
+      // 2. Notas de venta: no tienen factura, el saldo está en la guía.
+      if (isNotaVenta) {
+        const { GuiaNotaVentaService } = await import('../../../services/guiaNotaVenta.service');
+        const infoRes = await GuiaNotaVentaService.informacionGuia(guia.id_guia);
+        let gInfo = infoRes?.data || infoRes;
+        if (Array.isArray(gInfo)) gInfo = gInfo[0];
+        if (!gInfo) {
+          toast.error('No se pudo obtener la información de la Nota de Venta');
+          onClose();
+          return;
+        }
+        const restante = parseFloat(gInfo.por_cobrar !== undefined ? gInfo.por_cobrar : (gInfo.total_guia || 0)) || 0;
+        if (restante <= 0.001) {
+          toast.success('La nota de venta ya se encuentra cobrada en su totalidad');
+          onClose();
+          return;
+        }
+        setFacturaData({
+          id_factura: null,
+          id_fkcliente_factura: gInfo.id_fkcliente_remitente,
+          punto_emision_sucursal: 'NV',
+          punto_emision_factura: '000',
+          numero_factura: gInfo.numero_guia_final || gInfo.numero_guia || gInfo.id_guia,
+          total_factura: restante.toFixed(2)
+        });
+        setFormData(prev => ({ ...prev, monto: restante.toFixed(2) }));
+        return;
+      }
+
+      // 3. Obtener datos de factura de la guía
       const factRes = await EntregaService.autorizadoFacturaPorGuia(guia.id_guia);
       if (!factRes?.data || factRes.data.length === 0) {
         toast.error('Esta guía no tiene una factura asociada');
@@ -79,7 +108,9 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
       }
 
       const montoStr = restante.toFixed(2);
-      setFacturaData(factData);
+      // Se muestra/valida el saldo pendiente (no el total histórico), que es
+      // lo que realmente se va a cobrar.
+      setFacturaData({ ...factData, total_factura: montoStr });
       setFormData(prev => ({
         ...prev,
         monto: montoStr
@@ -234,6 +265,10 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
       toast.error(`El monto debe ser mayor a 0 y no exceder $${totalVal.toFixed(2)}`);
       return;
     }
+    if (montoVal + 0.001 < totalVal) {
+      toast.error(`Para cobrar y entregar debe cubrir el saldo pendiente de $${totalVal.toFixed(2)}.`);
+      return;
+    }
 
     setSaving(true);
     try {
@@ -264,7 +299,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
         nombre_oficina: nombre_oficina || ''
       };
 
-      const compRes = await EntregaService.insertarComprobante(comprobantePayload);
+      const compRes = await EntregaService.insertarComprobante(comprobantePayload, isNotaVenta);
       if (!compRes?.success) {
         const errorMsg = compRes?.tipo === 3
           ? 'No existe una caja aperturada'
@@ -276,31 +311,33 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
 
       toast.success('Cobro registrado correctamente');
 
-      // 3. Si hay cédula o foto, guardar datos de entrega
-      if (formData.cedula_recibe || fotoCapturada) {
-        try {
-          const entregaRes = await EntregaService.entregarGuiaConFoto({
-            id_guia: guia.id_guia,
-            nombre_oficina: nombre_oficina || '',
-            destino_guia: destinoGuia || guia.destino_guia || '',
-            cedula_recibe: formData.cedula_recibe,
-            nombre_recibe: (nombreRecibe || clienteInfo?.nombre_cliente || '').trim(),
-            // Se envía 1/0 porque el cuerpo se serializa como form-urlencoded.
-            entrega_tercero: entregaTercero ? 1 : 0,
-            foto_base64: fotoCapturada
-          }, isNotaVenta);
+      // 3. Registrar la entrega con los datos de quien recibe. El cobro ya
+      // quedó guardado como COBRADA; si la entrega falla se informa y la guía
+      // queda lista para reintentar solo la entrega (sin volver a cobrar).
+      try {
+        const entregaRes = await EntregaService.entregarGuiaConFoto({
+          id_guia: guia.id_guia,
+          nombre_oficina: nombre_oficina || '',
+          destino_guia: destinoGuia || guia.destino_guia || '',
+          cedula_recibe: formData.cedula_recibe,
+          nombre_recibe: (nombreRecibe || clienteInfo?.nombre_cliente || '').trim(),
+          // Se envía 1/0 porque el cuerpo se serializa como form-urlencoded.
+          entrega_tercero: entregaTercero ? 1 : 0,
+          foto_base64: fotoCapturada
+        }, isNotaVenta);
 
-          if (entregaRes && entregaRes.success === false) {
-            toast.error(entregaRes.message || entregaRes.data || 'No se pudo registrar la identidad de quien recibe');
-            setSaving(false);
-            return;
-          }
-        } catch (e) {
-          console.warn('Error guardando datos de entrega:', e);
-          toast.error('No se pudo registrar la identidad de quien recibe');
-          setSaving(false);
+        if (entregaRes && entregaRes.success === false) {
+          toast.error(`El cobro se registró, pero no se pudo entregar la guía: ${entregaRes.message || entregaRes.data || 'revise los datos de quien recibe'}`);
+          if (onSuccess) onSuccess();
+          onClose();
           return;
         }
+      } catch (e) {
+        console.warn('Error guardando datos de entrega:', e);
+        toast.error('El cobro se registró, pero no se pudo registrar la entrega. Vuelva a intentar la entrega.');
+        if (onSuccess) onSuccess();
+        onClose();
+        return;
       }
 
       // 4. Generar e imprimir el comprobante de entrega
@@ -340,7 +377,9 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   if (!facturaData) return null;
 
   const numFactura = String(facturaData.numero_factura).padStart(9, '0');
-  const nombreFactura = `${facturaData.punto_emision_sucursal}-${facturaData.punto_emision_factura}-${numFactura}`;
+  const nombreFactura = isNotaVenta
+    ? `NV ${facturaData.numero_factura || ''}`
+    : `${facturaData.punto_emision_sucursal}-${facturaData.punto_emision_factura}-${numFactura}`;
 
   const cedulaValida = formData.cedula_recibe.length === 10 || formData.cedula_recibe.length === 13;
   const validacionCedula = cedulaValida ? validarIdentificacionEntrega(formData.cedula_recibe) : null;

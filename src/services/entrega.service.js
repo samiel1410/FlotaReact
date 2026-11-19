@@ -60,10 +60,11 @@ export const EntregaService = {
   },
 
   /**
-   * Validar si hay caja aperturada
+   * Validar si hay caja aperturada (la de guías o la de notas de venta).
    */
-  validarCaja: async () => {
-    const response = await api.post('/Caja/validarcaja');
+  validarCaja: async (isNotaVenta = false) => {
+    const url = isNotaVenta ? '/caja_nota_venta/validarcaja' : '/Caja/validarcaja';
+    const response = await api.post(url);
     return response.data;
   },
 
@@ -76,10 +77,16 @@ export const EntregaService = {
   },
 
   /**
-   * Registrar comprobante de cobro
+   * Registrar comprobante de cobro.
+   * Las notas de venta usan su propia tabla (`comprobante_cobro_nota_venta`);
+   * guardarlas en `comprobante_cobro` hacía que la entrega nunca las viera
+   * como pagadas.
    */
-  insertarComprobante: async (payload) => {
-    const response = await api.post('/comprobantecobro/comprobanteCobroInsertarActualizar', payload);
+  insertarComprobante: async (payload, isNotaVenta = false) => {
+    const url = isNotaVenta
+      ? '/guia_nota_venta/insertarComprobante'
+      : '/comprobantecobro/comprobanteCobroInsertarActualizar';
+    const response = await api.post(url, payload);
     return response.data;
   },
 
