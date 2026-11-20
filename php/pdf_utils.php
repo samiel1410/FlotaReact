@@ -638,7 +638,7 @@ function imprimirLogoTcpdfA4($pdf, $rutaLogo, $x = 15.0, $y = 12.0, $maxW = 35.0
 }
 
 /**
- * Imprime un texto rotado 90° (vertical, de abajo hacia arriba) centrado dentro
+ * Imprime un texto rotado 90° (vertical, de arriba hacia abajo) centrado dentro
  * de una franja. Se usa en el ticket POS para repetir la compañía asociada al
  * costado del destino sin quitarle ancho a los datos del destinatario.
  *
@@ -767,7 +767,7 @@ function imprimirTextoVerticalTcpdf($pdf, $texto, $xFranja, $yFranja, $anchoFran
     $centroY        = $yFranja + ($altoFranja / 2);
 
     // Rotate() y setXY() trabajan en coordenadas absolutas de página (mismo
-    // criterio que marcarPdfAnulado): -90° deja el texto de abajo hacia arriba.
+    // criterio que marcarPdfAnulado): +90° deja el texto de arriba hacia abajo.
     // La segunda columna queda a la derecha de la primera, como un bloque girado.
     $xAntes = $pdf->GetX();
     $yAntes = $pdf->GetY();
@@ -777,7 +777,7 @@ function imprimirTextoVerticalTcpdf($pdf, $texto, $xFranja, $yFranja, $anchoFran
         $centroX = $xFranja + ($altoColumna * ($i + 0.5));
 
         $pdf->StartTransform();
-        $pdf->Rotate(-90, $centroX, $centroY);
+        $pdf->Rotate(90, $centroX, $centroY);
         $pdf->setXY($centroX - ($anchoCelda / 2), $centroY - ($altoColumna / 2));
         $pdf->Cell($anchoCelda, $altoColumna, $linea, 0, 0, 'C');
         $pdf->StopTransform();

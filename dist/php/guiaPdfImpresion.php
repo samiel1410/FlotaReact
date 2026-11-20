@@ -18,7 +18,7 @@ date_default_timezone_set('America/Guayaquil');
 // TTL corto (60s): ventana pequeña de posible stale si la guía se cobra justo después de imprimir.
 define('GUIAIMP_FAST_TTL', 60);
 // Cambiar la versión invalida los PDFs cacheados cuando cambia el diseño del ticket.
-define('GUIAIMP_LAYOUT_VERSION', 'guia-recepcion-dir-v6');
+define('GUIAIMP_LAYOUT_VERSION', 'guia-recepcion-dir-v7');
 
 try {
     $t0 = microtime(true);
@@ -37,7 +37,7 @@ try {
     $dbNameStrFast = $_GET['db_name'] ?? ($_SESSION['db_name'] ?? $tenantIdStrFast);
     $dbKeyFast = md5($dbNameStrFast . '_t' . $tenantIdStrFast);
     $pdfCacheDirFast = __DIR__ . '/tmp/pdfs/';
-    $fastPdfFile = $pdfCacheDirFast . 'guia_imp_' . $id_guia . '_' . $dbKeyFast . '_latest.pdf';
+    $fastPdfFile = $pdfCacheDirFast . 'guia_imp_' . $id_guia . '_' . $dbKeyFast . '_' . GUIAIMP_LAYOUT_VERSION . '_latest.pdf';
     if (file_exists($fastPdfFile) && filesize($fastPdfFile) > 1000 && (time() - filemtime($fastPdfFile)) < GUIAIMP_FAST_TTL) {
         $tTotalMs = round((microtime(true) - $t0) * 1000);
         if (ob_get_length()) ob_clean();
@@ -362,7 +362,7 @@ try {
         $tTotalMs = round((microtime(true) - $t0) * 1000);
         if (ob_get_length()) ob_clean();
         // Refrescar copia rápida para que reimpresiones seguidas no toquen la DB
-        @copy($cachePdfFile, $pdfCacheDir . 'guia_imp_' . $id_guia . '_' . $dbKey . '_latest.pdf');
+        @copy($cachePdfFile, $pdfCacheDir . 'guia_imp_' . $id_guia . '_' . $dbKey . '_' . GUIAIMP_LAYOUT_VERSION . '_latest.pdf');
         header('Content-Type: application/pdf');
         header('Content-Disposition: inline; filename="guiaImpresion_' . $id_guia . '.pdf"');
         header('Cache-Control: public, max-age=60');
@@ -728,7 +728,7 @@ try {
     }
     @file_put_contents($cachePdfFile, $pdfContent);
     // Copia rápida TTL 60s: la reimpresión inmediata no toca DB ni TCPDF
-    @copy($cachePdfFile, $pdfCacheDir . 'guia_imp_' . $id_guia . '_' . $dbKey . '_latest.pdf');
+    @copy($cachePdfFile, $pdfCacheDir . 'guia_imp_' . $id_guia . '_' . $dbKey . '_' . GUIAIMP_LAYOUT_VERSION . '_latest.pdf');
     $tTotalMs = round((microtime(true) - $t0) * 1000);
     if (ob_get_length()) ob_clean();
     header('Content-Type: application/pdf');
