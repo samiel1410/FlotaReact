@@ -229,21 +229,47 @@ export const validarRucEcuatoriano = (ruc) => {
 };
 
 /**
- * Validación usada al entregar una guía: solo cédula (10 dígitos) o RUC
- * (13 dígitos) con dígito verificador correcto. Evita entregas con números
- * inventados.
+ * Normaliza la identificación de quien recibe: mayúsculas y solo letras o
+ * números. Un pasaporte puede traer espacios o guiones y debe compararse
+ * igual contra la identificación guardada en la guía.
  */
-export const validarIdentificacionEntrega = (identificacion) => {
-  const valor = String(identificacion ?? '').trim();
-  if (!valor) return { valido: false, mensaje: 'Ingrese la cédula de quien recibe.' };
+export const normalizarIdentificacionEntrega = (identificacion) =>
+  String(identificacion ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^0-9A-Z]/g, '');
+
+/**
+ * Validación usada al entregar una guía.
+ *
+ * - Cédula/RUC (Ecuador): 10 o 13 dígitos con dígito verificador correcto.
+ * - Pasaporte/Extranjero: 5 a 20 letras o números, porque los documentos de
+ *   otros países no siguen el formato ecuatoriano.
+ */
+export const validarIdentificacionEntrega = (identificacion, tipo = null) => {
+  const valor = normalizarIdentificacionEntrega(identificacion);
+  const tipoNormalizado = normalizarTipoIdentificacion(tipo);
+
+  if (!valor) return { valido: false, mensaje: 'Ingrese la identificación de quien recibe.' };
+
+  if (tipoNormalizado === 'PASAPORTE' || tipoNormalizado === 'EXTERIOR') {
+    if (/^[A-Z0-9]{5,20}$/.test(valor)) return { valido: true, mensaje: '' };
+    return { valido: false, mensaje: 'El pasaporte debe tener entre 5 y 20 letras o números.' };
+  }
+
   if (!esSoloDigitos(valor)) {
-    return { valido: false, mensaje: 'La identificación debe contener solo números.' };
+    // Sin tipo explícito se acepta un pasaporte alfanumérico.
+    if (!tipoNormalizado && /^[A-Z0-9]{5,20}$/.test(valor)) return { valido: true, mensaje: '' };
+    return {
+      valido: false,
+      mensaje: 'La cédula o RUC debe contener solo números. Si es extranjero, seleccione “Pasaporte / Extranjero”.'
+    };
   }
   if (valor.length === 10) return validarCedulaEcuatoriana(valor);
   if (valor.length === 13) return validarRucEcuatoriano(valor);
   return {
     valido: false,
-    mensaje: `Debe tener 10 dígitos (cédula) o 13 dígitos (RUC); se ingresaron ${valor.length}.`
+    mensaje: `Debe tener 10 dígitos (cédula) o 13 dígitos (RUC); se ingresaron ${valor.length}. Si es extranjero, seleccione “Pasaporte / Extranjero”.`
   };
 };
 

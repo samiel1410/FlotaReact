@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { CameraCapture } from './CameraCapture';
-import { validarIdentificacionEntrega } from '../../../utils/identificacionUtils';
+import { validarIdentificacionEntrega, normalizarIdentificacionEntrega } from '../../../utils/identificacionUtils';
 import { CONFIG } from '../../../config/env';
 import { EntregaService, abrirPdfEntrega } from '../../../services/entrega.service';
 import { GuiaService } from '../../../services/guia.service';
@@ -11,6 +11,15 @@ import { GuiaService } from '../../../services/guia.service';
  * Recrea la funcionalidad de CobrarGuiaEntregado + onGuardarComprobantesGuia del ExtJS
  */
 export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, onClose, onSuccess }) => {
+  const cedulaDestinatarioGuia = normalizarIdentificacionEntrega(guia.cedula_cliente_receptor);
+  const nombreDestinatarioGuia = String(guia.nombre_cliente_receptor ?? '').trim();
+  // Si el destinatario tiene pasaporte o documento extranjero se preselecciona
+  // ese tipo para que su identificación se pueda registrar tal cual.
+  const tipoDestinatarioGuia = cedulaDestinatarioGuia
+    && !/^\d{10}$|^\d{13}$/.test(cedulaDestinatarioGuia)
+    ? 'PASAPORTE'
+    : 'CEDULA';
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formasPago, setFormasPago] = useState([]);
@@ -24,6 +33,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   const [errorCliente, setErrorCliente] = useState('');
   const [nombreRecibe, setNombreRecibe] = useState('');
   const [entregaTercero, setEntregaTercero] = useState(false);
+  const [tipoIdentificacionRecibe, setTipoIdentificacionRecibe] = useState(tipoDestinatarioGuia);
   const [intentoBusqueda, setIntentoBusqueda] = useState(0);
 
   const [formData, setFormData] = useState({
@@ -37,8 +47,12 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
   });
 
   const fileInputRef = useRef(null);
-  const cedulaDestinatarioGuia = String(guia.cedula_cliente_receptor ?? '').replace(/\D/g, '');
-  const nombreDestinatarioGuia = String(guia.nombre_cliente_receptor ?? '').trim();
+  // Se considera completa cuando ya puede validarse: 10/13 dígitos para
+  // cédula/RUC o al menos 5 caracteres para pasaporte.
+  const identificacionCompleta = tipoIdentificacionRecibe === 'PASAPORTE'
+    ? formData.cedula_recibe.length >= 5 && formData.cedula_recibe.length <= 20
+    : formData.cedula_recibe.length === 10 || formData.cedula_recibe.length === 13;
+
 
   const initModal = async () => {
     try {
@@ -155,7 +169,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
           ? res.data
           : (res.data && typeof res.data === 'object' ? [res.data] : []);
         const cliente = lista.length > 0 ? lista[0] : null;
-        const esDestinatarioGuia = cedulaDestinatarioGuia === ident;
+        const esDestinatarioGuia = cedulaDestinatarioGuia === normalizarIdentificacionEntrega(ident);
 
         setClienteInfo(cliente);
         setClienteFotoUrl(cliente?.foto_cliente ? `${CONFIG.CLIENTE_URL}/cliente/fotos/${cliente.foto_cliente}` : null);
@@ -172,7 +186,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
         setClienteInfo(null);
         setClienteFotoUrl(null);
         setClienteNoRegistrado(false);
-        setNombreRecibe(cedulaDestinatarioGuia === ident ? nombreDestinatarioGuia : '');
+        setNombreRecibe(cedulaDestinatarioGuia === normalizarIdentificacionEntrega(ident) ? nombreDestinatarioGuia : '');
         setErrorCliente('No se pudo verificar la identificación en el API de clientes. Reintente o continúe escribiendo el nombre de quien recibe.');
       } finally {
         if (!cancelado && !reintentando) setBuscandoCliente(false);
@@ -180,8 +194,12 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
     };
 
     const cedula = formData.cedula_recibe;
-    if (cedula && (cedula.length === 10 || cedula.length === 13)) {
-      buscarCliente(cedula);
+    let temporizador = null;
+    if (identificacionCompleta) {
+      // Debounce: en pasaportes no se sabe la longitud final mientras se escribe.
+      temporizador = setTimeout(() => {
+        if (!cancelado) buscarCliente(cedula);
+      }, 350);
     } else {
       setClienteInfo(null);
       setClienteFotoUrl(null);
@@ -190,28 +208,47 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
       setErrorCliente('');
     }
 
-    return () => { cancelado = true; };
-  }, [formData.cedula_recibe, cedulaDestinatarioGuia, nombreDestinatarioGuia, intentoBusqueda]);
+    return () => {
+      cancelado = true;
+      if (temporizador) clearTimeout(temporizador);
+    };
+  }, [formData.cedula_recibe, identificacionCompleta, cedulaDestinatarioGuia, nombreDestinatarioGuia, intentoBusqueda]);
+
+  const limpiarCliente = () => {
+    setClienteInfo(null);
+    setClienteFotoUrl(null);
+    setClienteNoRegistrado(false);
+    setErrorCliente('');
+    setNombreRecibe('');
+  };
+
+  const handleTipoIdentificacionChange = (tipo) => {
+    setTipoIdentificacionRecibe(tipo);
+    // Al cambiar de tipo se descartan los caracteres que ya no aplican
+    // (una cédula no admite letras y un pasaporte sí).
+    setFormData(prev => ({
+      ...prev,
+      cedula_recibe: tipo === 'PASAPORTE'
+        ? normalizarIdentificacionEntrega(prev.cedula_recibe).slice(0, 20)
+        : String(prev.cedula_recibe ?? '').replace(/\D/g, '').slice(0, 13)
+    }));
+    limpiarCliente();
+  };
 
   const handleEntregaTerceroChange = (checked) => {
     setEntregaTercero(checked);
+    setTipoIdentificacionRecibe('CEDULA');
 
     if (checked) {
       setFormData(prev => ({ ...prev, cedula_recibe: '' }));
-      setClienteInfo(null);
-      setClienteFotoUrl(null);
-      setClienteNoRegistrado(false);
-      setErrorCliente('');
-      setNombreRecibe('');
+      limpiarCliente();
       return;
     }
 
+    setTipoIdentificacionRecibe(tipoDestinatarioGuia);
     setFormData(prev => ({ ...prev, cedula_recibe: cedulaDestinatarioGuia }));
     if (!cedulaDestinatarioGuia) {
-      setClienteInfo(null);
-      setClienteFotoUrl(null);
-      setClienteNoRegistrado(false);
-      setNombreRecibe('');
+      limpiarCliente();
     }
   };
 
@@ -242,15 +279,16 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
       return;
     }
 
-    const esCedulaDestinatario = !!cedulaDestinatarioGuia && formData.cedula_recibe === cedulaDestinatarioGuia;
-    const validacion = validarIdentificacionEntrega(formData.cedula_recibe);
+    const cedulaRecibeNormalizada = normalizarIdentificacionEntrega(formData.cedula_recibe);
+    const esCedulaDestinatario = !!cedulaDestinatarioGuia && cedulaRecibeNormalizada === cedulaDestinatarioGuia;
+    const validacion = validarIdentificacionEntrega(formData.cedula_recibe, tipoIdentificacionRecibe);
     if (!validacion.valido && !esCedulaDestinatario) {
       toast.error(validacion.mensaje);
       return;
     }
 
     if (!entregaTercero && cedulaDestinatarioGuia && !esCedulaDestinatario) {
-      toast.error('La cédula no coincide con el destinatario de la guía. Si la recibe otra persona, marque “Entrega a tercero”.');
+      toast.error('La identificación no coincide con el destinatario de la guía. Si la recibe otra persona, marque “Entrega a tercero”.');
       return;
     }
 
@@ -319,8 +357,9 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
           id_guia: guia.id_guia,
           nombre_oficina: nombre_oficina || '',
           destino_guia: destinoGuia || guia.destino_guia || '',
-          cedula_recibe: formData.cedula_recibe,
+          cedula_recibe: normalizarIdentificacionEntrega(formData.cedula_recibe),
           nombre_recibe: (nombreRecibe || clienteInfo?.nombre_cliente || '').trim(),
+          tipo_identificacion_recibe: tipoIdentificacionRecibe,
           // Se envía 1/0 porque el cuerpo se serializa como form-urlencoded.
           entrega_tercero: entregaTercero ? 1 : 0,
           foto_base64: fotoCapturada
@@ -381,9 +420,12 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
     ? `NV ${facturaData.numero_factura || ''}`
     : `${facturaData.punto_emision_sucursal}-${facturaData.punto_emision_factura}-${numFactura}`;
 
-  const cedulaValida = formData.cedula_recibe.length === 10 || formData.cedula_recibe.length === 13;
-  const validacionCedula = cedulaValida ? validarIdentificacionEntrega(formData.cedula_recibe) : null;
-  const esCedulaDestinatario = !!cedulaDestinatarioGuia && formData.cedula_recibe === cedulaDestinatarioGuia;
+  const cedulaValida = identificacionCompleta;
+  const validacionCedula = cedulaValida
+    ? validarIdentificacionEntrega(formData.cedula_recibe, tipoIdentificacionRecibe)
+    : null;
+  const esCedulaDestinatario = !!cedulaDestinatarioGuia
+    && normalizarIdentificacionEntrega(formData.cedula_recibe) === cedulaDestinatarioGuia;
   const cedulaInvalida = !!validacionCedula && !validacionCedula.valido && !esCedulaDestinatario;
   const advertenciaCedula = !!validacionCedula && !validacionCedula.valido && esCedulaDestinatario;
   const cedulaNoCoincide = !entregaTercero && !!cedulaDestinatarioGuia && cedulaValida && !esCedulaDestinatario;
@@ -491,19 +533,43 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-1">
-                  {entregaTercero ? 'Cédula del tercero que recibe' : 'Cédula de quien recibe'} <span className="text-red-500">*</span>
+                  {tipoIdentificacionRecibe === 'PASAPORTE'
+                    ? (entregaTercero ? 'Pasaporte del tercero que recibe' : 'Pasaporte de quien recibe')
+                    : (entregaTercero ? 'Cédula del tercero que recibe' : 'Cédula de quien recibe')} <span className="text-red-500">*</span>
                 </label>
+
+                <div className="flex gap-1 mb-2">
+                  {[
+                    { valor: 'CEDULA', texto: 'Cédula / RUC' },
+                    { valor: 'PASAPORTE', texto: 'Pasaporte / Extranjero' }
+                  ].map((opcion) => (
+                    <button
+                      key={opcion.valor}
+                      type="button"
+                      onClick={() => handleTipoIdentificacionChange(opcion.valor)}
+                      className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-colors ${tipoIdentificacionRecibe === opcion.valor
+                        ? 'bg-slate-800 text-white border-slate-800'
+                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                    >
+                      {opcion.texto}
+                    </button>
+                  ))}
+                </div>
+
                 <input
                   type="text"
                   name="cedula_recibe"
                   value={formData.cedula_recibe}
                   onChange={(e) => {
-                    setFormData(prev => ({ ...prev, cedula_recibe: e.target.value.replace(/[^0-9]/g, '') }));
+                    const valor = tipoIdentificacionRecibe === 'PASAPORTE'
+                      ? normalizarIdentificacionEntrega(e.target.value).slice(0, 20)
+                      : e.target.value.replace(/[^0-9]/g, '');
+                    setFormData(prev => ({ ...prev, cedula_recibe: valor }));
                     setClienteNoRegistrado(false);
                   }}
-                  placeholder="Cédula o RUC"
-                  maxLength={13}
-                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={tipoIdentificacionRecibe === 'PASAPORTE' ? 'Pasaporte o documento extranjero' : 'Cédula o RUC'}
+                  maxLength={tipoIdentificacionRecibe === 'PASAPORTE' ? 20 : 13}
+                  className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
                 />
 
                 <label className={`mt-2 flex items-center gap-2 text-xs font-semibold cursor-pointer select-none rounded-full px-3 py-1 border shadow-sm w-fit transition-colors ${entregaTercero ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}>
@@ -544,7 +610,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                       <i className="fas fa-user-shield mr-1"></i> No coincide con el destinatario
                     </p>
                     <p className="text-[11px] text-red-700">
-                      La cédula ingresada no es la del destinatario de la guía ({cedulaDestinatarioGuia}). Si la recibe otra persona, marque “Entrega a tercero”.
+                      La identificación ingresada no es la del destinatario de la guía ({cedulaDestinatarioGuia}). Si la recibe otra persona, marque “Entrega a tercero”.
                     </p>
                   </div>
                 )}
@@ -583,7 +649,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                   </div>
                 )}
 
-                {!buscandoCliente && !errorCliente && clienteNoRegistrado && !cedulaInvalida && !cedulaNoCoincide && formData.cedula_recibe.length >= 10 && (
+                {!buscandoCliente && !errorCliente && clienteNoRegistrado && !cedulaInvalida && !cedulaNoCoincide && identificacionCompleta && (
                   <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
                       Identificación no registrada
@@ -591,7 +657,7 @@ export const CobrarEntregarModal = ({ guia, destinoGuia, isNotaVenta = false, on
                     <p className="text-[11px] text-amber-700">
                       {entregaTercero
                         ? 'El API de clientes no tiene registrado al tercero. Puede continuar escribiendo el nombre de quien recibe.'
-                        : 'El API de clientes no tiene registrado este número. Puede entregar igual indicando el nombre de quien recibe.'}
+                        : 'El API de clientes no tiene registrada esta identificación. Puede entregar igual indicando el nombre de quien recibe.'}
                     </p>
                   </div>
                 )}

@@ -204,9 +204,9 @@ try {
 
     if ($cedula_recibe !== '') {
         $pdf->SetFont('helvetica', 'B', 7.5);
-        $pdf->Cell(28, 3.8, 'CÉDULA RECIBE:', 0, 0, 'L');
+        $pdf->Cell(32, 3.8, 'IDENTIFICACIÓN:', 0, 0, 'L');
         $pdf->SetFont('helvetica', '', 7.5);
-        $pdf->Cell($anchoUtil - 28, 3.8, $cedula_recibe, 0, 1, 'L');
+        $pdf->Cell($anchoUtil - 32, 3.8, $cedula_recibe, 0, 1, 'L');
     }
 
 

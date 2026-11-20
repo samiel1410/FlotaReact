@@ -584,6 +584,7 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
       {/* ─── MODALES ─── */}
       {modalType === 'cobrar' && selectedGuia && (
         <CobrarEntregarModal
+          key={`cobrar-${selectedGuia.id_guia}`}
           guia={selectedGuia}
           destinoGuia={selectedGuia.destino_guia}
           isNotaVenta={isNotaVenta}
@@ -594,6 +595,7 @@ export const EntregasPage = ({ isNotaVenta = false }) => {
 
       {modalType === 'confirmar' && selectedGuia && (
         <ConfirmarEntregaModal
+          key={`confirmar-${selectedGuia.id_guia}`}
           guia={selectedGuia}
           destinoGuia={selectedGuia.destino_guia}
           isNotaVenta={isNotaVenta}

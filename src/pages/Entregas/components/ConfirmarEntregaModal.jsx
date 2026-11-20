@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { CameraCapture } from './CameraCapture';
-import { validarIdentificacionEntrega } from '../../../utils/identificacionUtils';
+import { validarIdentificacionEntrega, normalizarIdentificacionEntrega } from '../../../utils/identificacionUtils';
 import { CONFIG } from '../../../config/env';
 import { EntregaService, abrirPdfEntrega } from '../../../services/entrega.service';
 import { GuiaService } from '../../../services/guia.service';
@@ -14,6 +14,15 @@ import { GuiaService } from '../../../services/guia.service';
  * Recrea la funcionalidad de ExtJS en EntregadoController.onentregarGuia
  */
 export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, onClose, onSuccess }) => {
+  const cedulaDestinatarioGuia = normalizarIdentificacionEntrega(guia.cedula_cliente_receptor);
+  const nombreDestinatarioGuia = String(guia.nombre_cliente_receptor ?? '').trim();
+  // Si el destinatario tiene pasaporte o documento extranjero se preselecciona
+  // ese tipo para que su identificación se pueda registrar tal cual.
+  const tipoDestinatarioGuia = cedulaDestinatarioGuia
+    && !/^\d{10}$|^\d{13}$/.test(cedulaDestinatarioGuia)
+    ? 'PASAPORTE'
+    : 'CEDULA';
+
   const [cedula, setCedula] = useState('');
   const [fotoBase64, setFotoBase64] = useState('');
   const [fotoPreview, setFotoPreview] = useState('');
@@ -26,11 +35,13 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
   const [errorCliente, setErrorCliente] = useState('');
   const [nombreRecibe, setNombreRecibe] = useState('');
   const [entregaTercero, setEntregaTercero] = useState(false);
+  const [tipoIdentificacionRecibe, setTipoIdentificacionRecibe] = useState(tipoDestinatarioGuia);
   const [intentoBusqueda, setIntentoBusqueda] = useState(0);
   const cedulaInputRef = useRef(null);
   const nombreAutoRef = useRef('');
-  const cedulaDestinatarioGuia = String(guia.cedula_cliente_receptor ?? '').replace(/\D/g, '');
-  const nombreDestinatarioGuia = String(guia.nombre_cliente_receptor ?? '').trim();
+  const identificacionCompleta = tipoIdentificacionRecibe === 'PASAPORTE'
+    ? cedula.length >= 5 && cedula.length <= 20
+    : cedula.length === 10 || cedula.length === 13;
 
   // Precargar la cédula si viene en la guía
   useEffect(() => {
@@ -82,7 +93,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
           ? res.data
           : (res.data && typeof res.data === 'object' ? [res.data] : []);
         const cliente = lista.length > 0 ? lista[0] : null;
-        const esDestinatarioGuia = cedulaDestinatarioGuia === ident;
+        const esDestinatarioGuia = cedulaDestinatarioGuia === normalizarIdentificacionEntrega(ident);
 
         setClienteInfo(cliente);
         setClienteFotoUrl(cliente?.foto_cliente ? `${CONFIG.CLIENTE_URL}/cliente/fotos/${cliente.foto_cliente}` : null);
@@ -100,14 +111,18 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
         setClienteFotoUrl(null);
         setClienteNoRegistrado(false);
         setErrorCliente('No se pudo verificar la identificación en el API de clientes. Reintente o continúe escribiendo el nombre de quien recibe.');
-        aplicarNombre(cedulaDestinatarioGuia === ident ? nombreDestinatarioGuia : '');
+        aplicarNombre(cedulaDestinatarioGuia === normalizarIdentificacionEntrega(ident) ? nombreDestinatarioGuia : '');
       } finally {
         if (!cancelado && !reintentando) setBuscandoCliente(false);
       }
     };
 
-    if (cedula && (cedula.length === 10 || cedula.length === 13)) {
-      buscarCliente(cedula);
+    let temporizador = null;
+    if (identificacionCompleta) {
+      // Debounce: en pasaportes no se sabe la longitud final mientras se escribe.
+      temporizador = setTimeout(() => {
+        if (!cancelado) buscarCliente(cedula);
+      }, 350);
     } else {
       setClienteInfo(null);
       setClienteFotoUrl(null);
@@ -116,13 +131,17 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
       setErrorCliente('');
     }
 
-    return () => { cancelado = true; };
-  }, [cedula, cedulaDestinatarioGuia, nombreDestinatarioGuia, intentoBusqueda]);
+    return () => {
+      cancelado = true;
+      if (temporizador) clearTimeout(temporizador);
+    };
+  }, [cedula, identificacionCompleta, cedulaDestinatarioGuia, nombreDestinatarioGuia, intentoBusqueda]);
 
   // Al marcar "Entrega a tercero" se limpia la identificación del destinatario
   // para que el oficinista ingrese la del tercero y se recuperen sus datos.
   const handleEntregaTerceroChange = (checked) => {
     setEntregaTercero(checked);
+    setTipoIdentificacionRecibe('CEDULA');
 
     if (checked) {
       setCedula('');
@@ -136,14 +155,29 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
       return;
     }
 
-    const cedulaDestinatario = String(guia.cedula_cliente_receptor ?? '').replace(/\D/g, '');
-    setCedula(cedulaDestinatario);
-    if (!cedulaDestinatario) {
+    setTipoIdentificacionRecibe(tipoDestinatarioGuia);
+    setCedula(cedulaDestinatarioGuia);
+    if (!cedulaDestinatarioGuia) {
       setClienteInfo(null);
       setClienteFotoUrl(null);
       setClienteNoRegistrado(false);
       setNombreRecibe('');
     }
+  };
+
+  const handleTipoIdentificacionChange = (tipo) => {
+    setTipoIdentificacionRecibe(tipo);
+    // Al cambiar de tipo se descartan los caracteres que ya no aplican
+    // (una cédula no admite letras y un pasaporte sí).
+    setCedula(prev => (tipo === 'PASAPORTE'
+      ? normalizarIdentificacionEntrega(prev).slice(0, 20)
+      : String(prev ?? '').replace(/\D/g, '').slice(0, 13)));
+    setClienteInfo(null);
+    setClienteFotoUrl(null);
+    setClienteNoRegistrado(false);
+    setErrorCliente('');
+    setNombreRecibe('');
+    nombreAutoRef.current = '';
   };
 
   const handleCameraCapture = (dataUrl) => {
@@ -154,15 +188,16 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
 
   const handleSubmit = async () => {
     if (saving) return;
-    const esCedulaDestinatario = !!cedulaDestinatarioGuia && cedula === cedulaDestinatarioGuia;
-    const validacion = validarIdentificacionEntrega(cedula);
+    const cedulaNormalizada = normalizarIdentificacionEntrega(cedula);
+    const esCedulaDestinatario = !!cedulaDestinatarioGuia && cedulaNormalizada === cedulaDestinatarioGuia;
+    const validacion = validarIdentificacionEntrega(cedula, tipoIdentificacionRecibe);
     if (!validacion.valido && !esCedulaDestinatario) {
       toast.error(validacion.mensaje);
       return;
     }
 
     if (!entregaTercero && cedulaDestinatarioGuia && !esCedulaDestinatario) {
-      toast.error('La cédula no coincide con el destinatario de la guía. Si la recibe otra persona, marque “Entrega a tercero”.');
+      toast.error('La identificación no coincide con el destinatario de la guía. Si la recibe otra persona, marque “Entrega a tercero”.');
       return;
     }
 
@@ -187,8 +222,9 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
         id_guia: guia.id_guia,
         nombre_oficina: nombre_oficina || '',
         destino_guia: destinoGuia || guia.destino_guia || '',
-        cedula_recibe: cedula,
+        cedula_recibe: cedulaNormalizada,
         nombre_recibe: (nombreRecibe || clienteInfo?.nombre_cliente || '').trim(),
+        tipo_identificacion_recibe: tipoIdentificacionRecibe,
         // Se envía 1/0 porque el interceptor serializa el cuerpo como
         // form-urlencoded y un booleano viaja como "true".
         entrega_tercero: entregaTercero ? 1 : 0,
@@ -226,9 +262,12 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
     }
   };
 
-  const cedulaValida = cedula.length === 10 || cedula.length === 13;
-  const validacionCedula = cedulaValida ? validarIdentificacionEntrega(cedula) : null;
-  const esCedulaDestinatario = !!cedulaDestinatarioGuia && cedula === cedulaDestinatarioGuia;
+  const cedulaValida = identificacionCompleta;
+  const validacionCedula = cedulaValida
+    ? validarIdentificacionEntrega(cedula, tipoIdentificacionRecibe)
+    : null;
+  const esCedulaDestinatario = !!cedulaDestinatarioGuia
+    && normalizarIdentificacionEntrega(cedula) === cedulaDestinatarioGuia;
   const cedulaInvalida = !!validacionCedula && !validacionCedula.valido && !esCedulaDestinatario;
   const advertenciaCedula = !!validacionCedula && !validacionCedula.valido && esCedulaDestinatario;
   const cedulaNoCoincide = !entregaTercero && !!cedulaDestinatarioGuia && cedulaValida && !esCedulaDestinatario;
@@ -261,34 +300,60 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
 
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-1">
-                {entregaTercero ? 'Cédula del tercero que recibe' : 'Cédula de quien recibe'}{' '}
+                {tipoIdentificacionRecibe === 'PASAPORTE'
+                  ? (entregaTercero ? 'Pasaporte del tercero que recibe' : 'Pasaporte de quien recibe')
+                  : (entregaTercero ? 'Cédula del tercero que recibe' : 'Cédula de quien recibe')}{' '}
                 <span className="text-red-500">*</span>
               </label>
+
+              <div className="flex gap-1 mb-2">
+                {[
+                  { valor: 'CEDULA', texto: 'Cédula / RUC' },
+                  { valor: 'PASAPORTE', texto: 'Pasaporte / Extranjero' }
+                ].map((opcion) => (
+                  <button
+                    key={opcion.valor}
+                    type="button"
+                    onClick={() => handleTipoIdentificacionChange(opcion.valor)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-semibold border transition-colors ${tipoIdentificacionRecibe === opcion.valor
+                      ? 'bg-slate-800 text-white border-slate-800'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'}`}
+                  >
+                    {opcion.texto}
+                  </button>
+                ))}
+              </div>
+
               <input
                 ref={cedulaInputRef}
                 type="text"
                 value={cedula}
                 onChange={(e) => {
-                  setCedula(e.target.value.replace(/[^0-9]/g, ''));
+                  const valor = tipoIdentificacionRecibe === 'PASAPORTE'
+                    ? normalizarIdentificacionEntrega(e.target.value).slice(0, 20)
+                    : e.target.value.replace(/[^0-9]/g, '');
+                  setCedula(valor);
                   setClienteNoRegistrado(false);
                 }}
-                placeholder={entregaTercero ? 'Ingrese la cédula del tercero' : 'Ingrese cédula o RUC'}
-                maxLength={13}
-                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder={tipoIdentificacionRecibe === 'PASAPORTE'
+                  ? 'Ingrese el pasaporte o documento extranjero'
+                  : (entregaTercero ? 'Ingrese la cédula del tercero' : 'Ingrese cédula o RUC')}
+                maxLength={tipoIdentificacionRecibe === 'PASAPORTE' ? 20 : 13}
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
                 required
               />
 
               {entregaTercero && !cedula && (
                 <p className="mt-1 text-[11px] text-slate-500">
                   <i className="fas fa-id-card mr-1"></i>
-                  Ingrese la cédula del tercero para recuperar sus datos personales.
+                  Ingrese la identificación del tercero para recuperar sus datos personales.
                 </p>
               )}
 
               {cedulaInvalida && (
                 <div className="mt-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-red-700">
-                    <i className="fas fa-exclamation-triangle mr-1"></i> Cédula no válida
+                    <i className="fas fa-exclamation-triangle mr-1"></i> Identificación no válida
                   </p>
                   <p className="text-[11px] text-red-700">
                     {validacionCedula.mensaje} No se puede confirmar la entrega con una identificación falsa o incompleta.
@@ -299,10 +364,10 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
               {advertenciaCedula && (
                 <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
-                    <i className="fas fa-exclamation-circle mr-1"></i> Verifique la cédula registrada
+                    <i className="fas fa-exclamation-circle mr-1"></i> Verifique la identificación registrada
                   </p>
                   <p className="text-[11px] text-amber-700">
-                    {validacionCedula.mensaje} Es la cédula del destinatario en la guía; confirme con el cliente antes de entregar.
+                    {validacionCedula.mensaje} Es la identificación del destinatario en la guía; confirme con el cliente antes de entregar.
                   </p>
                 </div>
               )}
@@ -313,7 +378,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                     <i className="fas fa-user-shield mr-1"></i> No coincide con el destinatario
                   </p>
                   <p className="text-[11px] text-red-700">
-                    La cédula ingresada no es la del destinatario de la guía ({cedulaDestinatarioGuia}). Si la recibe otra persona, marque “Entrega a tercero” e ingrese sus datos.
+                    La identificación ingresada no es la del destinatario de la guía ({cedulaDestinatarioGuia}). Si la recibe otra persona, marque “Entrega a tercero” e ingrese sus datos.
                   </p>
                 </div>
               )}
@@ -370,7 +435,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                 </div>
               )}
 
-              {!buscandoCliente && !errorCliente && clienteNoRegistrado && !cedulaInvalida && !cedulaNoCoincide && cedula.length >= 10 && (
+              {!buscandoCliente && !errorCliente && clienteNoRegistrado && !cedulaInvalida && !cedulaNoCoincide && identificacionCompleta && (
                 <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                   <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
                     Identificación no registrada
@@ -378,7 +443,7 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                   <p className="text-[11px] text-amber-700">
                     {entregaTercero
                       ? 'El API de clientes no tiene registrado al tercero. Puede continuar escribiendo el nombre de quien recibe.'
-                      : 'El API de clientes no tiene registrado este número. Puede entregar igual indicando el nombre de quien recibe.'}
+                      : 'El API de clientes no tiene registrada esta identificación. Puede entregar igual indicando el nombre de quien recibe.'}
                   </p>
                 </div>
               )}
@@ -412,10 +477,10 @@ export const ConfirmarEntregaModal = ({ guia, destinoGuia, isNotaVenta = false, 
                 />
                 <p className="text-[11px] text-slate-500 mt-1">
                   {entregaTercero
-                    ? 'Se completa con los datos del tercero al ingresar su cédula; puede ajustarlo si es necesario.'
+                    ? 'Se completa con los datos del tercero al ingresar su identificación; puede ajustarlo si es necesario.'
                     : (!clienteInfo && cedulaValida)
                       ? 'La identificación no está registrada: escriba el nombre de quien recibe (recomendado).'
-                      : 'La cédula debe coincidir con el destinatario de la guía. Si entrega a un tercero, marque "Entrega a tercero" e ingrese su cédula.'}
+                      : 'La identificación debe coincidir con el destinatario de la guía. Si entrega a un tercero, marque "Entrega a tercero" e ingrese la suya.'}
                 </p>
               </div>
             </div>
