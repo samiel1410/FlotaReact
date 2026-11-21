@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
 
 /**
@@ -77,37 +77,24 @@ export const CajaDenominacionesForm = ({
   const monedas  = isApertura ? APERTURA_MONEDAS  : CIERRE_MONEDAS;
   const allDenoms = [...billetes, ...monedas];
 
-  const [formData, setFormData]           = useState({});
-  const [subtotalBilletes, setSubB]       = useState(0);
-  const [subtotalMonedas, setSubM]        = useState(0);
-  const [total, setTotal]                 = useState(0);
+  const [formData, setFormData] = useState(() => {
+    if (initialData && isEditing) return initialData;
+    const init = {};
+    allDenoms.forEach(d => { init[d.key] = 0; });
+    return init;
+  });
   const [aperturarCero, setAperturarCero] = useState(false);
-  const [fechaHora]                       = useState(() => ({
+  const [fechaHora] = useState(() => ({
     fecha: format(new Date(), 'yyyy-MM-dd'),
     hora:  format(new Date(), 'HH:mm:ss'),
   }));
 
-  // Inicializar formData
-  useEffect(() => {
-    if (initialData && isEditing) {
-      setFormData(initialData);
-    } else {
-      const init = {};
-      allDenoms.forEach(d => { init[d.key] = 0; });
-      setFormData(init);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Recalcular totales cuando cambia formData
-  useEffect(() => {
+  const { subtotalBilletes, subtotalMonedas, total } = useMemo(() => {
     let subB = 0, subM = 0;
     billetes.forEach(d => { subB += (Number(formData[d.key]) || 0) * d.valor; });
     monedas.forEach(d => { subM += (Number(formData[d.key]) || 0) * d.valor; });
-    setSubB(subB);
-    setSubM(subM);
-    setTotal(subB + subM);
-  }, [formData]);
+    return { subtotalBilletes: subB, subtotalMonedas: subM, total: subB + subM };
+  }, [formData, billetes, monedas]);
 
   const handleChange = (key, value) => {
     if (aperturarCero) setAperturarCero(false);
@@ -136,7 +123,13 @@ export const CajaDenominacionesForm = ({
     onSubmit(payload);
   };
 
-  const diferencia = isApertura ? null : (total - (cajaActual?.apertura_total_caja || 0));
+  // El esperado real lo calcula el backend (apertura + movimientos + retenido,
+  // o cobros en efectivo según el módulo). Comparar solo contra la apertura
+  // marcaba diferencia en todas las cajas que tenían venta.
+  const esperadoEnCaja = Number(
+    cajaActual?.monto_a_tener ?? cajaActual?.apertura_total_caja ?? 0
+  );
+  const diferencia = isApertura ? null : (total - esperadoEnCaja);
 
   const inputCls = 'w-16 h-8 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-800 text-center font-bold';
 
@@ -272,8 +265,8 @@ export const CajaDenominacionesForm = ({
         }`}>
           <div className="grid grid-cols-3 gap-4 mb-3 text-center">
             <div>
-              <p className="text-[10px] font-bold text-slate-500 uppercase">Apertura</p>
-              <p className="text-lg font-black text-slate-700">{fmt(cajaActual?.apertura_total_caja || 0)}</p>
+              <p className="text-[10px] font-bold text-slate-500 uppercase">Esperado</p>
+              <p className="text-lg font-black text-slate-700">{fmt(esperadoEnCaja)}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold text-slate-500 uppercase">Cierre</p>

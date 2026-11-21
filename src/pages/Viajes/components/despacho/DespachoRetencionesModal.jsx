@@ -61,12 +61,19 @@ export const DespachoRetencionesModal = ({
 
   // Techo del % de retención (lo máximo que se podría retener con el porcentaje configurado)
   const techoRetencion = parseFloat(
-    (isSucursal ? (valoresSucursal?.retencion ?? valoresSucursal?.retencion_monto) : valores?.retencion_porcentual) ?? 0
+    (isSucursal
+      ? (valoresSucursal?.retencion_techo ?? valoresSucursal?.retencion ?? valoresSucursal?.retencion_monto)
+      : valores?.retencion_porcentual) ?? 0
   ) || 0;
 
   const totalEntrega = isSucursal
     ? parseFloat(valoresSucursal?.entrega ?? (totalBoletos - totalRetenciones))
     : parseFloat(valores?.entrega ?? 0);
+
+  // Cuando la oficina ya despachó toda su venta, el neto es lo ENTREGADO, no
+  // un saldo pendiente: el rótulo debe decirlo para no confundirlo con dinero
+  // que aún está en la caja.
+  const saldoEntregado = Boolean(isSucursal && valoresVista?.esPorSucursal && valoresVista?.esTurnoPendiente === false);
 
   // Filtrar desglose de sucursales según el modo
   const sucursalesDesgloseFiltrado = React.useMemo(() => {
@@ -88,14 +95,15 @@ export const DespachoRetencionesModal = ({
       return false;
     });
 
-    if (matches.length > 0) return matches;
-
-    // Fallback: sintetizar fila con valoresSucursal
+    // La fila de la oficina debe cuadrar con el encabezado: `valoresVista`
+    // trae la venta acumulada (o el turno pendiente) ya liquidada, mientras
+    // que el desglose del backend puede traer solo el turno pendiente.
     return [{
+      ...(matches[0] || {}),
       nombre_sucursal: nombreSucursalActiva,
-      cantidad_boletos: valoresSucursal?.cantidad_boletos || valores?.cantidad_boletos || 0,
+      cantidad_boletos: valoresSucursal?.cantidad ?? valoresSucursal?.cantidad_boletos ?? matches[0]?.cantidad_boletos ?? 0,
       total_boletos: totalBoletos,
-      porcentaje_retencion: valoresSucursal?.porcentaje_retencion || valores?.porcentaje_retencion || 0,
+      porcentaje_retencion: valoresSucursal?.porcentaje_retencion ?? matches[0]?.porcentaje_retencion ?? 0,
       retencion_calculada: totalRetenciones,
       retencion_monto: totalRetenciones
     }];
@@ -316,7 +324,7 @@ export const DespachoRetencionesModal = ({
           </div>
           <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-sm text-center">
             <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
-              Neto a Entregar {isSucursal ? `(${nombreSucursalActiva})` : ''}
+              {saldoEntregado ? 'Neto Entregado' : 'Neto a Entregar'} {isSucursal ? `(${nombreSucursalActiva})` : ''}
             </span>
             <span className="text-base font-black font-mono text-emerald-700 mt-0.5 block">{fmt(totalEntrega)}</span>
           </div>

@@ -30,7 +30,6 @@ export const ListaViajes = () => {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [limit] = useState(25);
-  const [searchTrigger, setSearchTrigger] = useState(0);
 
   const isAdmin = user?.id_fkrol_usuario == 1 || user?.id_fkrol_usuario == 2 || user?.id_rol == 1 || user?.id_rol == 2 || user?.rol == 1 || user?.rol == 2;
   const localDate = new Date();

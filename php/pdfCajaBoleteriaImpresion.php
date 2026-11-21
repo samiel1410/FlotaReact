@@ -151,7 +151,9 @@ try {
     }
 
     // ─── DESPACHOS DEL OFICINISTA EN EL PERÍODO DE LA CAJA ───────────────────
-    // El cierre es POR OFICINISTA: despachos aprobados por el dueño de la caja.
+    // El cierre es POR OFICINISTA: despachos aprobados por el dueño de la caja
+    // y solo de viajes con boletos vendidos en ESTA caja (igual que
+    // saldoCajaBoleteria).
     $id_usuario_caja = (int)($vals_caja['id_fkusuario_caja'] ?? 0);
     $fecha_caja_txt = $vals_caja['fecha_caja'] ? date('Y-m-d', strtotime($vals_caja['fecha_caja'])) : date('Y-m-d');
 
@@ -180,6 +182,10 @@ try {
         LEFT JOIN viajes v ON v.id_viajes = dv.id_fkviaje_despacho_viaje
         WHERE dv.id_fkusuario_aprueba = $id_usuario_caja
           AND DATE(dv.fecha_creacion_despacho_viaje) = '$fecha_caja_txt'
+          AND EXISTS (SELECT 1 FROM boletos bc
+                       WHERE bc.id_fkviaje_boleto = dv.id_fkviaje_despacho_viaje
+                         AND bc.id_fkcaja_boleto = $id_caja
+                         AND bc.estado_boleto != 3)
         ORDER BY dv.id_despacho_viaje DESC";
 
         $recDesp = mysqli_query($conn, $sqlDespachos);

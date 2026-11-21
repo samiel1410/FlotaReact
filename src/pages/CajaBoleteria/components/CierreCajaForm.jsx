@@ -98,9 +98,16 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = f
   const totalPorCobrar = guiasPorCobrar.reduce((total, guia) => total + (Number(guia.por_cobrar) || 0), 0);
 
   // En Caja Guías el backend calcula apertura + ingresos - egresos + cobros en efectivo.
-  const esperadoEnCaja = esCajaGuias
-    ? Number(cajaActual?.monto_a_tener) || 0
-    : (Number(cajaActual?.apertura_total_caja) || 0) + totalRetenido;
+  // En boletería el esperado es apertura + ingresos - egresos + lo retenido en
+  // los despachos de esta caja (lo vendido se entrega al bus).
+  // Si el backend ya envía `monto_a_tener` (misma fórmula del listado), se usa
+  // ese valor: es el que decide el cuadre guardado.
+  const esperadoBackend = cajaActual?.monto_a_tener;
+  const tieneEsperadoBackend =
+    esperadoBackend !== null && esperadoBackend !== undefined && esperadoBackend !== '';
+  const esperadoEnCaja = tieneEsperadoBackend
+    ? Number(esperadoBackend) || 0
+    : (esCajaGuias ? 0 : (Number(cajaActual?.apertura_total_caja) || 0) + totalIngresos - totalEgresos + totalRetenido);
   const diferenciaEsperado = totalGeneral - esperadoEnCaja;
   const totalGeneralCaja = esperadoEnCaja + totalPorCobrar;
 

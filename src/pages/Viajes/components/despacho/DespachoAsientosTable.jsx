@@ -134,7 +134,9 @@ export const DespachoAsientosTable = ({ asientos, mostrarSucursalColumna = true 
         <tfoot>
           <tr className="bg-slate-100/90 border-t-2 border-slate-200 text-slate-800 font-extrabold">
             <td colSpan={6} className="px-4 py-2.5 text-right uppercase tracking-wider text-[11px]">
-              <span className="text-slate-500 font-bold mr-2">TOTAL RECAUDADO ({ocupados.length} pax):</span>
+              <span className="text-slate-500 font-bold mr-2">
+                {mostrarSucursalColumna ? 'TOTAL RECAUDADO EN EL VIAJE' : 'TOTAL RECAUDADO'} ({ocupados.length} pax):
+              </span>
             </td>
             <td className="px-4 py-2.5 text-right font-black font-mono text-emerald-700 text-sm">
               ${totalValor.toFixed(2)}

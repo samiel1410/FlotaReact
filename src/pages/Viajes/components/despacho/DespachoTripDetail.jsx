@@ -41,7 +41,8 @@ export const DespachoTripDetail = ({
   const capacidadBus = detailData?.capacidad_bus || 40;
   const ocupacionPct = Math.round((totalAsientosOcupados / capacidadBus) * 100);
 
-  const todosAsientos = detailData?.asientos || [];
+  const todosAsientos = React.useMemo(() => detailData?.asientos || [], [detailData?.asientos]);
+  const asientosSucursalBackend = detailData?.asientos_sucursal;
 
   // 1. Agrupar sucursales con ventas en este viaje
   const sucursalesEnViaje = React.useMemo(() => {
@@ -125,9 +126,13 @@ export const DespachoTripDetail = ({
   const [selectedSucursalKey, setSelectedSucursalKey] = React.useState('SUCURSAL');
 
   // Resetear siempre a 'SUCURSAL' por defecto cuando se selecciona otro viaje
-  React.useEffect(() => {
+  // (ajuste de estado durante el render, sin efecto: así no hay renders en
+  // cascada ni parpadeo con el detalle del viaje anterior).
+  const [tripIdFiltro, setTripIdFiltro] = React.useState(tripId);
+  if (tripId !== tripIdFiltro) {
+    setTripIdFiltro(tripId);
     setSelectedSucursalKey('SUCURSAL');
-  }, [tripId]);
+  }
 
   const targetSucursalActiva = React.useMemo(() => {
     if (selectedSucursalKey === 'TODOS') return null;
@@ -140,29 +145,27 @@ export const DespachoTripDetail = ({
   // este viaje los valores salían en $0.00 aunque el viaje tenga ventas de otra
   // oficina (viaje 2349: Oficina Tena $21.56 vista desde ENCOMIENDAS GUAYAQUIL).
   // En ese caso se pasa automáticamente al consolidado para ver lo que se
-  // retendría / entregaría.
-  const autoCambioVistaRef = React.useRef(null);
-  React.useEffect(() => {
-    if (!detailData) return;
-    const miCantidad = Number(detailData?.valores?.sucursal_usuario?.cantidad_boletos || 0);
-    const miVenta = parseFloat(detailData?.valores?.sucursal_usuario?.boletos || 0);
-    const hayAsientos = (detailData?.asientos?.length || 0) > 0;
-    const marca = `${tripId}-${miCantidad}-${miVenta}`;
-
-    if (selectedSucursalKey === 'SUCURSAL' && hayAsientos && miCantidad === 0 && miVenta <= 0
-        && autoCambioVistaRef.current !== marca) {
-      autoCambioVistaRef.current = marca;
+  // retendría / entregaría. Si la oficina SÍ vendió (aunque ya haya despachado
+  // todo) se mantiene su vista: pasar al consolidado hacía que el total de
+  // Loreto apareciera sumado con la venta de El Coca.
+  const [marcaAutoVista, setMarcaAutoVista] = React.useState(null);
+  const hayAsientosViaje = (detailData?.asientos?.length || 0) > 0;
+  const miOficinaVendioEnViaje = (detailData?.asientos_sucursal?.length || 0) > 0;
+  const marcaAutoVistaActual = detailData ? `${tripId}-${miOficinaVendioEnViaje}` : null;
+  if (marcaAutoVistaActual && marcaAutoVistaActual !== marcaAutoVista) {
+    setMarcaAutoVista(marcaAutoVistaActual);
+    if (selectedSucursalKey === 'SUCURSAL' && hayAsientosViaje && !miOficinaVendioEnViaje) {
       setSelectedSucursalKey('TODOS');
     }
-  }, [detailData, selectedSucursalKey, tripId]);
+  }
 
   // Asientos filtrados según pestaña (directamente del backend para 'SUCURSAL' o completo para 'TODOS')
   const asientosFiltrados = React.useMemo(() => {
     if (selectedSucursalKey === 'TODOS') {
       return todosAsientos;
     }
-    if (selectedSucursalKey === 'SUCURSAL' && detailData?.asientos_sucursal && detailData.asientos_sucursal.length > 0) {
-      return detailData.asientos_sucursal;
+    if (selectedSucursalKey === 'SUCURSAL' && asientosSucursalBackend && asientosSucursalBackend.length > 0) {
+      return asientosSucursalBackend;
     }
     if (!targetSucursalActiva) return todosAsientos;
 
@@ -176,12 +179,81 @@ export const DespachoTripDetail = ({
       if (targetSucursalActiva.nombre && aNom && (aNom.includes(targetSucursalActiva.nombre.toLowerCase()) || targetSucursalActiva.nombre.toLowerCase().includes(aNom))) return true;
       return false;
     });
-  }, [todosAsientos, selectedSucursalKey, targetSucursalActiva, detailData?.asientos_sucursal]);
+  }, [todosAsientos, selectedSucursalKey, targetSucursalActiva, asientosSucursalBackend]);
 
   const valoresVista = React.useMemo(() => {
     const globalBoletos = parseFloat(detailData?.valores?.boletos || 0);
     const globalRetencion = parseFloat(detailData?.valores?.retencion || 0);
     const globalEntrega = parseFloat(detailData?.valores?.entrega || 0);
+
+    const sucVal = detailData?.valores?.sucursal_usuario || null;
+    const asientosOficina = detailData?.asientos_sucursal || [];
+    const hayVentasOficina = asientosOficina.length > 0;
+
+    // La liquidación es SIEMPRE la de mi oficina cuando vendió en este viaje,
+    // aunque la lista de pasajeros esté en "Ver Lista Completa". Esa pestaña
+    // filtra pasajeros, no el dinero que entrega mi oficina: si la liquidación
+    // seguía a la pestaña, el total de Loreto aparecía sumado con El Coca.
+    const verMiOficina = Boolean(sucVal)
+      && (selectedSucursalKey === 'SUCURSAL' || (selectedSucursalKey === 'TODOS' && hayVentasOficina));
+
+    if (verMiOficina) {
+      const porcentajeOficina = parseFloat(sucVal.porcentaje_retencion || 0);
+      const sinRetencionFrecuencia = sucVal.modo_retencion_frecuencia === 'SIN_RETENCION';
+      const sucursalNombre = sucVal.nombre_sucursal || targetSucursalActiva?.nombre || 'Mi Sucursal';
+      // `retencion_aplicada` es lo realmente retenido del corte pendiente;
+      // `retencion` sigue siendo el techo (%) de la sucursal.
+      const retencionPendiente = sucVal.retencion_aplicada !== undefined
+        ? parseFloat(sucVal.retencion_aplicada || 0)
+        : parseFloat(sucVal.retencion || 0);
+      const cantidadPendiente = Number(sucVal.cantidad_boletos || 0);
+      const boletosPendiente = parseFloat(sucVal.boletos || 0);
+      const totalOficina = sucVal.total_boletos !== undefined
+        ? parseFloat(sucVal.total_boletos || 0)
+        : asientosOficina.reduce((s, a) => s + parseFloat(a.pasajero?.precio ?? a.total_boleto_detalle ?? 0), 0);
+      const cantidadOficina = sucVal.cantidad_total_boletos !== undefined
+        ? Number(sucVal.cantidad_total_boletos || 0)
+        : asientosOficina.length;
+
+      // Hay venta posterior al último despacho de la oficina: la liquidación
+      // muestra ese turno, que es lo que entregará el próximo despacho.
+      if (cantidadPendiente > 0 || boletosPendiente > 0) {
+        return {
+          boletos: boletosPendiente,
+          cantidad: cantidadPendiente,
+          retencion: retencionPendiente,
+          retencion_aplicada: retencionPendiente,
+          retencion_techo: parseFloat(sucVal.retencion || 0),
+          entrega: Math.max(0, boletosPendiente - retencionPendiente),
+          porcentaje_retencion: porcentajeOficina,
+          esPorSucursal: true,
+          esTurnoPendiente: true,
+          sucursalNombre,
+          total_boletos: totalOficina,
+          cantidad_total_boletos: cantidadOficina
+        };
+      }
+
+      // Sin venta pendiente: se muestra la venta acumulada de la oficina en el
+      // viaje, nunca el consolidado de las otras sucursales.
+      const retenidoOficina = parseFloat(sucVal.retencion_total ?? retencionPendiente) || 0;
+      return {
+        boletos: totalOficina,
+        cantidad: cantidadOficina,
+        retencion: retenidoOficina,
+        retencion_aplicada: retenidoOficina,
+        retencion_techo: sinRetencionFrecuencia
+          ? 0
+          : Math.round(totalOficina * (porcentajeOficina / 100) * 100) / 100,
+        entrega: Math.max(0, totalOficina - retenidoOficina),
+        porcentaje_retencion: porcentajeOficina,
+        esPorSucursal: true,
+        esTurnoPendiente: false,
+        sucursalNombre,
+        total_boletos: totalOficina,
+        cantidad_total_boletos: cantidadOficina
+      };
+    }
 
     if (selectedSucursalKey === 'TODOS') {
       return {
@@ -191,28 +263,8 @@ export const DespachoTripDetail = ({
         retencion_techo: parseFloat(detailData?.valores?.retencion_porcentual || 0),
         entrega: globalEntrega,
         esPorSucursal: false,
+        esTurnoPendiente: false,
         sucursalNombre: 'General'
-      };
-    }
-
-    if (selectedSucursalKey === 'SUCURSAL' && detailData?.valores?.sucursal_usuario) {
-      const sucVal = detailData.valores.sucursal_usuario;
-      // `retencion_aplicada` es la parte proporcional de lo realmente retenido;
-      // `retencion` sigue siendo el techo (%) de la sucursal.
-      const retencionAplicada = sucVal.retencion_aplicada !== undefined
-        ? parseFloat(sucVal.retencion_aplicada || 0)
-        : parseFloat(sucVal.retencion || 0);
-      return {
-        boletos: parseFloat(sucVal.boletos || 0),
-        // `sucursal_usuario` es el corte del turno (venta pendiente de despachar),
-        // no toda la venta de la oficina: el subtítulo debe usar este número.
-        cantidad: Number(sucVal.cantidad_boletos || 0),
-        retencion: retencionAplicada,
-        retencion_techo: parseFloat(sucVal.retencion || 0),
-        entrega: Math.max(0, parseFloat(sucVal.boletos || 0) - retencionAplicada),
-        porcentaje_retencion: parseFloat(sucVal.porcentaje_retencion || 0),
-        esPorSucursal: true,
-        sucursalNombre: sucVal.nombre_sucursal || targetSucursalActiva?.nombre || 'Mi Sucursal'
       };
     }
 
@@ -233,6 +285,7 @@ export const DespachoTripDetail = ({
         entrega: parseFloat(desgloseMatch.entrega ?? Math.max(0, desgloseMatch.total_boletos - desgloseMatch.retencion_monto)),
         porcentaje_retencion: parseFloat(desgloseMatch.porcentaje_retencion || 0),
         esPorSucursal: true,
+        esTurnoPendiente: false,
         sucursalNombre: targetSucursalActiva?.nombre || desgloseMatch.nombre_sucursal
       };
     }
@@ -244,9 +297,24 @@ export const DespachoTripDetail = ({
       retencion_techo: parseFloat(detailData?.valores?.retencion_porcentual || 0),
       entrega: globalEntrega,
       esPorSucursal: false,
+      esTurnoPendiente: false,
       sucursalNombre: 'General'
     };
-  }, [detailData?.valores, selectedSucursalKey, targetSucursalActiva]);
+  }, [detailData?.valores, detailData?.asientos_sucursal, selectedSucursalKey, targetSucursalActiva]);
+
+  // Texto del encabezado de la liquidación: deja claro si se muestra el turno
+  // pendiente, la venta acumulada de la oficina o el consolidado del viaje.
+  const resumenLiquidacion = !valoresVista.esPorSucursal
+    ? 'Valores consolidados de todas las sucursales del viaje'
+    : valoresVista.esTurnoPendiente
+      ? `Turno a despachar: ${Number(valoresVista.cantidad || 0)} pasajero(s) por $${Number(valoresVista.boletos || 0).toFixed(2)} USD de ${valoresVista.sucursalNombre}${Number(valoresVista.cantidad_total_boletos || 0) > Number(valoresVista.cantidad || 0) ? ` · ${Number(valoresVista.cantidad_total_boletos || 0)} pasajero(s) de su oficina en el viaje` : ''}`
+      : Number(valoresVista.total_boletos || 0) > 0
+        ? `Venta de ${valoresVista.sucursalNombre} en este viaje: ${Number(valoresVista.cantidad_total_boletos || 0)} pasajero(s) por $${Number(valoresVista.total_boletos || 0).toFixed(2)} USD${detailData?.id_despacho_mi_sucursal ? ` · liquidada en el despacho #${detailData.id_despacho_mi_sucursal}` : ''}`
+        : 'Su oficina no tiene ventas en este viaje';
+
+  const liquidacionEntregada = valoresVista.esPorSucursal
+    && !valoresVista.esTurnoPendiente
+    && Boolean(detailData?.id_despacho_mi_sucursal);
 
   // ── Renderizado Condicional después de declarar todos los Hooks ──
   if (!selectedTrip) {
@@ -514,15 +582,13 @@ export const DespachoTripDetail = ({
                 Liquidación Financiera {valoresVista.esPorSucursal ? `— Sucursal ${valoresVista.sucursalNombre}` : 'General del Viaje'}
               </span>
               <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                {valoresVista.esPorSucursal
-                  ? `Turno a despachar: ${Number(valoresVista.cantidad || 0)} pasajero(s) por $${Number(valoresVista.boletos || 0).toFixed(2)} USD de ${valoresVista.sucursalNombre}${asientosFiltrados.length > Number(valoresVista.cantidad || 0) ? ` · ${asientosFiltrados.length} pasajero(s) en el viaje` : ''}`
-                  : 'Valores consolidados de todas las sucursales del viaje'}
+                {resumenLiquidacion}
               </p>
             </div>
             {valoresVista.esPorSucursal && (
               <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2.5 py-1 rounded-full border border-blue-200 flex items-center gap-1.5">
                 <i className="fas fa-filter text-[9px]" />
-                Filtrado por: {valoresVista.sucursalNombre}
+                {selectedSucursalKey === 'TODOS' ? 'Liquidación solo de su oficina' : `Filtrado por: ${valoresVista.sucursalNombre}`}
               </span>
             )}
           </div>
@@ -560,7 +626,9 @@ export const DespachoTripDetail = ({
             </div>
 
             <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-3.5 text-center shadow-sm">
-              <p className="text-[10px] uppercase font-bold tracking-wider text-emerald-800">Neto a Entregar {valoresVista.esPorSucursal ? `(${valoresVista.sucursalNombre})` : ''}</p>
+              <p className="text-[10px] uppercase font-bold tracking-wider text-emerald-800">
+                {liquidacionEntregada ? 'Neto Entregado' : 'Neto a Entregar'} {valoresVista.esPorSucursal ? `(${valoresVista.sucursalNombre})` : ''}
+              </p>
               <p className="text-2xl font-black font-mono text-emerald-700 mt-1">
                 ${valoresVista.entrega.toFixed(2)}
               </p>
