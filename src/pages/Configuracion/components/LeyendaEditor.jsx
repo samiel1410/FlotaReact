@@ -194,7 +194,7 @@ export const LeyendaEditor = ({ value, onChange, placeholder = 'Texto en las gu√
       />
 
       <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
-        Selecciona el texto y aplica formato: se imprime igual en la gu√≠a.
+        Selecciona el texto y aplica formato: se imprime igual en el documento.
       </p>
     </div>
   );

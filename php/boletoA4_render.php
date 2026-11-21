@@ -208,9 +208,8 @@ function render_boleto_a4($pdf, $boleto, $detalles, $empresa, $opciones = [])
     // ── INFORMACIÓN ADICIONAL + TOTALES ───────────────────────────────────────
     $observacion = limpiarTextoPdf($boleto['observacion_boleto'] ?? '', '');
     $observacion = trim(str_replace('[SRI_DIRECTO]', '', $observacion));
-    if ($observacion === '') {
-        $observacion = $leyenda;
-    }
+    // La leyenda configurada se imprime con formato debajo de las observaciones.
+    $leyendaMarkup = $leyenda;
 
     $filasInfo = [
         ['Origen / Salida:', $origen],
@@ -245,7 +244,11 @@ function render_boleto_a4($pdf, $boleto, $detalles, $empresa, $opciones = [])
 
     $totales[] = ['label' => 'VALOR TOTAL:', 'valor' => ride_moneda($totalBoleto), 'destacado' => true];
 
-    $altoInfo = 6.8 + (count($filasInfo) * 4.3) + ($observacion !== '' ? 7.2 : 0) + 2.0;
+    $altoLeyenda = $leyendaMarkup !== ''
+        ? altoLeyendaEnriquecida($pdf, $leyendaMarkup, 102 - 4.4, 6.9)
+        : 0.0;
+    $altoInfo = 6.8 + (count($filasInfo) * 4.3) + ($observacion !== '' ? 7.2 : 0)
+        + ($altoLeyenda > 0 ? $altoLeyenda + 1.4 : 0) + 2.0;
     $altoPago = 8.2;
     $altoTotales = (2.2 * 3) + (count($totales) - 1) * 4.2 + 5.6;
     $altoBloque = max($altoInfo + $altoPago, $altoTotales);
@@ -255,7 +258,7 @@ function render_boleto_a4($pdf, $boleto, $detalles, $empresa, $opciones = [])
     ride_espacio($pdf, $altoBloque + 2, 262);
     $yBloque = $pdf->GetY();
 
-    ride_info_box($pdf, RIDE_MARGEN, $yBloque, 102, $altoInfo, 'Información adicional', $filasInfo, $observacion);
+    ride_info_box($pdf, RIDE_MARGEN, $yBloque, 102, $altoInfo, 'Información adicional', $filasInfo, $observacion, $leyendaMarkup);
     ride_forma_pago($pdf, RIDE_MARGEN, $yBloque + $altoInfo, 102, $altoPago, $formaPago !== '' ? $formaPago : 'EFECTIVO');
     ride_totales_box($pdf, 116, $yBloque, 84, $altoBloque, $totales);
     $pdf->SetY($yBloque + $altoBloque);

@@ -1297,6 +1297,61 @@ function imprimirLeyendaEnriquecida($pdf, $markup, $anchoUtil, $tamanoBase = 8.0
 }
 
 /**
+ * Calcula el alto (mm) que ocupará una leyenda enriquecida al imprimirse.
+ * Usa las mismas reglas de salto de línea que imprimirLeyendaEnriquecida()
+ * para reservar espacio en recuadros de altura fija.
+ *
+ * @param TCPDF  $pdf
+ * @param string $markup
+ * @param float  $anchoUtil
+ * @param float  $tamanoBase
+ * @param string $familia
+ * @return float
+ */
+function altoLeyendaEnriquecida($pdf, $markup, $anchoUtil, $tamanoBase = 8.0, $familia = 'helvetica')
+{
+    $parrafos = parsearLeyendaEnriquecida($markup, $tamanoBase);
+    if (empty($parrafos)) {
+        return 0.0;
+    }
+
+    $anchoUtil = (float)$anchoUtil;
+    if ($anchoUtil <= 0) {
+        return 0.0;
+    }
+
+    $tamanoBase = (float)$tamanoBase;
+    if ($tamanoBase <= 0) {
+        $tamanoBase = 8.0;
+    }
+
+    $alto = 0.0;
+    $altoVacio = max(2.4, round($tamanoBase * 0.46, 1));
+
+    foreach ($parrafos as $parrafo) {
+        $runs = $parrafo['runs'] ?? [];
+        if (empty($runs)) {
+            $alto += $altoVacio;
+            continue;
+        }
+
+        $lineas = construirLineasLeyenda($pdf, $runs, $anchoUtil, $familia);
+        foreach ($lineas as $linea) {
+            $tamanoMax = 0.0;
+            foreach ($linea['segmentos'] as $segmento) {
+                $tamanoMax = max($tamanoMax, (float)$segmento['tamano']);
+            }
+            if ($tamanoMax <= 0) {
+                $tamanoMax = $tamanoBase;
+            }
+            $alto += max(2.6, round($tamanoMax * 0.46, 1));
+        }
+    }
+
+    return $alto;
+}
+
+/**
  * Purga única de los caches generados cuando los PDFs todavía imprimían logos
  * (PDFs ya emitidos, logos en tmp/logos y config de empresa con logo_path).
  * Sin esto los documentos cacheados seguirían mostrando el logo viejo hasta que

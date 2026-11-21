@@ -30,7 +30,7 @@ require_once("boletoA4_render.php");
 date_default_timezone_set('America/Guayaquil');
 
 // Cambiar la versión invalida los PDFs cacheados cuando cambia el diseño.
-define('BOLETO_A4_LAYOUT_VERSION', 'ride-a4-v1');
+define('BOLETO_A4_LAYOUT_VERSION', 'ride-a4-v2');
 
 try {
     $t0 = microtime(true);

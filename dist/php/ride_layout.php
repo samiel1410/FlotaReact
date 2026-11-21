@@ -392,8 +392,10 @@ function ride_tabla_detalle($pdf, $x, $y, $columnas, $filas, $yMax = 258)
 
 /**
  * Bloque "INFORMACIÓN ADICIONAL" (titulo azul + filas etiqueta/valor).
+ * La leyenda enriquecida (marcado [b], [i], [c=...], [s=...], [a=...]) se
+ * imprime debajo de las observaciones con su formato.
  */
-function ride_info_box($pdf, $x, $y, $w, $h, $titulo, $filas, $observacion = '')
+function ride_info_box($pdf, $x, $y, $w, $h, $titulo, $filas, $observacion = '', $leyendaMarkup = '')
 {
     $pdf->SetLineWidth(0.3);
     ride_color($pdf, RIDE_BORDE);
@@ -418,6 +420,7 @@ function ride_info_box($pdf, $x, $y, $w, $h, $titulo, $filas, $observacion = '')
         $cy += 4.3;
     }
 
+    $yLeyenda = $cy;
     if ($observacion !== '') {
         // Se limita a dos líneas para no desbordar el recuadro.
         $maxCaracteres = max(40, (int)(($w - $labelW - 8) / 1.35) * 2);
@@ -428,6 +431,13 @@ function ride_info_box($pdf, $x, $y, $w, $h, $titulo, $filas, $observacion = '')
         $pdf->Cell($labelW, 3.8, 'Observaciones:', 0, 0, 'L');
         $pdf->SetFont('helvetica', '', 6.9);
         $pdf->MultiCell($w - $labelW - 4.4, 3.2, $observacion, 0, 'L', false, 1, $x + 2.2 + $labelW, $cy);
+        $yLeyenda = $cy + 7.2;
+    }
+
+    if ($leyendaMarkup !== '' && function_exists('imprimirLeyendaEnriquecida')) {
+        $pdf->SetXY($x + 2.2, $yLeyenda);
+        $pdf->SetFont('helvetica', '', 6.9);
+        imprimirLeyendaEnriquecida($pdf, $leyendaMarkup, $w - 4.4, 6.9);
     }
 }
 

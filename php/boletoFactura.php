@@ -21,6 +21,9 @@ require_once("pdf_utils.php");
 date_default_timezone_set('America/Guayaquil');
 require_once("boleto_datos.php");
 
+// Cambiar la versión invalida los PDFs cacheados cuando cambia el diseño.
+define('BOLETO_TERMICO_LAYOUT_VERSION', 'ticket-v2');
+
 try {
     $t0 = microtime(true);
     $id_boleto = isset($_GET['id_boleto']) ? (int)$_GET['id_boleto'] : 0;
@@ -59,7 +62,19 @@ try {
         $empresaCfgCached = json_decode(@file_get_contents($cacheCfgFile), true);
     }
 
-    if ($empresaCfgCached) {
+    // Otros PDFs comparten este caché y pueden no incluir las claves del boleto.
+    $clavesRequeridas = ['razon_social_empresa', 'ruc_empresa', 'leyenda_boleteria', 'mostrar_leyenda_boleteria', 'formato_impresion'];
+    $cacheCompleta = is_array($empresaCfgCached);
+    if ($cacheCompleta) {
+        foreach ($clavesRequeridas as $clave) {
+            if (!array_key_exists($clave, $empresaCfgCached)) {
+                $cacheCompleta = false;
+                break;
+            }
+        }
+    }
+
+    if ($cacheCompleta) {
         $vals_empresa = $empresaCfgCached;
         $vals_config  = $empresaCfgCached;
     } else {
@@ -99,7 +114,7 @@ try {
     $rutaLogo = logoEmpresaParaPdf($conn, $dbKeyFast);
 
     // El contenido se incluye para regenerar la impresión tras cambios de viaje o asiento.
-    $datosHash = md5(json_encode([
+    $datosHash = md5(BOLETO_TERMICO_LAYOUT_VERSION . json_encode([
         $id_boleto,
         $numero_boleto,
         $boleto,
@@ -328,7 +343,9 @@ try {
     $pdf->Ln(2);
 
     $pdf->SetFont('helvetica', '', $fPie);
-    $pdf->MultiCell($w, $lh * 1.1, $leyenda_viaje, 0, 'C', false, 1);
+    if (trim((string)$leyenda_viaje) !== '') {
+        imprimirLeyendaEnriquecida($pdf, $leyenda_viaje, $w, $fPie);
+    }
     // ── FIN RENDERIZADO NATIVO ────────────────────────────────────────────────
 
     // ── TASAS DE TERMINAL (FTTG): una hoja por pasajero ───────────────────────

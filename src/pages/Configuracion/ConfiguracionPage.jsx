@@ -196,6 +196,7 @@ export const ConfiguracionPage = () => {
   const colorHeaderPreview = watch('color_header') || APARIENCIA_DEFAULT.header;
   const leyendaGuias = watch('leyenda');
   const leyendaGuiaNotaVenta = watch('leyenda_nota_venta');
+  const leyendaBoletos = watch('leyenda_boleteria');
   const paletaPreview = construirPaleta(colorSidebarPreview, colorHeaderPreview);
 
   const previsualizarColores = (parcial = {}) => {
@@ -933,7 +934,11 @@ export const ConfiguracionPage = () => {
                   </div>
                   <div>
                     <label className={labelClass}>Leyenda Boletos</label>
-                    <textarea {...register('leyenda_boleteria')} rows="2" className={inputClass} placeholder="Texto en boletos..."></textarea>
+                    <LeyendaEditor
+                      value={leyendaBoletos || ''}
+                      onChange={(valor) => setValue('leyenda_boleteria', valor, { shouldDirty: true })}
+                      placeholder="Texto en los boletos..."
+                    />
                   </div>
                   <div className="flex items-center gap-2">
                     <input type="checkbox" {...register('maneja_leyenda_boleteria')} id="maneja_leyenda_boleteria" className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500" />
