@@ -1,9 +1,15 @@
 import React, { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { api } from '../../../config/axios';
 import { CONFIG } from '../../../config/env';
 import toast from 'react-hot-toast';
 import { validarCorreo, describirCorreo } from '../../../utils/emailValidation';
+import {
+  validarIdentificacion,
+  tipoIdentificacionACodigoCorto,
+  sanitizarIdentificacion,
+  maxLengthIdentificacion,
+} from '../../../utils/identificacionUtils';
 
 const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
@@ -11,15 +17,23 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
   const [fotoPreview, setFotoPreview] = useState(initialData?.foto_cliente ? `${CONFIG.API_URL || 'http://localhost:3002'}/cliente/fotos/${initialData.foto_cliente}` : null);
   const [fotoBase64, setFotoBase64] = useState(null);
 
-  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
+  // El listado entrega la etiqueta ("PASAPORTE"); el formulario usa el código corto.
+  const tipoInicial = isEditing
+    ? (tipoIdentificacionACodigoCorto(initialData.tipo_identificacion_cliente)
+      || tipoIdentificacionACodigoCorto(initialData.tipo_identificacion)
+      || 'C')
+    : 'C';
+  const estadoInicial = String(initialData?.estado_cliente ?? initialData?.estado_clientes ?? 1) === '1';
+
+  const { register, control, handleSubmit, setValue, formState: { errors } } = useForm({
     defaultValues: isEditing ? {
-      tipo_identificacion_cliente: initialData.tipo_identificacion_cliente || 'C',
+      tipo_identificacion_cliente: tipoInicial,
       identificacion_cliente: initialData.identificacion_cliente || '',
       nombre_cliente: initialData.nombre_cliente || '',
       email_cliente: initialData.email_cliente || '',
       direccion_cliente: initialData.direccion_cliente || '',
       telefono_cliente: initialData.telefono_cliente || '',
-      estado_clientes: initialData.estado_clientes == 1 || initialData.estado_clientes === '1',
+      estado_clientes: estadoInicial,
     } : {
       tipo_identificacion_cliente: 'C',
       identificacion_cliente: '',
@@ -31,6 +45,9 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
     }
   });
 
+  const tipoIdentificacion = useWatch({ control, name: 'tipo_identificacion_cliente' });
+  const identificacionActual = useWatch({ control, name: 'identificacion_cliente' });
+
   const onFormSubmit = async (data) => {
     setLoading(true);
     try {
@@ -39,13 +56,16 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
         telefono_cliente: (data.telefono_cliente || '').replace(/\D/g, '').slice(0, 10),
         estado_clientes: data.estado_clientes ? '1' : '0'
       };
-      if (isEditing) payload.id_clientes = initialData.id_clientes;
+      if (isEditing) payload.id_cliente = initialData.id_cliente || initialData.id_clientes;
       if (fotoBase64) payload.foto_cliente = fotoBase64;
 
       const res = await api.post('/cliente/ingresarActualizarCliente', payload);
-      if (res.data?.success) {
+      // tipo 3 = el cliente ya existía y no se modificó
+      if (res.data?.success && res.data?.tipo !== 3) {
         toast.success(isEditing ? 'Cliente actualizado' : 'Cliente creado');
         onSubmit(data);
+      } else if (res.data?.success && res.data?.tipo === 3 && isEditing) {
+        toast.error('No se actualizó el cliente: no se envió su identificador.');
       } else {
         toast.error(res.data?.mensaje || 'Error al guardar');
       }
@@ -117,24 +137,60 @@ const ClienteForm = ({ initialData, onSubmit, onCancel }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <label className={labelClass}>Tipo Identificación *</label>
-          <select {...register('tipo_identificacion_cliente', { required: 'Requerido' })} className={inputClass}>
-            <option value="C">Cédula</option>
-            <option value="R">RUC</option>
-            <option value="P">Pasaporte</option>
-          </select>
+          <Controller
+            control={control}
+            name="tipo_identificacion_cliente"
+            render={({ field }) => (
+              <select
+                name={field.name}
+                ref={field.ref}
+                value={field.value}
+                onBlur={field.onBlur}
+                onChange={(e) => {
+                  const nuevoTipo = e.target.value;
+                  field.onChange(nuevoTipo);
+                  setValue(
+                    'identificacion_cliente',
+                    sanitizarIdentificacion(identificacionActual, nuevoTipo),
+                    { shouldValidate: true, shouldDirty: true }
+                  );
+                }}
+                className={inputClass}
+              >
+                <option value="C">Cédula</option>
+                <option value="R">RUC</option>
+                <option value="P">Pasaporte</option>
+                <option value="E">Identificación del Exterior</option>
+              </select>
+            )}
+          />
         </div>
 
         <div>
           <label className={labelClass}>Identificación *</label>
-          <input
-            type="text"
-            {...register('identificacion_cliente', { required: 'Requerido' })}
-            className={inputClass}
-            placeholder="Ej: 1800123456"
-            onChange={e => {
-              const val = e.target.value.replace(/\D/g, '');
-              e.target.value = val;
+          <Controller
+            control={control}
+            name="identificacion_cliente"
+            rules={{
+              required: 'Requerido',
+              validate: (valor) => {
+                const validacion = validarIdentificacion(valor, tipoIdentificacion);
+                return validacion.valido || validacion.mensaje;
+              }
             }}
+            render={({ field }) => (
+              <input
+                type="text"
+                name={field.name}
+                ref={field.ref}
+                value={field.value}
+                onBlur={field.onBlur}
+                onChange={(e) => field.onChange(sanitizarIdentificacion(e.target.value, tipoIdentificacion))}
+                className={inputClass}
+                placeholder={tipoIdentificacion === 'C' ? 'Ej: 1800123456' : tipoIdentificacion === 'R' ? 'Ej: 1791882253001' : 'Pasaporte / identificación'}
+                maxLength={maxLengthIdentificacion(tipoIdentificacion)}
+              />
+            )}
           />
           {errors.identificacion_cliente && <span className="text-rose-500 text-[9px] font-bold uppercase">{errors.identificacion_cliente.message}</span>}
         </div>

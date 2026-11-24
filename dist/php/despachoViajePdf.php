@@ -90,7 +90,7 @@ try {
             (SELECT sr.nombre_sub_rutas FROM sub_rutas sr
               WHERE sr.id_fkruta_sub_rutas = v.id_fkruta_viajes
                 AND sr.estado_sub_rutas = 1
-              ORDER BY sr.orden_sub_rutas ASC LIMIT 1) AS destino_sub_ruta,
+              ORDER BY sr.orden_sub_rutas DESC LIMIT 1) AS destino_sub_ruta,
             b.disco_buses,
             b.placa_buses,
             CONCAT(IFNULL(chofer.per_nombres_persona, ''), ' ', IFNULL(chofer.per_apellidos_personal, '')) as nombre_completo_chofer,
@@ -142,7 +142,7 @@ try {
             (SELECT sr.nombre_sub_rutas FROM sub_rutas sr
               WHERE sr.id_fkruta_sub_rutas = v.id_fkruta_viajes
                 AND sr.estado_sub_rutas = 1
-              ORDER BY sr.orden_sub_rutas ASC LIMIT 1) AS destino_sub_ruta,
+              ORDER BY sr.orden_sub_rutas DESC LIMIT 1) AS destino_sub_ruta,
             b.disco_buses,
             b.placa_buses,
             CONCAT(IFNULL(chofer.per_nombres_persona, ''), ' ', IFNULL(chofer.per_apellidos_personal, '')) as nombre_completo_chofer,
@@ -295,10 +295,11 @@ try {
     $codigo_sucursal_despacho = trim((string)($despacho['codigo_sucursal_despacho'] ?? ''));
 
     // ─── DESTINO DEL VIAJE ───────────────────────────────────────────────────
-    // El destino es el cantón final configurado en la ruta (el mismo que usa el
-    // listado de viajes). Antes se tomaba la sub_ruta de mayor orden, que es la
-    // parada más cercana al origen: en la ruta Quito - Patate el despacho salía
-    // con "TAMBILLO" en lugar de "PATATE".
+    // El destino es el cantón final configurado en la ruta. Se resuelve contra
+    // los catálogos de cantones (el vigente vive en el AuthService) y, si no
+    // existe, contra el nombre de la ruta. No se usa la primera sub_ruta porque
+    // es la parada más cercana al origen: en la ruta Tena - Quito imprimía
+    // "COSANGA" en lugar de "QUITO".
     $extraerDestino = static function ($texto) {
         $texto = trim((string)$texto);
         if ($texto === '') {
@@ -312,24 +313,48 @@ try {
     $destino_viaje = '';
     $id_destino_ruta = intval($despacho['id_fkdestino_rutas'] ?? 0);
     if ($id_destino_ruta > 0) {
-        try {
-            $stmt_destino = $conn->prepare("SELECT nombre_canton FROM canton WHERE id_canton = ? LIMIT 1");
-            $stmt_destino->bind_param("i", $id_destino_ruta);
-            $stmt_destino->execute();
-            $row_destino = $stmt_destino->get_result()->fetch_assoc();
-            $stmt_destino->close();
-            if (!empty($row_destino['nombre_canton'])) {
-                $destino_viaje = trim((string)$row_destino['nombre_canton']);
+        // La tabla `canton` de esta base quedó vacía al migrar los catálogos al
+        // AuthService; se prueba aquí por compatibilidad y luego en las bases
+        // de autenticación configuradas (o la estándar del AuthService).
+        $tablasCantones = ['canton'];
+        $basesAuth = [
+            getenv('AUTH_PROD_DB_NAME'),
+            getenv('AUTH_REMOTE_DB_NAME'),
+            getenv('AUTH_DB_NAME'),
+            'admin_authuser',
+        ];
+        foreach (array_unique(array_filter($basesAuth)) as $baseAuth) {
+            $baseAuth = preg_match('/^[A-Za-z0-9_]+$/', $baseAuth) ? $baseAuth : null;
+            if ($baseAuth) {
+                $tablasCantones[] = $baseAuth . '.cantones';
             }
-        } catch (Throwable $e) {
-            $destino_viaje = '';
+        }
+        $tablasCantones[] = 'cantones';
+
+        foreach (array_unique($tablasCantones) as $tablaCantones) {
+            try {
+                $stmt_destino = @$conn->prepare("SELECT nombre_canton FROM {$tablaCantones} WHERE id_canton = ? LIMIT 1");
+                if (!$stmt_destino) {
+                    continue;
+                }
+                $stmt_destino->bind_param("i", $id_destino_ruta);
+                $stmt_destino->execute();
+                $row_destino = $stmt_destino->get_result()->fetch_assoc();
+                $stmt_destino->close();
+                if (!empty($row_destino['nombre_canton'])) {
+                    $destino_viaje = trim((string)$row_destino['nombre_canton']);
+                    break;
+                }
+            } catch (Throwable $e) {
+                continue;
+            }
         }
     }
     if ($destino_viaje === '') {
-        $destino_viaje = $extraerDestino($despacho['destino_sub_ruta'] ?? '');
+        $destino_viaje = $extraerDestino($despacho['nombre_rutas'] ?? '');
     }
     if ($destino_viaje === '') {
-        $destino_viaje = $extraerDestino($despacho['nombre_rutas'] ?? '');
+        $destino_viaje = $extraerDestino($despacho['destino_sub_ruta'] ?? '');
     }
     if ($destino_viaje === '') {
         $destino_viaje = 'N/A';

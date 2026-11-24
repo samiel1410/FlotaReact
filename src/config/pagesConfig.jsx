@@ -2148,7 +2148,7 @@ export const PAGES_CONFIG = {
     title: 'Clientes', subtitle: 'Gestión de clientes del sistema',
     icon: 'fas fa-user-tie', iconBg: 'bg-sky-100', iconColor: 'text-sky-600',
     endpoint: '/cliente/clienteListado',
-    idField: 'id_clientes',
+    idField: 'id_cliente',
     deleteEndpoint: '/cliente/eliminarCliente',
     actions: { create: true, edit: true, delete: true },
     formComponent: ClienteForm,
@@ -2166,7 +2166,7 @@ export const PAGES_CONFIG = {
       { key: 'email_cliente', label: 'Correo', render: v => v || '-' },
       { key: 'direccion_cliente', label: 'Dirección', render: v => v || '-' },
       { key: 'telefono_cliente', label: 'Teléfono', render: v => v || '-' },
-      { key: 'estado_clientes', label: 'Estado', renderType: 'status' },
+      { key: 'estado_cliente', label: 'Estado', renderType: 'status' },
     ],
     filters: [
       { key: 'nombre_busqueda', label: 'Nombre', type: 'text' },

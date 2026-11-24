@@ -342,7 +342,8 @@ export const NuevaGuiaNotaVentaPage = () => {
         nombres: cabecera.nombre_remitente || cabecera.nombre_cliente_remitente || '',
         direccion: cabecera.direccion_remitente || '',
         telefono: cabecera.telefono_remitente || cabecera.telefono_cliente_emisor || '',
-        email: cabecera.email_remitente || ''
+        email: cabecera.email_remitente || '',
+        tipo_identificacion: cabecera.tipo_identificacion_remitente || ''
       });
 
       // Destinatario
@@ -353,7 +354,8 @@ export const NuevaGuiaNotaVentaPage = () => {
         direccion: cabecera.direccion_destinatario || '',
         telefono: cabecera.telefono_destinatario || cabecera.telefono_cliente_receptor || '',
         telefono2: cabecera.telefono2_destinatario || '',
-        email: cabecera.email_destinatario || ''
+        email: cabecera.email_destinatario || '',
+        tipo_identificacion: cabecera.tipo_identificacion_destinatario || ''
       });
 
       // Bandera (1=Remitente, 2=Destinatario, 3=Otros)

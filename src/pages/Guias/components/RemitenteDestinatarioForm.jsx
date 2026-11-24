@@ -25,6 +25,20 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     telefono_cliente: ''
   });
 
+  // ── Estado para el Modal de Edición ─────────────────
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    id_cliente: null,
+    identificacion_cliente: '',
+    tipo_identificacion_cliente: '05',
+    nombre_cliente: '',
+    direccion_cliente: '',
+    correo_cliente: '',
+    telefono_cliente: ''
+  });
+  const [editLoading, setEditLoading] = useState(false);
+  const [isForcedEdit, setIsForcedEdit] = useState(false);
+
   // ── Reset externo (nueva guía tras guardar): limpiar búsqueda y modales ──
   const resetRef = useRef(resetSignal);
   useEffect(() => {
@@ -43,20 +57,6 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       });
     }
   }, [resetSignal]);
-
-  // ── Estado para el Modal de Edición ─────────────────
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [editFormData, setEditFormData] = useState({
-    id_cliente: null,
-    identificacion_cliente: '',
-    tipo_identificacion_cliente: '05',
-    nombre_cliente: '',
-    direccion_cliente: '',
-    correo_cliente: '',
-    telefono_cliente: ''
-  });
-  const [editLoading, setEditLoading] = useState(false);
-  const [isForcedEdit, setIsForcedEdit] = useState(false);
 
   const iconColor = tipo === 'Remitente' ? '#3498db' : '#e67e22';
   const isRemitente = tipo === 'Remitente';
@@ -191,7 +191,8 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         correo_cliente: newCliente.correo_cliente,
         telefono_cliente: (newCliente.telefono_cliente || '').replace(/\D/g, '').slice(0, 10)
       });
-      onChange(clienteData);
+      const creado = respuesta?.data?.data?.[0];
+      onChange({ ...clienteData, id_cliente: creado?.id_cliente ?? null });
       setShowCreateForm(false);
       if (respuesta?.data?.success === false) {
         toast(
@@ -243,6 +244,8 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
     setEditLoading(true);
     try {
       const payload = {
+        id_cliente: editFormData.id_cliente || cliente?.id_cliente || null,
+        identificacion_original: cliente?.cedula || null,
         identificacion_cliente: editFormData.identificacion_cliente,
         tipo_identificacion_cliente: editFormData.tipo_identificacion_cliente,
         nombre_cliente: editFormData.nombre_cliente,
@@ -251,7 +254,11 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         telefono_cliente: (editFormData.telefono_cliente || '').replace(/\D/g, '').slice(0, 10),
         fecha_nacimiento: editFormData.fecha_nacimiento || ''
       };
-      await clienteApi.post('/cliente/actualizarCliente', payload);
+      const respuesta = await clienteApi.post('/cliente/actualizarCliente', payload);
+      if (respuesta?.data?.success === false) {
+        toast.error(respuesta.data.mensaje || respuesta.data.message || 'No se pudo actualizar el cliente');
+        return;
+      }
       
       // Actualizar el estado local del cliente
       const clienteActualizado = {
@@ -262,6 +269,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
         direccion: editFormData.direccion_cliente,
         telefono: (editFormData.telefono_cliente || '').replace(/\D/g, '').slice(0, 10),
         email: editFormData.correo_cliente || editFormData.email_cliente || '',
+        tipo_identificacion: editFormData.tipo_identificacion_cliente,
         telefono2: editFormData.telefono2 || ''
       };
       onChange(clienteActualizado);
