@@ -464,7 +464,7 @@ export const NuevoBoletoPage = () => {
       }
     } catch (err) {
       console.error('[buscarPasajeroPorCI] Error:', err);
-      toast.error('Error al buscar cliente - servidor no disponible', { id: toastId });
+      toast.error(err.mensajeUsuario || 'No se pudo buscar el cliente - servidor no disponible', { id: toastId });
     }
   };
 

@@ -159,7 +159,7 @@ export const PasajerosGrid = ({ pasajeros, onChange, destinosViaje, onTotalesCha
       toast.error('Cliente no encontrado con esa identificación', { id: toastId });
     } catch (err) {
       console.error('[buscarClientePorCI] Error:', err);
-      toast.error('Error al buscar cliente - servidor no disponible', { id: toastId });
+      toast.error(err.mensajeUsuario || 'No se pudo buscar el cliente - servidor no disponible', { id: toastId });
     }
   };
 

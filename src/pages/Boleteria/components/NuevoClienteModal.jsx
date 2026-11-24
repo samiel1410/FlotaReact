@@ -180,7 +180,7 @@ export const NuevoClienteModal = ({ isOpen, onClose, onClienteCreado, clienteIni
       }
     } catch (err) {
       console.error('[NuevoClienteModal] Error:', err);
-      toast.error('Error al conectar con el servidor de clientes');
+      toast.error(err.mensajeUsuario || 'Error al conectar con el servidor de clientes');
     } finally {
       setSaving(false);
     }

@@ -275,3 +275,19 @@ clienteApi.interceptors.request.use(config => {
   }
   return config;
 });
+
+// Mensaje listo para mostrar cuando el directorio de clientes no responde:
+// el proxy del backend devuelve 502 con `mensaje` cuando clientesfp está caído.
+clienteApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const data = error.response?.data;
+    error.mensajeUsuario =
+      data?.mensaje ||
+      data?.message ||
+      (error.code === 'ECONNABORTED'
+        ? 'El directorio de clientes tardó demasiado en responder. Intente nuevamente.'
+        : 'No se pudo contactar el directorio de clientes. Intente nuevamente en unos minutos.');
+    return Promise.reject(error);
+  }
+);

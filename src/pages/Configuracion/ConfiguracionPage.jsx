@@ -572,7 +572,7 @@ export const ConfiguracionPage = () => {
       }
     } catch (err) {
       console.error('Error buscando RUC:', err);
-      toast.error('Error al consultar RUC: ' + (err.response?.data?.mensaje || err.message));
+      toast.error(err.mensajeUsuario || ('Error al consultar RUC: ' + (err.response?.data?.mensaje || err.message)));
     } finally {
       setBuscandoRuc(false);
     }

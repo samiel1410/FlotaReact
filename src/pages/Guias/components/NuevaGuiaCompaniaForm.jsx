@@ -173,7 +173,7 @@ export const NuevaGuiaCompaniaForm = ({ onSubmit, onCancel }) => {
         setFormData(prev => ({ ...prev, nombre_cliente: '' }));
       }
     } catch (error) {
-      toast.error("Error al buscar cliente");
+      toast.error(error.mensajeUsuario || "No se pudo buscar el cliente");
     } finally {
       setClienteBuscando(false);
     }

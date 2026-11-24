@@ -134,7 +134,7 @@ export const FacturacionBoletoSriPage = () => {
       }
     } catch (err) {
       console.error('Error buscando cliente:', err);
-      Swal.fire('Error', 'Fallo al consultar cliente', 'error');
+      Swal.fire('Error', err.mensajeUsuario || 'No se pudo consultar el directorio de clientes', 'error');
     } finally {
       setBuscandoCliente(false);
     }

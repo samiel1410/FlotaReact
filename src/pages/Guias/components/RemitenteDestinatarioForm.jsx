@@ -140,7 +140,7 @@ export const RemitenteDestinatarioForm = ({ tipo, cliente, onChange, onConvenioF
       }
     } catch (error) {
       console.error('Error buscando cliente:', error);
-      toast.error('Error al buscar cliente en el servidor');
+      toast.error(error.mensajeUsuario || 'No se pudo buscar el cliente. Intente nuevamente.');
     } finally {
       setLoading(false);
     }
