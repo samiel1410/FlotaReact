@@ -507,11 +507,11 @@ export const DespachoRetencionesModal = ({
                         </td>
                         <td className="px-3 py-2.5 text-center">
                           <span className={`text-[10px] font-black px-2 py-0.5 rounded border ${
-                            c.tope === 'TOTAL'
+                            (c.tope === 'TOTAL' || c.bolsa_total)
                               ? 'bg-rose-50 text-rose-700 border-rose-200'
                               : 'bg-slate-50 text-slate-600 border-slate-200'
                           }`}>
-                            {c.tope === 'TOTAL' ? '100% boletos' : '% sucursal'}
+                            {(c.tope === 'TOTAL' || c.bolsa_total) ? '100% boletos' : '% sucursal'}
                           </span>
                           {c.porcentaje_usado !== null && c.porcentaje_usado !== undefined && (
                             <span className="block text-[9px] text-slate-400 font-mono mt-0.5">

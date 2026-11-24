@@ -168,6 +168,46 @@ function unir_destino_con_punto_final($destinoBase, $puntoFinal)
     return $base . ' / ' . $final;
 }
 
+/**
+ * Piso a imprimir en el boleto. Manda el que tiene configurado la agencia que
+ * vendió; si está vacío se usa el de la sub-ruta y, por último, el de la ruta.
+ */
+function resolver_piso_boleto($boleto)
+{
+    $candidatos = [
+        $boleto['piso_sucursal'] ?? '',
+        $boleto['piso_sub_rutas'] ?? '',
+        $boleto['piso_rutas'] ?? '',
+    ];
+    foreach ($candidatos as $valor) {
+        $texto = trim((string)$valor);
+        if ($texto !== '' && $texto !== '0') {
+            return $texto;
+        }
+    }
+    return '1';
+}
+
+/**
+ * Andén a imprimir en el boleto, con la misma prioridad que el piso:
+ * agencia → sub-ruta → ruta.
+ */
+function resolver_anden_boleto($boleto)
+{
+    $candidatos = [
+        $boleto['anden_sucursal'] ?? '',
+        $boleto['anden_sub_rutas'] ?? '',
+        $boleto['andes_rutas'] ?? '',
+    ];
+    foreach ($candidatos as $valor) {
+        $texto = trim((string)$valor);
+        if ($texto !== '' && $texto !== '0') {
+            return $texto;
+        }
+    }
+    return '—';
+}
+
 function obtener_datos_factura($id_boleto, $conn)
 {
     $id_boleto_esc = (int)$id_boleto;
@@ -180,6 +220,20 @@ function obtener_datos_factura($id_boleto, $conn)
         ? 's.genera_tasa,'
         : '0 AS genera_tasa,';
 
+    // Piso/andén propios de la agencia que vendió (mandan sobre la ruta).
+    // Bases sin la migración devuelven NULL y el boleto cae a la sub-ruta/ruta.
+    $pisoAndenSucursalSql = function (string $columna) use ($conn) {
+        if (!existe_columna_boleto($conn, 'sucursal2', $columna)) {
+            return "NULL AS {$columna}";
+        }
+        return "(SELECT s2.{$columna} FROM sucursal2 s2
+                  WHERE s2.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), b.id_fksucursal_boleto)
+                     OR s2.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), b.id_fksucursal_boleto)
+                  LIMIT 1) AS {$columna}";
+    };
+    $selectPisoAndenSucursal = $pisoAndenSucursalSql('piso_sucursal') . ', ' .
+        $pisoAndenSucursalSql('anden_sucursal') . ',';
+
     $query_boleto = "SELECT
 b.id_boleto, b.identificacion_boleto, b.nombres_boleto, b.observacion_boleto,
 b.fecha_boleto, b.total_boleto, b.numero_boleto,
@@ -191,6 +245,7 @@ b.nombre_origen, b.nombre_destino, b.origen_boleto, b.destino_boleto, b.id_fksub
 b.clave_acceso_boletos, b.fecha_creacion_boleto,
 b.id_sucursal_venta, b.id_fksucursal_boleto,
 $selectGeneraTasa
+$selectPisoAndenSucursal
 s.nombre_sucursal, s.direccion_sucursal, u.nombre_usuario, bu.disco_buses, bu.placa_buses,
 r.nombre_rutas, r.andes_rutas, r.piso_rutas, r.id_fkdestino_rutas, b.celular_boleto, b.tipo_boleto, b.estado_boleto,
 sr.nombre_sub_rutas, sr.anden_sub_rutas, sr.piso_sub_rutas, sr.fecha_salida, sr.hora_salida, sr.id_fkdestino_sub_rutas,

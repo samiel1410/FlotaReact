@@ -151,6 +151,11 @@ export const ViajesSelector = ({
               <i className="fas fa-clock" style={{ fontSize: 14 }}></i>
               <span>
                 {v.hora_salida_parada ? v.hora_salida_parada.substring(0, 5) : (v.hora_origen_salida ? v.hora_origen_salida.substring(0, 5) : (v.hora || v.hora_salida || ''))}
+                {Number(v.dias_offset_parada) > 0 && (
+                  <span title="El bus pasa por esta parada al día siguiente" style={{ fontSize: 11, marginLeft: 2, opacity: 0.85 }}>
+                    +{Number(v.dias_offset_parada)}d
+                  </span>
+                )}
               </span>
               {v.es_despachado_origen && v.minutos_aplicados > 0 && (
                 <span
@@ -313,6 +318,9 @@ export const ViajesSelector = ({
                 <span style={{ color: '#0a365d', fontWeight: 600 }}>Hora en esta Parada:</span>
                 <span style={{ fontWeight: 800, color: '#0a365d', fontSize: 13 }}>
                   {hoveredViaje.hora_salida_parada ? hoveredViaje.hora_salida_parada.substring(0, 5) : (hoveredViaje.hora_origen_salida ? hoveredViaje.hora_origen_salida.substring(0, 5) : 'N/A')}
+                  {Number(hoveredViaje.dias_offset_parada) > 0 && (
+                    <span style={{ fontSize: 11, marginLeft: 2 }}>+{Number(hoveredViaje.dias_offset_parada)}d</span>
+                  )}
                 </span>
               </div>
             </div>

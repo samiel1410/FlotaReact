@@ -585,6 +585,15 @@ export const PAGES_CONFIG = {
       { key: 'punto_emision_boleteria_sucursal', label: 'P.E. Boletería', render: v => v || '-' },
       { key: 'porcentaje_retencion', label: '% Ret.', render: v => `${parseFloat(v || 0).toFixed(2)} %` },
       {
+        key: 'anden_sucursal',
+        label: 'Piso / Andén',
+        render: (_, row) => {
+          const piso = Number(row?.piso_sucursal) > 0 ? `Piso ${row.piso_sucursal}` : '';
+          const anden = row?.anden_sucursal ? `Andén ${row.anden_sucursal}` : '';
+          return [piso, anden].filter(Boolean).join(' · ') || 'Ruta';
+        },
+      },
+      {
         key: 'color_asiento_libre',
         label: 'Colores asientos',
         render: (_, row) => {

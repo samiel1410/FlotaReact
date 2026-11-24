@@ -32,14 +32,8 @@ function render_boleto_a4($pdf, $boleto, $detalles, $empresa, $opciones = [])
     $origen = limpiarTextoPdf($boleto['nombre_origen'] ?? '', '—');
     $bus = limpiarTextoPdf($boleto['disco_buses'] ?? '', '—');
     $placa = limpiarTextoPdf($boleto['placa_buses'] ?? '', '');
-    $anden = limpiarTextoPdf($boleto['anden_sub_rutas'] ?? '', '');
-    if ($anden === '') {
-        $anden = limpiarTextoPdf($boleto['andes_rutas'] ?? '', '—');
-    }
-    $piso = limpiarTextoPdf($boleto['piso_sub_rutas'] ?? '', '');
-    if ($piso === '') {
-        $piso = limpiarTextoPdf($boleto['piso_rutas'] ?? '', '1');
-    }
+    $anden = limpiarTextoPdf(resolver_anden_boleto($boleto), '—');
+    $piso = limpiarTextoPdf(resolver_piso_boleto($boleto), '1');
     $vendedor = limpiarTextoPdf($boleto['nombre_usuario'] ?? '', '—');
 
     $pdf->SetMargins(RIDE_MARGEN, RIDE_MARGEN, RIDE_MARGEN, true);

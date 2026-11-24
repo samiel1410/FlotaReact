@@ -131,6 +131,9 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
       // Usar el endpoint v1 (POST /viajes/despacharViajes) que soporta tarifa, motivo, aprobado, etc.
       const res = await api.post('/viajes/despacharViajes', {
         codigo_viaje: form.id_viaje,
+        // El <select> usa id_buses como valor; se envía también como id_bus
+        // para que el backend no lo confunda con un número de disco.
+        id_bus: form.bus_disco,
         bus_disco: form.bus_disco,
         nombre_chofer: form.nombre_chofer,
         nombre_auxiliar: form.nombre_auxiliar,

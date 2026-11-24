@@ -176,8 +176,8 @@ try {
     }
 
     $busMostrar = !empty($boleto['disco_buses']) ? $boleto['disco_buses'] : '—';
-    $andMostrar = !empty($boleto['anden_sub_rutas']) && $boleto['anden_sub_rutas'] != '0' ? $boleto['anden_sub_rutas'] : (!empty($boleto['andes_rutas']) && $boleto['andes_rutas'] != '0' ? $boleto['andes_rutas'] : '—');
-    $pisoMostrar = !empty($boleto['piso_sub_rutas']) && $boleto['piso_sub_rutas'] != 0 ? $boleto['piso_sub_rutas'] : (!empty($boleto['piso_rutas']) && $boleto['piso_rutas'] != 0 ? $boleto['piso_rutas'] : '1');
+    $andMostrar = limpiarTextoPdf(resolver_anden_boleto($boleto), '—');
+    $pisoMostrar = limpiarTextoPdf(resolver_piso_boleto($boleto), '1');
 
     // ── GENERACIÓN NATIVA TCPDF (sin writeHTML) ───────────────────────────────
     // writeHTML() tarda 7-8s. Los métodos nativos tardan ~300ms.
@@ -233,8 +233,8 @@ try {
     $horaSalida  = !empty($boleto['hora_origen_salida']) ? $boleto['hora_origen_salida'] : ($boleto['hora_salida'] ?? '00:00');
     $viajeMostrar = !empty($boleto['nombre_rutas']) ? $boleto['nombre_rutas'] : '—';
     $busMostrar   = !empty($boleto['disco_buses']) ? $boleto['disco_buses'] : '—';
-    $andMostrar   = !empty($boleto['anden_sub_rutas']) && $boleto['anden_sub_rutas'] != '0' ? $boleto['anden_sub_rutas'] : (!empty($boleto['andes_rutas']) && $boleto['andes_rutas'] != '0' ? $boleto['andes_rutas'] : '—');
-    $pisoMostrar  = !empty($boleto['piso_sub_rutas']) && $boleto['piso_sub_rutas'] != 0 ? $boleto['piso_sub_rutas'] : (!empty($boleto['piso_rutas']) && $boleto['piso_rutas'] != 0 ? $boleto['piso_rutas'] : '1');
+    $andMostrar   = limpiarTextoPdf(resolver_anden_boleto($boleto), '—');
+    $pisoMostrar  = limpiarTextoPdf(resolver_piso_boleto($boleto), '1');
 
     $pdf->SetFont('helvetica', '', $fB);
     $pdf->Cell($wL, $lh, 'Viaje ' . ($boleto['id_fkviaje_boleto'] ?? ''), 0, 0, 'L');

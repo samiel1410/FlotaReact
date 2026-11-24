@@ -31,6 +31,8 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
       tiene_encomiendas: false,
       punto_emision_boleteria_sucursal: '',
       genera_tasa: false,
+      piso_sucursal: '',
+      anden_sucursal: '',
       estado_sucursales: true,
       ...COLORES_ASIENTOS_DEFAULT,
     }
@@ -68,6 +70,8 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
             tiene_encomiendas: !!initialData.punto_emision_boleteria_sucursal,
             punto_emision_sucursal: initialData.punto_emision_sucursal || '',
             punto_emision_boleteria_sucursal: initialData.punto_emision_boleteria_sucursal || '',
+            piso_sucursal: initialData.piso_sucursal || '',
+            anden_sucursal: initialData.anden_sucursal || '',
           });
           
           // Auto-seleccionar provincia
@@ -283,6 +287,36 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
             className={`w-full h-10 px-3 text-xs font-bold border rounded-xl transition-all outline-none ${tieneEncomiendas ? 'bg-white border-slate-200' : 'bg-slate-100 border-transparent text-slate-400'}`}
             placeholder="Ej: 002"
           />
+        </div>
+
+        {/* Piso y andén propios de la agencia (el boleto los usa si están configurados) */}
+        <div className="md:col-span-2 border border-slate-100 p-3 rounded-2xl bg-slate-50/50">
+          <label className="block text-[10px] font-black text-slate-600 uppercase tracking-widest mb-1">Piso y Andén de la agencia</label>
+          <p className="text-[9px] font-bold text-slate-400 uppercase mb-3">
+            Algunas agencias tienen andenes distintos a los de la ruta. Si se dejan vacíos, el boleto imprime el piso y andén de la ruta.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Piso</label>
+              <input
+                type="number"
+                min="1"
+                {...register('piso_sucursal')}
+                className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-white"
+                placeholder="Ej: 1"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Andén</label>
+              <input
+                type="text"
+                maxLength={20}
+                {...register('anden_sucursal')}
+                className="w-full h-10 px-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all outline-none bg-white"
+                placeholder="Ej: A3"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Tasa de terminal FTTG */}
