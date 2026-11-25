@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { api } from '../../config/axios';
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  ComposedChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
 
@@ -38,20 +38,40 @@ const formatDate = (d) => {
   return `${y}-${m}-${dia}`;
 };
 
-// Custom Tooltip estilizado
+const formatMoney = (value) => {
+  const n = parseFloat(value) || 0;
+  return `${n < 0 ? '-' : ''}$${Math.abs(n).toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const SERIE_LABELS = {
+  ventas: 'Ventas',
+  gastos: 'Gastos',
+};
+
+// Custom Tooltip estilizado (soporta una o varias series)
 const CustomTooltip = ({ active, payload, label, prefix = '$' }) => {
-  if (active && payload && payload.length) {
-    const data = payload[0];
-    return (
-      <div className="bg-slate-900/90 backdrop-blur-md text-white px-3.5 py-2 rounded-xl shadow-xl border border-slate-700/60 text-xs">
-        <p className="text-slate-400 font-semibold text-[10px] mb-1">{label || data.name}</p>
-        <p className="font-extrabold text-sm text-emerald-400 flex items-center gap-1">
-          <span>{prefix}{parseFloat(data.value || 0).toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        </p>
+  if (!active || !payload || payload.length === 0) return null;
+
+  return (
+    <div className="bg-slate-900/90 backdrop-blur-md text-white px-3.5 py-2 rounded-xl shadow-xl border border-slate-700/60 text-xs">
+      <p className="text-slate-400 font-semibold text-[10px] mb-1">{label || payload[0].name}</p>
+      <div className="space-y-0.5">
+        {payload.map((entry, idx) => {
+          const color = entry.color || entry.payload?.fill || entry.fill || '#34d399';
+          const nombre = SERIE_LABELS[entry.dataKey] || entry.name || '';
+          return (
+            <p key={idx} className="font-extrabold text-sm flex items-center gap-1.5" style={{ color }}>
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }}></span>
+              {nombre && <span className="text-[10px] font-semibold text-slate-300">{nombre}</span>}
+              <span>
+                {prefix}{parseFloat(entry.value || 0).toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </p>
+          );
+        })}
       </div>
-    );
-  }
-  return null;
+    </div>
+  );
 };
 
 export const EstadisticasPage = () => {
@@ -114,6 +134,32 @@ export const EstadisticasPage = () => {
     return data.ventasDestino.reduce((acc, curr) => acc + (curr.total || 0), 0);
   }, [data]);
 
+  const totalGastosPeriodo = useMemo(() => {
+    if (!data?.gastosSemana) return 0;
+    return data.gastosSemana.reduce((acc, curr) => acc + (parseFloat(curr.total) || 0), 0);
+  }, [data]);
+
+  const utilidadPeriodo = metricasPeriodo.totalPeriodo - totalGastosPeriodo;
+
+  // Une ventas y gastos por fecha para dibujar ambas series en el mismo eje.
+  const serieDiaria = useMemo(() => {
+    const mapa = new Map();
+
+    (data?.ventasSemana || []).forEach((d) => {
+      if (!d?.fecha) return;
+      mapa.set(d.fecha, { fecha: d.fecha, ventas: parseFloat(d.total) || 0, gastos: 0 });
+    });
+
+    (data?.gastosSemana || []).forEach((d) => {
+      if (!d?.fecha) return;
+      const fila = mapa.get(d.fecha) || { fecha: d.fecha, ventas: 0, gastos: 0 };
+      fila.gastos = parseFloat(d.total) || 0;
+      mapa.set(d.fecha, fila);
+    });
+
+    return Array.from(mapa.values()).sort((a, b) => a.fecha.localeCompare(b.fecha));
+  }, [data]);
+
   return (
     <div className="flex flex-col h-full gap-0 bg-slate-50/70 overflow-auto">
       {/* HEADER ELEGANTE */}
@@ -130,7 +176,7 @@ export const EstadisticasPage = () => {
                   {modo === 'boletos' ? 'Boletería' : 'Encomiendas'}
                 </span>
               </div>
-              <p className="text-[11px] font-medium text-slate-400">Monitoreo de ingresos, volumen y rutas principales</p>
+              <p className="text-[11px] font-medium text-slate-400">Monitoreo de ingresos, gastos, volumen y rutas principales</p>
             </div>
           </div>
 
@@ -301,15 +347,38 @@ export const EstadisticasPage = () => {
               </div>
             </div>
 
-            {/* GRÁFICO PRINCIPAL: EVOLUCIÓN DE INGRESOS */}
+            {/* GRÁFICO PRINCIPAL: EVOLUCIÓN DE INGRESOS Y GASTOS */}
             <div className="bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs">
               <div className="flex flex-wrap items-center justify-between mb-4 gap-2">
                 <div>
                   <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse"></span>
-                    Evolución Diaria de Ventas ($)
+                    Evolución Diaria de Ventas y Gastos ($)
                   </h3>
-                  <p className="text-[11px] text-slate-400">Ingresos recaudados día a día en el período seleccionado</p>
+                  <p className="text-[11px] text-slate-400">Ingresos recaudados vs. egresos de caja día a día en el período seleccionado</p>
+                  <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] font-bold">
+                    <span className="flex items-center gap-1.5 text-slate-500">
+                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                      Ventas
+                      <span className="font-mono text-slate-800">
+                        {formatMoney(metricasPeriodo.totalPeriodo)}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-1.5 text-slate-500">
+                      <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+                      Gastos
+                      <span className="font-mono text-rose-600">
+                        {formatMoney(totalGastosPeriodo)}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-1.5 text-slate-500">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                      Utilidad
+                      <span className={`font-mono ${utilidadPeriodo >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {formatMoney(utilidadPeriodo)}
+                      </span>
+                    </span>
+                  </div>
                 </div>
                 <div className="text-right">
                   <span className="text-[10px] font-bold text-slate-400">Pico Máximo: </span>
@@ -320,9 +389,9 @@ export const EstadisticasPage = () => {
               </div>
 
               <div className="h-72 w-full">
-                {data?.ventasSemana && data.ventasSemana.length > 0 ? (
+                {serieDiaria.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data.ventasSemana} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <ComposedChart data={serieDiaria} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                       <defs>
                         <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
@@ -350,14 +419,24 @@ export const EstadisticasPage = () => {
                       <Tooltip content={<CustomTooltip prefix="$" />} />
                       <Area
                         type="monotone"
-                        dataKey="total"
+                        dataKey="ventas"
+                        name="Ventas"
                         stroke="#3b82f6"
                         strokeWidth={2.5}
                         fillOpacity={1}
                         fill="url(#colorTotal)"
                         activeDot={{ r: 6, fill: '#1d4ed8', stroke: '#fff', strokeWidth: 2 }}
                       />
-                    </AreaChart>
+                      <Line
+                        type="monotone"
+                        dataKey="gastos"
+                        name="Gastos"
+                        stroke="#f43f5e"
+                        strokeWidth={2.5}
+                        dot={false}
+                        activeDot={{ r: 5, fill: '#e11d48', stroke: '#fff', strokeWidth: 2 }}
+                      />
+                    </ComposedChart>
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-2">
