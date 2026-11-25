@@ -12,6 +12,16 @@ const labelCls = 'block text-[9px] font-black text-slate-400 uppercase tracking-
 const money = (v) => `$${Number(v || 0).toFixed(2)}`;
 const num = (v) => Number(v || 0);
 
+// "1594", "#1594", "viaje 1594", "despacho #385", "n° 1594"...
+const esBusquedaNumerica = (valor) => {
+  const limpio = String(valor || '')
+    .trim()
+    .replace(/^(?:viaje|despacho|nro\.?|n[uú]mero|n[°º])\s*/i, '')
+    .replace(/^#\s*/, '')
+    .trim();
+  return /^\d{1,9}$/.test(limpio);
+};
+
 const ESTADOS_VIAJE = {
   0: { label: 'No cumple', bg: 'bg-slate-200', text: 'text-slate-700' },
   1: { label: 'En curso', bg: 'bg-emerald-100', text: 'text-emerald-800' },
@@ -217,6 +227,15 @@ export const DespachosOficinaPage = () => {
                   className={`${inputCls} pl-8`}
                 />
               </div>
+              {esBusquedaNumerica(aplicados.q) ? (
+                <div className="mt-1 text-[9px] font-bold text-indigo-600">
+                  <i className="fas fa-circle-info mr-1"></i>Buscando el N° en todas las fechas
+                </div>
+              ) : (
+                <div className="mt-1 text-[9px] font-semibold text-slate-400">
+                  El N° de viaje/despacho ignora el rango de fechas.
+                </div>
+              )}
             </div>
             <div className="lg:col-span-2 flex gap-2">
               <button
