@@ -9,6 +9,15 @@ import { BRAND } from '../../config/branding';
 // =============================================
 const MENU = [
   {
+    id: 'dashboard',
+    title: 'Dashboard',
+    icon: 'fas fa-chart-pie',
+    items: [
+      { to: '/estadisticas', icon: 'fas fa-chart-line', label: 'Estadísticas', permission: 'dashboard.estadisticas' },
+      { to: '/ranking-ventas', icon: 'fas fa-trophy', label: 'Ranking Ventas', permission: 'dashboard.ranking_ventas' },
+    ]
+  },
+  {
     id: 'seguridad',
     title: 'Seguridad',
     icon: 'fas fa-shield-alt',
@@ -17,7 +26,6 @@ const MENU = [
       { to: '/roles', icon: 'fas fa-user-shield', label: 'Roles', permission: 'administracion.gestion_roles' },
       { to: '/auditoria', icon: 'fas fa-history', label: 'Auditoría', permission: 'administracion.ver_auditoria' },
       { to: '/monitoreo', icon: 'fas fa-satellite-dish', label: 'Monitoreo en Vivo', permission: 'administracion.monitoreo_vivo' },
-      { to: '/estadisticas', icon: 'fas fa-chart-line', label: 'Estadísticas', permission: 'administracion.graficos_dashboard' },
     ]
   },
   {
@@ -179,7 +187,6 @@ const MENU = [
     title: 'Reportes',
     icon: 'fas fa-chart-bar',
     items: [
-      { to: '/ranking-ventas', icon: 'fas fa-trophy', label: 'Ranking Ventas', permission: 'reportes.ranking_ventas' },
       { to: '/reportes', icon: 'fas fa-file-archive', label: 'Reportes', permission: 'reportes.reportes' },
     ]
   },

@@ -12,7 +12,6 @@ export const SUBGROUPS_ADMIN = [
       gestion_roles: 'Roles',
       ver_auditoria: 'Auditoría',
       monitoreo_vivo: 'Monitoreo en Vivo',
-      graficos_dashboard: 'Estadísticas',
     }
   },
   {
@@ -50,6 +49,14 @@ export const SUBGROUPS_ADMIN = [
 ];
 
 export const ALL_PERMISSIONS = {
+  dashboard: {
+    label: 'Dashboard',
+    icon: 'fas fa-chart-pie',
+    permisos: {
+      estadisticas: 'Estadísticas',
+      ranking_ventas: 'Ranking Ventas',
+    }
+  },
   // Se mantiene 'administracion' como clave única en BD (compatibilidad con sidebar)
   administracion: {
     label: 'Administración',
@@ -175,7 +182,6 @@ export const ALL_PERMISSIONS = {
     label: 'Reportes',
     icon: 'fas fa-chart-bar',
     permisos: {
-      ranking_ventas: 'Ranking Ventas',
       reportes: 'Reportes',
     }
   }
@@ -215,6 +221,22 @@ export const ALCANCE_DATOS = {
       label: 'Despachos Nota Venta',
       hereda: 'Supervisor: solo los suyos. Resto: los de su destino.',
     },
+    cajas: {
+      label: 'Caja Encomiendas (Guías)',
+      hereda: 'Cajero (rol 4): solo las suyas. Resto: todas.',
+    },
+    cajas_boleteria: {
+      label: 'Caja Boletería',
+      hereda: 'Cajero (rol 4): solo las suyas. Resto: todas.',
+    },
+    cajas_cobros: {
+      label: 'Caja Cobros (Retenciones)',
+      hereda: 'Cajero (rol 4): solo las suyas. Resto: todas.',
+    },
+    cajas_nota_venta: {
+      label: 'Cajas Notas de Venta',
+      hereda: 'Cajero (rol 4): solo las suyas. Resto: todas.',
+    },
   },
 };
 
@@ -228,6 +250,8 @@ export const ALCANCE_OPCIONES = [
 // Se mapean hacia la clave canónica nueva para que el menú siga funcionando
 // sin obligar a volver a marcar todos los permisos uno por uno.
 export const PERMISOS_ALIAS = {
+  'dashboard.estadisticas': ['administracion.graficos_dashboard'],
+  'dashboard.ranking_ventas': ['reportes.ranking_ventas'],
   'administracion.gestion_usuarios': ['administracion.usuarios'],
   'administracion.gestion_roles': ['administracion.roles'],
   'administracion.ver_auditoria': ['administracion.auditoria'],

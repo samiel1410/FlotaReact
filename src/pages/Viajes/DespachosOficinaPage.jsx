@@ -275,7 +275,7 @@ export const DespachosOficinaPage = () => {
             <>
               <ResumenCard label="Despachos" value={num(totales.despachos ?? total)} icon="fa-clipboard-check" color="indigo" />
               <ResumenCard label="Pasajeros" value={num(totales.pasajeros)} icon="fa-users" color="sky" />
-              <ResumenCard label="Vendido (oficinas)" value={money(totales.vendido)} icon="fa-cash-register" color="emerald" />
+              <ResumenCard label="Vendido despachado" value={money(totales.vendido)} icon="fa-cash-register" color="emerald" />
               <ResumenCard label="Total retenido" value={money(totales.retenido)} icon="fa-hand-holding-usd" color="amber" />
               <ResumenCard label="Entrega" value={money(totales.entrega)} icon="fa-money-bill-wave" color="violet" />
             </>
@@ -301,8 +301,8 @@ export const DespachosOficinaPage = () => {
                     <th className="px-3 py-3 text-center">Bus</th>
                     <th className="px-3 py-3 text-left">Oficina</th>
                     <th className="px-3 py-3 text-left">Usuario</th>
-                    <th className="px-3 py-3 text-center">Pasaj.</th>
-                    <th className="px-3 py-3 text-right">Vendido oficina</th>
+                    <th className="px-3 py-3 text-center" title="Pasajeros de la venta de este turno">Pasaj.</th>
+                    <th className="px-3 py-3 text-right" title="Venta de la oficina en este turno (posterior a su despacho anterior)">Vendido turno</th>
                     {conceptosColumnas.map((concepto) => (
                       <th key={concepto} className="px-3 py-3 text-right whitespace-nowrap" title={concepto}>
                         {concepto}
