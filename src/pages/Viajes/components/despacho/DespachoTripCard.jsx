@@ -32,6 +32,19 @@ export const DespachoTripCard = ({ trip, isSelected, onSelect }) => {
             <span className="bg-slate-100 text-slate-700 font-bold text-[10px] px-2 py-0.5 rounded-md border border-slate-200">
               N° VIAJE #{tripId}
             </span>
+            {/* La hora de la tarjeta es la de paso por MI oficina. Sin esta
+                marca, un viaje de otra ruta (p. ej. "AMBATO (SUR) - Guayaquil")
+                parecía salir del terminal de origen en esa hora. */}
+            {trip.tipo_punto === 'PARADA' && (
+              <span className="bg-indigo-50 text-indigo-700 font-bold text-[9px] px-2 py-0.5 rounded-md border border-indigo-200">
+                PASA POR AQUÍ
+              </span>
+            )}
+            {trip.tipo_punto === 'ORIGEN' && (
+              <span className="bg-emerald-50 text-emerald-700 font-bold text-[9px] px-2 py-0.5 rounded-md border border-emerald-200">
+                SALE DE AQUÍ
+              </span>
+            )}
             {estaDespachado ? (
               <span className="bg-blue-50 text-blue-700 font-bold text-[9px] px-2 py-0.5 rounded-md border border-blue-200">
                 DESPACHADO

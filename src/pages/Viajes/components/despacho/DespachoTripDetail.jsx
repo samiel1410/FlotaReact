@@ -377,6 +377,12 @@ export const DespachoTripDetail = ({
               <div className="text-3xl font-black tracking-tight leading-none text-blue-700 font-mono">
                 {selectedTrip.hora_salida || '--:--'}
               </div>
+              {/* Es la hora de paso por mi oficina, no la salida del origen. */}
+              {selectedTrip.tipo_punto === 'PARADA' && selectedTrip.hora_origen && (
+                <div className="text-[10px] font-bold text-indigo-600 mt-1">
+                  Pasa por aquí · sale del origen {selectedTrip.hora_origen}
+                </div>
+              )}
               <div className="text-xs font-bold text-slate-500 mt-1.5 flex items-center justify-end gap-1.5">
                 <i className="far fa-calendar-alt text-blue-500" />
                 {formatFecha(selectedTrip.fecha_viaje)}

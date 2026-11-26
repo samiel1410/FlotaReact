@@ -55,6 +55,7 @@ try {
     // ─── CONSULTA VIAJE, BUS, CHOFER Y USUARIO ───────────────────────────────
     $query_info = "SELECT
         v.id_viajes, v.dia_viajes, v.hora_salida_estimado, v.hora_origen_salida, v.fecha_cierre, r.nombre_rutas,
+        r.tiempos_paradas_rutas,
         b.disco_buses, b.placa_buses,
         p.per_cedula_personal, p.per_nombres_persona, p.per_apellidos_personal,
         v.chofer_viajes, v.cedula_viajes, v.id_fkusuario_viajes
@@ -159,6 +160,49 @@ try {
     $hora_viaje = (!empty($raw_hora_viaje) && strtotime($raw_hora_viaje) !== false) 
         ? date('H:i', strtotime($raw_hora_viaje)) 
         : '';
+
+    // Hora en que el bus pasa por la oficina que entrega la lista. La lista se
+    // imprime junto con la hoja de despacho; si el bus sale de otra oficina
+    // (p. ej. Terminal Sur 09:45) la lista no debe encabezar con esa hora sino
+    // con la del paso por la oficina que la entrega (Ingahurco 10:00).
+    // La oficina puede venir del despacho que entrega la lista o del filtro con
+    // el que se imprime (id interno o código sucursal).
+    $oficina_lista = (int)($despacho_entrega['id_sucursal_despacho'] ?? 0);
+    $codigo_lista = (string)($despacho_entrega['codigo_sucursal_despacho'] ?? '');
+    if ($oficina_lista <= 0 && $codigo_lista === '' && $id_sucursal_filtro > 0) {
+        $oficina_lista = (int)$id_sucursal_filtro;
+    }
+    $refs_lista = array_values(array_filter([$oficina_lista, (int)$codigo_lista], static fn($v) => $v > 0));
+    if (count($refs_lista) > 0) {
+        $resSucLista = mysqli_query(
+            $conn,
+            'SELECT id_sucursal, suc_codigo_sucursal FROM sucursal2 WHERE id_sucursal IN (' . implode(',', $refs_lista) . ')'
+            . ' OR suc_codigo_sucursal IN (' . implode(',', $refs_lista) . ') LIMIT 1'
+        );
+        if ($resSucLista && ($sucLista = mysqli_fetch_assoc($resSucLista))) {
+            $refs_lista[] = (int)$sucLista['id_sucursal'];
+            $refs_lista[] = (int)$sucLista['suc_codigo_sucursal'];
+        }
+        $refs_lista = array_values(array_unique(array_filter($refs_lista, static fn($v) => $v > 0)));
+    }
+    if (!empty($info['tiempos_paradas_rutas']) && count($refs_lista) > 0) {
+        $paradas_lista = json_decode((string)$info['tiempos_paradas_rutas'], true);
+        $minutos_lista = null;
+        if (is_array($paradas_lista)) {
+            foreach ($paradas_lista as $parada_lista) {
+                $idParada = (int)($parada_lista['id_sucursal'] ?? 0);
+                if ($idParada > 0 && in_array($idParada, $refs_lista, true)) {
+                    $minutos_lista = (int)($parada_lista['minutos_desde_origen'] ?? 0);
+                    break;
+                }
+            }
+        }
+        if ($minutos_lista !== null && $minutos_lista > 0) {
+            $partes_lista = array_pad(array_map('intval', explode(':', (string)($info['hora_origen_salida'] ?? '0:0'))), 3, 0);
+            $total_lista = ($partes_lista[0] * 60) + $partes_lista[1] + $minutos_lista;
+            $hora_viaje = sprintf('%02d:%02d', intdiv($total_lista, 60) % 24, $total_lista % 60);
+        }
+    }
 
     $conductor_nombre = trim(($info['per_nombres_persona'] ?? '') . ' ' . ($info['per_apellidos_personal'] ?? ''));
     if (empty($conductor_nombre) && !empty($info['chofer_viajes'])) {

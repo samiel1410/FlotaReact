@@ -363,11 +363,52 @@ try {
     // ─── HORA DE LA PARADA EN LA OFICINA ─────────────────────────────────────
     // La hora que se imprime es la de la parada de la oficina que despacha, no
     // la de salida del origen: un despacho de Naranjito (origen + 50 min) debe
-    // mostrar la hora en que el bus pasa por Naranjito. Se usa el itinerario
-    // guardado del viaje y, si no existe, los minutos configurados en la ruta.
+    // mostrar la hora en que el bus pasa por Naranjito.
+    // La configuración de tiempos de la ruta manda sobre el itinerario guardado:
+    // el itinerario es una foto que queda vieja cuando se corrigen los tiempos
+    // (el Terminal Sur de Ambato-Tena seguía imprimiendo las 09:30 aunque la
+    // ruta ya decía 10:00).
     $hora_parada_oficina = '';
     $dias_offset_parada = 0;
-    if ($id_sucursal_despacho > 0) {
+    // ¿La oficina tiene una hora propia distinta a la salida del origen? Solo
+    // entonces la hoja marca "PARADA": una oficina de la misma ciudad que sale
+    // a la misma hora que el origen no debe imprimir una parada ficticia.
+    $tieneHoraPropia = false;
+    $hora_base_parada = (string)($despacho['hora_origen_salida'] ?? '');
+    $min_origen_it = 0;
+    if ($hora_base_parada !== '') {
+        $partes_origen = array_pad(array_map('intval', explode(':', $hora_base_parada)), 3, 0);
+        $min_origen_it = ($partes_origen[0] * 60) + $partes_origen[1];
+    }
+
+    if ($id_sucursal_despacho > 0 && !empty($despacho['tiempos_paradas_rutas'])) {
+        $paradas_ruta = json_decode((string)$despacho['tiempos_paradas_rutas'], true);
+        $minutos_parada = null;
+        if (is_array($paradas_ruta)) {
+            foreach ($paradas_ruta as $parada) {
+                if (intval($parada['id_sucursal'] ?? 0) === $id_sucursal_despacho) {
+                    $minutos_parada = intval($parada['minutos_desde_origen'] ?? 0);
+                    break;
+                }
+            }
+        }
+        if ($minutos_parada !== null && $hora_base_parada !== '') {
+            $partes_hora = array_pad(array_map('intval', explode(':', $hora_base_parada)), 3, 0);
+            $minutos_totales = ($partes_hora[0] * 60) + $partes_hora[1] + $minutos_parada;
+            if ($minutos_totales >= 1440) {
+                $dias_offset_parada = 1;
+            }
+            $hora_parada_oficina = sprintf(
+                '%02d:%02d:%02d',
+                intdiv($minutos_totales, 60) % 24,
+                $minutos_totales % 60,
+                $partes_hora[2]
+            );
+            $tieneHoraPropia = $minutos_parada > 0;
+        }
+    }
+
+    if ($hora_parada_oficina === '' && $id_sucursal_despacho > 0) {
         try {
             $stmt_parada = $conn->prepare(
                 "SELECT vi.hora_salida
@@ -384,42 +425,14 @@ try {
             if (!empty($row_parada['hora_salida']) && $row_parada['hora_salida'] !== '00:00:00') {
                 $hora_parada_oficina = (string)$row_parada['hora_salida'];
                 // Viajes que cruzan medianoche: la parada cae al día siguiente.
-                $min_origen_it = (int)substr((string)($despacho['hora_origen_salida'] ?? '0:0'), 0, 2) * 60
-                    + (int)substr((string)($despacho['hora_origen_salida'] ?? '0:0'), 3, 2);
                 $min_parada_it = (int)substr($hora_parada_oficina, 0, 2) * 60 + (int)substr($hora_parada_oficina, 3, 2);
                 if ($min_parada_it < $min_origen_it) {
                     $dias_offset_parada = 1;
                 }
+                $tieneHoraPropia = substr($hora_parada_oficina, 0, 5) !== substr($hora_base_parada, 0, 5);
             }
         } catch (Throwable $eParada) {
             $hora_parada_oficina = '';
-        }
-    }
-
-    if ($hora_parada_oficina === '' && !empty($despacho['tiempos_paradas_rutas'])) {
-        $paradas_ruta = json_decode((string)$despacho['tiempos_paradas_rutas'], true);
-        $minutos_parada = null;
-        if (is_array($paradas_ruta)) {
-            foreach ($paradas_ruta as $parada) {
-                if (intval($parada['id_sucursal'] ?? 0) === $id_sucursal_despacho) {
-                    $minutos_parada = intval($parada['minutos_desde_origen'] ?? 0);
-                    break;
-                }
-            }
-        }
-        $hora_base_parada = (string)($despacho['hora_origen_salida'] ?? '');
-        if ($minutos_parada !== null && $minutos_parada > 0 && $hora_base_parada !== '') {
-            $partes_hora = array_pad(array_map('intval', explode(':', $hora_base_parada)), 3, 0);
-            $minutos_totales = ($partes_hora[0] * 60) + $partes_hora[1] + $minutos_parada;
-            if ($minutos_totales >= 1440) {
-                $dias_offset_parada = 1;
-            }
-            $hora_parada_oficina = sprintf(
-                '%02d:%02d:%02d',
-                intdiv($minutos_totales, 60) % 24,
-                $minutos_totales % 60,
-                $partes_hora[2]
-            );
         }
     }
 
@@ -806,18 +819,46 @@ try {
     $wVal = $anchoUtil - $wKey;
     $hRow = 3.9;
 
+    // Cuando el bus sale de otra oficina (p. ej. Ambato Sur) y solo pasa por la
+    // que despacha, la hoja debe decir en qué punto se embarca: sin esto, un
+    // despacho de Ingahurco parecía del Terminal Sur porque la RUTA lleva el
+    // nombre del origen. La hora de SALIDA ya es la de esta parada.
+    $primeraParadaRuta = null;
+    if (!empty($despacho['tiempos_paradas_rutas'])) {
+        $paradasCfg = json_decode((string)$despacho['tiempos_paradas_rutas'], true);
+        if (is_array($paradasCfg)) {
+            usort($paradasCfg, static fn($a, $b) => intval($a['orden'] ?? 0) <=> intval($b['orden'] ?? 0));
+            foreach ($paradasCfg as $paradaCfg) {
+                $idParadaCfg = intval($paradaCfg['id_sucursal'] ?? 0);
+                if ($idParadaCfg > 0) {
+                    $primeraParadaRuta = $idParadaCfg;
+                    break;
+                }
+            }
+        }
+    }
+    $esParadaOficina = $primeraParadaRuta > 0
+        && $id_sucursal_despacho > 0
+        && $id_sucursal_despacho !== $primeraParadaRuta
+        && $tieneHoraPropia;
+
     // Todo el bloque va en negrita para que la letra salga más gruesa en la
     // impresora térmica; el destino y la hora de salida llevan un punto más.
     $infoRows = [
         ['N° VIAJE:', (string)$id_despacho_viaje, 7.9],
         ['DESTINO:', strtoupper($destino_viaje), 8.6],
         ['RUTA:', (string)($despacho['nombre_rutas'] ?? ''), 7.9],
+    ];
+    if ($esParadaOficina && !empty($despacho['nombre_sucursal'])) {
+        $infoRows[] = ['PARADA:', strtoupper((string)$despacho['nombre_sucursal']), 7.9];
+    }
+    $infoRows = array_merge($infoRows, [
         ['SALIDA:', $fecha_salida . ' ' . $hora_salida, 8.3],
         ['DESPACHADO:', $fecha_despacho_real !== '' ? $fecha_despacho_real : 'NO REGISTRADO', 7.9],
         ['DISCO:', (string)($despacho['disco_buses'] ?? ''), 7.9],
         ['PLACA:', (string)($despacho['placa_buses'] ?? ''), 7.9],
         ['CHOFER:', strtoupper($nombre_chofer), 7.9],
-    ];
+    ]);
 
     foreach ($infoRows as $ir) {
         $yFila = $pdf->GetY();
