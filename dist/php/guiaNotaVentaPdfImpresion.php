@@ -18,8 +18,6 @@ date_default_timezone_set('America/Guayaquil');
 try {
     $t0 = microtime(true);
     $fecha_actual = date('Y-m-d H:i:s');
-    // Fecha/hora de recepción que se imprime en el encabezado (momento de impresión).
-    $fecha_recepcion_txt = date('d/m/Y H:i');
     $id_guia = isset($_GET['id_guia']) ? (int)$_GET['id_guia'] : 0;
     $reimpreso_por = isset($_GET['reimpreso_por']) ? trim($_GET['reimpreso_por']) : null;
 
@@ -131,6 +129,18 @@ try {
     } else {
         $fecha_hora_emision = $fecha_actual;
     }
+
+    // Fecha/hora de recepción del encabezado: la real de la guía, no la del momento de impresión.
+    $fecha_recepcion_raw = $vals_guia['fecha_creacion_guia'] ?? null;
+    if (empty($fecha_recepcion_raw) || strpos((string)$fecha_recepcion_raw, '0000-00-00') === 0) {
+        $fecha_recepcion_raw = $vals_guia['fecha_guia'] ?? null;
+    }
+    $fecha_recepcion_ts = (!empty($fecha_recepcion_raw) && strpos((string)$fecha_recepcion_raw, '0000-00-00') !== 0)
+        ? strtotime((string)$fecha_recepcion_raw)
+        : false;
+    $fecha_recepcion_txt = $fecha_recepcion_ts
+        ? date('d/m/Y H:i', $fecha_recepcion_ts)
+        : date('d/m/Y H:i', strtotime($fecha_hora_emision));
 
     // Compañía asociada
     $nombre_compania = '';

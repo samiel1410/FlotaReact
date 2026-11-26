@@ -195,7 +195,7 @@ export const SeguimientoGuiaModal = ({ guia, onClose, isNotaVenta = false }) => 
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Fecha</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Estado</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Oficina</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Bus</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Unidad</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Usuario</th>
                           <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Observación</th>
                         </tr>
@@ -214,7 +214,9 @@ export const SeguimientoGuiaModal = ({ guia, onClose, isNotaVenta = false }) => 
                                 </span>
                               </td>
                               <td className="px-4 py-3 text-slate-700 font-medium">{s.ubicacion_seguimiento || '-'}</td>
-                              <td className="px-4 py-3 text-slate-600">{s.bus_seguimiento || '-'}</td>
+                              <td className="px-4 py-3 text-slate-600">
+                                {s.unidad_seguimiento || (Number(s.bus_seguimiento) > 0 ? `Bus #${s.bus_seguimiento}` : '-')}
+                              </td>
                               <td className="px-4 py-3 text-slate-600 text-xs">{s.usuario || '-'}</td>
                               <td className="px-4 py-3 text-slate-500 text-xs italic">{s.observacion_seguimiento || '-'}</td>
                             </tr>

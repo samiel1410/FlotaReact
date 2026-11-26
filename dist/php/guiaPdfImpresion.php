@@ -18,13 +18,11 @@ date_default_timezone_set('America/Guayaquil');
 // TTL corto (60s): ventana pequeña de posible stale si la guía se cobra justo después de imprimir.
 define('GUIAIMP_FAST_TTL', 60);
 // Cambiar la versión invalida los PDFs cacheados cuando cambia el diseño del ticket.
-define('GUIAIMP_LAYOUT_VERSION', 'guia-recepcion-dir-v7');
+define('GUIAIMP_LAYOUT_VERSION', 'guia-recepcion-dir-v8');
 
 try {
     $t0 = microtime(true);
     $fecha_actual = date('Y-m-d H:i:s');
-    // Fecha/hora de recepción que se imprime en el encabezado (momento de impresión).
-    $fecha_recepcion_txt = date('d/m/Y H:i');
     $id_guia = isset($_GET['id_guia']) ? (int)$_GET['id_guia'] : 0;
     $reimpreso_por = isset($_GET['reimpreso_por']) ? trim($_GET['reimpreso_por']) : null;
     $tenantId = isset($_GET['tenantId']) ? (int)$_GET['tenantId'] : 1;
@@ -154,6 +152,8 @@ try {
         g.estado_guia,
         g.motivo_anulacion_guia,
         g.fecha_anulacion_guia,
+        g.fecha_guia,
+        g.fecha_creacion_guia,
         CONCAT(u.nombre_usuario, ' ', u.apellido_usuario) AS usuario,
         COALESCE(NULLIF(TRIM(s.ciudad_sucursal), ''), NULLIF(TRIM(s.nombre_sucursal), '')) AS ubicacion_usuario
     FROM guia g
@@ -169,6 +169,16 @@ try {
     if (!$vals_guia) {
         throw new Exception("Guía no encontrada");
     }
+
+    // Fecha/hora de recepción del encabezado: la real de la guía, no la del momento de impresión.
+    $fecha_recepcion_raw = $vals_guia['fecha_creacion_guia'] ?? null;
+    if (empty($fecha_recepcion_raw) || strpos((string)$fecha_recepcion_raw, '0000-00-00') === 0) {
+        $fecha_recepcion_raw = $vals_guia['fecha_guia'] ?? null;
+    }
+    $fecha_recepcion_ts = (!empty($fecha_recepcion_raw) && strpos((string)$fecha_recepcion_raw, '0000-00-00') !== 0)
+        ? strtotime((string)$fecha_recepcion_raw)
+        : false;
+    $fecha_recepcion_txt = $fecha_recepcion_ts ? date('d/m/Y H:i', $fecha_recepcion_ts) : date('d/m/Y H:i');
 
     $origen_guia = limpiarTextoPdf($vals_guia["origen_guia"] ?? '');
     $observacion_guia = limpiarTextoPdf($vals_guia["observacion_guia"] ?? '');

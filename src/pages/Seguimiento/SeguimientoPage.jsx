@@ -659,7 +659,7 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
                       <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">OFICINA</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">OBSERVACIÓN</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">FECHA Y HORA</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">BUS</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">UNIDAD</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">USUARIO</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase">ESTADO</th>
                       <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 uppercase w-16">ACCIÓN</th>
@@ -684,7 +684,7 @@ export const SeguimientoPage = ({ isNotaVenta = false }) => {
                             {formatFecha(r.fecha_creacion_seguimiento)}
                           </td>
                           <td className="px-4 py-3 text-slate-600">
-                            {r.bus_seguimiento || '-'}
+                            {r.unidad_seguimiento || (Number(r.bus_seguimiento) > 0 ? `Bus #${r.bus_seguimiento}` : '-')}
                           </td>
                           <td className="px-4 py-3 text-slate-600 text-xs">
                             {r.usuario || '-'}
