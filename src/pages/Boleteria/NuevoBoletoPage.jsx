@@ -623,6 +623,38 @@ export const NuevoBoletoPage = () => {
           }
           setAsientosOcupados(ocupados);
           setTotalRecaudado(asientosRes.total_boletos || 0);
+
+          // Si el tramo cambió (otro destino), un asiento que estaba libre
+          // puede haber quedado ocupado. La selección anterior ya no es válida:
+          // se libera para que no se venda un asiento que el mapa muestra
+          // ocupado. Antes la selección se mantenía y la venta salía con el
+          // destino viejo del pasajero.
+          const ocupadosSet = new Set(ocupados.map(a => Number(a.asiento_boleto_detalle)));
+          const seleccionados = formDataRef.current?.asientosSeleccionados || [];
+          const yaNoDisponibles = seleccionados.filter(s => ocupadosSet.has(Number(s)));
+          if (yaNoDisponibles.length > 0) {
+            if (window.__socket && formData.idViaje) {
+              yaNoDisponibles.forEach(asiento => {
+                window.__socket.emit('asiento_desbloquear', {
+                  id_viaje: formData.idViaje,
+                  asiento: Number(asiento)
+                });
+              });
+            }
+            setFormData(prev => ({
+              ...prev,
+              asientosSeleccionados: prev.asientosSeleccionados.filter(
+                s => !yaNoDisponibles.includes(s)
+              ),
+              pasajeros: prev.pasajeros.filter(
+                p => !yaNoDisponibles.includes(p.asiento)
+              )
+            }));
+            toast.error(
+              `Se quitaron del mapa los asientos ${yaNoDisponibles.join(', ')}: ya no están disponibles para el tramo elegido.`,
+              { id: 'asientos-no-disponibles-tramo', duration: 6000 }
+            );
+          }
         }
 
         if (destinosViajeRes && destinosViajeRes.success && destinosViajeRes.data) {
@@ -1695,19 +1727,25 @@ export const NuevoBoletoPage = () => {
               destinosViaje={destinosViaje}
               onDestinoChange={(id) => {
                 marcarActividadReal();
+                const destinoAnterior = String(subrutaSeleccionada || '');
                 setSubrutaSeleccionada(id);
                 const subruta = destinosViaje.find(d => String(d.id_sub_rutas) === String(id));
                 const precio = subruta ? parseFloat(subruta.valor_sub_rutas || 0) : 0;
                 setPrecioUnitario(precio);
 
                 setFormData(prev => {
-                  // El combo "Destino" define el destino por defecto para los
-                  // asientos nuevos. Los pasajeros que ya tienen un destino
-                  // asignado conservan el suyo (pueden viajar a otro tramo).
+                  // El combo "Destino" define el destino de la venta. Los
+                  // pasajeros que venían siguiendo el combo (sin destino propio
+                  // o con el destino anterior) se actualizan; solo se respeta
+                  // un destino distinto elegido a mano para ese pasajero.
+                  // Antes se conservaba el viejo y el boleto quedaba registrado
+                  // con un tramo más corto que el que se mostraba en pantalla.
                   if (!id) return { ...prev, destino: id };
                   let huboCambios = false;
                   const nuevosPasajeros = prev.pasajeros.map(p => {
-                    if (p.id_destino) return p;
+                    const sigueAlCombo = !p.id_destino || String(p.id_destino) === destinoAnterior;
+                    if (!sigueAlCombo) return p;
+                    if (String(p.id_destino) === String(id)) return p;
                     const tarifaTexto = p.tarifa || 'Normal';
                     huboCambios = true;
                     return {
