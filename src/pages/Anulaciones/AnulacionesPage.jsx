@@ -489,11 +489,21 @@ const TABS = [
           return <span className={`font-bold text-[10px] ${colores[v] || 'text-slate-500'}`}>{estados[v] || '—'}</span>;
         },
       },
+      {
+        k: 'despacho_realizado', l: 'DESPACHO', w: 'w-24',
+        r: (v) => (Number(v) === 1
+          ? <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-100" title="El viaje ya fue despachado: no se puede aprobar la anulación">DESPACHADO</span>
+          : <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-100">SIN DESPACHO</span>),
+      },
     ],
+    // Con el viaje despachado el pasajero viajó: la aprobación liberaría un
+    // asiento que no se puede volver a vender, así que no se puede seleccionar.
     canSelect: (row) => row.estado_anular_boleteria == 0
+      && Number(row.despacho_realizado) !== 1
       && (row.id_fkboleto_anular_boleteria || row.clave_acceso_anular_boleteria),
     rowClass: (row) => {
       if (row.estado_anular_boleteria == 1) return 'bg-red-50';
+      if (row.estado_anular_boleteria == 0 && Number(row.despacho_realizado) === 1) return 'bg-slate-100';
       if (row.estado_anular_boleteria == 0) return 'bg-amber-50';
       if (row.estado_anular_boleteria == 2) return 'bg-orange-50';
       return '';

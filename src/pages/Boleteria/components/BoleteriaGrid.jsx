@@ -216,13 +216,20 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                         <div className="action-menu">
                           <button onClick={() => { setActiveMenu(null); onVisualizarPdf?.(item); }}><i className="far fa-file-pdf" style={{color: 'red'}}></i> Visualizar Pdf</button>
                           <button onClick={() => { setActiveMenu(null); onImprimir?.(item); }}><i className="fas fa-print" style={{color: 'gray'}}></i> Imprimir</button>
-                          <button
-                            disabled={Number(item.estado_boleto) === 3 || Number(item.estado_solicitud_anulacion) === 0}
-                            onClick={() => { setActiveMenu(null); onAnular?.(item); }}
-                            style={{ opacity: (Number(item.estado_boleto) === 3 || Number(item.estado_solicitud_anulacion) === 0) ? 0.45 : 1 }}
-                          >
-                            <i className="fas fa-ban" style={{color: 'red'}}></i> Anular
-                          </button>
+                          {Number(item.estado_boleto) !== 3 && Number(item.despacho_realizado) === 1 ? (
+                            <div style={{ padding: '6px 10px', fontSize: 11, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, cursor: 'not-allowed' }}>
+                              <i className="fas fa-ban" style={{ color: '#cbd5e1' }}></i>
+                              Anular (viaje despachado)
+                            </div>
+                          ) : (
+                            <button
+                              disabled={Number(item.estado_boleto) === 3 || Number(item.estado_solicitud_anulacion) === 0}
+                              onClick={() => { setActiveMenu(null); onAnular?.(item); }}
+                              style={{ opacity: (Number(item.estado_boleto) === 3 || Number(item.estado_solicitud_anulacion) === 0) ? 0.45 : 1 }}
+                            >
+                              <i className="fas fa-ban" style={{color: 'red'}}></i> Anular
+                            </button>
+                          )}
                           <button onClick={() => { setActiveMenu(null); onReenviarSri?.(item); }}><i className="fas fa-cloud-upload-alt" style={{color: '#3498db'}}></i> Reenviar SRI</button>
                           <button onClick={() => { setActiveMenu(null); onProbarTasa?.(item); }}><i className="fas fa-qrcode" style={{color: '#0891b2'}}></i> Probar QR Tasa TTG</button>
                           <button onClick={() => { setActiveMenu(null); onEnviarCorreo?.(item); }}><i className="fas fa-envelope" style={{color: '#16a085'}}></i> Enviar correo</button>

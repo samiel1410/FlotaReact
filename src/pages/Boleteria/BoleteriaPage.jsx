@@ -139,6 +139,13 @@ export const BoleteriaPage = () => {
       toast('Este boleto ya está anulado.', { icon: 'ℹ️' });
       return;
     }
+    if (Number(item.despacho_realizado) === 1) {
+      toast.error(
+        'El viaje de este boleto ya fue despachado: el pasajero viajó y el asiento no se puede liberar. No se puede anular.',
+        { duration: 6000 }
+      );
+      return;
+    }
 
     const { value: motivo } = await Swal.fire({
       title: 'Solicitar anulación',
