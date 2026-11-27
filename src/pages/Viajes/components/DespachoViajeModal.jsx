@@ -156,7 +156,12 @@ export const DespachoViajeModal = ({ trip, onClose }) => {
           : `id_viajes=${form.id_viaje}`;
         const idUsuario = user?.id_usuario ? `&id_usuario=${user.id_usuario}` : '';
         window.open(baseUrl + buildPdfUrl(`/php/despachoViajePdf.php?${paramsDespacho}&usuario=${encodeURIComponent(nombreUsuario)}${idUsuario}`), '_blank');
-        window.open(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?id_viaje=${form.id_viaje}&usuario=${encodeURIComponent(nombreUsuario)}${idUsuario}`), '_blank');
+        // La lista se imprime con el mismo despacho/corte: si no, mostraba toda
+        // la venta del viaje (otras oficinas y turnos) y no cuadraba con la hoja.
+        const paramsPasajeros = idDespachoNuevo
+          ? `id_despacho=${idDespachoNuevo}&id_viaje=${form.id_viaje}`
+          : `id_viaje=${form.id_viaje}`;
+        window.open(baseUrl + buildPdfUrl(`/php/imprimirPasajeros.php?${paramsPasajeros}&usuario=${encodeURIComponent(nombreUsuario)}${idUsuario}`), '_blank');
         onClose(true);
       } else {
         toast.error(res.data?.message || 'Error al despachar');

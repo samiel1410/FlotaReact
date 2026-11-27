@@ -67,6 +67,23 @@ export const DespachoTripDetail = ({
   const backendSucCodigo = String(detailData?.sucursal_actual?.suc_codigo || '').trim();
   const backendSucNombre = String(detailData?.sucursal_actual?.nombre_sucursal || '').trim().toLowerCase();
 
+  // Despachos de MI oficina en el viaje. Una oficina puede tener varios turnos
+  // (#490 y #503); decir que todo se liquidó "en el despacho #503" no cuadraba
+  // con lo que muestra la hoja de ese despacho.
+  const despachosMiOficinaLabel = React.useMemo(() => {
+    const rows = (detailData?.despachos_viaje || []).filter(d => {
+      if (backendSucId > 0 && Number(d.id_sucursal) === backendSucId) return true;
+      if (backendSucCodigo && String(d.suc_codigo_sucursal || '') === backendSucCodigo) return true;
+      const nombre = String(d.nombre_sucursal || '').trim().toLowerCase();
+      return Boolean(backendSucNombre && nombre && nombre === backendSucNombre);
+    });
+    if (rows.length === 0) return '';
+    const ids = rows.map(r => `#${r.id_despacho_viaje}`);
+    return ids.length === 1
+      ? `liquidada en el despacho ${ids[0]}`
+      : `liquidada en los despachos ${ids.join(' y ')}`;
+  }, [detailData?.despachos_viaje, backendSucId, backendSucCodigo, backendSucNombre]);
+
   const userSucursalId = Number(
     user?.id_fksucursal_usuario ||
     user?.id_sucursal ||
@@ -309,7 +326,7 @@ export const DespachoTripDetail = ({
     : valoresVista.esTurnoPendiente
       ? `Turno a despachar: ${Number(valoresVista.cantidad || 0)} pasajero(s) por $${Number(valoresVista.boletos || 0).toFixed(2)} USD de ${valoresVista.sucursalNombre}${Number(valoresVista.cantidad_total_boletos || 0) > Number(valoresVista.cantidad || 0) ? ` · ${Number(valoresVista.cantidad_total_boletos || 0)} pasajero(s) de su oficina en el viaje` : ''}`
       : Number(valoresVista.total_boletos || 0) > 0
-        ? `Venta de ${valoresVista.sucursalNombre} en este viaje: ${Number(valoresVista.cantidad_total_boletos || 0)} pasajero(s) por $${Number(valoresVista.total_boletos || 0).toFixed(2)} USD${detailData?.id_despacho_mi_sucursal ? ` · liquidada en el despacho #${detailData.id_despacho_mi_sucursal}` : ''}`
+        ? `Venta de ${valoresVista.sucursalNombre} en este viaje: ${Number(valoresVista.cantidad_total_boletos || 0)} pasajero(s) por $${Number(valoresVista.total_boletos || 0).toFixed(2)} USD${despachosMiOficinaLabel ? ` · ${despachosMiOficinaLabel}` : (detailData?.id_despacho_mi_sucursal ? ` · liquidada en el despacho #${detailData.id_despacho_mi_sucursal}` : '')}`
         : 'Su oficina no tiene ventas en este viaje';
 
   const liquidacionEntregada = valoresVista.esPorSucursal

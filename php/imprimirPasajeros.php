@@ -17,15 +17,106 @@ date_default_timezone_set('America/Guayaquil');
 try {
     $t0 = microtime(true);
     $fecha_actual = date('Y-m-d H:i:s');
-    $id_viaje = (int)($_GET['id_viaje'] ?? 0);
+    $id_viaje = (int)($_GET['id_viaje'] ?? $_GET['id_viajes'] ?? 0);
+
+    $id_sucursal_filtro = (int)($_GET['id_sucursal'] ?? 0);
+    $id_despacho_filtro = (int)($_GET['id_despacho'] ?? $_GET['id_despacho_viaje'] ?? 0);
+    // Lista GENERAL del viaje: sin oficina ni despacho. No debe encabezarse con
+    // la hora de paso ni atribuirse al último oficinista que despachó otra
+    // oficina (antes una lista general de El Coca salía con la hora de Loreto).
+    $esListaGeneral = ($id_sucursal_filtro <= 0 && $id_despacho_filtro <= 0);
+    $conn = conexion();
+    mysqli_query($conn, "SET SESSION sql_mode = ''");
+
+    // ─── DESPACHO / TURNO QUE SE IMPRIME ─────────────────────────────────────
+    // Cuando la lista se imprime junto con una hoja de despacho debe liquidar
+    // el MISMO corte: la venta de esa oficina posterior a su despacho anterior.
+    // Antes se imprimía toda la venta del viaje (incluidas otras oficinas) y
+    // los valores no cuadraban con el "RECIBE" de la hoja (despacho #503:
+    // lista 27 pasajeros / $462.10 vs despacho 25 pasajeros / $436.50).
+    $despacho_turno = null;
+    $sello_turno = '';
+    $sello_turno_anterior = '';
+    $id_despacho_anterior = 0;
+    if ($id_despacho_filtro > 0) {
+        $stmtTurno = $conn->prepare(
+            "SELECT dv.id_despacho_viaje, dv.id_fkviaje_despacho_viaje,
+                    dv.fecha_creacion_despacho_viaje, dv.fecha_salida_despacho_viaje,
+                    dv.hora_salida_despacho_viaje, dv.id_fkusuario_aprueba,
+                    u.id_fksucursal_usuario,
+                    s.id_sucursal AS id_sucursal_despacho,
+                    s.suc_codigo_sucursal AS codigo_sucursal_despacho,
+                    s.nombre_sucursal AS nombre_sucursal_despacho
+               FROM despacho_viaje dv
+               LEFT JOIN usuario u ON u.id_usuario = dv.id_fkusuario_aprueba
+               LEFT JOIN sucursal2 s ON (s.id_sucursal = u.id_fksucursal_usuario OR s.suc_codigo_sucursal = u.id_fksucursal_usuario)
+              WHERE dv.id_despacho_viaje = ? LIMIT 1"
+        );
+        $stmtTurno->bind_param("i", $id_despacho_filtro);
+        $stmtTurno->execute();
+        $despacho_turno = $stmtTurno->get_result()->fetch_assoc();
+        $stmtTurno->close();
+
+        if ($despacho_turno) {
+            // El viaje manda el despacho: si llega un id_viaje distinto (p. ej.
+            // reimpresión desde otra pantalla) se usa el del despacho.
+            $id_viaje = (int)$despacho_turno['id_fkviaje_despacho_viaje'] ?: $id_viaje;
+
+            if (!empty($despacho_turno['fecha_creacion_despacho_viaje'])) {
+                $tsTurno = strtotime($despacho_turno['fecha_creacion_despacho_viaje']);
+                if ($tsTurno !== false) {
+                    $sello_turno = date('Y-m-d H:i:s', $tsTurno);
+                }
+            }
+
+            // La lista queda limitada a la oficina que despachó, igual que la hoja.
+            $id_sucursal_despacho_turno = (int)($despacho_turno['id_sucursal_despacho'] ?? 0);
+            $codigo_sucursal_despacho_turno = trim((string)($despacho_turno['codigo_sucursal_despacho'] ?? ''));
+            if ($id_sucursal_despacho_turno <= 0) {
+                $id_sucursal_despacho_turno = (int)($despacho_turno['id_fksucursal_usuario'] ?? 0);
+            }
+            if ($id_sucursal_despacho_turno > 0) {
+                $id_sucursal_filtro = $id_sucursal_despacho_turno;
+            }
+
+            // Corte del turno anterior de la misma oficina.
+            if ($sello_turno !== '' && $id_sucursal_despacho_turno > 0) {
+                $query_prev = "SELECT dv_p.id_despacho_viaje,
+                                      dv_p.fecha_creacion_despacho_viaje AS sello_anterior
+                                 FROM despacho_viaje dv_p
+                                 JOIN usuario u_p ON u_p.id_usuario = dv_p.id_fkusuario_aprueba
+                                 LEFT JOIN sucursal2 s_p ON (s_p.id_sucursal = u_p.id_fksucursal_usuario OR s_p.suc_codigo_sucursal = u_p.id_fksucursal_usuario)
+                                WHERE dv_p.id_fkviaje_despacho_viaje = ?
+                                  AND dv_p.id_despacho_viaje <> ?
+                                  AND dv_p.fecha_creacion_despacho_viaje < ?
+                                  AND (s_p.id_sucursal = ? OR s_p.suc_codigo_sucursal = ?)
+                                ORDER BY dv_p.fecha_creacion_despacho_viaje DESC, dv_p.id_despacho_viaje DESC
+                                LIMIT 1";
+                $stmtPrev = $conn->prepare($query_prev);
+                $stmtPrev->bind_param(
+                    "iisis",
+                    $id_viaje,
+                    $id_despacho_filtro,
+                    $sello_turno,
+                    $id_sucursal_despacho_turno,
+                    $codigo_sucursal_despacho_turno
+                );
+                $stmtPrev->execute();
+                $rowPrev = $stmtPrev->get_result()->fetch_assoc();
+                $stmtPrev->close();
+                if ($rowPrev) {
+                    $id_despacho_anterior = (int)$rowPrev['id_despacho_viaje'];
+                    if (!empty($rowPrev['sello_anterior'])) {
+                        $sello_turno_anterior = (string)$rowPrev['sello_anterior'];
+                    }
+                }
+            }
+        }
+    }
 
     if ($id_viaje <= 0) {
         throw new Exception("ID de viaje no proporcionado o inválido");
     }
-
-    $id_sucursal_filtro = (int)($_GET['id_sucursal'] ?? 0);
-    $conn = conexion();
-    mysqli_query($conn, "SET SESSION sql_mode = ''");
 
     // ─── EMPRESA Y CONFIGURACIÓN (sin logo: los PDFs no imprimen logos) ──────
     $vals_empresa = null;
@@ -122,7 +213,9 @@ try {
                 $normalizar_usuario($d['username_usuario'] ?? ''),
             ], true);
         },
-        static fn($d) => true,
+        // Solo una lista de oficina/turno puede atribuirse al despacho de esa
+        // oficina. En la lista general no se toma el último despacho del viaje.
+        static fn($d) => !$esListaGeneral,
     ];
     foreach ($criterios_despacho as $criterio) {
         foreach ($despachos_lista as $dRow) {
@@ -167,9 +260,9 @@ try {
     // con la del paso por la oficina que la entrega (Ingahurco 10:00).
     // La oficina puede venir del despacho que entrega la lista o del filtro con
     // el que se imprime (id interno o código sucursal).
-    $oficina_lista = (int)($despacho_entrega['id_sucursal_despacho'] ?? 0);
-    $codigo_lista = (string)($despacho_entrega['codigo_sucursal_despacho'] ?? '');
-    if ($oficina_lista <= 0 && $codigo_lista === '' && $id_sucursal_filtro > 0) {
+    $oficina_lista = $esListaGeneral ? 0 : (int)($despacho_entrega['id_sucursal_despacho'] ?? 0);
+    $codigo_lista = $esListaGeneral ? '' : (string)($despacho_entrega['codigo_sucursal_despacho'] ?? '');
+    if (!$esListaGeneral && $oficina_lista <= 0 && $codigo_lista === '' && $id_sucursal_filtro > 0) {
         $oficina_lista = (int)$id_sucursal_filtro;
     }
     $refs_lista = array_values(array_filter([$oficina_lista, (int)$codigo_lista], static fn($v) => $v > 0));
@@ -239,6 +332,11 @@ try {
     if (empty($usuario_entrega)) {
         $usuario_entrega = 'SISTEMA';
     }
+    // La lista GENERAL no se entrega a un conductor: solo la imprime un usuario.
+    // No debe figurar el último oficinista que despachó otra oficina.
+    if ($esListaGeneral) {
+        $usuario_entrega = $usuario_param !== '' ? $usuario_param : 'SISTEMA';
+    }
 
     // Filtro por sucursal
     $where_sucursal = "";
@@ -248,6 +346,18 @@ try {
         $q_suc = mysqli_query($conn, "SELECT nombre_sucursal FROM sucursal2 WHERE id_sucursal = $id_sucursal_filtro OR suc_codigo_sucursal = '$id_sucursal_filtro' LIMIT 1");
         if ($q_suc && $r_suc = mysqli_fetch_assoc($q_suc)) {
             $nombre_sucursal_filtro = $r_suc['nombre_sucursal'];
+        }
+    }
+
+    // Corte del turno: solo la venta posterior al despacho anterior de la
+    // oficina y hasta el sello de este despacho, igual que la hoja de despacho.
+    $where_turno = "";
+    if ($sello_turno !== '') {
+        $sello_turno_sql = mysqli_real_escape_string($conn, $sello_turno);
+        $where_turno .= " AND (b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= '$sello_turno_sql')";
+        if ($sello_turno_anterior !== '') {
+            $sello_anterior_sql = mysqli_real_escape_string($conn, $sello_turno_anterior);
+            $where_turno .= " AND (b.fecha_creacion_boleto IS NOT NULL AND b.fecha_creacion_boleto > '$sello_anterior_sql')";
         }
     }
 
@@ -273,7 +383,7 @@ try {
         s.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
         OR s.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
     )
-    WHERE b.id_fkviaje_boleto = $id_viaje AND (b.estado_boleto IS NULL OR b.estado_boleto != 3) $where_sucursal
+    WHERE b.id_fkviaje_boleto = $id_viaje AND (b.estado_boleto IS NULL OR b.estado_boleto != 3) $where_sucursal $where_turno
     ORDER BY COALESCE(s.nombre_sucursal, b.nombre_origen) ASC, b.nombre_origen ASC, CAST(bd.asiento_boleto_detalle AS UNSIGNED) ASC";
 
     $result_pasajeros = mysqli_query($conn, $query_pasajeros) or die(mysqli_error($conn));
@@ -286,6 +396,90 @@ try {
         $pasajeros[] = $row;
         $total_pasajeros++;
         $total_valor += (float)($row['total_boleto_detalle'] ?? 0);
+    }
+
+    // Cuadre con la hoja de despacho. La lista del turno muestra lo mismo que
+    // el "RECIBE"; el acumulado de la oficina y lo entregado antes explican la
+    // diferencia con la lista completa de la oficina (despacho #503: 25/$436.50
+    // + #490 1/$10.00 = 26/$446.50).
+    $cantidad_acumulada_turno = 0;
+    $total_acumulado_turno = 0.0;
+    $cantidad_entregado_antes = 0;
+    $total_entregado_antes = 0.0;
+    if ($sello_turno !== '') {
+        $sello_turno_sql_acum = mysqli_real_escape_string($conn, $sello_turno);
+        $sello_anterior_sql_acum = $sello_turno_anterior !== ''
+            ? mysqli_real_escape_string($conn, $sello_turno_anterior)
+            : $sello_turno_sql_acum;
+        $query_acumulado = "SELECT
+                COUNT(bd.id_boleto_detalle) AS cantidad,
+                IFNULL(SUM(bd.total_boleto_detalle), 0) AS total,
+                IFNULL(SUM(CASE WHEN b.fecha_creacion_boleto IS NOT NULL AND b.fecha_creacion_boleto <= '$sello_anterior_sql_acum' THEN 1 ELSE 0 END), 0) AS cantidad_antes,
+                IFNULL(SUM(CASE WHEN b.fecha_creacion_boleto IS NOT NULL AND b.fecha_creacion_boleto <= '$sello_anterior_sql_acum' THEN bd.total_boleto_detalle ELSE 0 END), 0) AS total_antes
+              FROM boleto_detalle bd
+              JOIN boletos b ON bd.id_fkboleto_boleto_detalle = b.id_boleto
+              LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
+              LEFT JOIN sucursal2 s ON (
+                  s.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                  OR s.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+              )
+             WHERE b.id_fkviaje_boleto = $id_viaje
+               AND (b.estado_boleto IS NULL OR b.estado_boleto != 3)
+               $where_sucursal
+               AND (b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= '$sello_turno_sql_acum')";
+        $resAcum = mysqli_query($conn, $query_acumulado);
+        if ($resAcum && $rowAcum = mysqli_fetch_assoc($resAcum)) {
+            $cantidad_acumulada_turno = (int)($rowAcum['cantidad'] ?? 0);
+            $total_acumulado_turno = (float)($rowAcum['total'] ?? 0);
+            $cantidad_entregado_antes = (int)($rowAcum['cantidad_antes'] ?? 0);
+            $total_entregado_antes = (float)($rowAcum['total_antes'] ?? 0);
+        }
+    }
+
+    // Sin despacho explícito pero con oficina: la lista es la venta completa de
+    // la oficina. Se muestra qué parte ya se entregó en sus despachos y cuánto
+    // quedó pendiente para que también cuadre con la hoja de despacho.
+    $id_ultimo_despacho_oficina = 0;
+    $cantidad_entregada_oficina = 0;
+    $total_entregado_oficina = 0.0;
+    $cantidad_pendiente_oficina = 0;
+    $total_pendiente_oficina = 0.0;
+    if ($sello_turno === '' && $id_sucursal_filtro > 0) {
+        $query_ultimo = "SELECT dv_u.id_despacho_viaje, dv_u.fecha_creacion_despacho_viaje
+                           FROM despacho_viaje dv_u
+                           JOIN usuario u_u ON u_u.id_usuario = dv_u.id_fkusuario_aprueba
+                           LEFT JOIN sucursal2 s_u ON (s_u.id_sucursal = u_u.id_fksucursal_usuario OR s_u.suc_codigo_sucursal = u_u.id_fksucursal_usuario)
+                          WHERE dv_u.id_fkviaje_despacho_viaje = $id_viaje
+                            AND (s_u.id_sucursal = $id_sucursal_filtro OR s_u.suc_codigo_sucursal = '$id_sucursal_filtro')
+                          ORDER BY dv_u.fecha_creacion_despacho_viaje DESC, dv_u.id_despacho_viaje DESC
+                          LIMIT 1";
+        $res_ultimo = mysqli_query($conn, $query_ultimo);
+        if ($res_ultimo && $row_ultimo = mysqli_fetch_assoc($res_ultimo)) {
+            $id_ultimo_despacho_oficina = (int)$row_ultimo['id_despacho_viaje'];
+            $sello_ultimo_sql = mysqli_real_escape_string($conn, (string)$row_ultimo['fecha_creacion_despacho_viaje']);
+            $query_cuadre_oficina = "SELECT
+                    IFNULL(SUM(CASE WHEN b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= '$sello_ultimo_sql' THEN 1 ELSE 0 END), 0) AS cantidad_entregada,
+                    IFNULL(SUM(CASE WHEN b.fecha_creacion_boleto IS NULL OR b.fecha_creacion_boleto <= '$sello_ultimo_sql' THEN bd.total_boleto_detalle ELSE 0 END), 0) AS total_entregado,
+                    IFNULL(SUM(CASE WHEN b.fecha_creacion_boleto IS NOT NULL AND b.fecha_creacion_boleto > '$sello_ultimo_sql' THEN 1 ELSE 0 END), 0) AS cantidad_pendiente,
+                    IFNULL(SUM(CASE WHEN b.fecha_creacion_boleto IS NOT NULL AND b.fecha_creacion_boleto > '$sello_ultimo_sql' THEN bd.total_boleto_detalle ELSE 0 END), 0) AS total_pendiente
+                  FROM boleto_detalle bd
+                  JOIN boletos b ON bd.id_fkboleto_boleto_detalle = b.id_boleto
+                  LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
+                  LEFT JOIN sucursal2 s ON (
+                      s.id_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                      OR s.suc_codigo_sucursal = COALESCE(NULLIF(b.id_sucursal_venta, 0), NULLIF(b.id_fksucursal_boleto, 0), NULLIF(u.id_fksucursal_usuario, 0))
+                  )
+                 WHERE b.id_fkviaje_boleto = $id_viaje
+                   AND (b.estado_boleto IS NULL OR b.estado_boleto != 3)
+                   $where_sucursal";
+            $res_cuadre = mysqli_query($conn, $query_cuadre_oficina);
+            if ($res_cuadre && $row_cuadre = mysqli_fetch_assoc($res_cuadre)) {
+                $cantidad_entregada_oficina = (int)($row_cuadre['cantidad_entregada'] ?? 0);
+                $total_entregado_oficina = (float)($row_cuadre['total_entregado'] ?? 0);
+                $cantidad_pendiente_oficina = (int)($row_cuadre['cantidad_pendiente'] ?? 0);
+                $total_pendiente_oficina = (float)($row_cuadre['total_pendiente'] ?? 0);
+            }
+        }
     }
 
     // ─── CONFIGURACIÓN DE PÁGINA NATIVA TCPDF ────────────────────────────────
@@ -307,8 +501,11 @@ try {
     // ─── 1. CABECERA ─────────────────────────────────────────────────────────
     // Oficina que emite la lista: filtro id_sucursal o primera oficina del listado
     $oficinaEmite = $nombre_sucursal_filtro;
-    if (empty($oficinaEmite) && !empty($pasajeros[0]['nombre_sucursal'])) {
-        $oficinaEmite = $pasajeros[0]['nombre_sucursal'];
+    if (empty($oficinaEmite)) {
+        // Sin filtro de oficina la lista es GENERAL (todas las oficinas del
+        // viaje). Antes se encabezaba con la primera oficina del listado y
+        // parecía que el total incluía solo esa oficina.
+        $oficinaEmite = 'TODAS LAS OFICINAS';
     }
 
     $pdf->SetFont('helvetica', 'B', 9.5);
@@ -333,8 +530,13 @@ try {
     $pdf->Ln(2);
 
     $tituloDoc = 'LISTADO DE PASAJEROS' . ($nombre_sucursal_filtro ? ' - ' . strtoupper($nombre_sucursal_filtro) : '');
+    if ($id_despacho_filtro > 0) {
+        $tituloDoc .= ' (DESPACHO #' . $id_despacho_filtro . ')';
+    }
     $pdf->SetFont('helvetica', 'B', 9.5);
-    $pdf->Cell($anchoUtil, 4.5, $tituloDoc, 0, 1, 'C');
+    // MultiCell: con el número de despacho el título ya no cabe en una línea
+    // de 80 mm y TCPDF lo recortaba ("... (DESPAC").
+    $pdf->MultiCell($anchoUtil, 4.5, $tituloDoc, 0, 'C', false, 1);
 
     $pdf->SetFont('helvetica', 'B', 9);
     $pdf->Cell($anchoUtil, 4, 'Disco: ' . ($info['disco_buses'] ?? 'S/N'), 0, 1, 'C');
@@ -470,8 +672,28 @@ try {
     $pdf->Cell($anchoUtil * 0.65, 4.2, 'Total Pasajeros: ' . $total_pasajeros, 0, 0, 'L');
     $pdf->Cell($anchoUtil * 0.35, 4.2, 'Total: $' . number_format($total_valor, 2), 0, 1, 'R');
 
+    // Mismos totales de cuadre que la hoja de despacho para que ambas
+    // impresiones se puedan comparar sin diferencias.
+    if ($sello_turno !== '') {
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell($anchoUtil - $wVal, 3.8, 'Acumulado oficina:', 0, 0, 'R');
+        $pdf->Cell($wVal, 3.8, '$' . number_format($total_acumulado_turno, 2) . ' (' . $cantidad_acumulada_turno . ' pas.)', 0, 1, 'R');
+        if ($id_despacho_anterior > 0) {
+            $pdf->Cell($anchoUtil - $wVal, 3.8, 'Entregado antes (#' . $id_despacho_anterior . '):', 0, 0, 'R');
+            $pdf->Cell($wVal, 3.8, '$' . number_format($total_entregado_antes, 2) . ' (' . $cantidad_entregado_antes . ' pas.)', 0, 1, 'R');
+        }
+    } elseif ($id_ultimo_despacho_oficina > 0) {
+        $pdf->SetFont('helvetica', 'B', 7.5);
+        $pdf->Cell($anchoUtil - $wVal, 3.8, 'Entregado (despacho #' . $id_ultimo_despacho_oficina . '):', 0, 0, 'R');
+        $pdf->Cell($wVal, 3.8, '$' . number_format($total_entregado_oficina, 2) . ' (' . $cantidad_entregada_oficina . ' pas.)', 0, 1, 'R');
+        if ($cantidad_pendiente_oficina > 0 || $total_pendiente_oficina > 0.009) {
+            $pdf->Cell($anchoUtil - $wVal, 3.8, 'Pendiente por despachar:', 0, 0, 'R');
+            $pdf->Cell($wVal, 3.8, '$' . number_format($total_pendiente_oficina, 2) . ' (' . $cantidad_pendiente_oficina . ' pas.)', 0, 1, 'R');
+        }
+    }
+
     $pdf->SetFont('helvetica', '', 7.5);
-    $pdf->Cell($anchoUtil, 3.8, 'Entrega: ' . $usuario_entrega, 0, 1, 'L');
+    $pdf->Cell($anchoUtil, 3.8, ($esListaGeneral ? 'Impreso por: ' : 'Entrega: ') . $usuario_entrega, 0, 1, 'L');
     $pdf->Cell($anchoUtil, 3.5, 'Impresión: ' . $fecha_actual, 0, 1, 'L');
 
     // ─── SALIDA DIRECTA DEL PDF (SIN CACHÉ) ───────────────────────────────────

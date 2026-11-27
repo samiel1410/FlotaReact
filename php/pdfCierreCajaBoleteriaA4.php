@@ -100,6 +100,13 @@ try {
     $fecha_apertura  = $caja['fecha_caja'] ? date('Y-m-d H:i', strtotime($caja['fecha_caja'])) : '';
     $fecha_cierre    = textoFechaHoraCierreCaja($caja['fecha_hora_cierre'] ?? null, $caja['estado_caja'] ?? null, 'Y-m-d H:i');
 
+    // Una caja cerrada no cambia por despachos posteriores al cierre.
+    $limite_cierre_desp = '';
+    if (($caja['estado_caja'] ?? '') === 'CERRADA' && !empty($caja['fecha_hora_cierre'])) {
+        $limite_cierre_desp = " AND dv.fecha_creacion_despacho_viaje <= '"
+            . mysqli_real_escape_string($conn, $caja['fecha_hora_cierre']) . "'";
+    }
+
     // ─── DESPACHOS DEL OFICINISTA (período de la caja) ───────────────────────
     // El "facturado" se limita a los boletos vendidos por la SUCURSAL dueña de
     // la caja. Antes sumaba todos los boletos del viaje (de todas las
@@ -138,6 +145,7 @@ try {
         LEFT JOIN usuario u2 ON u2.id_usuario = dv.id_fkusuario_aprueba
         WHERE dv.id_fkusuario_aprueba = $id_usuario_caja
           AND DATE(dv.fecha_creacion_despacho_viaje) = '$fecha_caja_txt'
+          $limite_cierre_desp
         ORDER BY dv.id_despacho_viaje ASC";
 
     $despachos = [];

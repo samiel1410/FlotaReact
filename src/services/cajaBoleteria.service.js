@@ -140,6 +140,7 @@ export const cajaBoleteriaService = {
       if (params.desde) queryParams.append('desde', params.desde);
       if (params.hasta) queryParams.append('hasta', params.hasta);
       if (params.estado) queryParams.append('estado', params.estado);
+      if (params.apertura) queryParams.append('apertura', params.apertura);
       queryParams.append('page', params.page || 1);
       queryParams.append('limit', params.limit || 25);
 

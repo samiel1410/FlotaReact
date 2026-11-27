@@ -157,6 +157,13 @@ try {
     $id_usuario_caja = (int)($vals_caja['id_fkusuario_caja'] ?? 0);
     $fecha_caja_txt = $vals_caja['fecha_caja'] ? date('Y-m-d', strtotime($vals_caja['fecha_caja'])) : date('Y-m-d');
 
+    // Una caja cerrada no cambia por despachos posteriores al cierre.
+    $limite_cierre_desp = '';
+    if (($vals_caja['estado_caja'] ?? '') === 'CERRADA' && !empty($vals_caja['fecha_hora_cierre'])) {
+        $limite_cierre_desp = " AND dv.fecha_creacion_despacho_viaje <= '"
+            . mysqli_real_escape_string($conn, $vals_caja['fecha_hora_cierre']) . "'";
+    }
+
     $despachos = [];
     $total_vendido_desp = 0.0;
     $total_retenido_desp = 0.0;
@@ -182,6 +189,7 @@ try {
         LEFT JOIN viajes v ON v.id_viajes = dv.id_fkviaje_despacho_viaje
         WHERE dv.id_fkusuario_aprueba = $id_usuario_caja
           AND DATE(dv.fecha_creacion_despacho_viaje) = '$fecha_caja_txt'
+          $limite_cierre_desp
           AND EXISTS (SELECT 1 FROM boletos bc
                        WHERE bc.id_fkviaje_boleto = dv.id_fkviaje_despacho_viaje
                          AND bc.id_fkcaja_boleto = $id_caja

@@ -43,7 +43,14 @@ export const CajaBoleteriaPage = () => {
       const params = { ...filters, page: pagination.pageIndex + 1, limit: pagination.pageSize };
       const res = await cajaBoleteriaService.listadoCaja(params);
       if (res.success) {
-        setData(res.data || []);
+        // El listado devuelve `id_caja_boleteria`; las acciones de la tabla
+        // usan `id_caja`. Se normaliza una sola vez para que cierre, arqueo y
+        // comprobantes apunten siempre a la caja correcta.
+        const normalizar = (caja) => ({
+          ...caja,
+          id_caja: caja.id_caja || caja.id_caja_boleteria || caja.numero_caja,
+        });
+        setData((res.data || []).map(normalizar));
         setTotalRecords(res.total || 0);
       }
     } catch { toast.error('Error al cargar cajas'); }
@@ -69,9 +76,31 @@ export const CajaBoleteriaPage = () => {
   };
 
   // ─── MODAL CIERRE ──────────────────────────────────────────────────────
-  const openCierreModal = (caja) => {
+  const openCierreModal = async (caja) => {
     if (!caja || caja.estado_caja === 'CERRADA') { toast.error('Ya está cerrada'); return; }
-    setCajaParaCierre(caja);
+
+    // La fila puede llevar horas en pantalla: se recarga el "monto a tener"
+    // y el retenido antes de mostrar el cierre. Si no, el cajero cuenta sobre
+    // un esperado viejo (por ejemplo retenido $0) y el cierre sale FALTANTE.
+    let fresca = caja;
+    try {
+      const res = await cajaBoleteriaService.listadoCaja({ apertura: 1, limit: 1 });
+      const idBuscado = Number(caja.id_caja || caja.id_caja_boleteria || caja.numero_caja);
+      const encontrada = (res?.data || []).find((r) =>
+        Number(r.id_caja || r.id_caja_boleteria || r.numero_caja) === idBuscado
+      );
+      if (res?.success && encontrada) {
+        fresca = {
+          ...caja,
+          ...encontrada,
+          id_caja: encontrada.id_caja || encontrada.id_caja_boleteria || encontrada.numero_caja,
+        };
+      }
+    } catch {
+      // Si falla la recarga se mantiene la fila; el backend recalcula al cerrar.
+    }
+
+    setCajaParaCierre(fresca);
     setShowCierre(true);
   };
 
@@ -127,7 +156,7 @@ export const CajaBoleteriaPage = () => {
         } catch { setDetalleData([]); }
         break;
       }
-      case 'cerrar': openCierreModal(row); break;
+      case 'cerrar': await openCierreModal(row); break;
       case 'solicitud':
         if (row.estado_solicitud == 0) { toast('Sin solicitud'); return; }
         if (row.estado_solicitud == 1) {

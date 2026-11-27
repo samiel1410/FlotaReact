@@ -65,6 +65,7 @@ try {
     LEFT JOIN usuario u ON b.id_fkusuario_boleto = u.id_usuario
     LEFT JOIN sucursal2 s3 ON u.id_fksucursal_usuario = s3.suc_codigo_sucursal
     WHERE b.id_fkviaje_boleto = $id_viaje
+      AND (b.estado_boleto IS NULL OR b.estado_boleto != 3)
     ORDER BY COALESCE(s.nombre_sucursal, s2.nombre_sucursal, s3.nombre_sucursal) ASC, b.nombre_origen ASC, CAST(bd.asiento_boleto_detalle AS UNSIGNED) ASC";
 
     $res_pasajeros = mysqli_query($conn, $query_pasajeros) or die(mysqli_error($conn));

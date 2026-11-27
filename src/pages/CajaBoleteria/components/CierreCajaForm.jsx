@@ -59,6 +59,19 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = f
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    // En boletería el efectivo que queda en la oficina es el retenido, no la
+    // venta total. Si el conteo no coincide con lo esperado se pide confirmar
+    // para no cerrar por error con un monto viejo o mal contado.
+    if (!esCajaGuias && Math.abs(diferenciaEsperado) >= 0.01) {
+      const mensaje = [
+        `Contado: ${formatMonto(totalGeneral)}`,
+        `Esperado en caja: ${formatMonto(esperadoEnCaja)}`,
+        `Diferencia: ${formatMonto(diferenciaEsperado)}`,
+        '',
+        '¿Cerrar la caja de todas formas?',
+      ].join('\n');
+      if (!window.confirm(mensaje)) return;
+    }
     onSubmit({ ...formData, cierre_total_caja: totalGeneral, numero_comprobante_cierre: numeroComprobante, banco_cierre: bancoCierre });
   };
 
