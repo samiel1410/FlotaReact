@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BoleteriaService } from '../../../services/boleteria.service';
 import toast from 'react-hot-toast';
 import Swal from 'sweetalert2';
@@ -9,6 +9,8 @@ export const CambiarFechaViajeModal = ({ isOpen, onClose, boleto, onCambioExitos
   const [loadingViajes, setLoadingViajes] = useState(false);
   const [idViajeSeleccionado, setIdViajeSeleccionado] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // Descarta respuestas de búsquedas anteriores (fechas cambiadas rápido)
+  const peticionBusquedaRef = useRef(0);
 
   // Inicializar fecha con la fecha actual
   useEffect(() => {
@@ -26,9 +28,11 @@ export const CambiarFechaViajeModal = ({ isOpen, onClose, boleto, onCambioExitos
       toast.error('Seleccione una fecha');
       return;
     }
+    const peticion = ++peticionBusquedaRef.current;
     setLoadingViajes(true);
     try {
       const res = await BoleteriaService.getViajesDisponibles({ fecha });
+      if (peticion !== peticionBusquedaRef.current) return;
       if (res.success && res.data) {
         // Filtrar viajes que NO sean el mismo viaje actual del boleto
         const viajesFiltrados = res.data.filter(v => String(v.id_viajes) !== String(boleto?.id_fkviaje_boleto));
@@ -40,10 +44,11 @@ export const CambiarFechaViajeModal = ({ isOpen, onClose, boleto, onCambioExitos
         setViajes([]);
       }
     } catch (e) {
+      if (peticion !== peticionBusquedaRef.current) return;
       console.error('Error buscando viajes:', e);
       toast.error('Error al buscar viajes');
     } finally {
-      setLoadingViajes(false);
+      if (peticion === peticionBusquedaRef.current) setLoadingViajes(false);
     }
   };
 

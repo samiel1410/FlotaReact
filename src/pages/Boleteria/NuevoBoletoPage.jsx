@@ -512,10 +512,15 @@ export const NuevoBoletoPage = () => {
     toast.success('Consumidor Final seleccionado');
   };
 
+  // Token de la última petición de viajes: una respuesta lenta de una agencia o
+  // fecha anterior no puede sobrescribir la lista vigente.
+  const peticionViajesRef = useRef(0);
+
   // Buscar viajes disponibles
   const buscarViajes = useCallback(async (customSucursalId, customFecha) => {
     const fechaBusqueda = customFecha || formData.fechaViaje;
     if (!fechaBusqueda) return;
+    const peticion = ++peticionViajesRef.current;
     setLoadingViajes(true);
     try {
       const parsedCustom = extractSucursalId(customSucursalId);
@@ -531,16 +536,19 @@ export const NuevoBoletoPage = () => {
       }
 
       const res = await BoleteriaService.getViajesDisponibles(params);
+      // Respuesta obsoleta: ya se pidió otra agencia/fecha.
+      if (peticion !== peticionViajesRef.current) return;
       if (res.success && res.data) {
         setViajesDisponibles(res.data);
       } else {
         setViajesDisponibles([]);
       }
     } catch (e) {
+      if (peticion !== peticionViajesRef.current) return;
       console.error('Error cargando viajes:', e);
       setViajesDisponibles([]);
     } finally {
-      setLoadingViajes(false);
+      if (peticion === peticionViajesRef.current) setLoadingViajes(false);
     }
   }, [formData.fechaViaje, activeSucursalId, usuario]);
 
@@ -1272,6 +1280,7 @@ export const NuevoBoletoPage = () => {
   };
 
   const refrescarViajes = useCallback(async () => {
+    const peticion = ++peticionViajesRef.current;
     try {
       const usuario = getSessionUser();
       const viajesRes = await BoleteriaService.getViajesDisponibles({
@@ -1279,7 +1288,9 @@ export const NuevoBoletoPage = () => {
         id_sucursal: idSucursalSesion(usuario)
       });
       if (viajesRes.success && viajesRes.data) {
-        setViajesDisponibles(viajesRes.data);
+        // Solo la última consulta actualiza la lista; el valor se devuelve
+        // igual porque el llamador lo usa para validar el viaje vendido.
+        if (peticion === peticionViajesRef.current) setViajesDisponibles(viajesRes.data);
         return viajesRes.data;
       }
     } catch (e) {
@@ -1775,19 +1786,22 @@ export const NuevoBoletoPage = () => {
                 });
               }}
               onRefrescarDestinos={() => {
-                if (formData.idViaje) {
-                  const sucursalId = activeSucursalId || idSucursalSesion(getSessionUser()) || idSucursalSesion(usuario);
-                  BoleteriaService.getDestinosViaje(formData.idViaje, sucursalId, undefined, sucursalCambiada).then(r => {
-                    if (r.success && r.data) {
-                      setDestinosViaje(r.data);
-                    } else {
-                      toast.error('No se pudieron cargar los destinos');
-                    }
-                  }).catch(e => {
-                    console.error('Error refrescando destinos:', e);
-                    toast.error('Error al refrescar destinos');
-                  });
-                }
+                const idViajeConsulta = formData.idViaje;
+                if (!idViajeConsulta) return;
+                const sucursalId = activeSucursalId || idSucursalSesion(getSessionUser()) || idSucursalSesion(usuario);
+                BoleteriaService.getDestinosViaje(idViajeConsulta, sucursalId, undefined, sucursalCambiada).then(r => {
+                  // Si mientras tanto se cambió de viaje, los destinos de la
+                  // consulta anterior ya no aplican.
+                  if (String(formDataRef.current?.idViaje || '') !== String(idViajeConsulta)) return;
+                  if (r.success && r.data) {
+                    setDestinosViaje(r.data);
+                  } else {
+                    toast.error('No se pudieron cargar los destinos');
+                  }
+                }).catch(e => {
+                  console.error('Error refrescando destinos:', e);
+                  toast.error('Error al refrescar destinos');
+                });
               }}
               puntoFinal={formData.puntoFinal}
               onPuntoFinalChange={(valor) => {

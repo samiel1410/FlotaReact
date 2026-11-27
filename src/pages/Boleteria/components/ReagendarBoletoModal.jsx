@@ -80,6 +80,7 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
 
   useEffect(() => {
     if (!isOpen || !fechaUso) return;
+    let activo = true;
     const fetchViajes = async () => {
       setLoadingViajes(true);
       try {
@@ -93,19 +94,23 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
           fecha: fechaUso,
           id_sucursal: user.id_sucursal
         });
+        // La fecha cambió mientras se consultaba: no se aplica la lista vieja.
+        if (!activo) return;
         if (res.success && res.data) {
           setViajesDisponibles(res.data);
         } else {
           setViajesDisponibles([]);
         }
       } catch (e) {
+        if (!activo) return;
         console.error(e);
         toast.error('Error cargando viajes disponibles');
       } finally {
-        setLoadingViajes(false);
+        if (activo) setLoadingViajes(false);
       }
     };
     fetchViajes();
+    return () => { activo = false; };
   }, [fechaUso, isOpen]);
 
   // When Viaje changes, fetch both seats AND destinations
@@ -117,6 +122,7 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
       return;
     }
     
+    let activo = true;
     const fetchDestinosYAsientos = async () => {
       setLoadingAsientos(true);
       setLoadingDestinos(true);
@@ -126,6 +132,8 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
 
         // Fetch destinos
         const resDestinos = await api.get('/viajes/destinoViajeSelect', { params: { id_viaje: selectedViaje } });
+        // El viaje cambió mientras se consultaba: esta respuesta ya no aplica.
+        if (!activo) return;
         if (resDestinos.data?.success && resDestinos.data?.data) {
            setDestinosDisponibles(resDestinos.data.data);
            
@@ -138,6 +146,7 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
 
         // Fetch asientos ocupados usando getAsientosBusViaje igual que en NuevoBoletoPage
         const resAsientos = await BoleteriaService.getAsientosBusViaje(selectedViaje);
+        if (!activo) return;
         let ocupados = [];
         let capacidad = 0;
         
@@ -174,15 +183,20 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
           setAsientosDisponibles([]);
         }
       } catch (e) {
+        if (!activo) return;
         console.error(e);
         toast.error('Error cargando datos del viaje');
       } finally {
-        setLoadingAsientos(false);
-        setLoadingDestinos(false);
+        if (activo) {
+          setLoadingAsientos(false);
+          setLoadingDestinos(false);
+        }
       }
     };
     
     fetchDestinosYAsientos();
+    // Al cambiar de viaje o cerrar, la respuesta en vuelo se descarta.
+    return () => { activo = false; };
   }, [selectedViaje, viajesDisponibles]);
 
   const handleGuardar = async () => {
