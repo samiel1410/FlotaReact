@@ -134,18 +134,31 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
         const resDestinos = await api.get('/viajes/destinoViajeSelect', { params: { id_viaje: selectedViaje } });
         // El viaje cambió mientras se consultaba: esta respuesta ya no aplica.
         if (!activo) return;
-        if (resDestinos.data?.success && resDestinos.data?.data) {
-           setDestinosDisponibles(resDestinos.data.data);
-           
-           // Keep the previously selected destination if it exists in the new trip's destinations
-           const isDestinoStillValid = resDestinos.data.data.some(d => String(d.id_sub_rutas) === selectedDestino);
-           if (!isDestinoStillValid) {
-              setSelectedDestino(''); 
-           }
+        const destinos = resDestinos.data?.data;
+        if (!resDestinos.data?.success || !Array.isArray(destinos)) {
+          setDestinosDisponibles([]);
+          setSelectedDestino('');
+          setAsientosDisponibles([]);
+          return;
+        }
+        setDestinosDisponibles(destinos);
+
+        // Keep the previously selected destination only when it belongs to this trip.
+        const isDestinoStillValid = destinos.some(d => String(d.id_sub_rutas) === selectedDestino);
+        if (!isDestinoStillValid) {
+          setSelectedDestino('');
+          setAsientosDisponibles([]);
+          return;
         }
 
-        // Fetch asientos ocupados usando getAsientosBusViaje igual que en NuevoBoletoPage
-        const resAsientos = await BoleteriaService.getAsientosBusViaje(selectedViaje);
+        const origenNuevo = boletoOriginal?.origen_boleto
+          || boletoOriginal?.id_origen_boleto
+          || busObj?.id_fkorigen_rutas;
+        const resAsientos = await BoleteriaService.getAsientosBusViaje(
+          selectedViaje,
+          origenNuevo,
+          selectedDestino
+        );
         if (!activo) return;
         let ocupados = [];
         let capacidad = 0;
@@ -156,11 +169,9 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
           
           if (resAsientos.asiento) {
             resAsientos.asiento.forEach(a => {
-              // El backend clasifica la ocupación por tramo: 'libre' no está
-              // ocupado; 'libre-parada' sí tiene boleto (otro tramo) y no se
-              // ofrece para reubicar.
+              // El backend considera disponible 'libre-parada' para este tramo.
               const esOcupado = a.estado_ocupacion
-                ? a.estado_ocupacion !== 'libre'
+                ? a.estado_ocupacion === 'ocupado' || a.estado_ocupacion === 'ocupado-parcial'
                 : (a.estado_boleto_detalle !== '0' && Number(a.estado_boleto_detalle) !== 0);
               if (esOcupado) {
                 ocupados.push(Number(a.asiento_boleto_detalle));
@@ -197,7 +208,13 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
     fetchDestinosYAsientos();
     // Al cambiar de viaje o cerrar, la respuesta en vuelo se descarta.
     return () => { activo = false; };
-  }, [selectedViaje, viajesDisponibles]);
+  }, [
+    selectedViaje,
+    selectedDestino,
+    viajesDisponibles,
+    boletoOriginal?.origen_boleto,
+    boletoOriginal?.id_origen_boleto
+  ]);
 
   const handleGuardar = async () => {
     if (!selectedViaje) { toast.error('Seleccione un viaje nuevo'); return; }
@@ -206,6 +223,17 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
     if (loadingAsientos || loadingDestinos) { toast.error('Espere a que se carguen los datos del viaje'); return; }
     if (detallesBoleto.some(detalle => !asientosSeleccionados[detalle.id_boleto_detalle])) {
       toast.error('Seleccione un asiento para cada pasajero');
+      return;
+    }
+    const asientosAsignados = detallesBoleto.map(detalle =>
+      Number(asientosSeleccionados[detalle.id_boleto_detalle])
+    );
+    if (new Set(asientosAsignados).size !== detallesBoleto.length) {
+      toast.error('Asigne un asiento diferente a cada pasajero');
+      return;
+    }
+    if (asientosAsignados.some(asiento => !asientosDisponibles.includes(asiento))) {
+      toast.error('Uno de los asientos seleccionados ya no está disponible');
       return;
     }
     if (!motivo.trim()) { toast.error('Ingrese un motivo'); return; }
@@ -218,10 +246,13 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
         id_bus_nuevo: viajeObject?.id_fkbus_viajes || viajeObject?.id_buses || viajeObject?.bus_id || '',
         id_subruta_nueva: selectedDestino,
         asientos_nuevos: detallesBoleto.map(detalle => ({
-          id_boleto_detalle: detalle.id_boleto_detalle,
-          asiento_nuevo: asientosSeleccionados[detalle.id_boleto_detalle]
+          id_boleto_detalle: Number(detalle.id_boleto_detalle),
+          asiento_nuevo: Number(asientosSeleccionados[detalle.id_boleto_detalle])
         })),
-        id_origen_nuevo: boletoOriginal.origen_boleto || boletoOriginal.id_origen_boleto || '', // Fix property name
+        id_origen_nuevo: boletoOriginal.origen_boleto
+          || boletoOriginal.id_origen_boleto
+          || viajeObject?.id_fkorigen_rutas
+          || '',
         motivo: motivo,
         fecha_uso: fechaUso
       };
@@ -340,7 +371,15 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
                  <label style={{ fontSize: 12, fontWeight: 600, color: '#475569', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                    <i className="fas fa-map-marker-alt text-blue-500"></i> Destino *
                  </label>
-                 <select value={selectedDestino} onChange={e => setSelectedDestino(e.target.value)} style={inputStyle} disabled={loadingDestinos || !selectedViaje}>
+                 <select
+                   value={selectedDestino}
+                   onChange={e => {
+                     setSelectedDestino(e.target.value);
+                     setAsientosSeleccionados({});
+                   }}
+                   style={inputStyle}
+                   disabled={loadingDestinos || !selectedViaje}
+                 >
                    <option value="">{loadingDestinos ? 'Cargando destinos...' : 'Seleccione destino...'}</option>
                    {destinosDisponibles.map(d => (
                      <option key={d.id_sub_rutas} value={d.id_sub_rutas}>
@@ -374,7 +413,7 @@ export const ReagendarBoletoModal = ({ isOpen, onClose, boletoOriginal, onSucces
                            [detalle.id_boleto_detalle]: e.target.value
                          }))}
                          style={inputStyle}
-                         disabled={loadingAsientos || !selectedViaje}
+                         disabled={loadingAsientos || !selectedViaje || !selectedDestino}
                        >
                          <option value="">{loadingAsientos ? 'Cargando asientos...' : 'Seleccione asiento...'}</option>
                          {asientosDisponibles.map(asiento => (

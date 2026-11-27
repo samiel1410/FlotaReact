@@ -22,6 +22,12 @@ export const CambiarFechaViajeModal = ({ isOpen, onClose, boleto, onCambioExitos
     }
   }, [isOpen]);
 
+  const cerrarModal = () => {
+    ++peticionBusquedaRef.current;
+    setLoadingViajes(false);
+    onClose();
+  };
+
   // Buscar viajes disponibles al cambiar la fecha
   const buscarViajes = async () => {
     if (!fecha) {
@@ -29,16 +35,22 @@ export const CambiarFechaViajeModal = ({ isOpen, onClose, boleto, onCambioExitos
       return;
     }
     const peticion = ++peticionBusquedaRef.current;
+    setIdViajeSeleccionado('');
+    setViajes([]);
     setLoadingViajes(true);
     try {
       const res = await BoleteriaService.getViajesDisponibles({ fecha });
       if (peticion !== peticionBusquedaRef.current) return;
       if (res.success && res.data) {
-        // Filtrar viajes que NO sean el mismo viaje actual del boleto
-        const viajesFiltrados = res.data.filter(v => String(v.id_viajes) !== String(boleto?.id_fkviaje_boleto));
+        const idRutaActual = Number(boleto?.id_fkruta_viajes);
+        const viajesFiltrados = res.data.filter(v =>
+          String(v.id_viajes) !== String(boleto?.id_fkviaje_boleto) &&
+          (!Number.isSafeInteger(idRutaActual) || idRutaActual <= 0 ||
+            Number(v.id_fkruta_viajes) === idRutaActual)
+        );
         setViajes(viajesFiltrados);
         if (viajesFiltrados.length === 0) {
-          toast('No hay viajes disponibles diferentes al actual en esta fecha');
+          toast('No hay viajes disponibles de la misma ruta en esta fecha');
         }
       } else {
         setViajes([]);
@@ -126,7 +138,7 @@ export const CambiarFechaViajeModal = ({ isOpen, onClose, boleto, onCambioExitos
             <i className="fas fa-calendar-alt" style={{ marginRight: 8 }}></i>
             Cambiar Fecha de Viaje
           </span>
-          <button onClick={onClose} style={{
+          <button onClick={cerrarModal} style={{
             background: 'none', border: 'none', color: 'white',
             cursor: 'pointer', fontSize: 18
           }}>
@@ -171,7 +183,13 @@ export const CambiarFechaViajeModal = ({ isOpen, onClose, boleto, onCambioExitos
               <input
                 type="date"
                 value={fecha}
-                onChange={e => setFecha(e.target.value)}
+                onChange={e => {
+                  ++peticionBusquedaRef.current;
+                  setFecha(e.target.value);
+                  setIdViajeSeleccionado('');
+                  setViajes([]);
+                  setLoadingViajes(false);
+                }}
                 style={{
                   width: '100%', padding: '6px 8px',
                   border: '1px solid #cbd5e1', borderRadius: 4, fontSize: 12
@@ -265,7 +283,7 @@ export const CambiarFechaViajeModal = ({ isOpen, onClose, boleto, onCambioExitos
           background: '#f8fafc'
         }}>
           <button
-            onClick={onClose}
+            onClick={cerrarModal}
             style={{
               padding: '7px 16px', border: '1px solid #cbd5e1',
               borderRadius: 4, background: 'white', cursor: 'pointer',
