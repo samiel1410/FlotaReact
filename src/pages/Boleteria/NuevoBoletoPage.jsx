@@ -165,6 +165,12 @@ export const NuevoBoletoPage = () => {
   const viajeCargadoRef = useRef(null);
   // Token de la última petición de asientos (descarta respuestas obsoletas)
   const peticionAsientosRef = useRef(0);
+  // Agrupa los eventos de venta seguidos en un solo refresco de ocupación
+  const refreshTimerRef = useRef(null);
+  // Bloquea el mapa mientras se carga la ocupación del tramo elegido
+  const [cargandoAsientos, setCargandoAsientos] = useState(false);
+  // Máscara al cambiar de agencia: bloquea la pantalla hasta que cargan los viajes
+  const [cargandoAgencia, setCargandoAgencia] = useState(false);
   // Validación de Caja
   const [localCajaId, setLocalCajaId] = useState(null);
   const [cajaResolved, setCajaResolved] = useState(false);
@@ -548,6 +554,7 @@ export const NuevoBoletoPage = () => {
       setHoraViaje('');
       setAlimentoInfo(null);
       setTotalRecaudado(0);
+      setCargandoAsientos(false);
       return;
     }
 
@@ -566,28 +573,83 @@ export const NuevoBoletoPage = () => {
 
     const cargarAsientos = async () => {
       try {
+        // Bloquea el mapa desde que cambia el viaje/tramo hasta tener la
+        // ocupación definitiva: así no se puede seleccionar un asiento sobre
+        // datos del viaje anterior ni se ve el mapa "a medias".
+        setCargandoAsientos(true);
         const sucursalId = activeSucursalId || idSucursalSesion(getSessionUser()) || idSucursalSesion(usuario);
         // Tramo de venta: origen actual + destino seleccionado (para ocupación exacta)
-        const origenTramo = formData.origen || undefined;
-        const destinoTramo = destinoConsulta || undefined;
+        let origenTramo = formData.origen || undefined;
+        let destinoTramo = destinoConsulta || undefined;
 
-        const promises = [
-          BoleteriaService.getAsientosBusViaje(formData.idViaje, origenTramo, destinoTramo, sucursalId).catch(e => {
-            console.error('[cargarAsientos] Error en getAsientosBusViaje:', e);
-            return { success: false };
-          })
-        ];
-
+        // ── Destinos primero ────────────────────────────────────────────────
+        // El mapa debe pintarse UNA sola vez, con el tramo definitivo. Antes se
+        // pedían destinos y asientos en paralelo: el mapa se pintaba con el
+        // recorrido completo del viaje (todos los asientos ocupados) y, al
+        // aplicarse el primer destino del combo, se repintaba con ese tramo;
+        // los asientos "aparecían y desaparecían" (viaje 1739 de las 15:45
+        // Guayaquil - Ambato: se pintaban los 39 y luego quedaban 10 libres).
         if (esNuevoViaje || destinosViaje.length === 0) {
-          promises.push(
-            BoleteriaService.getDestinosViaje(formData.idViaje, sucursalId, undefined, sucursalCambiada).catch(e => {
+          const destinosRes = await BoleteriaService
+            .getDestinosViaje(formData.idViaje, sucursalId, undefined, sucursalCambiada)
+            .catch(e => {
               console.error('[cargarAsientos] Error en getDestinosViaje:', e);
               return { success: false };
-            })
-          );
+            });
+
+          // Respuesta obsoleta: ya se disparó otra consulta más reciente.
+          if (peticion !== peticionAsientosRef.current) return;
+
+          if (destinosRes && destinosRes.success && destinosRes.data) {
+            setDestinosViaje(destinosRes.data);
+            if (destinosRes.data.length > 0) {
+              // Al cambiar de viaje la selección anterior ya no aplica: se elige
+              // el primer destino. Si no, el `subrutaSeleccionada` capturado en el
+              // closure (valor viejo) puede hacer "match" con las sub-rutas del
+              // nuevo viaje y dejar el select vacío hasta refrescar.
+              const currentMatch = esNuevoViaje
+                ? null
+                : destinosRes.data.find(
+                    d => String(d.id_sub_rutas) === String(subrutaSeleccionada)
+                  );
+              const elegido = currentMatch || destinosRes.data[0];
+              const idDestino = String(elegido.id_sub_rutas);
+              const idOrigen = elegido.id_lugar_origen || origenTramo;
+
+              if (currentMatch) {
+                setPrecioUnitario(parseFloat(elegido.valor_sub_rutas || 0));
+              } else {
+                setSubrutaSeleccionada(idDestino);
+                setPrecioUnitario(parseFloat(elegido.valor_sub_rutas || 0));
+                setFormData(prev => ({
+                  ...prev,
+                  destino: idDestino,
+                  ...(elegido.id_lugar_origen ? { origen: elegido.id_lugar_origen } : {})
+                }));
+              }
+
+              destinoTramo = idDestino;
+              origenTramo = idOrigen || undefined;
+
+              // Si el tramo recién se resolvió, el efecto se vuelve a ejecutar
+              // con el destino ya elegido y pinta el mapa una sola vez.
+              if (String(idDestino) !== String(subrutaSeleccionada || '')
+                || String(origenTramo || '') !== String(formData.origen || '')) {
+                return;
+              }
+            } else {
+              setSubrutaSeleccionada('');
+              setPrecioUnitario(0);
+            }
+          }
         }
 
-        const [asientosRes, destinosViajeRes] = await Promise.all(promises);
+        const asientosRes = await BoleteriaService
+          .getAsientosBusViaje(formData.idViaje, origenTramo, destinoTramo, sucursalId)
+          .catch(e => {
+            console.error('[cargarAsientos] Error en getAsientosBusViaje:', e);
+            return { success: false };
+          });
 
         // Respuesta obsoleta: ya se disparó otra consulta más reciente.
         if (peticion !== peticionAsientosRef.current) return;
@@ -623,6 +685,7 @@ export const NuevoBoletoPage = () => {
           }
           setAsientosOcupados(ocupados);
           setTotalRecaudado(asientosRes.total_boletos || 0);
+          setCargandoAsientos(false);
 
           // Si el tramo cambió (otro destino), un asiento que estaba libre
           // puede haber quedado ocupado. La selección anterior ya no es válida:
@@ -655,39 +718,13 @@ export const NuevoBoletoPage = () => {
               { id: 'asientos-no-disponibles-tramo', duration: 6000 }
             );
           }
-        }
-
-        if (destinosViajeRes && destinosViajeRes.success && destinosViajeRes.data) {
-          setDestinosViaje(destinosViajeRes.data);
-          if (destinosViajeRes.data.length > 0) {
-            // Al cambiar de viaje la selección anterior ya no aplica: se elige
-            // el primer destino. Si no, el `subrutaSeleccionada` capturado en el
-            // closure (valor viejo) puede hacer "match" con las sub-rutas del
-            // nuevo viaje y dejar el select vacío hasta refrescar.
-            const currentMatch = esNuevoViaje
-              ? null
-              : destinosViajeRes.data.find(
-                  d => String(d.id_sub_rutas) === String(subrutaSeleccionada)
-                );
-            if (currentMatch) {
-              setPrecioUnitario(parseFloat(currentMatch.valor_sub_rutas || 0));
-            } else {
-              const first = destinosViajeRes.data[0];
-              setSubrutaSeleccionada(String(first.id_sub_rutas));
-              setPrecioUnitario(parseFloat(first.valor_sub_rutas || 0));
-              setFormData(prev => ({
-                ...prev,
-                destino: String(first.id_sub_rutas),
-                ...(first.id_lugar_origen ? { origen: first.id_lugar_origen } : {})
-              }));
-            }
-          } else {
-            setSubrutaSeleccionada('');
-            setPrecioUnitario(0);
-          }
+        } else {
+          // Sin respuesta válida no se puede dejar el mapa bloqueado.
+          setCargandoAsientos(false);
         }
       } catch (e) {
         console.error('Error cargando asientos:', e);
+        setCargandoAsientos(false);
       }
     };
 
@@ -883,81 +920,42 @@ export const NuevoBoletoPage = () => {
       if (!data || !data.id_viaje || !formData.idViaje) return;
       if (String(data.id_viaje) !== String(formData.idViaje)) return;
 
-      if (data.asientos && data.asientos.length > 0 && data.tipo !== 'anulacion_reserva') {
-        const vendidos = new Set(data.asientos.map(a => Number(a.asiento_boleto_detalle)));
+      if (data.asientos && data.asientos.length > 0) {
+        // El asiento ya no está bloqueado: vendido o liberado.
+        const afectados = new Set(data.asientos.map(a => Number(a.asiento_boleto_detalle)));
         setAsientosPendientes(prev => {
           const next = { ...prev };
-          vendidos.forEach(s => delete next[s]);
-          return next;
-        });
-      }
-
-      if (data.tipo === 'anulacion_reserva' && data.asientos) {
-        const liberados = new Set(data.asientos.map(a => Number(a.asiento_boleto_detalle)));
-        setAsientosPendientes(prev => {
-          const next = { ...prev };
-          liberados.forEach(s => delete next[s]);
+          afectados.forEach(s => delete next[s]);
           return next;
         });
       }
 
       if (!data.asientos || data.asientos.length === 0) return;
 
-      if (data.tipo === 'anulacion_reserva') {
-        const asientosLiberados = new Set(data.asientos.map(a => Number(a.asiento_boleto_detalle)));
-        setAsientosOcupados(prev => prev.filter(a => !asientosLiberados.has(Number(a.asiento_boleto_detalle))));
-        return;
-      }
-
-      const currentUser = getSessionUser();
-      const esMismoUsuario = currentUser && data.usuario === currentUser.nombre_usuario;
-
-      setAsientosOcupados(prev => {
-        const existingSeats = new Set(prev.map(a => Number(a.asiento_boleto_detalle)));
-        const toAdd = data.asientos.filter(a => !existingSeats.has(Number(a.asiento_boleto_detalle)));
-        if (toAdd.length === 0) return prev;
-
-        const nuevos = toAdd.map(a => ({
-          asiento_boleto_detalle: String(a.asiento_boleto_detalle),
-          nombre_cliente: a.nombre_cliente || '',
-          identificacion_cliente: a.identificacion_cliente || '',
-          total_boleto_detalle: a.total_boleto_detalle || 0,
-          id_destino_boleto: a.id_destino_boleto || null,
-          // Datos del tooltip del asiento (destino y oficina que vendió)
-          nombre_destino: a.nombre_destino || '',
-          punto_final_destino: a.punto_final_destino || '',
-          nombre_sucursal_venta: a.nombre_sucursal_venta || '',
-          estado_boleto_detalle: 1,
-          id_boleto: data.id_boleto
-        }));
-
-        return [...prev, ...nuevos];
-      });
-
-      if (!esMismoUsuario) {
-        const vendidos = new Set(data.asientos.map(a => Number(a.asiento_boleto_detalle)));
-        const conflicto = formData.asientosSeleccionados.filter(s => vendidos.has(Number(s)));
-
-        if (conflicto.length > 0) {
-          toast.error(
-            `⚠️ Conflicto de asientos\nEl asiento ${conflicto.join(', ')} acaba de ser vendido por ${data.usuario || 'otro usuario'}.\nSe ha deseleccionado automáticamente.`,
-            {
-              id: `conflicto-${data.id_viaje}-${conflicto.join('-')}`,
-              duration: 8000,
-            }
-          );
-          setFormData(prev => ({
-            ...prev,
-            asientosSeleccionados: prev.asientosSeleccionados.filter(s => !vendidos.has(Number(s))),
-            pasajeros: prev.pasajeros.filter(p => !vendidos.has(p.asiento))
-          }));
-        }
-      }
+      // Recargar la ocupación del tramo en vez de pintar los asientos del
+      // evento a ciegas. El evento no conoce el tramo que se está vendiendo:
+      // una venta de otra oficina para un tramo que NO se solapa (p. ej.
+      // Guayaquil - Durán) marcaba el asiento como ocupado y al siguiente
+      // refresco desaparecía; y una venta que sí se solapa deselecciona el
+      // asiento por la vía normal (yaNoDisponibles). Con dos oficinas vendiendo
+      // el mismo viaje, eso hacía que los asientos pintados aparecieran y
+      // desaparecieran. Se agrupan los eventos seguidos en un solo refresco.
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => {
+        refreshTimerRef.current = null;
+        setRefreshAsientosKey(k => k + 1);
+      }, 400);
     };
 
     window.addEventListener('boleto_insertado', handler);
-    return () => window.removeEventListener('boleto_insertado', handler);
-  }, [formData.idViaje, formData.asientosSeleccionados]);
+    return () => {
+      window.removeEventListener('boleto_insertado', handler);
+      if (refreshTimerRef.current) {
+        clearTimeout(refreshTimerRef.current);
+        refreshTimerRef.current = null;
+      }
+    };
+  }, [formData.idViaje]);
 
   // Socket: Viaje Despachado (Actualizar viajes y tiempos en tiempo real)
   useEffect(() => {
@@ -1589,7 +1587,15 @@ export const NuevoBoletoPage = () => {
     setCurrentAgencia(record.nombre_sucursal || usuario.nombre_sucursal || 'Desconocida');
     toast.success(`Agencia cambiada a: ${record.nombre_sucursal || sucursalId}`);
     limpiarFormulario();
-    buscarViajes(sucursalId);
+    // Máscara mientras se recargan los viajes de la nueva agencia: la pantalla
+    // queda bloqueada hasta que la lista y el mapa correspondan a esa agencia.
+    // Se mantiene un mínimo visible para que no sea un parpadeo.
+    const inicioAgencia = Date.now();
+    setCargandoAgencia(true);
+    Promise.resolve(buscarViajes(sucursalId)).finally(() => {
+      const restante = Math.max(0, 700 - (Date.now() - inicioAgencia));
+      setTimeout(() => setCargandoAgencia(false), restante);
+    });
   };
 
   const handleCerrarModalCaja = () => {
@@ -1947,7 +1953,7 @@ export const NuevoBoletoPage = () => {
                   <p style={{ fontSize: 11 }}>Seleccione un viaje para ver la distribución de asientos</p>
                 </div>
               ) : (
-                <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
                   <BusVisualizer
                     capacidad={capacidadBus}
                     pisos={pisosBus}
@@ -1964,6 +1970,35 @@ export const NuevoBoletoPage = () => {
                     coloresAsientos={coloresAsientos}
                     seatLockTimeoutMs={15 * 60 * 1000}
                   />
+                  {cargandoAsientos && (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      aria-busy="true"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: 20,
+                        background: 'rgba(255,255,255,0.82)',
+                        backdropFilter: 'blur(1px)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        cursor: 'progress',
+                        borderRadius: 4
+                      }}
+                    >
+                      <i className="fas fa-spinner fa-spin" style={{ fontSize: 26, color: '#0a365d' }}></i>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#0a365d' }}>
+                        Cargando asientos…
+                      </span>
+                      <span style={{ fontSize: 10, color: '#64748b' }}>
+                        Espere, no seleccione asientos todavía
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -2042,6 +2077,47 @@ export const NuevoBoletoPage = () => {
         title="Boleto - Vista previa"
         showPrintButton
       />
+
+      {/* Máscara de cambio de agencia: bloquea toda la pantalla hasta que la
+          lista de viajes de la nueva agencia terminó de cargar. */}
+      {cargandoAgencia && (
+        <div
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 4000,
+            background: 'rgba(15,23,42,0.35)',
+            backdropFilter: 'blur(2px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'progress'
+          }}
+        >
+          <div style={{
+            background: 'white',
+            borderRadius: 10,
+            padding: '20px 30px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 8,
+            boxShadow: '0 10px 40px rgba(0,0,0,0.25)',
+            minWidth: 230
+          }}>
+            <i className="fas fa-spinner fa-spin" style={{ fontSize: 28, color: '#0a365d' }}></i>
+            <span style={{ fontSize: 13, fontWeight: 800, color: '#0a365d' }}>
+              Cambiando de agencia…
+            </span>
+            <span style={{ fontSize: 11, color: '#64748b', textAlign: 'center' }}>
+              Cargando viajes disponibles
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
