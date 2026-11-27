@@ -33,6 +33,7 @@ import { COLORES_ASIENTOS_DEFAULT, normalizarColoresAsientos } from '../../confi
 import { api, clienteApi } from '../../config/axios';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { validarCorreo } from '../../utils/emailValidation';
+import { validarDocumentoVenta, validarIdentificacion } from '../../utils/identificacionUtils';
 import { useSocket } from '../../hooks/useSocket';
 import { useAuth } from '../../hooks/useAuth';
 import {
@@ -165,6 +166,10 @@ export const NuevoBoletoPage = () => {
   const viajeCargadoRef = useRef(null);
   // Token de la última petición de asientos (descarta respuestas obsoletas)
   const peticionAsientosRef = useRef(0);
+  // Identificación tal como está registrada en el cliente cargado: si el
+  // oficinista no la edita, se permite vender aunque el número histórico no
+  // pase el dígito verificador.
+  const identificacionRegistradaRef = useRef('');
   // Agrupa los eventos de venta seguidos en un solo refresco de ocupación
   const refreshTimerRef = useRef(null);
   // Bloquea el mapa mientras se carga la ocupación del tramo elegido
@@ -429,6 +434,7 @@ export const NuevoBoletoPage = () => {
         const edad = calcularEdad(fechaNac);
         const tarifaVal = tarifaDesdeEdad(edad);
 
+        identificacionRegistradaRef.current = String(c.identificacion_cliente || '').trim();
         setFormData(prev => ({
           ...prev,
           idCliente: c.id_cliente,
@@ -442,6 +448,7 @@ export const NuevoBoletoPage = () => {
         }));
         toast.success(`Cliente encontrado: ${c.nombre_cliente}`, { id: toastId });
       } else {
+        identificacionRegistradaRef.current = '';
         setFormData(prev => ({ ...prev, idCliente: '', nombres: '', celular: '', direccion: '', correo: '', fechaNacimiento: '', tarifa: 1 }));
         // Toast con acción: permite crear el cliente precargando la identificación buscada
         toast.custom(
@@ -482,6 +489,7 @@ export const NuevoBoletoPage = () => {
       });
       if (res.data?.success && res.data?.total > 0) {
         const c = res.data.data[0];
+        identificacionRegistradaRef.current = String(c.identificacion_cliente || '9999999999999').trim();
         setFormData(prev => ({
           ...prev,
           idCliente: c.id_cliente,
@@ -498,6 +506,7 @@ export const NuevoBoletoPage = () => {
       }
     } catch { }
 
+    identificacionRegistradaRef.current = '9999999999999';
     setFormData(prev => ({
       ...prev,
       idCliente: 683,
@@ -511,6 +520,26 @@ export const NuevoBoletoPage = () => {
     }));
     toast.success('Consumidor Final seleccionado');
   };
+
+  /**
+   * Valida la cédula/RUC del cliente de la factura. A diferencia de antes, no
+   * basta con que el campo tenga algo escrito: se exige cédula de 10 dígitos o
+   * RUC de 13 con dígito verificador correcto (o consumidor final).
+   * Una identificación histórica de un cliente ya registrado se acepta tal cual
+   * si el oficinista no la modificó.
+   */
+  const validarDocumentoCliente = useCallback((identificacion, tieneCliente) => {
+    const valor = String(identificacion ?? '').trim();
+    const resultado = validarDocumentoVenta(valor);
+    if (resultado.valido) return resultado;
+    const registrada = String(identificacionRegistradaRef.current || '').trim();
+    if (tieneCliente && registrada && valor === registrada && /^\d{10}(\d{3})?$/.test(valor)) {
+      return { valido: true, tipo: resultado.tipo, mensaje: '' };
+    }
+    return resultado;
+  }, []);
+
+  const validacionDocumentoCliente = validarDocumentoCliente(formData.identificacion, Boolean(formData.idCliente));
 
   // Token de la última petición de viajes: una respuesta lenta de una agencia o
   // fecha anterior no puede sobrescribir la lista vigente.
@@ -986,10 +1015,13 @@ export const NuevoBoletoPage = () => {
 
   // Click en asiento
   const handleAsientoClick = (asientoId) => {
-    if (!formData.idCliente && !formData.identificacion) {
+    // Solo se pueden tomar asientos con una cédula/RUC válida: con dos dígitos
+    // en el campo antes se dejaba vender.
+    if (!validacionDocumentoCliente.valido) {
       Swal.fire({
-        title: 'Cliente no seleccionado',
-        text: 'Debe escoger un cliente o ingresar una identificación antes de seleccionar un asiento',
+        title: formData.identificacion ? 'Identificación no válida' : 'Cliente no seleccionado',
+        text: validacionDocumentoCliente.mensaje
+          || 'Debe escoger un cliente o ingresar una identificación antes de seleccionar un asiento',
         icon: 'warning',
         confirmButtonText: 'Entendido',
         confirmButtonColor: '#0a365d',
@@ -1157,6 +1189,7 @@ export const NuevoBoletoPage = () => {
 
   const limpiarFormulario = () => {
     deseleccionarAsientosActuales();
+    identificacionRegistradaRef.current = '';
     setFormData(prev => ({
       idCliente: '',
       // La fecha de viaje es un filtro del operador: se conserva al vender un boleto
@@ -1309,7 +1342,9 @@ export const NuevoBoletoPage = () => {
       : formData.pasajeros.some(p => !p.id_destino && !subrutaSeleccionada)) {
       errores.push('• Seleccionar un destino/tarifa');
     }
-    if (!formData.identificacion) errores.push('• Ingresar identificación del cliente (factura)');
+    if (!validacionDocumentoCliente.valido) {
+      errores.push(`• ${validacionDocumentoCliente.mensaje || 'Ingresar identificación del cliente (factura)'}`);
+    }
     if (!formData.nombres) errores.push('• Ingresar nombre del cliente (factura)');
     if (formData.celular && !/^[0-9]{10}$/.test(formData.celular)) {
       errores.push('• El celular debe contener exactamente 10 dígitos numéricos');
@@ -1319,6 +1354,17 @@ export const NuevoBoletoPage = () => {
     // (la grilla de Boletería muestra la alerta correspondiente).
     if (formData.asientosSeleccionados.length === 0) errores.push('• Seleccionar al menos un asiento');
     if (formData.pasajeros.some(p => !p.cedula || !p.nombres)) errores.push('• Completar cédula y nombres de todos los pasajeros en la lista');
+    const cedulasInvalidas = formData.pasajeros.filter(p => {
+      const documento = String(p.cedula || '').trim();
+      if (!documento) return false;
+      // La del cliente de la factura ya se validó arriba; aquí solo se revisan
+      // las que se editaron por asiento (pueden ser pasaporte).
+      if (documento === String(formData.identificacion || '').trim()) return false;
+      return !validarIdentificacion(documento).valido;
+    });
+    if (cedulasInvalidas.length > 0) {
+      errores.push(`• Cédula/RUC inválida en el asiento ${cedulasInvalidas.map(p => p.asiento).join(', ')}`);
+    }
 
     if (errores.length > 0) {
       toast.error(
@@ -1553,6 +1599,7 @@ export const NuevoBoletoPage = () => {
 
   // Handlers para modales
   const handleClienteCreado = (nuevoCliente, esEdicion) => {
+    identificacionRegistradaRef.current = String(nuevoCliente.identificacion_cliente || '').trim();
     const fechaNac = nuevoCliente.fecha_nacimiento ? new Date(nuevoCliente.fecha_nacimiento).toISOString().split('T')[0] : '';
     const edad = calcularEdad(fechaNac);
     const tarifaVal = tarifaDesdeEdad(edad);
@@ -1824,6 +1871,7 @@ export const NuevoBoletoPage = () => {
               }}
               onLimpiarPasajero={() => {
                 marcarActividadReal();
+                identificacionRegistradaRef.current = '';
                 setFormData(prev => ({ ...prev, idCliente: '', identificacion: '', nombres: '', celular: '', direccion: '', correo: '', fechaNacimiento: '', tarifa: 1 }));
               }}
               onConsumidorFinal={handleConsumidorFinal}
@@ -1848,6 +1896,7 @@ export const NuevoBoletoPage = () => {
                 const tarifa = tarifaDesdeEdad(edad);
                 setFormData(prev => ({ ...prev, fechaNacimiento: fecha, tarifa }));
               }}
+              validacionIdentificacion={formData.identificacion ? validacionDocumentoCliente : null}
             />
 
             {/* Opciones de Boleto */}
@@ -2029,6 +2078,7 @@ export const NuevoBoletoPage = () => {
         precioUnitario={precioUnitario}
         totalVenta={totalVenta}
         isSubmitting={isSubmitting}
+        documentoInvalido={Boolean(formData.identificacion) && !validacionDocumentoCliente.valido}
         onGuardar={confirmarGuardar}
         onCancelar={() => navigate('/boleteria')}
       />

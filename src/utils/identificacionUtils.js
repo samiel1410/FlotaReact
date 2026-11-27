@@ -229,6 +229,38 @@ export const validarRucEcuatoriano = (ruc) => {
 };
 
 /**
+ * Validación estricta del documento del cliente para la venta de boletos:
+ * cédula (10 dígitos) o RUC (13) con dígito verificador, más los números
+ * genéricos de consumidor final. El campo del boleto solo se revisaba "no
+ * vacío", así que con dos dígitos ya dejaba seleccionar asientos y vender.
+ */
+export const validarDocumentoVenta = (identificacion) => {
+  const valor = String(identificacion ?? '').trim();
+  if (!valor) {
+    return { valido: false, tipo: null, mensaje: 'Ingrese la cédula o RUC del cliente.' };
+  }
+  if (!esSoloDigitos(valor)) {
+    return { valido: false, tipo: null, mensaje: 'La cédula o RUC debe contener solo números.' };
+  }
+  if (/^9{10}$/.test(valor) || /^9{13}$/.test(valor)) {
+    return { valido: true, tipo: 'CONSUMIDOR_FINAL', mensaje: 'Consumidor final.' };
+  }
+  if (valor.length === 10) {
+    const resultado = validarCedulaEcuatoriana(valor);
+    return { valido: resultado.valido, tipo: 'CEDULA', mensaje: resultado.mensaje };
+  }
+  if (valor.length === 13) {
+    const resultado = validarRucEcuatoriano(valor);
+    return { valido: resultado.valido, tipo: 'RUC', mensaje: resultado.mensaje };
+  }
+  return {
+    valido: false,
+    tipo: null,
+    mensaje: `La cédula debe tener 10 dígitos y el RUC 13 (se ingresaron ${valor.length}).`
+  };
+};
+
+/**
  * Normaliza la identificación de quien recibe: mayúsculas y solo letras o
  * números. Un pasaporte puede traer espacios o guiones y debe compararse
  * igual contra la identificación guardada en la guía.

@@ -8,6 +8,7 @@ export const BoletoFooter = ({
   precioUnitario = 0,
   totalVenta = 0,
   isSubmitting = false,
+  documentoInvalido = false,
   onGuardar,
   onCancelar
 }) => {
@@ -62,18 +63,26 @@ export const BoletoFooter = ({
       <div style={{ display: 'flex', gap: 10 }}>
         <button
           onClick={onGuardar}
-          disabled={isSubmitting}
+          disabled={isSubmitting || documentoInvalido}
+          title={documentoInvalido
+            ? 'Ingrese una cédula o RUC válida del cliente para guardar'
+            : 'Guardar boleto'}
           style={{
-            background: 'linear-gradient(to right, #035f2c, #0a7f3f)',
+            background: documentoInvalido
+              ? 'linear-gradient(to right, #94a3b8, #cbd5e1)'
+              : 'linear-gradient(to right, #035f2c, #0a7f3f)',
             color: 'white', fontWeight: 'bold', fontSize: 14,
             border: 'none', borderRadius: 5, padding: '10px 24px',
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
+            cursor: (isSubmitting || documentoInvalido) ? 'not-allowed' : 'pointer',
             boxShadow: '0 3px 6px rgba(0,0,0,0.15)',
-            display: 'flex', alignItems: 'center', gap: 6, opacity: isSubmitting ? 0.7 : 1
+            display: 'flex', alignItems: 'center', gap: 6,
+            opacity: (isSubmitting || documentoInvalido) ? 0.7 : 1
           }}
         >
           {isSubmitting ? (
             <><i className="fas fa-spinner fa-spin"></i> PROCESANDO...</>
+          ) : documentoInvalido ? (
+            <><i className="fas fa-ban"></i> GUARDAR</>
           ) : (
             <><i className="fas fa-save"></i> GUARDAR</>
           )}

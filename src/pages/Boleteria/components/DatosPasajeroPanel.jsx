@@ -10,7 +10,8 @@ export const DatosPasajeroPanel = ({
   mostrarConsumidorFinal = true,
   onOpenCrearCliente,
   onOpenEditarCliente,
-  onFechaNacimientoChange
+  onFechaNacimientoChange,
+  validacionIdentificacion = null
 }) => {
   const labelStyle = {
     fontSize: 12,
@@ -23,6 +24,11 @@ export const DatosPasajeroPanel = ({
   };
 
   const validacionCorreo = validarCorreo(formData.correo, { permitirVacio: true });
+  // El mensaje de la identificación solo se muestra cuando hay algo escrito:
+  // al abrir la pantalla no se marca el campo en rojo.
+  const errorIdentificacion = formData.identificacion && validacionIdentificacion && !validacionIdentificacion.valido
+    ? validacionIdentificacion.mensaje
+    : '';
 
   const inputStyle = {
     flex: 1,
@@ -56,19 +62,32 @@ export const DatosPasajeroPanel = ({
           <label style={labelStyle}>
             CI/RUC:
           </label>
-          <input
-            type="text"
-            value={formData.identificacion}
-            onChange={e => onFieldChange('identificacion', e.target.value.replace(/\D/g, ''))}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                onBuscarCI(formData.identificacion);
-              }
-            }}
-            maxLength={15}
-            placeholder="Cédula"
-            style={inputStyle}
-          />
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <input
+              type="text"
+              value={formData.identificacion}
+              onChange={e => onFieldChange('identificacion', e.target.value.replace(/\D/g, ''))}
+              onKeyDown={e => {
+                if (e.key === 'Enter') {
+                  onBuscarCI(formData.identificacion);
+                }
+              }}
+              maxLength={15}
+              placeholder="Cédula"
+              title={errorIdentificacion || 'Cédula (10 dígitos) o RUC (13 dígitos)'}
+              style={{
+                ...inputStyle,
+                width: '100%',
+                borderColor: errorIdentificacion ? '#dc2626' : '#cbd5e1',
+                background: errorIdentificacion ? '#fef2f2' : 'white'
+              }}
+            />
+            {errorIdentificacion && (
+              <span style={{ fontSize: 9, color: '#dc2626', lineHeight: 1.1 }}>
+                {errorIdentificacion}
+              </span>
+            )}
+          </div>
           <div style={{ display: 'flex', gap: 2, flexShrink: 0 }}>
             <button
               type="button"
