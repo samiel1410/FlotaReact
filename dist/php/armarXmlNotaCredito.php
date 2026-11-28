@@ -41,9 +41,22 @@ class metodoXmlNotaCredito
             $fechaOriginal = date('d/m/Y', strtotime($datosNC[0]['fecha_boleto']));
             $numFacturaOriginal = $sucursal . '-' . $puntoEmision . '-' . sprintf("%09s", $datosNC[0]['numero_boleto']);
 
-            // Datos del cliente
-            $tipoIdentificacion = $datosNC[0]['tipo_identificacion_boleto'];
+            // Datos del cliente. El boleto guarda un código interno (1) que no es
+            // válido para el XSD de nota de crédito (exige 04-08): se traduce igual
+            // que en la factura del boleto según la identificación del comprador.
             $rucCliente = $datosNC[0]['identificacion_boleto'];
+            $rawTipoId = str_pad(trim((string)($datosNC[0]['tipo_identificacion_boleto'] ?? '')), 2, '0', STR_PAD_LEFT);
+            if (in_array($rawTipoId, ['04', '05', '06', '07', '08'], true)) {
+                $tipoIdentificacion = $rawTipoId;
+            } elseif ($rucCliente === '9999999999999' || $rucCliente === '9999999999') {
+                $tipoIdentificacion = '07'; // Consumidor Final
+            } elseif (strlen($rucCliente) === 13) {
+                $tipoIdentificacion = '04'; // RUC
+            } elseif (strlen($rucCliente) === 10) {
+                $tipoIdentificacion = '05'; // Cédula
+            } else {
+                $tipoIdentificacion = '06'; // Pasaporte / Identificación Exterior
+            }
             $nombreCliente = str_replace("&", "&amp;", $datosNC[0]['nombres_boleto']);
 
             // Valores monetarios. Igual que en la factura del boleto: la base se

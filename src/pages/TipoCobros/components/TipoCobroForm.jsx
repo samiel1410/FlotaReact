@@ -215,10 +215,10 @@ export const TipoCobroForm = ({
             className="w-full h-9 px-3 text-[11px] border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 bg-white font-bold text-slate-700 transition-all"
           >
             <option value="0">Cobrar en cada viaje / despacho</option>
-            <option value="1">Solo 1 vez al día por bus (aunque haga varios viajes)</option>
+            <option value="1">Solo 1 vez al día por bus y oficina</option>
           </select>
           <p className="mt-1 text-[10px] font-medium text-slate-500 leading-snug">
-            Un cobro del día se genera automáticamente en el primer despacho del bus y no se repite el mismo día.
+            Un cobro del día se genera en el primer despacho del bus en cada oficina y no se repite el mismo día en esa oficina.
           </p>
         </div>
 
