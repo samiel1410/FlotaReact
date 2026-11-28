@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { format } from 'date-fns';
+import toast from 'react-hot-toast';
 
 /**
  * Componente unificado para Apertura y Cierre de Caja.
@@ -80,10 +81,14 @@ export const CajaDenominacionesForm = ({
   const [formData, setFormData] = useState(() => {
     if (initialData && isEditing) return initialData;
     const init = {};
-    allDenoms.forEach(d => { init[d.key] = 0; });
+    // En el cierre las cantidades arrancan vacías: el cajero debe escribir
+    // cada billete/moneda (incluido el 0) para que no se cierre con ceros
+    // automáticos sin haber contado.
+    allDenoms.forEach(d => { init[d.key] = isApertura ? 0 : ''; });
     return init;
   });
   const [aperturarCero, setAperturarCero] = useState(false);
+  const [intentoCierre, setIntentoCierre] = useState(false);
   const [fechaHora] = useState(() => ({
     fecha: format(new Date(), 'yyyy-MM-dd'),
     hora:  format(new Date(), 'HH:mm:ss'),
@@ -98,7 +103,7 @@ export const CajaDenominacionesForm = ({
 
   const handleChange = (key, value) => {
     if (aperturarCero) setAperturarCero(false);
-    setFormData(prev => ({ ...prev, [key]: parseInt(value) || 0 }));
+    setFormData(prev => ({ ...prev, [key]: value }));
   };
 
   const handleAperturarCero = (checked) => {
@@ -110,9 +115,27 @@ export const CajaDenominacionesForm = ({
     }
   };
 
+  const esCantidadValida = (valor) =>
+    valor !== '' && valor !== null && valor !== undefined &&
+    Number.isInteger(Number(valor)) && Number(valor) >= 0;
+
+  // El cierre exige que todas las denominaciones tengan una cantidad escrita
+  // (el 0 es válido, el campo vacío no).
+  const faltantes = isApertura ? [] : allDenoms.filter(d => !esCantidadValida(formData[d.key]));
+  const mostrarErrorFaltantes = !isApertura && intentoCierre && faltantes.length > 0;
+
   const handleSubmit = (e) => {
     e.preventDefault();
+    const faltantesAlEnviar = isApertura
+      ? []
+      : allDenoms.filter(d => !esCantidadValida(formData[d.key]));
+    if (faltantesAlEnviar.length > 0) {
+      setIntentoCierre(true);
+      toast.error('Debes escribir la cantidad de cada billete y moneda (0 si no hay).');
+      return;
+    }
     const payload = { ...formData };
+    allDenoms.forEach(d => { payload[d.key] = Number(formData[d.key]) || 0; });
     if (isApertura) {
       payload.apertura_total_caja   = total;
       payload.fecha_apertura        = fechaHora.fecha;
@@ -133,22 +156,26 @@ export const CajaDenominacionesForm = ({
 
   const inputCls = 'w-16 h-8 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 bg-white text-slate-800 text-center font-bold';
 
-  const DenomRow = ({ denom }) => (
-    <div className={`flex items-center gap-2 p-2 rounded-lg border ${colorMap[denom.color]}`}>
-      <span className="w-12 text-xs font-black text-center shrink-0">{denom.label}</span>
-      <input
-        type="number"
-        min="0"
-        value={formData[denom.key] || ''}
-        onChange={e => handleChange(denom.key, e.target.value)}
-        className={inputCls}
-        placeholder="0"
-      />
-      <span className="text-[10px] font-bold opacity-60 flex-1 text-right">
-        = ${((Number(formData[denom.key]) || 0) * denom.valor).toFixed(2)}
-      </span>
-    </div>
-  );
+  const DenomRow = ({ denom }) => {
+    const invalido = mostrarErrorFaltantes && !esCantidadValida(formData[denom.key]);
+    return (
+      <div className={`flex items-center gap-2 p-2 rounded-lg border ${colorMap[denom.color]}`}>
+        <span className="w-12 text-xs font-black text-center shrink-0">{denom.label}</span>
+        <input
+          type="number"
+          min="0"
+          value={formData[denom.key] ?? ''}
+          onChange={e => handleChange(denom.key, e.target.value)}
+          className={`${inputCls} ${invalido ? '!border-rose-400 ring-2 ring-rose-200' : ''}`}
+          placeholder={isApertura ? '0' : 'Escribe 0'}
+          aria-invalid={invalido}
+        />
+        <span className="text-[10px] font-bold opacity-60 flex-1 text-right">
+          = ${((Number(formData[denom.key]) || 0) * denom.valor).toFixed(2)}
+        </span>
+      </div>
+    );
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
@@ -164,7 +191,7 @@ export const CajaDenominacionesForm = ({
               {isApertura ? (isEditing ? 'Editar Apertura' : 'Apertura de Caja') : 'Cierre de Caja'}
             </h3>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">
-              {isApertura ? 'Ingrese billetes y monedas de apertura' : 'Ingrese billetes y monedas de cierre'}
+              {isApertura ? 'Ingrese billetes y monedas de apertura' : 'Escriba cada billete y moneda (0 si no hay)'}
             </p>
           </div>
         </div>
@@ -197,6 +224,23 @@ export const CajaDenominacionesForm = ({
           )}
         </div>
       </div>
+
+      {/* ── Aviso de denominaciones sin cantidad (cierre) ── */}
+      {mostrarErrorFaltantes && (
+        <div className="rounded-xl border-2 border-rose-300 bg-rose-50 px-4 py-3 flex items-start gap-3 text-rose-700" role="alert">
+          <i className="fas fa-exclamation-triangle mt-0.5"></i>
+          <div>
+            <p className="text-sm font-black uppercase tracking-wide">Faltan cantidades por ingresar</p>
+            <p className="text-xs font-semibold mt-0.5">
+              Debes escribir la cantidad de cada billete y moneda. Si no hay, escribe <b>0</b>.
+              No se puede cerrar la caja con campos vacíos.
+            </p>
+            <p className="text-[11px] font-bold mt-1">
+              Faltan: {faltantes.map(d => d.label).join(', ')}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Monedas | Billetes ── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

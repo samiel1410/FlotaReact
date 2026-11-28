@@ -1,4 +1,5 @@
 import Modal from '../../../components/common/Modal';
+import { normalizarColorIdentificacion } from '../../../config/coloresAsientos';
 
 const money = (v) => `$${(parseFloat(v) || 0).toFixed(2)}`;
 
@@ -14,6 +15,7 @@ export const AsientoOcupadoModal = ({ isOpen, onClose, ocupado, destinoNombre, o
     || (ocupado.id_destino_boleto ? `Destino #${ocupado.id_destino_boleto}` : '---');
 
   const oficina = ocupado.nombre_sucursal_venta || '---';
+  const colorOficina = normalizarColorIdentificacion(ocupado.color_sucursal_venta);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Asiento ${ocupado.asiento_boleto_detalle}`} width="max-w-md">
@@ -50,7 +52,14 @@ export const AsientoOcupadoModal = ({ isOpen, onClose, ocupado, destinoNombre, o
             <div>
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Oficina que vendió</p>
               <p className="font-bold text-indigo-700 flex items-center gap-1.5">
-                <i className="fas fa-building text-[10px]"></i>
+                {colorOficina ? (
+                  <span
+                    className="w-2.5 h-2.5 rounded-full border border-indigo-200 shrink-0"
+                    style={{ background: colorOficina }}
+                  />
+                ) : (
+                  <i className="fas fa-building text-[10px]"></i>
+                )}
                 {oficina}
               </p>
             </div>

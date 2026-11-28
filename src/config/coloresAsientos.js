@@ -7,6 +7,10 @@ export const COLORES_ASIENTOS_DEFAULT = {
   color_asiento_libre_parada: '#27ae60',
 };
 
+// Color con el que una agencia se identifica en el mapa de asientos de las
+// demás oficinas (no es un estado del asiento: es quién vendió).
+export const CAMPO_COLOR_IDENTIFICACION = 'color_identificacion_sucursal';
+
 // Estados que pinta el mapa de asientos y el campo de BD que los configura.
 export const ESTADOS_ASIENTO = [
   {
@@ -31,7 +35,7 @@ export const ESTADOS_ASIENTO = [
     key: 'ocupado-parcial',
     campo: 'color_asiento_ocupado_parcial',
     label: 'Ocupado parcial',
-    descripcion: 'Vendido solo hasta una parada intermedia',
+    descripcion: 'Vendido solo hasta una parada intermedia. Es el color de respaldo: si la oficina vendedora tiene color de identificación, se usa ese.',
   },
   {
     key: 'libre-parada',
@@ -43,7 +47,7 @@ export const ESTADOS_ASIENTO = [
     key: 'ocupado',
     campo: 'color_asiento_ocupado',
     label: 'Ocupado fin',
-    descripcion: 'Vendido para todo el recorrido',
+    descripcion: 'Vendido para todo el recorrido. Es el color de respaldo: si la oficina vendedora tiene color de identificación, se usa ese.',
   },
 ];
 
@@ -58,6 +62,10 @@ export const normalizarColorHex = (valor, fallback = '#ffffff') => {
   if (/^#[0-9a-fA-F]{3}$/.test(v)) return `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`.toLowerCase();
   return fallback;
 };
+
+// Vacío o inválido = la agencia no tiene color propio de identificación.
+export const normalizarColorIdentificacion = (valor) =>
+  normalizarColorHex(valor, null);
 
 export const normalizarColoresAsientos = (raw = {}) => {
   const origen = raw && typeof raw === 'object' ? raw : {};

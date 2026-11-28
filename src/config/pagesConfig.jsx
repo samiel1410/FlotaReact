@@ -22,7 +22,7 @@ import { TipoCobroForm } from '../pages/TipoCobros/components/TipoCobroForm';
 import { SucursalesBadgeCell } from '../pages/TipoCobros/components/SucursalesBadgeCell';
 import { NuevaGuiaCompaniaForm } from '../pages/Guias/components/NuevaGuiaCompaniaForm';
 import { createAperturaAction, createBuscarCajaAction, createCerrarAction } from './cajaUtils';
-import { ESTADOS_ASIENTO, normalizarColoresAsientos } from './coloresAsientos';
+import { ESTADOS_ASIENTO, normalizarColoresAsientos, normalizarColorIdentificacion } from './coloresAsientos';
 import { api, authApi } from '../config/axios';
 import toast from 'react-hot-toast';
 import comprobantesService from '../services/comprobantes.service';
@@ -609,6 +609,25 @@ export const PAGES_CONFIG = {
                 />
               ))}
             </div>
+          );
+        },
+      },
+      {
+        key: 'color_identificacion_sucursal',
+        label: 'Color de venta',
+        render: (valor) => {
+          const color = normalizarColorIdentificacion(valor);
+          if (!color) {
+            return <span className="text-[10px] font-bold text-slate-300 uppercase">Automático</span>;
+          }
+          return (
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="w-3.5 h-3.5 rounded-full border border-white shadow-sm"
+                style={{ background: color }}
+              />
+              <span className="text-[10px] font-bold text-slate-500 uppercase">{color}</span>
+            </span>
           );
         },
       },

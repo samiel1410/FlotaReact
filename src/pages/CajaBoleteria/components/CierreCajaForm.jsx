@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 import { GuiasPorCobrarCaja } from '../../Caja/components/GuiasPorCobrarCaja';
 
 const DENOMINACIONES = [
@@ -19,6 +20,12 @@ const MONEDAS = [
   { key: 'cierre_moneda_1_caja', label: '1¢', valor: 0.01, color: 'slate' },
 ];
 
+const TODAS_DENOMINACIONES = [...DENOMINACIONES, ...MONEDAS];
+
+const esCantidadValida = (valor) =>
+  valor !== '' && valor !== null && valor !== undefined &&
+  Number.isInteger(Number(valor)) && Number(valor) >= 0;
+
 export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = false, guiasPorCobrar = [], guiasPorCobrarLoading = false, guiasPorCobrarError = '' }) => {
   const [formData, setFormData] = useState({});
   const [subtotalBilletes, setSubtotalBilletes] = useState(0);
@@ -26,10 +33,13 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = f
   const [totalGeneral, setTotalGeneral] = useState(0);
   const [numeroComprobante, setNumeroComprobante] = useState('');
   const [bancoCierre, setBancoCierre] = useState('');
+  const [intentoCierre, setIntentoCierre] = useState(false);
 
   useEffect(() => {
+    // Se arranca vacío (no en 0) para obligar a contar: el 0 solo cuenta si
+    // el cajero lo escribe explícitamente.
     const initial = {};
-    [...DENOMINACIONES, ...MONEDAS].forEach(d => { initial[d.key] = 0; });
+    TODAS_DENOMINACIONES.forEach(d => { initial[d.key] = ''; });
     setFormData(initial);
   }, []);
 
@@ -53,12 +63,19 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = f
   }, [formData]);
 
   const handleChange = (key, value) => {
-    const numValue = parseInt(value) || 0;
-    setFormData(prev => ({ ...prev, [key]: numValue }));
+    setFormData(prev => ({ ...prev, [key]: value }));
   };
+
+  const faltantes = TODAS_DENOMINACIONES.filter(d => !esCantidadValida(formData[d.key]));
+  const mostrarErrorFaltantes = intentoCierre && faltantes.length > 0;
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (faltantes.length > 0) {
+      setIntentoCierre(true);
+      toast.error('Debes escribir la cantidad de cada billete y moneda (0 si no hay).');
+      return;
+    }
     // En boletería el efectivo que queda en la oficina es el retenido, no la
     // venta total. Si el conteo no coincide con lo esperado se pide confirmar
     // para no cerrar por error con un monto viejo o mal contado.
@@ -72,7 +89,9 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = f
       ].join('\n');
       if (!window.confirm(mensaje)) return;
     }
-    onSubmit({ ...formData, cierre_total_caja: totalGeneral, numero_comprobante_cierre: numeroComprobante, banco_cierre: bancoCierre });
+    const denominaciones = {};
+    TODAS_DENOMINACIONES.forEach(d => { denominaciones[d.key] = Number(formData[d.key]) || 0; });
+    onSubmit({ ...denominaciones, cierre_total_caja: totalGeneral, numero_comprobante_cierre: numeroComprobante, banco_cierre: bancoCierre });
   };
 
   const formatMonto = (monto) => {
@@ -172,6 +191,30 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = f
         </div>
       )}
 
+      <div className="rounded-xl border border-slate-200 bg-white px-4 py-2">
+        <p className="text-[11px] font-bold text-slate-500">
+          <i className="fas fa-keyboard mr-1 text-slate-400"></i>
+          Todas las denominaciones son obligatorias: escriba la cantidad o <b>0</b> donde no haya.
+        </p>
+      </div>
+
+      {/* Aviso de denominaciones sin cantidad */}
+      {mostrarErrorFaltantes && (
+        <div className="rounded-xl border-2 border-rose-300 bg-rose-50 px-4 py-3 flex items-start gap-3 text-rose-700" role="alert">
+          <i className="fas fa-exclamation-triangle mt-0.5"></i>
+          <div>
+            <p className="text-sm font-black uppercase tracking-wide">Faltan cantidades por ingresar</p>
+            <p className="text-xs font-semibold mt-0.5">
+              Debes escribir la cantidad de cada billete y moneda. Si no hay, escribe <b>0</b>.
+              No se puede cerrar la caja con campos vacíos.
+            </p>
+            <p className="text-[11px] font-bold mt-1">
+              Faltan: {faltantes.map(d => d.label).join(', ')}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Billetes */}
       <div>
         <div className="flex items-center gap-2 mb-3">
@@ -181,24 +224,28 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = f
           <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Billetes de Cierre</h3>
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-          {DENOMINACIONES.map((denom) => (
-            <div key={denom.key} className={`p-3 rounded-xl border ${colorMap[denom.color]} transition-all hover:shadow-sm`}>
-              <label className="text-center block mb-2">
-                <span className="text-lg font-black">{denom.label}</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={formData[denom.key] || ''}
-                onChange={(e) => handleChange(denom.key, e.target.value)}
-                className={inputClass}
-                placeholder="0"
-              />
-              <p className="text-center text-xs font-bold mt-2 opacity-75">
-                = ${((Number(formData[denom.key]) || 0) * denom.valor).toFixed(2)}
-              </p>
-            </div>
-          ))}
+          {DENOMINACIONES.map((denom) => {
+            const invalido = mostrarErrorFaltantes && !esCantidadValida(formData[denom.key]);
+            return (
+              <div key={denom.key} className={`p-3 rounded-xl border ${colorMap[denom.color]} transition-all hover:shadow-sm`}>
+                <label className="text-center block mb-2">
+                  <span className="text-lg font-black">{denom.label}</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData[denom.key] ?? ''}
+                  onChange={(e) => handleChange(denom.key, e.target.value)}
+                  className={`${inputClass} ${invalido ? '!border-rose-400 ring-2 ring-rose-200' : ''}`}
+                  placeholder="Escribe 0"
+                  aria-invalid={invalido}
+                />
+                <p className="text-center text-xs font-bold mt-2 opacity-75">
+                  = ${((Number(formData[denom.key]) || 0) * denom.valor).toFixed(2)}
+                </p>
+              </div>
+            );
+          })}
         </div>
         <div className="text-right mt-2">
           <span className="text-sm font-bold text-slate-600">Subtotal Billetes: </span>
@@ -215,24 +262,28 @@ export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = f
           <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider">Monedas de Cierre</h3>
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
-          {MONEDAS.map((denom) => (
-            <div key={denom.key} className={`p-3 rounded-xl border ${colorMap[denom.color]} transition-all hover:shadow-sm`}>
-              <label className="text-center block mb-2">
-                <span className="text-lg font-black">{denom.label}</span>
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={formData[denom.key] || ''}
-                onChange={(e) => handleChange(denom.key, e.target.value)}
-                className={inputClass}
-                placeholder="0"
-              />
-              <p className="text-center text-xs font-bold mt-2 opacity-75">
-                = ${((Number(formData[denom.key]) || 0) * denom.valor).toFixed(2)}
-              </p>
-            </div>
-          ))}
+          {MONEDAS.map((denom) => {
+            const invalido = mostrarErrorFaltantes && !esCantidadValida(formData[denom.key]);
+            return (
+              <div key={denom.key} className={`p-3 rounded-xl border ${colorMap[denom.color]} transition-all hover:shadow-sm`}>
+                <label className="text-center block mb-2">
+                  <span className="text-lg font-black">{denom.label}</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData[denom.key] ?? ''}
+                  onChange={(e) => handleChange(denom.key, e.target.value)}
+                  className={`${inputClass} ${invalido ? '!border-rose-400 ring-2 ring-rose-200' : ''}`}
+                  placeholder="Escribe 0"
+                  aria-invalid={invalido}
+                />
+                <p className="text-center text-xs font-bold mt-2 opacity-75">
+                  = ${((Number(formData[denom.key]) || 0) * denom.valor).toFixed(2)}
+                </p>
+              </div>
+            );
+          })}
         </div>
         <div className="text-right mt-2">
           <span className="text-sm font-bold text-slate-600">Subtotal Monedas: </span>

@@ -3,13 +3,33 @@ import {
   CAMPO_COLOR_POR_ESTADO,
   ESTADOS_ASIENTO,
   normalizarColoresAsientos,
+  normalizarColorIdentificacion,
   estiloAsiento,
 } from '../../../config/coloresAsientos';
 import './BusVisualizer.css';
 
-const LEYENDA_ESTADOS = ['libre', 'ocupado', 'ocupado-parcial', 'libre-parada', 'pendiente', 'seleccionado']
+// Estados que conservan su color propio. Los asientos vendidos se pintan con
+// el color de la agencia que los vendió (identificación), no con el estado.
+const LEYENDA_ESTADOS = ['libre', 'libre-parada', 'pendiente', 'seleccionado']
   .map((key) => ESTADOS_ASIENTO.find((estado) => estado.key === key))
   .filter(Boolean);
+
+// Marcador que distingue un asiento vendido para todo el recorrido de uno
+// vendido solo por un tramo (los dos usan el color de la oficina vendedora).
+const MARCADORES_OCUPADO = [
+  {
+    estado: 'ocupado',
+    icon: 'fa-flag-checkered',
+    clase: 'seat-badge--fin',
+    label: 'Ocupado hasta el final',
+  },
+  {
+    estado: 'ocupado-parcial',
+    icon: 'fa-circle-half-stroke',
+    clase: 'seat-badge--parcial',
+    label: 'Ocupado por tramo',
+  },
+];
 
 const formatearTiempoBloqueo = (lockedAt, now) => {
   if (!lockedAt) return '';
@@ -46,6 +66,57 @@ export const BusVisualizer = ({
     return estilos;
   }, [paletaAsientos]);
   const estiloEstado = (estado) => estilosPorEstado[estado];
+  // Asientos vendidos: se pintan con el color de la oficina que los vendió
+  // para reconocer de un vistazo quién vendió (Sur, Inga Urco, etc.). Si la
+  // oficina no configuró color propio, se mantiene el color del estado.
+  const colorVentaDeAsiento = (numeroAsiento) => {
+    // Primero el color de la oficina que define el estado (la que bloquea);
+    // si esa no tiene color propio, se busca en los demás tramos del asiento.
+    const principal = filaPrincipalDeAsiento(numeroAsiento);
+    const colorPrincipal = normalizarColorIdentificacion(principal?.color_sucursal_venta);
+    if (colorPrincipal) return colorPrincipal;
+    for (const fila of getOcupadosDeAsiento(numeroAsiento)) {
+      const color = normalizarColorIdentificacion(fila?.color_sucursal_venta);
+      if (color) return color;
+    }
+    return null;
+  };
+  // Fila que define el estado del asiento: la más restrictiva (la que bloquea).
+  const PRIORIDAD_ESTADO = { ocupado: 0, 'ocupado-parcial': 1, 'libre-parada': 2 };
+  const filaPrincipalDeAsiento = (numeroAsiento) => {
+    const filas = getOcupadosDeAsiento(numeroAsiento);
+    return filas.reduce((mejor, fila) => {
+      if (!mejor) return fila;
+      const prioridad = PRIORIDAD_ESTADO[estadoDeOcupacion(fila)] ?? 9;
+      const prioridadMejor = PRIORIDAD_ESTADO[estadoDeOcupacion(mejor)] ?? 9;
+      return prioridad < prioridadMejor ? fila : mejor;
+    }, null);
+  };
+  const estiloDeAsiento = (numeroAsiento, estado) => {
+    if (estado === 'ocupado' || estado === 'ocupado-parcial') {
+      const colorVenta = colorVentaDeAsiento(numeroAsiento);
+      if (colorVenta) return estiloAsiento(colorVenta);
+    }
+    return estiloEstado(estado);
+  };
+  const marcadorDeEstado = (estado) =>
+    MARCADORES_OCUPADO.find((m) => m.estado === estado) || null;
+  // Oficinas que vendieron asientos del viaje, con su color de identificación.
+  const vendedores = useMemo(() => {
+    const mapa = new Map();
+    for (const fila of asientosOcupados) {
+      if (!fila || typeof fila !== 'object') continue;
+      // 'libre-parada' se pinta como disponible: su oficina no identifica nada.
+      if (fila.estado_ocupacion === 'libre-parada') continue;
+      const color = normalizarColorIdentificacion(fila.color_sucursal_venta);
+      const nombre = String(fila.nombre_sucursal_venta || '').trim();
+      if (!color || !nombre || mapa.has(nombre)) continue;
+      mapa.set(nombre, color);
+    }
+    return [...mapa.entries()]
+      .map(([nombre, color]) => ({ nombre, color }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [asientosOcupados]);
   // Timer para actualizar los tiempos de bloqueo cada segundo
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -135,8 +206,8 @@ export const BusVisualizer = ({
   };
 
   const textoEstadoOcupado = (estado) => {
-    if (estado === 'ocupado-parcial') return 'Ocupado parcialmente';
-    if (estado === 'libre-parada') return 'Libre en esta parada';
+    if (estado === 'ocupado-parcial') return 'Ocupado por tramo';
+    if (estado === 'libre-parada') return 'Libre en esta parada (el anterior bajó)';
     if (estado === 'ocupado') return 'Ocupado todo el recorrido';
     return 'Ocupado';
   };
@@ -182,8 +253,10 @@ export const BusVisualizer = ({
     if (ocupados.length === 0) return base;
 
     const estado = getSeatStatus(num);
-    // El primer boleto con cliente identificado aporta los datos principales
-    const principal = ocupados.find((o) => o.nombre_cliente) || ocupados[0];
+    // La fila que bloquea aporta estado y oficina vendedora; si no tiene
+    // cliente identificado se usa la primera que sí lo tenga.
+    const principal = filaPrincipalDeAsiento(num) || ocupados[0];
+    const conCliente = ocupados.find((o) => o.nombre_cliente);
     const destinos = [...new Set(ocupados.map(nombreDestinoDe).filter(Boolean))];
     const origen = principal?.nombre_origen || '';
     const oficinaVenta = principal?.nombre_sucursal_venta || '';
@@ -192,9 +265,13 @@ export const BusVisualizer = ({
       ...base,
       estado,
       titulo: textoEstadoOcupado(estado),
-      cliente: principal?.nombre_cliente || '',
-      documento: principal?.identificacion_cliente || '',
+      colorVenta: normalizarColorIdentificacion(principal?.color_sucursal_venta),
+      cliente: (conCliente || principal)?.nombre_cliente || '',
+      documento: (conCliente || principal)?.identificacion_cliente || '',
       destino: destinos.join(' · '),
+      etiquetaDestino: estado === 'ocupado-parcial'
+        ? 'Ocupado hasta'
+        : (estado === 'libre-parada' ? 'Bajó en' : 'Vendido hasta'),
       origen,
       // Punto final escrito por la agencia que vendió (venta más allá de la
       // última parada de la ruta, ej. Coca → Aguagrio).
@@ -235,18 +312,16 @@ export const BusVisualizer = ({
           } else if (cellData.tipo === 'asiento') {
             const num = Number(cellData.numero);
             const status = getSeatStatus(num);
+            const marcador = marcadorDeEstado(status);
             rowButtons.push(
               <div key={cellId} className="seat-wrapper">
                   <button
                     className={`bus-seat ${status}`}
-                    style={estiloEstado(status)}
+                    style={estiloDeAsiento(num, status)}
                     onClick={() => {
                       ocultarTooltip();
                       if (status === 'ocupado' || status === 'ocupado-parcial') {
-                        const ocupado = asientosOcupados.find(a =>
-                          Number(a.asiento_boleto_detalle) === num
-                        );
-                        onAsientoOcupadoClick?.(ocupado);
+                        onAsientoOcupadoClick?.(filaPrincipalDeAsiento(num));
                       } else {
                         onAsientoClick(num);
                       }
@@ -258,6 +333,12 @@ export const BusVisualizer = ({
                     aria-label={`Asiento ${num} - ${getTooltipInfo(num).titulo}`}
                   >
                     <span className="seat-number">{num}</span>
+                    {marcador && (
+                      <span className={`seat-badge ${marcador.clase}`} aria-hidden="true">
+                        <i className={`fas ${marcador.icon}`}></i>
+                      </span>
+                    )}
+                    {status === 'ocupado-parcial' && <span className="seat-tramo-bar" aria-hidden="true" />}
                   </button>
               </div>
             );
@@ -307,19 +388,17 @@ export const BusVisualizer = ({
 
             const marginRight = col === 1 ? '30px' : '5px';
             const status = getSeatStatus(seatNum);
+            const marcador = marcadorDeEstado(status);
 
             rowButtons.push(
               <div key={seatNum} className="seat-wrapper" style={{ marginRight }}>
                 <button
                   className={`bus-seat ${status}`}
-                  style={estiloEstado(status)}
+                  style={estiloDeAsiento(seatNum, status)}
                   onClick={() => {
                     ocultarTooltip();
                     if (status === 'ocupado' || status === 'ocupado-parcial') {
-                      const ocupado = asientosOcupados.find(a =>
-                        Number(a.asiento_boleto_detalle) === seatNum
-                      );
-                      onAsientoOcupadoClick?.(ocupado);
+                      onAsientoOcupadoClick?.(filaPrincipalDeAsiento(seatNum));
                     } else {
                       onAsientoClick(seatNum);
                     }
@@ -331,6 +410,12 @@ export const BusVisualizer = ({
                   aria-label={`Asiento ${seatNum} - ${getTooltipInfo(seatNum).titulo}`}
                 >
                   <span className="seat-number">{seatNum}</span>
+                  {marcador && (
+                    <span className={`seat-badge ${marcador.clase}`} aria-hidden="true">
+                      <i className={`fas ${marcador.icon}`}></i>
+                    </span>
+                  )}
+                  {status === 'ocupado-parcial' && <span className="seat-tramo-bar" aria-hidden="true" />}
                 </button>
               </div>
             );
@@ -422,27 +507,52 @@ export const BusVisualizer = ({
       </div>
 
       {/* LEYENDA */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 6px',
-        marginTop: 4, fontSize: 10
-      }}>
-        {LEYENDA_ESTADOS.map((estado) => {
-          const estilo = estilosPorEstado[estado.key];
-          return (
-            <div key={estado.key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <div style={{
-                width: 10, height: 10, background: estilo.background,
-                border: `1px solid ${estilo.borderColor}`,
-                borderRadius: 2
-              }}></div>
-              <span style={{ color: '#64748b', fontWeight: 600 }}>{estado.label}</span>
-            </div>
-          );
-        })}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{ width: 10, height: 10, background: '#95a5a6', borderRadius: 2 }}></div>
-          <span style={{ color: '#64748b', fontWeight: 600 }}>No dispone</span>
+      <div className="bus-legend">
+        <div className="bus-legend-row">
+          {LEYENDA_ESTADOS.map((estado) => {
+            const estilo = estilosPorEstado[estado.key];
+            return (
+              <div key={estado.key} className="bus-legend-item">
+                <span
+                  className="bus-legend-swatch"
+                  style={{ background: estilo.background, borderColor: estilo.borderColor }}
+                />
+                <span>{estado.label}</span>
+              </div>
+            );
+          })}
+          <div className="bus-legend-item">
+            <span className="bus-legend-swatch" style={{ background: '#95a5a6', borderColor: '#7f8c8d' }} />
+            <span>No dispone</span>
+          </div>
         </div>
+
+        <div className="bus-legend-row">
+          {MARCADORES_OCUPADO.map((marcador) => (
+            <div key={marcador.estado} className="bus-legend-item">
+              <span className={`seat-badge-sample ${marcador.clase}`}>
+                <i className={`fas ${marcador.icon}`}></i>
+              </span>
+              <span>{marcador.label}</span>
+            </div>
+          ))}
+          <div className="bus-legend-item">
+            <span className="bus-legend-swatch bus-legend-swatch--venta" />
+            <span>Color = oficina que vendió</span>
+          </div>
+        </div>
+
+        {vendedores.length > 0 && (
+          <div className="bus-legend-row bus-legend-vendedores">
+            <span className="bus-legend-title"><i className="fas fa-building"></i> Vendido en:</span>
+            {vendedores.map((vendedor) => (
+              <span key={vendedor.nombre} className="bus-legend-vendedor">
+                <i style={{ background: vendedor.color }}></i>
+                {vendedor.nombre}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* TOOLTIP DEL ASIENTO (cliente, destino y oficina de venta) */}
@@ -453,18 +563,23 @@ export const BusVisualizer = ({
           style={{
             left: tooltip.x,
             top: tooltip.y,
-            borderLeftColor: estilosPorEstado[tooltip.estado]?.background,
+            borderLeftColor: tooltip.colorVenta || estilosPorEstado[tooltip.estado]?.background,
             transform: tooltip.below ? 'translate(-50%, 0)' : 'translate(-50%, -100%)'
           }}
         >
           <div className="seat-tooltip-head">
             <span className="seat-tooltip-num">Asiento {tooltip.numero}</span>
-            <span className="seat-tooltip-status">{tooltip.titulo}</span>
+            <span className="seat-tooltip-status">
+              {tooltip.colorVenta && (
+                <i className="seat-tooltip-dot" style={{ background: tooltip.colorVenta }}></i>
+              )}
+              {tooltip.titulo}
+            </span>
           </div>
           {[
             tooltip.cliente && { icon: 'fa-user', label: 'Cliente', value: tooltip.cliente },
             tooltip.documento && { icon: 'fa-id-card', label: 'CI/RUC', value: tooltip.documento },
-            tooltip.destino && { icon: 'fa-location-dot', label: 'Destino', value: tooltip.destino },
+            tooltip.destino && { icon: 'fa-location-dot', label: tooltip.etiquetaDestino || 'Destino', value: tooltip.destino },
             tooltip.puntoFinal && { icon: 'fa-flag-checkered', label: 'Punto final', value: tooltip.puntoFinal },
             tooltip.origen && { icon: 'fa-bus', label: 'Sale de', value: tooltip.origen },
             tooltip.oficina && { icon: 'fa-building', label: tooltip.etiquetaOficina || 'Oficina', value: tooltip.oficina },

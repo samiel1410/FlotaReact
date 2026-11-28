@@ -297,3 +297,141 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* ── Identificación de la oficina que vendió ─────────────────────────────
+   El relleno del asiento vendido es el color de la agencia vendedora. El
+   estado se distingue con un marcador: bandera = todo el recorrido, medio
+   círculo + barra inferior = vendido solo por un tramo. */
+.seat-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  z-index: 3;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  color: #ffffff;
+  background: #0f172a;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.55);
+  pointer-events: none;
+}
+
+.seat-badge--fin {
+  background: #b91c1c;
+}
+
+.seat-badge--parcial {
+  background: #a16207;
+}
+
+.seat-tramo-bar {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 2px;
+  z-index: 3;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(15, 23, 42, 0.55);
+  pointer-events: none;
+}
+
+.bus-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  margin-top: 6px;
+  font-size: 9.5px;
+}
+
+.bus-legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 10px;
+}
+
+.bus-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #64748b;
+  font-weight: 700;
+}
+
+.bus-legend-swatch {
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid transparent;
+}
+
+.bus-legend-swatch--venta {
+  background: linear-gradient(135deg, #e2e8f0 0 50%, #94a3b8 50% 100%);
+  border-color: #94a3b8;
+}
+
+.bus-legend-vendedores {
+  padding-top: 4px;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.bus-legend-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #475569;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.bus-legend-vendedor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px 1px 3px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 700;
+}
+
+.bus-legend-vendedor i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.25);
+}
+
+.seat-badge-sample {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.25);
+  background: #0f172a;
+  color: #ffffff;
+  font-size: 7px;
+}
+
+.seat-tooltip-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 50%;
+  vertical-align: middle;
+}

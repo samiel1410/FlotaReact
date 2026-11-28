@@ -6,10 +6,30 @@ import ToggleSwitch from '../../../components/common/ToggleSwitch';
 import {
   COLORES_ASIENTOS_DEFAULT,
   ESTADOS_ASIENTO,
+  CAMPO_COLOR_IDENTIFICACION,
   normalizarColoresAsientos,
   normalizarColorHex,
+  normalizarColorIdentificacion,
   estiloAsiento,
 } from '../../../config/coloresAsientos';
+
+const COLOR_IDENTIFICACION_SUGERIDO = COLORES_ASIENTOS_DEFAULT.color_asiento_ocupado;
+
+// Íconos fijos del mapa: no dependen de los colores y siempre significan lo
+// mismo. Se repiten en la vista previa para que al editar colores no se pierda
+// la referencia de qué representa cada asiento.
+const MARCADOR_POR_ESTADO = {
+  ocupado: {
+    icon: 'fa-flag-checkered',
+    clase: 'bg-red-700',
+    label: 'Ocupado hasta el final',
+  },
+  'ocupado-parcial': {
+    icon: 'fa-circle-half-stroke',
+    clase: 'bg-yellow-700',
+    label: 'Ocupado por tramo',
+  },
+};
 
 const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
   const isEditing = !!initialData;
@@ -34,6 +54,8 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
       piso_sucursal: '',
       anden_sucursal: '',
       estado_sucursales: true,
+      tiene_color_identificacion: false,
+      [CAMPO_COLOR_IDENTIFICACION]: COLOR_IDENTIFICACION_SUGERIDO,
       ...COLORES_ASIENTOS_DEFAULT,
     }
   });
@@ -42,6 +64,11 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
   const tieneEncomiendas = watch('tiene_encomiendas');
   const estadoValue = watch('estado_sucursales');
   const coloresActuales = normalizarColoresAsientos(watch());
+  const tieneColorIdentificacion = watch('tiene_color_identificacion');
+  const colorIdentificacion = normalizarColorHex(
+    watch(CAMPO_COLOR_IDENTIFICACION),
+    COLOR_IDENTIFICACION_SUGERIDO
+  );
 
   // Cargar provincias y TODAS las ciudades al montar (sin depender de provincia)
   useEffect(() => {
@@ -72,6 +99,9 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
             punto_emision_boleteria_sucursal: initialData.punto_emision_boleteria_sucursal || '',
             piso_sucursal: initialData.piso_sucursal || '',
             anden_sucursal: initialData.anden_sucursal || '',
+            tiene_color_identificacion: !!normalizarColorIdentificacion(initialData[CAMPO_COLOR_IDENTIFICACION]),
+            [CAMPO_COLOR_IDENTIFICACION]: normalizarColorIdentificacion(initialData[CAMPO_COLOR_IDENTIFICACION])
+              || COLOR_IDENTIFICACION_SUGERIDO,
           });
           
           // Auto-seleccionar provincia
@@ -123,6 +153,11 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
         // Si el checkbox está apagado, enviamos vacío como en el legacy
         punto_emision_sucursal: formData.tiene_punto_emision ? formData.punto_emision_sucursal : '',
         punto_emision_boleteria_sucursal: formData.tiene_encomiendas ? formData.punto_emision_boleteria_sucursal : '',
+        // Color con el que la agencia se identifica en el mapa de las demás.
+        // Vacío = usar su color de "ocupado fin".
+        [CAMPO_COLOR_IDENTIFICACION]: formData.tiene_color_identificacion
+          ? normalizarColorHex(formData[CAMPO_COLOR_IDENTIFICACION], COLOR_IDENTIFICACION_SUGERIDO)
+          : '',
         // Enviar flags de checkbox como '1'/'0' si el servidor lo requiere
         tiene_punto_emision: formData.tiene_punto_emision ? '1' : '0',
         tiene_encomiendas: formData.tiene_encomiendas ? '1' : '0',
@@ -336,12 +371,73 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
           </div>
         </div>
 
+        {/* Color de identificación de la agencia en el mapa de asientos */}
+        <div className="md:col-span-2 border border-indigo-100 p-3 rounded-2xl bg-indigo-50/40">
+          <div className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              {...register('tiene_color_identificacion')}
+              className="w-4 h-4 mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            />
+            <div>
+              <label className="text-[10px] font-black text-slate-600 uppercase">Color de identificación de la agencia</label>
+              <p className="text-[9px] font-bold text-slate-400 uppercase">
+                Los boletos vendidos aquí se pintan con este color en el mapa de asientos de todas las agencias,
+                para saber de un vistazo quién vendió (Terminal Sur, Inga Urco, etc.).
+                Si se deja apagado se usa el color de "Ocupado fin" de esta agencia.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 mt-3 pl-6">
+            <input
+              type="color"
+              disabled={!tieneColorIdentificacion}
+              {...register(CAMPO_COLOR_IDENTIFICACION)}
+              className={`w-12 h-9 rounded-lg border border-slate-200 bg-transparent p-0.5 ${tieneColorIdentificacion ? 'cursor-pointer' : 'opacity-40 cursor-not-allowed'}`}
+            />
+            <span className="text-[10px] font-bold text-slate-500 uppercase">
+              {tieneColorIdentificacion ? colorIdentificacion : 'Sin color propio'}
+            </span>
+            <div className="flex items-end gap-1.5">
+              <div className="relative">
+                <span
+                  className="w-9 h-9 rounded-t-lg rounded-b border-2 flex items-center justify-center text-[11px] font-black shadow-sm"
+                  style={estiloAsiento(tieneColorIdentificacion ? colorIdentificacion : COLOR_IDENTIFICACION_SUGERIDO)}
+                >
+                  1
+                </span>
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full border border-white shadow-sm flex items-center justify-center text-[6px] text-white bg-red-700">
+                  <i className="fas fa-flag-checkered"></i>
+                </span>
+              </div>
+              <div className="relative">
+                <span
+                  className="w-9 h-9 rounded-t-lg rounded-b border-2 flex items-center justify-center text-[11px] font-black shadow-sm"
+                  style={estiloAsiento(tieneColorIdentificacion ? colorIdentificacion : COLOR_IDENTIFICACION_SUGERIDO)}
+                >
+                  2
+                </span>
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full border border-white shadow-sm flex items-center justify-center text-[6px] text-white bg-yellow-700">
+                  <i className="fas fa-circle-half-stroke"></i>
+                </span>
+                <span className="absolute left-1 right-1 bottom-0.5 h-[2px] rounded bg-slate-900/60"></span>
+              </div>
+            </div>
+            <span className="text-[9px] font-bold text-slate-400 uppercase leading-tight">
+              Así se verán sus asientos vendidos. El ícono indica si el boleto va hasta el final
+              <i className="fas fa-flag-checkered text-red-700 mx-1"></i>
+              o solo por un tramo
+              <i className="fas fa-circle-half-stroke text-yellow-700 mx-1"></i>.
+            </span>
+          </div>
+        </div>
+
         {/* Colores del mapa de asientos */}
         <div className="md:col-span-2 border border-slate-100 rounded-2xl p-4 bg-slate-50/50">
           <div className="flex items-start justify-between gap-3 mb-3">
             <div>
               <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Colores del mapa de asientos</p>
-              <p className="text-[9px] font-bold text-slate-400 uppercase">Se aplican al vender boletos en esta agencia</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase">Estados al vender en esta agencia. Los asientos vendidos usan el color de la oficina que los vendió.</p>
             </div>
             <button
               type="button"
@@ -373,19 +469,49 @@ const SucursalForm = ({ initialData, onSubmit, onCancel }) => {
           </div>
 
           <div className="mt-3 grid grid-cols-3 md:grid-cols-6 gap-2">
-            {ESTADOS_ASIENTO.map((estado) => (
-              <div key={`preview-${estado.campo}`} className="flex flex-col items-center gap-1">
-                <span
-                  className="w-8 h-8 rounded-t-lg rounded-b border-2 flex items-center justify-center text-[11px] font-black shadow-sm"
-                  style={estiloAsiento(coloresActuales[estado.campo])}
-                >
-                  1
+            {ESTADOS_ASIENTO.map((estado) => {
+              const marcador = MARCADOR_POR_ESTADO[estado.key];
+              return (
+                <div key={`preview-${estado.campo}`} className="flex flex-col items-center gap-1">
+                  <div className="relative">
+                    <span
+                      className="w-8 h-8 rounded-t-lg rounded-b border-2 flex items-center justify-center text-[11px] font-black shadow-sm"
+                      style={estiloAsiento(coloresActuales[estado.campo])}
+                    >
+                      1
+                    </span>
+                    {marcador && (
+                      <span
+                        className={`absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full border border-white shadow-sm flex items-center justify-center text-[6px] text-white ${marcador.clase}`}
+                        title={marcador.label}
+                      >
+                        <i className={`fas ${marcador.icon}`}></i>
+                      </span>
+                    )}
+                    {estado.key === 'ocupado-parcial' && (
+                      <span className="absolute left-1 right-1 bottom-0.5 h-[2px] rounded bg-slate-900/60"></span>
+                    )}
+                  </div>
+                  <span className="text-[8px] font-black text-slate-400 uppercase text-center leading-tight">
+                    {estado.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 pt-2">
+            {Object.entries(MARCADOR_POR_ESTADO).map(([key, marcador]) => (
+              <span key={key} className="inline-flex items-center gap-1.5 text-[9px] font-black text-slate-500 uppercase">
+                <span className={`w-3.5 h-3.5 rounded-full border border-white shadow-sm flex items-center justify-center text-[6px] text-white ${marcador.clase}`}>
+                  <i className={`fas ${marcador.icon}`}></i>
                 </span>
-                <span className="text-[8px] font-black text-slate-400 uppercase text-center leading-tight">
-                  {estado.label}
-                </span>
-              </div>
+                {marcador.label}
+              </span>
             ))}
+            <span className="text-[9px] font-bold text-slate-400 uppercase">
+              Los íconos son fijos; solo se editan los colores.
+            </span>
           </div>
         </div>
 
