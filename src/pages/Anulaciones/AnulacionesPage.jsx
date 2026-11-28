@@ -490,13 +490,13 @@ const TABS = [
         },
       },
       {
-        k: 'despacho_realizado', l: 'DESPACHO', w: 'w-24',
+        k: 'despacho_realizado', l: 'SALIDA', w: 'w-24',
         r: (v) => (Number(v) === 1
-          ? <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-100" title="El viaje ya fue despachado: no se puede aprobar la anulación">DESPACHADO</span>
-          : <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-100">SIN DESPACHO</span>),
+          ? <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-rose-50 text-rose-700 border border-rose-100" title="La salida del viaje ya se realizó: no se puede aprobar la anulación">YA SALIÓ</span>
+          : <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-50 text-emerald-700 border border-emerald-100">AÚN NO SALE</span>),
       },
     ],
-    // Con el viaje despachado el pasajero viajó: la aprobación liberaría un
+    // Con la salida ya realizada el pasajero viajó: la aprobación liberaría un
     // asiento que no se puede volver a vender, así que no se puede seleccionar.
     canSelect: (row) => row.estado_anular_boleteria == 0
       && Number(row.despacho_realizado) !== 1

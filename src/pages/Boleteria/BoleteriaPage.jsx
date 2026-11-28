@@ -141,7 +141,7 @@ export const BoleteriaPage = () => {
     }
     if (Number(item.despacho_realizado) === 1) {
       toast.error(
-        'El viaje de este boleto ya fue despachado: el pasajero viajó y el asiento no se puede liberar. No se puede anular.',
+        'La salida del viaje de este boleto ya se realizó: el pasajero viajó y el asiento no se puede liberar. No se puede anular.',
         { duration: 6000 }
       );
       return;

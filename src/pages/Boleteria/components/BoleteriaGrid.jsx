@@ -219,7 +219,7 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                           {Number(item.estado_boleto) !== 3 && Number(item.despacho_realizado) === 1 ? (
                             <div style={{ padding: '6px 10px', fontSize: 11, color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 6, cursor: 'not-allowed' }}>
                               <i className="fas fa-ban" style={{ color: '#cbd5e1' }}></i>
-                              Anular (viaje despachado)
+                              Anular (el viaje ya salió)
                             </div>
                           ) : (
                             <button
