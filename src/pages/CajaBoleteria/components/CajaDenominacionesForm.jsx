@@ -115,9 +115,13 @@ export const CajaDenominacionesForm = ({
     }
   };
 
-  const esCantidadValida = (valor) =>
-    valor !== '' && valor !== null && valor !== undefined &&
-    Number.isInteger(Number(valor)) && Number(valor) >= 0;
+  const esCantidadValida = (valor) => {
+    if (valor === null || valor === undefined) return false;
+    const texto = String(valor).trim();
+    if (texto === '') return false;
+    const cantidad = Number(texto);
+    return Number.isInteger(cantidad) && cantidad >= 0;
+  };
 
   // El cierre exige que todas las denominaciones tengan una cantidad escrita
   // (el 0 es válido, el campo vacío no).

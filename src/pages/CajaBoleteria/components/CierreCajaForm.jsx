@@ -22,9 +22,13 @@ const MONEDAS = [
 
 const TODAS_DENOMINACIONES = [...DENOMINACIONES, ...MONEDAS];
 
-const esCantidadValida = (valor) =>
-  valor !== '' && valor !== null && valor !== undefined &&
-  Number.isInteger(Number(valor)) && Number(valor) >= 0;
+const esCantidadValida = (valor) => {
+  if (valor === null || valor === undefined) return false;
+  const texto = String(valor).trim();
+  if (texto === '') return false;
+  const cantidad = Number(texto);
+  return Number.isInteger(cantidad) && cantidad >= 0;
+};
 
 export const CierreCajaForm = ({ cajaActual, onSubmit, onCancel, esCajaGuias = false, guiasPorCobrar = [], guiasPorCobrarLoading = false, guiasPorCobrarError = '' }) => {
   const [formData, setFormData] = useState({});
