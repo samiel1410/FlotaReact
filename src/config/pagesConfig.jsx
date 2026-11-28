@@ -2808,7 +2808,7 @@ export const PAGES_CONFIG = {
           : <span className="text-slate-400">No</span>
       },
       {
-        key: 'cobrar_una_vez_dia', label: '1 vez/Día (oficina)', render: v => v == 1
+        key: 'cobrar_una_vez_dia', label: '1 vez/Día (bus+oficina)', render: v => v == 1
           ? <span className="bg-violet-100 text-violet-700 px-2 py-0.5 rounded text-[9px] font-bold">Sí</span>
           : <span className="text-slate-400">No</span>
       },
