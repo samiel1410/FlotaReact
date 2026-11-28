@@ -10,6 +10,7 @@ import Swal from 'sweetalert2';
 import { PdfViewerModal } from '../../components/PdfViewerModal';
 import { buildPdfUrl } from '../../utils/pdfUrlUtils';
 import { validarCorreo, describirCorreo } from '../../utils/emailValidation';
+import { tieneSolicitudAnulacionPendiente } from '../../utils/anulacionUtils';
 import { validarCorreo as validarCorreoApi, getEstadoCorreo } from '../../services/sistema.service';
 import { useAuth } from '../../context/AuthContext';
 import { AlcancePropiosAviso } from '../../components/common/AlcancePropiosAviso';
@@ -131,7 +132,7 @@ export const BoleteriaPage = () => {
 
   const handleAnular = async (item) => {
     if (!item?.id_boleto) return;
-    if (Number(item.estado_solicitud_anulacion) === 0) {
+    if (tieneSolicitudAnulacionPendiente(item)) {
       toast('Este boleto ya tiene una solicitud de anulación pendiente de aprobación.', { icon: 'ℹ️' });
       return;
     }

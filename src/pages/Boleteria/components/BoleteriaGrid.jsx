@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import '../../Guias/components/GuiasGrid.css';
 import { validarCorreo, describirCorreo } from '../../../utils/emailValidation';
+import { tieneSolicitudAnulacionPendiente } from '../../../utils/anulacionUtils';
 
 export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange, onReload, onVisualizarPdf, onImprimir, onAnular, onReenviarSri, onEnviarCorreo, onCambiarFecha, onProbarTasa, currentUserId, reenviandoId }) => {
   const [activeMenu, setActiveMenu] = useState(null);
@@ -28,7 +29,7 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
   const formatEstado = (item) => {
     // Solo dos estados visibles: EMITIDO (no anulado) y ANULADO.
     if (Number(item.estado_boleto) === 3) return { label: 'ANULADO', color: '#c0392b' };
-    if (Number(item.estado_solicitud_anulacion) === 0) {
+    if (tieneSolicitudAnulacionPendiente(item)) {
       return { label: 'PENDIENTE ANULACIÓN', color: '#d97706' };
     }
     return { label: 'EMITIDO', color: 'green' };
@@ -223,9 +224,9 @@ export const BoleteriaGrid = ({ data, loading, page, limit, total, onPageChange,
                             </div>
                           ) : (
                             <button
-                              disabled={Number(item.estado_boleto) === 3 || Number(item.estado_solicitud_anulacion) === 0}
+                              disabled={Number(item.estado_boleto) === 3 || tieneSolicitudAnulacionPendiente(item)}
                               onClick={() => { setActiveMenu(null); onAnular?.(item); }}
-                              style={{ opacity: (Number(item.estado_boleto) === 3 || Number(item.estado_solicitud_anulacion) === 0) ? 0.45 : 1 }}
+                              style={{ opacity: (Number(item.estado_boleto) === 3 || tieneSolicitudAnulacionPendiente(item)) ? 0.45 : 1 }}
                             >
                               <i className="fas fa-ban" style={{color: 'red'}}></i> Anular
                             </button>
